@@ -1,0 +1,180 @@
+/**
+ * Motion Blocks - CSS Animations
+ *
+ * Supports three animation modes:
+ *   1. Page load — plays immediately on DOMContentLoaded.
+ *   2. Scroll in view — triggered via Intersection Observer.
+ *   3. Interactive scroll — tied to scroll progress via CSS scroll-driven animations.
+ *
+ * All animations use the same keyframes; behaviour differs by mode.
+ */
+
+/* ----------------------------------------------------------------
+ * CSS Custom Properties
+ * -------------------------------------------------------------- */
+.mb-animated {
+    --mb-duration: 0.6s;
+    --mb-delay: 0.4s;
+}
+
+/* ----------------------------------------------------------------
+ * Mode: Scroll in view
+ *
+ * Hide the element until the Intersection Observer adds
+ * .mb-triggered.
+ * -------------------------------------------------------------- */
+.mb-mode-scroll-appear:not(.mb-triggered) {
+    opacity: 0;
+}
+
+/* ----------------------------------------------------------------
+ * Mode: Page Load
+ *
+ * Elements stay visible (no initial hide) — the animation plays
+ * as soon as .mb-triggered is added on DOMContentLoaded.
+ * -------------------------------------------------------------- */
+.mb-mode-page-load:not(.mb-triggered) {
+    opacity: 0;
+}
+
+/* ----------------------------------------------------------------
+ * Triggered state — shared by page-load and scroll-appear.
+ * -------------------------------------------------------------- */
+.mb-animated.mb-triggered {
+    animation-duration: var(--mb-duration);
+    animation-delay: var(--mb-delay);
+    animation-fill-mode: both;
+    animation-timing-function: ease-out;
+}
+
+/* ----------------------------------------------------------------
+ * Mode: Interactive Scroll (CSS Scroll-Driven Animations)
+ *
+ * animation-timeline, animation-range-start, animation-range-end
+ * are set per-element by frontend.js.
+ *
+ * A non-zero animation-duration is required for the spec to work.
+ * -------------------------------------------------------------- */
+.mb-mode-scroll-interactive {
+    animation-duration: 1ms;
+    animation-timing-function: ease;
+    animation-fill-mode: both;
+}
+
+/* ----------------------------------------------------------------
+ * Keyframes
+ * -------------------------------------------------------------- */
+
+/* Fade In */
+.mb-fade-in.mb-triggered,
+.mb-mode-scroll-interactive.mb-fade-in {
+    animation-name: mbFadeIn;
+}
+
+@keyframes mbFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Slide Up */
+.mb-slide-up.mb-triggered,
+.mb-mode-scroll-interactive.mb-slide-up {
+    animation-name: mbSlideUp;
+}
+
+@keyframes mbSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Slide Down */
+.mb-slide-down.mb-triggered,
+.mb-mode-scroll-interactive.mb-slide-down {
+    animation-name: mbSlideDown;
+}
+
+@keyframes mbSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Slide Left */
+.mb-slide-left.mb-triggered,
+.mb-mode-scroll-interactive.mb-slide-left {
+    animation-name: mbSlideLeft;
+}
+
+@keyframes mbSlideLeft {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Slide Right */
+.mb-slide-right.mb-triggered,
+.mb-mode-scroll-interactive.mb-slide-right {
+    animation-name: mbSlideRight;
+}
+
+@keyframes mbSlideRight {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Zoom In */
+.mb-zoom-in.mb-triggered,
+.mb-mode-scroll-interactive.mb-zoom-in {
+    animation-name: mbZoomIn;
+}
+
+@keyframes mbZoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ----------------------------------------------------------------
+ * Accessibility: Reduced Motion
+ * -------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .mb-animated,
+    .mb-animated.mb-triggered,
+    .mb-mode-scroll-interactive {
+        animation: none !important;
+        animation-timeline: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}

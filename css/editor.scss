@@ -1,0 +1,133 @@
+/**
+ * Editor-only styles for the Motion Blocks plugin.
+ *
+ * Uses @scope for clean specificity over Emotion CSS-in-JS,
+ * and WPDS tokens from @wordpress/base-styles.
+ */
+
+@use "@wordpress/base-styles/colors" as colors;
+@use "@wordpress/base-styles/variables" as vars;
+@use "@wordpress/base-styles/mixins" as mix;
+
+// Mode selection buttons
+@scope (.mb-mode-selector) {
+	:scope {
+		display: flex;
+		flex-direction: column;
+		gap: vars.$grid-unit-10;
+	}
+
+	.mb-mode-button {
+		width: 100%;
+		justify-content: center;
+	}
+}
+
+// Sub-panel (shared by all three animation modes)
+@scope (.mb-sub-panel) {
+	:scope {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.mb-sub-panel-header {
+		display: flex;
+		gap: vars.$grid-unit-15;
+		align-items: flex-start;
+		padding-bottom: vars.$grid-unit-20;
+		margin-bottom: vars.$grid-unit-20;
+		border-bottom: 1px solid colors.$gray-300;
+	}
+
+	.mb-sub-panel-info {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-width: 0;
+		gap: vars.$grid-unit-15;
+	}
+
+	.mb-sub-panel-title-row {
+		display: flex;
+		align-items: center;
+		gap: vars.$grid-unit-05;
+
+		// Nested to beat editor iframe h2 resets.
+		.mb-sub-panel-title {
+			flex: 1;
+			font-size: vars.$font-size-medium;
+			font-weight: 500;
+			line-height: vars.$font-line-height-small;
+			margin: 0;
+			padding: 0;
+			min-height: 24px;
+			display: flex;
+			align-items: center;
+		}
+	}
+
+	.mb-help-text {
+		font-size: vars.$font-size-medium;
+		line-height: vars.$font-line-height-small;
+		margin: 0;
+	}
+
+	.mb-select-row {
+		display: flex;
+		align-items: flex-end;
+		gap: vars.$grid-unit-15;
+		margin-bottom: vars.$grid-unit-20;
+
+		// Nested to bump specificity above Emotion CSS-in-JS.
+		.components-select-control {
+			flex: 1;
+			min-width: 0;
+			margin-bottom: 0;
+		}
+	}
+
+	.mb-range-control {
+		margin-bottom: vars.$grid-unit-20;
+
+		.components-number-control {
+			width: 80px;
+		}
+
+		.components-input-control__suffix {
+			padding-right: vars.$grid-unit-10;
+		}
+	}
+
+	.mb-remove-button {
+		width: 100%;
+		justify-content: center;
+		margin-top: vars.$grid-unit-10;
+	}
+}
+
+// Preview keyframes — applied via className on the block element
+@keyframes mbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mbSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mbSlideDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mbSlideLeft { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes mbSlideRight { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes mbZoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+// Connect animation classes to keyframes for editor preview.
+// CSS custom properties come from inline styles set by the
+// withAnimationPreview HOC so the preview respects user settings.
+.mb-preview {
+	animation-duration: var(--mb-duration, 0.6s);
+	animation-timing-function: ease-out;
+	animation-delay: var(--mb-delay, 0s);
+	animation-fill-mode: var(--mb-fill-mode, both);
+	animation-iteration-count: var(--mb-iteration-count, 1);
+	animation-direction: var(--mb-direction, normal);
+
+	&.mb-animate-fade-in { animation-name: mbFadeIn; }
+	&.mb-animate-slide-up { animation-name: mbSlideUp; }
+	&.mb-animate-slide-down { animation-name: mbSlideDown; }
+	&.mb-animate-slide-left { animation-name: mbSlideLeft; }
+	&.mb-animate-slide-right { animation-name: mbSlideRight; }
+	&.mb-animate-zoom-in { animation-name: mbZoomIn; }
+}

@@ -3,10 +3,11 @@
  *
  * Supports three animation modes:
  *   1. Page load — plays immediately on DOMContentLoaded.
- *   2. Scroll in view — triggered via Intersection Observer.
+ *   2. Scroll in view — triggered via Intersection Observer (enter/exit/both).
  *   3. Interactive scroll — tied to scroll progress via CSS scroll-driven animations.
  *
- * All animations use the same keyframes; behaviour differs by mode.
+ * Direction is parameterized via CSS custom properties set by frontend.js,
+ * so a single keyframe per type handles all directions.
  */
 
 /* ----------------------------------------------------------------
@@ -15,36 +16,52 @@
 .mb-animated {
     --mb-duration: 0.6s;
     --mb-delay: 0.4s;
+    --mb-timing: ease;
+    --mb-exit-duration: 0.6s;
+    --mb-exit-delay: 0s;
 }
 
 /* ----------------------------------------------------------------
- * Mode: Scroll in view
+ * Initial Hidden States
  *
- * Hide the element until the Intersection Observer adds
- * .mb-triggered.
- * -------------------------------------------------------------- */
-.mb-mode-scroll-appear:not(.mb-triggered) {
-    opacity: 0;
-}
-
-/* ----------------------------------------------------------------
- * Mode: Page Load
- *
- * Elements stay visible (no initial hide) — the animation plays
- * as soon as .mb-triggered is added on DOMContentLoaded.
+ * Page-load: hidden until .mb-triggered on DOMContentLoaded.
+ * Scroll in view (enter / both): hidden until scrolled into view.
+ * Scroll in view (exit only): visible by default, no initial hide.
  * -------------------------------------------------------------- */
 .mb-mode-page-load:not(.mb-triggered) {
     opacity: 0;
 }
 
+/* Enter trigger: hidden until IO adds .mb-triggered */
+.mb-mode-scroll-appear[data-mb-scroll-trigger="enter"]:not(.mb-triggered) {
+    opacity: 0;
+}
+
+/* Both trigger: hidden until first enter, then toggled by JS */
+.mb-mode-scroll-appear[data-mb-scroll-trigger="both"]:not(.mb-triggered):not(.mb-exit-triggered) {
+    opacity: 0;
+}
+
+/* Exit trigger: always visible (exit animation hides it via forwards fill) */
+
 /* ----------------------------------------------------------------
- * Triggered state — shared by page-load and scroll-appear.
+ * Triggered State — Entrance (page-load + scroll-appear)
  * -------------------------------------------------------------- */
 .mb-animated.mb-triggered {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-fill-mode: both;
-    animation-timing-function: ease-out;
+    animation-timing-function: var(--mb-timing);
+}
+
+/* ----------------------------------------------------------------
+ * Triggered State — Exit (scroll-appear only)
+ * -------------------------------------------------------------- */
+.mb-animated.mb-exit-triggered {
+    animation-duration: var(--mb-exit-duration, var(--mb-duration));
+    animation-delay: var(--mb-exit-delay, 0s);
+    animation-fill-mode: both;
+    animation-timing-function: var(--mb-exit-timing, var(--mb-timing));
 }
 
 /* ----------------------------------------------------------------
@@ -52,116 +69,202 @@
  *
  * animation-timeline, animation-range-start, animation-range-end
  * are set per-element by frontend.js.
- *
- * A non-zero animation-duration is required for the spec to work.
  * -------------------------------------------------------------- */
 .mb-mode-scroll-interactive {
     animation-duration: 1ms;
-    animation-timing-function: ease;
+    animation-timing-function: var(--mb-timing);
     animation-fill-mode: both;
 }
 
 /* ----------------------------------------------------------------
- * Keyframes
+ * Entrance Keyframes & Class Bindings
  * -------------------------------------------------------------- */
 
 /* Fade In */
-.mb-fade-in.mb-triggered,
-.mb-mode-scroll-interactive.mb-fade-in {
+.mb-enter-fade.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-fade {
     animation-name: mbFadeIn;
 }
 
 @keyframes mbFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Slide In — direction via --mb-slide-x, --mb-slide-y */
+.mb-enter-slide.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-slide {
+    animation-name: mbSlideIn;
+}
+
+@keyframes mbSlideIn {
     from {
         opacity: 0;
+        transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 30px));
     }
     to {
         opacity: 1;
+        transform: translate(0, 0);
     }
 }
 
-/* Slide Up */
-.mb-slide-up.mb-triggered,
-.mb-mode-scroll-interactive.mb-slide-up {
-    animation-name: mbSlideUp;
+/* Wipe In — direction via --mb-wipe-from */
+.mb-enter-wipe.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-wipe {
+    animation-name: mbWipeIn;
 }
 
-@keyframes mbSlideUp {
+@keyframes mbWipeIn {
+    from { clip-path: var(--mb-wipe-from, inset(0 100% 0 0)); }
+    to   { clip-path: inset(0 0 0 0); }
+}
+
+/* Curtain Reveal — direction via --mb-curtain-from */
+.mb-enter-curtain.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-curtain {
+    animation-name: mbCurtainReveal;
+}
+
+@keyframes mbCurtainReveal {
+    from { clip-path: var(--mb-curtain-from, inset(0 50% 0 50%)); }
+    to   { clip-path: inset(0 0 0 0); }
+}
+
+/* Flip In — direction via --mb-flip-transform */
+.mb-enter-flip {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+.mb-enter-flip.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-flip {
+    animation-name: mbFlipIn;
+}
+
+@keyframes mbFlipIn {
     from {
         opacity: 0;
-        transform: translateY(30px);
+        transform: perspective(800px) var(--mb-flip-transform, rotateY(90deg));
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: perspective(800px) rotateY(0deg) rotateX(0deg);
     }
 }
 
-/* Slide Down */
-.mb-slide-down.mb-triggered,
-.mb-mode-scroll-interactive.mb-slide-down {
-    animation-name: mbSlideDown;
+/* Scale In */
+.mb-enter-scale.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-scale {
+    animation-name: mbScaleIn;
 }
 
-@keyframes mbSlideDown {
+@keyframes mbScaleIn {
     from {
         opacity: 0;
-        transform: translateY(-30px);
+        transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0));
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1) translate(0, 0);
     }
 }
 
-/* Slide Left */
-.mb-slide-left.mb-triggered,
-.mb-mode-scroll-interactive.mb-slide-left {
-    animation-name: mbSlideLeft;
+/* Blur In — blur amount via --mb-blur-amount */
+.mb-enter-blur.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-blur {
+    animation-name: mbBlurIn;
 }
 
-@keyframes mbSlideLeft {
+@keyframes mbBlurIn {
     from {
         opacity: 0;
-        transform: translateX(30px);
+        filter: blur(var(--mb-blur-amount, 8px));
     }
     to {
         opacity: 1;
-        transform: translateX(0);
+        filter: blur(0px);
     }
 }
 
-/* Slide Right */
-.mb-slide-right.mb-triggered,
-.mb-mode-scroll-interactive.mb-slide-right {
-    animation-name: mbSlideRight;
+/* ----------------------------------------------------------------
+ * Exit Keyframes & Class Bindings
+ * -------------------------------------------------------------- */
+
+/* Fade Out */
+.mb-exit-fade.mb-exit-triggered {
+    animation-name: mbFadeOut;
 }
 
-@keyframes mbSlideRight {
+@keyframes mbFadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+/* Slide Out — direction via --mb-slide-x, --mb-slide-y */
+.mb-exit-slide.mb-exit-triggered {
+    animation-name: mbSlideOut;
+}
+
+@keyframes mbSlideOut {
     from {
-        opacity: 0;
-        transform: translateX(-30px);
+        opacity: 1;
+        transform: translate(0, 0);
     }
     to {
-        opacity: 1;
-        transform: translateX(0);
+        opacity: 0;
+        transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 30px));
     }
 }
 
-/* Zoom In */
-.mb-zoom-in.mb-triggered,
-.mb-mode-scroll-interactive.mb-zoom-in {
-    animation-name: mbZoomIn;
+/* Wipe Out — direction via --mb-wipe-from */
+.mb-exit-wipe.mb-exit-triggered {
+    animation-name: mbWipeOut;
 }
 
-@keyframes mbZoomIn {
+@keyframes mbWipeOut {
+    from { clip-path: inset(0 0 0 0); }
+    to   { clip-path: var(--mb-wipe-from, inset(0 100% 0 0)); }
+}
+
+/* Curtain Close — direction via --mb-curtain-from */
+.mb-exit-curtain.mb-exit-triggered {
+    animation-name: mbCurtainClose;
+}
+
+@keyframes mbCurtainClose {
+    from { clip-path: inset(0 0 0 0); }
+    to   { clip-path: var(--mb-curtain-from, inset(0 50% 0 50%)); }
+}
+
+/* Scale Out */
+.mb-exit-scale.mb-exit-triggered {
+    animation-name: mbScaleOut;
+}
+
+@keyframes mbScaleOut {
     from {
-        opacity: 0;
-        transform: scale(0.9);
+        opacity: 1;
+        transform: scale(1) translate(0, 0);
     }
     to {
+        opacity: 0;
+        transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0));
+    }
+}
+
+/* Blur Out — blur amount via --mb-blur-amount */
+.mb-exit-blur.mb-exit-triggered {
+    animation-name: mbBlurOut;
+}
+
+@keyframes mbBlurOut {
+    from {
         opacity: 1;
-        transform: scale(1);
+        filter: blur(0px);
+    }
+    to {
+        opacity: 0;
+        filter: blur(var(--mb-blur-amount, 8px));
     }
 }
 
@@ -171,10 +274,13 @@
 @media (prefers-reduced-motion: reduce) {
     .mb-animated,
     .mb-animated.mb-triggered,
+    .mb-animated.mb-exit-triggered,
     .mb-mode-scroll-interactive {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
         transform: none !important;
+        filter: none !important;
+        clip-path: none !important;
     }
 }

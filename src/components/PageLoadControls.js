@@ -14,7 +14,12 @@ import { symbol } from '@wordpress/icons';
 import { SVG, Path } from '@wordpress/primitives';
 
 import {
-	ANIMATION_OPTIONS,
+	ANIMATION_TYPE_OPTIONS,
+	DIRECTION_OPTIONS,
+	TYPES_WITH_DIRECTION,
+	DEFAULT_DIRECTION,
+	ACCELERATION_OPTIONS,
+	BLUR_SETTINGS,
 	REPEAT_OPTIONS,
 	DURATION_SETTINGS,
 	DELAY_SETTINGS,
@@ -45,11 +50,31 @@ export default function PageLoadControls( {
 } ) {
 	const {
 		animationType,
+		animationDirection,
 		animationDuration,
 		animationDelay,
+		animationAcceleration,
+		animationBlurAmount,
 		animationRepeat,
 		animationPauseOffscreen,
 	} = attributes;
+
+	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
+	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+
+	/**
+	 * When animation type changes, auto-set direction to the default
+	 * for the new type (or clear it if the type has no direction).
+	 */
+	const handleTypeChange = ( value ) => {
+		const newAttrs = { animationType: value };
+		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
+			newAttrs.animationDirection = DEFAULT_DIRECTION[ value ] || '';
+		} else {
+			newAttrs.animationDirection = '';
+		}
+		setAttributes( newAttrs );
+	};
 
 	return (
 		<div className="mb-sub-panel">
@@ -68,7 +93,10 @@ export default function PageLoadControls( {
 						/>
 					</div>
 					<p className="mb-help-text">
-						{ __( 'The animation plays when the page is loaded.', 'motion-blocks' ) }
+						{ __(
+							'The animation plays when the page is loaded.',
+							'motion-blocks'
+						) }
 					</p>
 				</div>
 			</div>
@@ -77,10 +105,8 @@ export default function PageLoadControls( {
 				<SelectControl
 					label={ __( 'Animation', 'motion-blocks' ) }
 					value={ animationType }
-					options={ ANIMATION_OPTIONS }
-					onChange={ ( value ) =>
-						setAttributes( { animationType: value } )
-					}
+					options={ ANIMATION_TYPE_OPTIONS }
+					onChange={ handleTypeChange }
 					size="__unstable-large"
 					__nextHasNoMarginBottom
 				/>
@@ -99,6 +125,35 @@ export default function PageLoadControls( {
 				/>
 			</div>
 
+			{ hasDirection && (
+				<SelectControl
+					label={ __( 'Direction', 'motion-blocks' ) }
+					value={ animationDirection }
+					options={ directionOptions }
+					onChange={ ( value ) =>
+						setAttributes( { animationDirection: value } )
+					}
+					size="__unstable-large"
+					__nextHasNoMarginBottom
+				/>
+			) }
+
+			{ animationType === 'blur' && (
+				<RangeControl
+					label={ __( 'Blur', 'motion-blocks' ) }
+					value={ animationBlurAmount }
+					onChange={ ( value ) =>
+						setAttributes( { animationBlurAmount: value } )
+					}
+					min={ BLUR_SETTINGS.min }
+					max={ BLUR_SETTINGS.max }
+					step={ BLUR_SETTINGS.step }
+					renderTooltipContent={ ( value ) => `${ value }px` }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			) }
+
 			<RangeControl
 				label={ __( 'Duration', 'motion-blocks' ) }
 				value={ animationDuration }
@@ -108,7 +163,6 @@ export default function PageLoadControls( {
 				min={ DURATION_SETTINGS.min }
 				max={ DURATION_SETTINGS.max }
 				step={ DURATION_SETTINGS.step }
-
 				renderTooltipContent={ ( value ) => `${ value }s` }
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom
@@ -125,6 +179,17 @@ export default function PageLoadControls( {
 				step={ DELAY_SETTINGS.step }
 				renderTooltipContent={ ( value ) => `${ value }s` }
 				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+			/>
+
+			<SelectControl
+				label={ __( 'Acceleration', 'motion-blocks' ) }
+				value={ animationAcceleration }
+				options={ ACCELERATION_OPTIONS }
+				onChange={ ( value ) =>
+					setAttributes( { animationAcceleration: value } )
+				}
+				size="__unstable-large"
 				__nextHasNoMarginBottom
 			/>
 

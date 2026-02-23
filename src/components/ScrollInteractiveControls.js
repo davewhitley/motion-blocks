@@ -8,6 +8,7 @@
 
 import {
 	SelectControl,
+	RangeControl,
 	Flex,
 	FlexBlock,
 	FlexItem,
@@ -18,7 +19,15 @@ import {
 import { __ } from '@wordpress/i18n';
 import { symbol, seen, unseen } from '@wordpress/icons';
 
-import { ANIMATION_OPTIONS, RANGE_TYPE_OPTIONS } from './constants';
+import {
+	ANIMATION_TYPE_OPTIONS,
+	DIRECTION_OPTIONS,
+	TYPES_WITH_DIRECTION,
+	DEFAULT_DIRECTION,
+	ACCELERATION_OPTIONS,
+	BLUR_SETTINGS,
+	RANGE_TYPE_OPTIONS,
+} from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 
 /**
@@ -48,15 +57,33 @@ export default function ScrollInteractiveControls( {
 } ) {
 	const {
 		animationType,
+		animationDirection,
+		animationAcceleration,
+		animationBlurAmount,
 		animationRangeStart,
 		animationRangeEnd,
 		animationPreviewEnabled,
 	} = attributes;
 
 	const previewOn = animationPreviewEnabled !== false;
+	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
+	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
 	const rangeStart = parseRange( animationRangeStart );
 	const rangeEnd = parseRange( animationRangeEnd );
+
+	/**
+	 * When animation type changes, auto-set direction.
+	 */
+	const handleTypeChange = ( value ) => {
+		const newAttrs = { animationType: value };
+		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
+			newAttrs.animationDirection = DEFAULT_DIRECTION[ value ] || '';
+		} else {
+			newAttrs.animationDirection = '';
+		}
+		setAttributes( newAttrs );
+	};
 
 	return (
 		<div className="mb-sub-panel">
@@ -87,10 +114,8 @@ export default function ScrollInteractiveControls( {
 				<SelectControl
 					label={ __( 'Animation', 'motion-blocks' ) }
 					value={ animationType }
-					options={ ANIMATION_OPTIONS }
-					onChange={ ( value ) =>
-						setAttributes( { animationType: value } )
-					}
+					options={ ANIMATION_TYPE_OPTIONS }
+					onChange={ handleTypeChange }
 					size="__unstable-large"
 					__nextHasNoMarginBottom
 				/>
@@ -112,6 +137,46 @@ export default function ScrollInteractiveControls( {
 					__next40pxDefaultSize
 				/>
 			</div>
+
+			{ hasDirection && (
+				<SelectControl
+					label={ __( 'Direction', 'motion-blocks' ) }
+					value={ animationDirection }
+					options={ directionOptions }
+					onChange={ ( value ) =>
+						setAttributes( { animationDirection: value } )
+					}
+					size="__unstable-large"
+					__nextHasNoMarginBottom
+				/>
+			) }
+
+			{ animationType === 'blur' && (
+				<RangeControl
+					label={ __( 'Blur', 'motion-blocks' ) }
+					value={ animationBlurAmount }
+					onChange={ ( value ) =>
+						setAttributes( { animationBlurAmount: value } )
+					}
+					min={ BLUR_SETTINGS.min }
+					max={ BLUR_SETTINGS.max }
+					step={ BLUR_SETTINGS.step }
+					renderTooltipContent={ ( value ) => `${ value }px` }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			) }
+
+			<SelectControl
+				label={ __( 'Acceleration', 'motion-blocks' ) }
+				value={ animationAcceleration }
+				options={ ACCELERATION_OPTIONS }
+				onChange={ ( value ) =>
+					setAttributes( { animationAcceleration: value } )
+				}
+				size="__unstable-large"
+				__nextHasNoMarginBottom
+			/>
 
 			<div className="mb-range-control">
 				<Flex align="flex-end" gap={ 2 }>

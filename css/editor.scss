@@ -105,29 +105,56 @@
 	}
 }
 
-// Preview keyframes — applied via className on the block element
+// Preview keyframes — applied via className on the block element.
+// Direction is parameterized via CSS custom properties set as inline
+// styles by the withAnimationPreview HOC.
+
+// Entrance
 @keyframes mbFadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes mbSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes mbSlideDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes mbSlideLeft { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes mbSlideRight { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes mbZoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes mbSlideIn { from { opacity: 0; transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 30px)); } to { opacity: 1; transform: translate(0, 0); } }
+@keyframes mbWipeIn { from { clip-path: var(--mb-wipe-from, inset(0 100% 0 0)); } to { clip-path: inset(0 0 0 0); } }
+@keyframes mbCurtainReveal { from { clip-path: var(--mb-curtain-from, inset(0 50% 0 50%)); } to { clip-path: inset(0 0 0 0); } }
+@keyframes mbFlipIn { from { opacity: 0; transform: perspective(800px) var(--mb-flip-transform, rotateY(90deg)); } to { opacity: 1; transform: perspective(800px) rotateY(0deg) rotateX(0deg); } }
+@keyframes mbScaleIn { from { opacity: 0; transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0)); } to { opacity: 1; transform: scale(1) translate(0, 0); } }
+@keyframes mbBlurIn { from { opacity: 0; filter: blur(var(--mb-blur-amount, 8px)); } to { opacity: 1; filter: blur(0px); } }
+
+// Exit
+@keyframes mbFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes mbSlideOut { from { opacity: 1; transform: translate(0, 0); } to { opacity: 0; transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 30px)); } }
+@keyframes mbWipeOut { from { clip-path: inset(0 0 0 0); } to { clip-path: var(--mb-wipe-from, inset(0 100% 0 0)); } }
+@keyframes mbCurtainClose { from { clip-path: inset(0 0 0 0); } to { clip-path: var(--mb-curtain-from, inset(0 50% 0 50%)); } }
+@keyframes mbScaleOut { from { opacity: 1; transform: scale(1) translate(0, 0); } to { opacity: 0; transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0)); } }
+@keyframes mbBlurOut { from { opacity: 1; filter: blur(0px); } to { opacity: 0; filter: blur(var(--mb-blur-amount, 8px)); } }
 
 // Connect animation classes to keyframes for editor preview.
 // CSS custom properties come from inline styles set by the
 // withAnimationPreview HOC so the preview respects user settings.
 .mb-preview {
 	animation-duration: var(--mb-duration, 0.6s);
-	animation-timing-function: ease-out;
+	animation-timing-function: var(--mb-timing, ease);
 	animation-delay: var(--mb-delay, 0s);
 	animation-fill-mode: var(--mb-fill-mode, both);
 	animation-iteration-count: var(--mb-iteration-count, 1);
 	animation-direction: var(--mb-direction, normal);
 
-	&.mb-animate-fade-in { animation-name: mbFadeIn; }
-	&.mb-animate-slide-up { animation-name: mbSlideUp; }
-	&.mb-animate-slide-down { animation-name: mbSlideDown; }
-	&.mb-animate-slide-left { animation-name: mbSlideLeft; }
-	&.mb-animate-slide-right { animation-name: mbSlideRight; }
-	&.mb-animate-zoom-in { animation-name: mbZoomIn; }
+	// Entrance animations
+	&.mb-animate-enter-fade { animation-name: mbFadeIn; }
+	&.mb-animate-enter-slide { animation-name: mbSlideIn; }
+	&.mb-animate-enter-wipe { animation-name: mbWipeIn; }
+	&.mb-animate-enter-curtain { animation-name: mbCurtainReveal; }
+	&.mb-animate-enter-flip {
+		animation-name: mbFlipIn;
+		backface-visibility: hidden;
+		transform-style: preserve-3d;
+	}
+	&.mb-animate-enter-scale { animation-name: mbScaleIn; }
+	&.mb-animate-enter-blur { animation-name: mbBlurIn; }
+
+	// Exit animations
+	&.mb-animate-exit-fade { animation-name: mbFadeOut; }
+	&.mb-animate-exit-slide { animation-name: mbSlideOut; }
+	&.mb-animate-exit-wipe { animation-name: mbWipeOut; }
+	&.mb-animate-exit-curtain { animation-name: mbCurtainClose; }
+	&.mb-animate-exit-scale { animation-name: mbScaleOut; }
+	&.mb-animate-exit-blur { animation-name: mbBlurOut; }
 }

@@ -125,11 +125,11 @@ function addAnimationAttributes( settings ) {
 			},
 			animationRangeStart: {
 				type: 'string',
-				default: 'cover 0%',
+				default: 'entry 0%',
 			},
 			animationRangeEnd: {
 				type: 'string',
-				default: 'cover 100%',
+				default: 'exit 100%',
 			},
 			animationPreviewEnabled: {
 				type: 'boolean',
@@ -154,7 +154,7 @@ addFilter(
  */
 const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 	return ( props ) => {
-		const { attributes, setAttributes, isSelected } = props;
+		const { attributes, setAttributes, isSelected, name } = props;
 
 		return (
 			<>
@@ -164,6 +164,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 						<AnimationPanel
 							attributes={ attributes }
 							setAttributes={ setAttributes }
+							blockName={ name }
 						/>
 					</InspectorControls>
 				) }
@@ -203,6 +204,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationPreviewEnabled,
 				animationPreviewPlaying,
 			} = attributes;
+
 			// Scroll-interactive: persistent scroll-driven animation.
 			if (
 				animationMode === 'scroll-interactive' &&
@@ -213,18 +215,23 @@ const withAnimationPreview = createHigherOrderComponent(
 					animationType,
 					animationDirection
 				);
+
+				const rangeStartVal =
+					animationRangeStart || 'entry 0%';
+				const rangeEndVal =
+					animationRangeEnd || 'exit 100%';
 				const scrollInteractiveStyles = {
 					...( wrapperProps.style || {} ),
 					...dirStyles,
-					animationName: getEnterKeyframe( animationType ),
-					animationTimeline: 'view()',
-					animationRangeStart:
-						animationRangeStart || 'cover 0%',
-					animationRangeEnd: animationRangeEnd || 'cover 100%',
-					animationDuration: '1ms',
-					animationTimingFunction:
-						animationAcceleration || 'ease',
-					animationFillMode: 'both',
+					// DEBUG: mbDebugScroll adds green/red border.
+					// Remove the second values when done testing.
+					animationName: `${ getEnterKeyframe( animationType ) }, mbDebugScroll`,
+					animationTimeline: 'view(), view()',
+					animationRangeStart: `${ rangeStartVal }, ${ rangeStartVal }`,
+					animationRangeEnd: `${ rangeEndVal }, ${ rangeEndVal }`,
+					animationDuration: '1ms, 1ms',
+					animationTimingFunction: `${ animationAcceleration || 'ease' }, linear`,
+					animationFillMode: 'both, forwards',
 				};
 				if ( animationType === 'blur' ) {
 					scrollInteractiveStyles[ '--mb-blur-amount' ] =

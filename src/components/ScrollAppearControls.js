@@ -11,11 +11,20 @@ import {
 	SelectControl,
 	RangeControl,
 	ToggleControl,
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
+	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
 	Button,
 	Icon,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { symbol } from '@wordpress/icons';
+import {
+	seen,
+	arrowUp,
+	arrowDown,
+	arrowLeft,
+	arrowRight,
+} from '@wordpress/icons';
 import { SVG, Path } from '@wordpress/primitives';
 
 import {
@@ -39,6 +48,13 @@ const playIcon = (
 	</SVG>
 );
 
+const DIRECTION_ICON_MAP = {
+	btt: arrowUp,
+	ttb: arrowDown,
+	ltr: arrowRight,
+	rtl: arrowLeft,
+};
+
 /**
  * Filter animation type options to only those with exit variants.
  */
@@ -49,6 +65,7 @@ const EXIT_TYPE_OPTIONS = ANIMATION_TYPE_OPTIONS.filter( ( opt ) =>
 export default function ScrollAppearControls( {
 	attributes,
 	setAttributes,
+	blockName,
 	onRemove,
 	onPreview,
 	onPaste,
@@ -70,6 +87,9 @@ export default function ScrollAppearControls( {
 		animationExitDelay,
 		animationExitAcceleration,
 	} = attributes;
+
+	const typeOptions = ANIMATION_TYPE_OPTIONS;
+	const exitTypeOptions = EXIT_TYPE_OPTIONS;
 
 	const trigger = animationScrollTrigger || 'enter';
 	const exitMode = animationExitMode || 'mirror';
@@ -136,26 +156,24 @@ export default function ScrollAppearControls( {
 	return (
 		<div className="mb-sub-panel">
 			<div className="mb-sub-panel-header">
-				<Icon icon={ symbol } size={ 24 } />
-				<div className="mb-sub-panel-info">
-					<div className="mb-sub-panel-title-row">
-						<h2 className="mb-sub-panel-title">
-							{ __( 'Scroll in view', 'motion-blocks' ) }
-						</h2>
-						<AnimationOptionsMenu
-							attributes={ attributes }
-							onPaste={ onPaste }
-							onReset={ onReset }
-							onRemove={ onRemove }
-						/>
-					</div>
-					<p className="mb-help-text">
-						{ __(
-							'The animation is triggered when the block is scrolled into view.',
-							'motion-blocks'
-						) }
-					</p>
+				<div className="mb-sub-panel-title-row">
+					<Icon icon={ seen } size={ 24 } />
+					<span className="mb-sub-panel-title">
+						{ __( 'Appear on scroll', 'motion-blocks' ) }
+					</span>
+					<AnimationOptionsMenu
+						attributes={ attributes }
+						onPaste={ onPaste }
+						onReset={ onReset }
+						onRemove={ onRemove }
+					/>
 				</div>
+				<p className="mb-help-text">
+					{ __(
+						'Trigger animation when the element scrolls into the viewport.',
+						'motion-blocks'
+					) }
+				</p>
 			</div>
 
 			{ /* Trigger selector */ }
@@ -181,8 +199,8 @@ export default function ScrollAppearControls( {
 							value={ animationType }
 							options={
 								trigger === 'enter'
-									? ANIMATION_TYPE_OPTIONS
-									: EXIT_TYPE_OPTIONS
+									? typeOptions
+									: exitTypeOptions
 							}
 							onChange={ handleEnterTypeChange }
 							size="__unstable-large"
@@ -202,19 +220,86 @@ export default function ScrollAppearControls( {
 						/>
 					</div>
 
-					{ enterHasDirection && (
-						<SelectControl
+					{ animationType === 'scale' && (
+						<>
+							<ToggleControl
+								label={ __( 'Scale with direction', 'motion-blocks' ) }
+								checked={ animationDirection !== 'none' && animationDirection !== '' }
+								onChange={ ( checked ) =>
+									setAttributes( {
+										animationDirection: checked ? 'btt' : 'none',
+									} )
+								}
+								__nextHasNoMarginBottom
+							/>
+							{ animationDirection !== 'none' && animationDirection !== '' && (
+								<ToggleGroupControl
+									label={ __( 'Direction', 'motion-blocks' ) }
+									value={ animationDirection }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationDirection: value,
+										} )
+									}
+									isBlock
+									__nextHasNoMarginBottom
+								>
+									{ enterDirectionOptions.map( ( opt ) => (
+										<ToggleGroupControlOptionIcon
+											key={ opt.value }
+											value={ opt.value }
+											icon={ DIRECTION_ICON_MAP[ opt.value ] }
+											label={ opt.label }
+										/>
+									) ) }
+								</ToggleGroupControl>
+							) }
+						</>
+					) }
+
+					{ enterHasDirection && animationType === 'curtain' && (
+						<ToggleGroupControl
 							label={ __( 'Direction', 'motion-blocks' ) }
 							value={ animationDirection }
-							options={ enterDirectionOptions }
 							onChange={ ( value ) =>
 								setAttributes( {
 									animationDirection: value,
 								} )
 							}
-							size="__unstable-large"
+							isBlock
 							__nextHasNoMarginBottom
-						/>
+						>
+							{ enterDirectionOptions.map( ( opt ) => (
+								<ToggleGroupControlOption
+									key={ opt.value }
+									value={ opt.value }
+									label={ opt.label }
+								/>
+							) ) }
+						</ToggleGroupControl>
+					) }
+
+					{ enterHasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+						<ToggleGroupControl
+							label={ __( 'Direction', 'motion-blocks' ) }
+							value={ animationDirection }
+							onChange={ ( value ) =>
+								setAttributes( {
+									animationDirection: value,
+								} )
+							}
+							isBlock
+							__nextHasNoMarginBottom
+						>
+							{ enterDirectionOptions.map( ( opt ) => (
+								<ToggleGroupControlOptionIcon
+									key={ opt.value }
+									value={ opt.value }
+									icon={ DIRECTION_ICON_MAP[ opt.value ] }
+									label={ opt.label }
+								/>
+							) ) }
+						</ToggleGroupControl>
 					) }
 
 					{ animationType === 'blur' && (
@@ -302,7 +387,7 @@ export default function ScrollAppearControls( {
 							<SelectControl
 								label={ __( 'Animation', 'motion-blocks' ) }
 								value={ animationType }
-								options={ EXIT_TYPE_OPTIONS }
+								options={ exitTypeOptions }
 								onChange={ handleEnterTypeChange }
 								size="__unstable-large"
 								__nextHasNoMarginBottom
@@ -322,19 +407,86 @@ export default function ScrollAppearControls( {
 						</div>
 					) }
 
-					{ trigger === 'exit' && enterHasDirection && (
-						<SelectControl
+					{ trigger === 'exit' && animationType === 'scale' && (
+						<>
+							<ToggleControl
+								label={ __( 'Scale with direction', 'motion-blocks' ) }
+								checked={ animationDirection !== 'none' && animationDirection !== '' }
+								onChange={ ( checked ) =>
+									setAttributes( {
+										animationDirection: checked ? 'btt' : 'none',
+									} )
+								}
+								__nextHasNoMarginBottom
+							/>
+							{ animationDirection !== 'none' && animationDirection !== '' && (
+								<ToggleGroupControl
+									label={ __( 'Direction', 'motion-blocks' ) }
+									value={ animationDirection }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationDirection: value,
+										} )
+									}
+									isBlock
+									__nextHasNoMarginBottom
+								>
+									{ enterDirectionOptions.map( ( opt ) => (
+										<ToggleGroupControlOptionIcon
+											key={ opt.value }
+											value={ opt.value }
+											icon={ DIRECTION_ICON_MAP[ opt.value ] }
+											label={ opt.label }
+										/>
+									) ) }
+								</ToggleGroupControl>
+							) }
+						</>
+					) }
+
+					{ trigger === 'exit' && enterHasDirection && animationType === 'curtain' && (
+						<ToggleGroupControl
 							label={ __( 'Direction', 'motion-blocks' ) }
 							value={ animationDirection }
-							options={ enterDirectionOptions }
 							onChange={ ( value ) =>
 								setAttributes( {
 									animationDirection: value,
 								} )
 							}
-							size="__unstable-large"
+							isBlock
 							__nextHasNoMarginBottom
-						/>
+						>
+							{ enterDirectionOptions.map( ( opt ) => (
+								<ToggleGroupControlOption
+									key={ opt.value }
+									value={ opt.value }
+									label={ opt.label }
+								/>
+							) ) }
+						</ToggleGroupControl>
+					) }
+
+					{ trigger === 'exit' && enterHasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+						<ToggleGroupControl
+							label={ __( 'Direction', 'motion-blocks' ) }
+							value={ animationDirection }
+							onChange={ ( value ) =>
+								setAttributes( {
+									animationDirection: value,
+								} )
+							}
+							isBlock
+							__nextHasNoMarginBottom
+						>
+							{ enterDirectionOptions.map( ( opt ) => (
+								<ToggleGroupControlOptionIcon
+									key={ opt.value }
+									value={ opt.value }
+									icon={ DIRECTION_ICON_MAP[ opt.value ] }
+									label={ opt.label }
+								/>
+							) ) }
+						</ToggleGroupControl>
 					) }
 
 					{ trigger === 'exit' && animationType === 'blur' && (
@@ -422,28 +574,101 @@ export default function ScrollAppearControls( {
 									'motion-blocks'
 								) }
 								value={ exitType }
-								options={ EXIT_TYPE_OPTIONS }
+								options={ exitTypeOptions }
 								onChange={ handleExitTypeChange }
 								size="__unstable-large"
 								__nextHasNoMarginBottom
 							/>
 
-							{ exitHasDirection && (
-								<SelectControl
+							{ exitType === 'scale' && (
+								<>
+									<ToggleControl
+										label={ __( 'Scale with direction', 'motion-blocks' ) }
+										checked={ animationExitDirection !== 'none' && animationExitDirection !== '' }
+										onChange={ ( checked ) =>
+											setAttributes( {
+												animationExitDirection: checked ? 'btt' : 'none',
+											} )
+										}
+										__nextHasNoMarginBottom
+									/>
+									{ animationExitDirection !== 'none' && animationExitDirection !== '' && (
+										<ToggleGroupControl
+											label={ __(
+												'Exit direction',
+												'motion-blocks'
+											) }
+											value={ animationExitDirection }
+											onChange={ ( value ) =>
+												setAttributes( {
+													animationExitDirection: value,
+												} )
+											}
+											isBlock
+											__nextHasNoMarginBottom
+										>
+											{ exitDirectionOptions.map( ( opt ) => (
+												<ToggleGroupControlOptionIcon
+													key={ opt.value }
+													value={ opt.value }
+													icon={ DIRECTION_ICON_MAP[ opt.value ] }
+													label={ opt.label }
+												/>
+											) ) }
+										</ToggleGroupControl>
+									) }
+								</>
+							) }
+
+							{ exitHasDirection && exitType === 'curtain' && (
+								<ToggleGroupControl
 									label={ __(
 										'Exit direction',
 										'motion-blocks'
 									) }
 									value={ animationExitDirection }
-									options={ exitDirectionOptions }
 									onChange={ ( value ) =>
 										setAttributes( {
 											animationExitDirection: value,
 										} )
 									}
-									size="__unstable-large"
+									isBlock
 									__nextHasNoMarginBottom
-								/>
+								>
+									{ exitDirectionOptions.map( ( opt ) => (
+										<ToggleGroupControlOption
+											key={ opt.value }
+											value={ opt.value }
+											label={ opt.label }
+										/>
+									) ) }
+								</ToggleGroupControl>
+							) }
+
+							{ exitHasDirection && exitType !== 'scale' && exitType !== 'curtain' && (
+								<ToggleGroupControl
+									label={ __(
+										'Exit direction',
+										'motion-blocks'
+									) }
+									value={ animationExitDirection }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationExitDirection: value,
+										} )
+									}
+									isBlock
+									__nextHasNoMarginBottom
+								>
+									{ exitDirectionOptions.map( ( opt ) => (
+										<ToggleGroupControlOptionIcon
+											key={ opt.value }
+											value={ opt.value }
+											icon={ DIRECTION_ICON_MAP[ opt.value ] }
+											label={ opt.label }
+										/>
+									) ) }
+								</ToggleGroupControl>
 							) }
 
 							<RangeControl

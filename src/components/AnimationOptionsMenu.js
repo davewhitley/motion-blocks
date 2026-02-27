@@ -33,7 +33,7 @@ function pickAnimationAttributes( attributes ) {
 	return picked;
 }
 
-export default function AnimationOptionsMenu( { attributes, onPaste, onReset, onRemove } ) {
+export default function AnimationOptionsMenu( { attributes, onPaste, onReset, onRemove, pasteOnly } ) {
 	const handleCopy = ( onClose ) => {
 		copiedAnimation = pickAnimationAttributes( attributes );
 		onClose();
@@ -56,12 +56,14 @@ export default function AnimationOptionsMenu( { attributes, onPaste, onReset, on
 			{ ( { onClose } ) => (
 				<>
 					<MenuGroup>
-						<MenuItem
-							icon={ copy }
-							onClick={ () => handleCopy( onClose ) }
-						>
-							{ __( 'Copy animation', 'motion-blocks' ) }
-						</MenuItem>
+						{ ! pasteOnly && (
+							<MenuItem
+								icon={ copy }
+								onClick={ () => handleCopy( onClose ) }
+							>
+								{ __( 'Copy animation', 'motion-blocks' ) }
+							</MenuItem>
+						) }
 						<MenuItem
 							disabled={ ! copiedAnimation }
 							onClick={ () => handlePaste( onClose ) }
@@ -69,27 +71,29 @@ export default function AnimationOptionsMenu( { attributes, onPaste, onReset, on
 							{ __( 'Paste animation', 'motion-blocks' ) }
 						</MenuItem>
 					</MenuGroup>
-					<MenuGroup>
-						<MenuItem
-							icon={ reset }
-							onClick={ () => {
-								onReset();
-								onClose();
-							} }
-						>
-							{ __( 'Reset settings', 'motion-blocks' ) }
-						</MenuItem>
-						<MenuItem
-							icon={ trash }
-							isDestructive
-							onClick={ () => {
-								onRemove();
-								onClose();
-							} }
-						>
-							{ __( 'Remove animation', 'motion-blocks' ) }
-						</MenuItem>
-					</MenuGroup>
+					{ ! pasteOnly && (
+						<MenuGroup>
+							<MenuItem
+								icon={ reset }
+								onClick={ () => {
+									onReset();
+									onClose();
+								} }
+							>
+								{ __( 'Reset settings', 'motion-blocks' ) }
+							</MenuItem>
+							<MenuItem
+								icon={ trash }
+								isDestructive
+								onClick={ () => {
+									onRemove();
+									onClose();
+								} }
+							>
+								{ __( 'Remove animation', 'motion-blocks' ) }
+							</MenuItem>
+						</MenuGroup>
+					) }
 				</>
 			) }
 		</DropdownMenu>

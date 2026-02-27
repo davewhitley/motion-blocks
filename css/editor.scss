@@ -9,17 +9,81 @@
 @use "@wordpress/base-styles/variables" as vars;
 @use "@wordpress/base-styles/mixins" as mix;
 
-// Mode selection buttons
+// Mode selector — initial state before animation is configured
 @scope (.mb-mode-selector) {
 	:scope {
 		display: flex;
 		flex-direction: column;
-		gap: vars.$grid-unit-10;
 	}
 
-	.mb-mode-button {
+	.mb-mode-selector__header {
+		display: flex;
+		align-items: center;
+		gap: vars.$grid-unit-05;
+		margin-bottom: vars.$grid-unit-10;
+	}
+
+	.mb-mode-selector__label {
+		flex: 1;
+		font-size: 11px;
+		font-weight: 500;
+		text-transform: uppercase;
+		color: colors.$gray-900;
+	}
+
+	.mb-mode-selector__cards {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.mb-mode-card {
+		display: flex;
+		flex-direction: column;
+		gap: vars.$grid-unit-05;
+		padding: vars.$grid-unit-15;
+		border: 1px solid colors.$gray-400;
+		background: none;
+		text-align: left;
+		cursor: pointer;
 		width: 100%;
-		justify-content: center;
+		font-family: inherit;
+
+		// Collapse borders between adjacent cards
+		& + & {
+			border-top: none;
+		}
+
+		&:hover {
+			background: colors.$gray-100;
+		}
+
+		&:focus-visible {
+			outline: 1.5px solid var(--wp-admin-theme-color, #3858e9);
+			outline-offset: -1.5px;
+		}
+	}
+
+	.mb-mode-card__header {
+		display: flex;
+		align-items: center;
+		gap: vars.$grid-unit-10;
+		min-height: 24px;
+	}
+
+	.mb-mode-card__title {
+		flex: 1;
+		font-size: 13px;
+		font-weight: 500;
+		color: colors.$gray-900;
+		line-height: 20px;
+	}
+
+	.mb-mode-card__description {
+		font-size: 12px;
+		font-weight: 400;
+		color: colors.$gray-700;
+		line-height: 16px;
+		margin: 0;
 	}
 }
 
@@ -32,43 +96,34 @@
 
 	.mb-sub-panel-header {
 		display: flex;
-		gap: vars.$grid-unit-15;
-		align-items: flex-start;
+		flex-direction: column;
+		gap: vars.$grid-unit-10;
 		padding-bottom: vars.$grid-unit-20;
 		margin-bottom: vars.$grid-unit-20;
-		border-bottom: 1px solid colors.$gray-300;
-	}
-
-	.mb-sub-panel-info {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		min-width: 0;
-		gap: vars.$grid-unit-15;
+		border-bottom: 1px solid colors.$gray-400;
 	}
 
 	.mb-sub-panel-title-row {
 		display: flex;
 		align-items: center;
 		gap: vars.$grid-unit-05;
+	}
 
-		// Nested to beat editor iframe h2 resets.
-		.mb-sub-panel-title {
-			flex: 1;
-			font-size: vars.$font-size-medium;
-			font-weight: 500;
-			line-height: vars.$font-line-height-small;
-			margin: 0;
-			padding: 0;
-			min-height: 24px;
-			display: flex;
-			align-items: center;
-		}
+	.mb-sub-panel-title {
+		flex: 1;
+		font-size: 13px;
+		font-weight: 500;
+		color: colors.$gray-900;
+		line-height: 20px;
+		margin: 0;
+		padding: 0;
 	}
 
 	.mb-help-text {
-		font-size: vars.$font-size-medium;
-		line-height: vars.$font-line-height-small;
+		font-size: 12px;
+		font-weight: 400;
+		color: colors.$gray-700;
+		line-height: 16px;
 		margin: 0;
 	}
 
@@ -86,18 +141,6 @@
 		}
 	}
 
-	.mb-range-control {
-		margin-bottom: vars.$grid-unit-20;
-
-		.components-number-control {
-			width: 80px;
-		}
-
-		.components-input-control__suffix {
-			padding-right: vars.$grid-unit-10;
-		}
-	}
-
 	.mb-remove-button {
 		width: 100%;
 		justify-content: center;
@@ -108,6 +151,13 @@
 // Preview keyframes — applied via className on the block element.
 // Direction is parameterized via CSS custom properties set as inline
 // styles by the withAnimationPreview HOC.
+
+// DEBUG: Scroll-progress border — green = animating, red = complete. Remove when done.
+@keyframes mbDebugScroll {
+	0%    { outline: 3px solid lime; outline-offset: -3px; }
+	99.9% { outline: 3px solid lime; outline-offset: -3px; }
+	100%  { outline: 3px solid red;  outline-offset: -3px; }
+}
 
 // Entrance
 @keyframes mbFadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -157,4 +207,6 @@
 	&.mb-animate-exit-curtain { animation-name: mbCurtainClose; }
 	&.mb-animate-exit-scale { animation-name: mbScaleOut; }
 	&.mb-animate-exit-blur { animation-name: mbBlurOut; }
+
 }
+

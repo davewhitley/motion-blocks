@@ -37,8 +37,8 @@
 			btt: { '--mb-wipe-from': 'inset(0 0 100% 0)' },
 		},
 		curtain: {
-			outward: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
-			inward: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
+			horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
+			vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
 		},
 		flip: {
 			ltr: { '--mb-flip-transform': 'rotateY(-90deg)' },
@@ -381,9 +381,11 @@
 		}
 
 		elements.forEach( function ( el ) {
+			var type = el.dataset.mbType;
+
 			applyDirectionProps(
 				el,
-				el.dataset.mbType,
+				type,
 				el.dataset.mbDirection
 			);
 			applyBlurProps( el );
@@ -394,12 +396,23 @@
 				el.style.setProperty( '--mb-timing', acceleration );
 			}
 
-			// Apply scroll-driven animation properties.
+			// Apply scroll-driven animation to container.
+			var rangeStart = el.dataset.mbRangeStart || 'entry 0%';
+			var rangeEnd = el.dataset.mbRangeEnd || 'exit 100%';
 			el.style.animationTimeline = 'view()';
-			el.style.animationRangeStart =
-				el.dataset.mbRangeStart || 'cover 0%';
-			el.style.animationRangeEnd =
-				el.dataset.mbRangeEnd || 'cover 100%';
+			el.style.animationRangeStart = rangeStart;
+			el.style.animationRangeEnd = rangeEnd;
+
+			// DEBUG: Add green/red border to visualise scroll progress.
+			// Remove this block when done testing.
+			var existingName = getComputedStyle( el ).animationName || 'none';
+			el.style.animationName = existingName + ', mbDebugScroll';
+			el.style.animationTimeline = 'view(), view()';
+			el.style.animationRangeStart = rangeStart + ', ' + rangeStart;
+			el.style.animationRangeEnd = rangeEnd + ', ' + rangeEnd;
+			el.style.animationDuration = '1ms, 1ms';
+			el.style.animationFillMode = 'both, forwards';
+			el.style.animationTimingFunction = ( acceleration || 'ease' ) + ', linear';
 		} );
 	}
 

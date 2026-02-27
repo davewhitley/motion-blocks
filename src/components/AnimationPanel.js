@@ -5,16 +5,18 @@
  * or the matching sub-panel when a mode is active.
  */
 
-import { PanelBody, Button } from '@wordpress/components';
+import { PanelBody, Icon } from '@wordpress/components';
 import { useRef, useCallback } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+import { desktop, seen, drawerRight } from '@wordpress/icons';
 
 import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
+import AnimationOptionsMenu from './AnimationOptionsMenu';
 import { DEFAULT_ATTRIBUTES } from './constants';
 
-export default function AnimationPanel( { attributes, setAttributes } ) {
+export default function AnimationPanel( { attributes, setAttributes, blockName } ) {
 	const {
 		animationMode,
 		animationType,
@@ -149,30 +151,82 @@ export default function AnimationPanel( { attributes, setAttributes } ) {
 		>
 			{ ! animationMode && (
 				<div className="mb-mode-selector">
-					<Button
-						variant="secondary"
-						className="mb-mode-button"
-						onClick={ () => selectMode( 'page-load' ) }
-						__next40pxDefaultSize
-					>
-						{ __( 'On page load', 'motion-blocks' ) }
-					</Button>
-					<Button
-						variant="secondary"
-						className="mb-mode-button"
-						onClick={ () => selectMode( 'scroll-appear' ) }
-						__next40pxDefaultSize
-					>
-						{ __( 'Scroll in view', 'motion-blocks' ) }
-					</Button>
-					<Button
-						variant="secondary"
-						className="mb-mode-button"
-						onClick={ () => selectMode( 'scroll-interactive' ) }
-						__next40pxDefaultSize
-					>
-						{ __( 'Interactive scroll', 'motion-blocks' ) }
-					</Button>
+					<div className="mb-mode-selector__header">
+						<span className="mb-mode-selector__label">
+							{ __( 'Animation type', 'motion-blocks' ) }
+						</span>
+						<AnimationOptionsMenu
+							onPaste={ pasteAnimation }
+							pasteOnly
+						/>
+					</div>
+					<div className="mb-mode-selector__cards">
+						<button
+							type="button"
+							className="mb-mode-card"
+							onClick={ () => selectMode( 'page-load' ) }
+						>
+							<div className="mb-mode-card__header">
+								<Icon icon={ desktop } size={ 24 } />
+								<span className="mb-mode-card__title">
+									{ __(
+										'On page load',
+										'motion-blocks'
+									) }
+								</span>
+							</div>
+							<p className="mb-mode-card__description">
+								{ __(
+									'Plays once (or loops continuously) when the page first loads.',
+									'motion-blocks'
+								) }
+							</p>
+						</button>
+						<button
+							type="button"
+							className="mb-mode-card"
+							onClick={ () => selectMode( 'scroll-appear' ) }
+						>
+							<div className="mb-mode-card__header">
+								<Icon icon={ seen } size={ 24 } />
+								<span className="mb-mode-card__title">
+									{ __(
+										'Appear on scroll',
+										'motion-blocks'
+									) }
+								</span>
+							</div>
+							<p className="mb-mode-card__description">
+								{ __(
+									'Trigger animations when the element enters or exits the screen.',
+									'motion-blocks'
+								) }
+							</p>
+						</button>
+						<button
+							type="button"
+							className="mb-mode-card"
+							onClick={ () =>
+								selectMode( 'scroll-interactive' )
+							}
+						>
+							<div className="mb-mode-card__header">
+								<Icon icon={ drawerRight } size={ 24 } />
+								<span className="mb-mode-card__title">
+									{ __(
+										'Interactive scroll',
+										'motion-blocks'
+									) }
+								</span>
+							</div>
+							<p className="mb-mode-card__description">
+								{ __(
+									'Ties animation progress directly to scroll position.',
+									'motion-blocks'
+								) }
+							</p>
+						</button>
+					</div>
 				</div>
 			) }
 
@@ -180,6 +234,7 @@ export default function AnimationPanel( { attributes, setAttributes } ) {
 				<PageLoadControls
 					attributes={ attributes }
 					setAttributes={ setAttributes }
+					blockName={ blockName }
 					onRemove={ removeAnimation }
 					onPreview={ replayPreview }
 					onStopPreview={ stopPreview }
@@ -195,6 +250,7 @@ export default function AnimationPanel( { attributes, setAttributes } ) {
 				<ScrollAppearControls
 					attributes={ attributes }
 					setAttributes={ setAttributes }
+					blockName={ blockName }
 					onRemove={ removeAnimation }
 					onPreview={ replayPreview }
 					onPaste={ pasteAnimation }
@@ -206,6 +262,7 @@ export default function AnimationPanel( { attributes, setAttributes } ) {
 				<ScrollInteractiveControls
 					attributes={ attributes }
 					setAttributes={ setAttributes }
+					blockName={ blockName }
 					onRemove={ removeAnimation }
 					onPaste={ pasteAnimation }
 					onReset={ resetSettings }

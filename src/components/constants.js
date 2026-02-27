@@ -28,8 +28,8 @@ export const DIRECTION_OPTIONS = {
 		{ label: 'Bottom to top', value: 'btt' },
 	],
 	curtain: [
-		{ label: 'Outward', value: 'outward' },
-		{ label: 'Inward', value: 'inward' },
+		{ label: 'Horizontal', value: 'horizontal' },
+		{ label: 'Vertical', value: 'vertical' },
 	],
 	flip: [
 		{ label: 'Left to right', value: 'ltr' },
@@ -38,7 +38,6 @@ export const DIRECTION_OPTIONS = {
 		{ label: 'Bottom to top', value: 'btt' },
 	],
 	scale: [
-		{ label: 'None', value: 'none' },
 		{ label: 'Bottom to top', value: 'btt' },
 		{ label: 'Top to bottom', value: 'ttb' },
 		{ label: 'Left to right', value: 'ltr' },
@@ -63,7 +62,7 @@ export const TYPES_WITH_EXIT = [ 'fade', 'slide', 'wipe', 'curtain', 'scale', 'b
 export const DEFAULT_DIRECTION = {
 	slide: 'btt',
 	wipe: 'ltr',
-	curtain: 'outward',
+	curtain: 'horizontal',
 	flip: 'ltr',
 	scale: 'none',
 };
@@ -86,8 +85,8 @@ export const DIRECTION_CSS_VARS = {
 		btt: { '--mb-wipe-from': 'inset(0 0 100% 0)' },
 	},
 	curtain: {
-		outward: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
-		inward: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
+		horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
+		vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
 	},
 	flip: {
 		ltr: { '--mb-flip-transform': 'rotateY(-90deg)' },
@@ -168,18 +167,6 @@ export const REPEAT_OPTIONS = [
 	{ label: 'Back and forth', value: 'alternate' },
 ];
 
-/**
- * Scroll-interactive range type options.
- */
-export const RANGE_TYPE_OPTIONS = [
-	{ label: 'Cover', value: 'cover' },
-	{ label: 'Contain', value: 'contain' },
-	{ label: 'Entry', value: 'entry' },
-	{ label: 'Exit', value: 'exit' },
-	{ label: 'Entry Crossing', value: 'entry-crossing' },
-	{ label: 'Exit Crossing', value: 'exit-crossing' },
-];
-
 export const BLUR_SETTINGS = {
 	min: 1,
 	max: 20,
@@ -219,6 +206,6 @@ export const DEFAULT_ATTRIBUTES = {
 	animationExitDelay: 0,
 	animationExitAcceleration: 'ease',
 	animationBlurAmount: 8,
-	animationRangeStart: 'cover 0%',
-	animationRangeEnd: 'cover 100%',
+	animationRangeStart: 'entry 0%',
+	animationRangeEnd: 'exit 100%',
 };

@@ -2,22 +2,30 @@
  * ScrollInteractiveControls — "Interactive scroll" animation sub-panel.
  *
  * Start Range and End Range map to the CSS scroll-driven animations spec:
- *   animation-range-start: cover 0%
- *   animation-range-end: cover 100%
+ *   animation-range-start: entry 0%
+ *   animation-range-end: exit 100%
  */
 
 import {
 	SelectControl,
 	RangeControl,
-	Flex,
-	FlexBlock,
-	FlexItem,
+	ToggleControl,
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
+	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
 	Button,
 	Icon,
-	__experimentalNumberControl as NumberControl,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { symbol, seen, unseen } from '@wordpress/icons';
+import {
+	drawerRight,
+	seen,
+	unseen,
+	arrowUp,
+	arrowDown,
+	arrowLeft,
+	arrowRight,
+} from '@wordpress/icons';
 
 import {
 	ANIMATION_TYPE_OPTIONS,
@@ -26,31 +34,27 @@ import {
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
-	RANGE_TYPE_OPTIONS,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 
-/**
- * Parse a range value like "cover 20%" into { type, percent }.
- */
-function parseRange( value ) {
-	const parts = ( value || 'cover 0%' ).split( ' ' );
-	return {
-		type: parts[ 0 ] || 'cover',
-		percent: parseInt( parts[ 1 ], 10 ) || 0,
-	};
-}
+const DIRECTION_ICON_MAP = {
+	btt: arrowUp,
+	ttb: arrowDown,
+	ltr: arrowRight,
+	rtl: arrowLeft,
+};
 
 /**
- * Combine type and percent back into a range string.
+ * Extract the offset percentage from a range string like "entry 20%".
  */
-function buildRange( type, percent ) {
-	return `${ type } ${ percent }%`;
+function parseOffset( value, fallback ) {
+	return parseInt( ( value || fallback ).split( ' ' )[ 1 ], 10 ) || 0;
 }
 
 export default function ScrollInteractiveControls( {
 	attributes,
 	setAttributes,
+	blockName,
 	onRemove,
 	onPaste,
 	onReset,
@@ -65,12 +69,14 @@ export default function ScrollInteractiveControls( {
 		animationPreviewEnabled,
 	} = attributes;
 
+	const typeOptions = ANIMATION_TYPE_OPTIONS;
+
 	const previewOn = animationPreviewEnabled !== false;
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
-	const rangeStart = parseRange( animationRangeStart );
-	const rangeEnd = parseRange( animationRangeEnd );
+	const startOffset = parseOffset( animationRangeStart, 'entry 0%' );
+	const endOffset = parseOffset( animationRangeEnd, 'exit 100%' );
 
 	/**
 	 * When animation type changes, auto-set direction.
@@ -88,33 +94,31 @@ export default function ScrollInteractiveControls( {
 	return (
 		<div className="mb-sub-panel">
 			<div className="mb-sub-panel-header">
-				<Icon icon={ symbol } size={ 24 } />
-				<div className="mb-sub-panel-info">
-					<div className="mb-sub-panel-title-row">
-						<h2 className="mb-sub-panel-title">
-							{ __( 'Interactive scroll', 'motion-blocks' ) }
-						</h2>
-						<AnimationOptionsMenu
-							attributes={ attributes }
-							onPaste={ onPaste }
-							onReset={ onReset }
-							onRemove={ onRemove }
-						/>
-					</div>
-					<p className="mb-help-text">
-						{ __(
-							'Animation timeline is tied to scrolling up and down.',
-							'motion-blocks'
-						) }
-					</p>
+				<div className="mb-sub-panel-title-row">
+					<Icon icon={ drawerRight } size={ 24 } />
+					<span className="mb-sub-panel-title">
+						{ __( 'Interactive scroll', 'motion-blocks' ) }
+					</span>
+					<AnimationOptionsMenu
+						attributes={ attributes }
+						onPaste={ onPaste }
+						onReset={ onReset }
+						onRemove={ onRemove }
+					/>
 				</div>
+				<p className="mb-help-text">
+					{ __(
+						'Animation is tied to scroll position. Adjust the offsets to control the start (bottom of screen) and the end (top of the screen).',
+						'motion-blocks'
+					) }
+				</p>
 			</div>
 
 			<div className="mb-select-row">
 				<SelectControl
 					label={ __( 'Animation', 'motion-blocks' ) }
 					value={ animationType }
-					options={ ANIMATION_TYPE_OPTIONS }
+					options={ typeOptions }
 					onChange={ handleTypeChange }
 					size="__unstable-large"
 					__nextHasNoMarginBottom
@@ -138,17 +142,80 @@ export default function ScrollInteractiveControls( {
 				/>
 			</div>
 
-			{ hasDirection && (
-				<SelectControl
+			{ animationType === 'scale' && (
+				<>
+					<ToggleControl
+						label={ __( 'Scale with direction', 'motion-blocks' ) }
+						checked={ animationDirection !== 'none' && animationDirection !== '' }
+						onChange={ ( checked ) =>
+							setAttributes( {
+								animationDirection: checked ? 'btt' : 'none',
+							} )
+						}
+						__nextHasNoMarginBottom
+					/>
+					{ animationDirection !== 'none' && animationDirection !== '' && (
+						<ToggleGroupControl
+							label={ __( 'Direction', 'motion-blocks' ) }
+							value={ animationDirection }
+							onChange={ ( value ) =>
+								setAttributes( { animationDirection: value } )
+							}
+							isBlock
+							__nextHasNoMarginBottom
+						>
+							{ directionOptions.map( ( opt ) => (
+								<ToggleGroupControlOptionIcon
+									key={ opt.value }
+									value={ opt.value }
+									icon={ DIRECTION_ICON_MAP[ opt.value ] }
+									label={ opt.label }
+								/>
+							) ) }
+						</ToggleGroupControl>
+					) }
+				</>
+			) }
+
+			{ hasDirection && animationType === 'curtain' && (
+				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
-					options={ directionOptions }
 					onChange={ ( value ) =>
 						setAttributes( { animationDirection: value } )
 					}
-					size="__unstable-large"
+					isBlock
 					__nextHasNoMarginBottom
-				/>
+				>
+					{ directionOptions.map( ( opt ) => (
+						<ToggleGroupControlOption
+							key={ opt.value }
+							value={ opt.value }
+							label={ opt.label }
+						/>
+					) ) }
+				</ToggleGroupControl>
+			) }
+
+			{ hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+				<ToggleGroupControl
+					label={ __( 'Direction', 'motion-blocks' ) }
+					value={ animationDirection }
+					onChange={ ( value ) =>
+						setAttributes( { animationDirection: value } )
+					}
+					isBlock
+					__nextHasNoMarginBottom
+				>
+					{ directionOptions.map( ( opt ) => (
+						<ToggleGroupControlOptionIcon
+							key={ opt.value }
+							value={ opt.value }
+							icon={ DIRECTION_ICON_MAP[ opt.value ] }
+							label={ opt.label }
+						/>
+					) ) }
+				</ToggleGroupControl>
 			) }
 
 			{ animationType === 'blur' && (
@@ -167,6 +234,36 @@ export default function ScrollInteractiveControls( {
 				/>
 			) }
 
+			<RangeControl
+				label={ __( 'Animation Start Offset', 'motion-blocks' ) }
+				value={ startOffset }
+				onChange={ ( value ) =>
+					setAttributes( {
+						animationRangeStart: `entry ${ value }%`,
+					} )
+				}
+				min={ 0 }
+				max={ 100 }
+				renderTooltipContent={ ( value ) => `${ value }%` }
+				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+			/>
+
+			<RangeControl
+				label={ __( 'Animation End Offset', 'motion-blocks' ) }
+				value={ endOffset }
+				onChange={ ( value ) =>
+					setAttributes( {
+						animationRangeEnd: `exit ${ value }%`,
+					} )
+				}
+				min={ 0 }
+				max={ 100 }
+				renderTooltipContent={ ( value ) => `${ value }%` }
+				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+			/>
+
 			<SelectControl
 				label={ __( 'Acceleration', 'motion-blocks' ) }
 				value={ animationAcceleration }
@@ -177,88 +274,6 @@ export default function ScrollInteractiveControls( {
 				size="__unstable-large"
 				__nextHasNoMarginBottom
 			/>
-
-			<div className="mb-range-control">
-				<Flex align="flex-end" gap={ 2 }>
-					<FlexBlock>
-						<SelectControl
-							label={ __( 'Start Range', 'motion-blocks' ) }
-							value={ rangeStart.type }
-							options={ RANGE_TYPE_OPTIONS }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationRangeStart: buildRange(
-										value,
-										rangeStart.percent
-									),
-								} )
-							}
-							size="__unstable-large"
-							__nextHasNoMarginBottom
-						/>
-					</FlexBlock>
-					<FlexItem>
-						<NumberControl
-							value={ rangeStart.percent }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationRangeStart: buildRange(
-										rangeStart.type,
-										parseInt( value, 10 ) || 0
-									),
-								} )
-							}
-							min={ 0 }
-							max={ 100 }
-							suffix="%"
-							hideHTMLArrows
-							__next40pxDefaultSize
-							__nextHasNoMarginBottom
-						/>
-					</FlexItem>
-				</Flex>
-			</div>
-
-			<div className="mb-range-control">
-				<Flex align="flex-end" gap={ 2 }>
-					<FlexBlock>
-						<SelectControl
-							label={ __( 'End Range', 'motion-blocks' ) }
-							value={ rangeEnd.type }
-							options={ RANGE_TYPE_OPTIONS }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationRangeEnd: buildRange(
-										value,
-										rangeEnd.percent
-									),
-								} )
-							}
-							size="__unstable-large"
-							__nextHasNoMarginBottom
-						/>
-					</FlexBlock>
-					<FlexItem>
-						<NumberControl
-							value={ rangeEnd.percent }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationRangeEnd: buildRange(
-										rangeEnd.type,
-										parseInt( value, 10 ) || 0
-									),
-								} )
-							}
-							min={ 0 }
-							max={ 100 }
-							suffix="%"
-							hideHTMLArrows
-							__next40pxDefaultSize
-							__nextHasNoMarginBottom
-						/>
-					</FlexItem>
-				</Flex>
-			</div>
 
 			<Button
 				variant="secondary"

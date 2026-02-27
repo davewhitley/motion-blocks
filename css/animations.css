@@ -70,6 +70,14 @@
  * animation-timeline, animation-range-start, animation-range-end
  * are set per-element by frontend.js.
  * -------------------------------------------------------------- */
+/* DEBUG: Scroll-progress border — green = animating, red = complete.
+   Remove this block and the mbDebugScroll keyframe when done testing. */
+@keyframes mbDebugScroll {
+    0%    { outline: 3px solid lime; outline-offset: -3px; }
+    99.9% { outline: 3px solid lime; outline-offset: -3px; }
+    100%  { outline: 3px solid red;  outline-offset: -3px; }
+}
+
 .mb-mode-scroll-interactive {
     animation-duration: 1ms;
     animation-timing-function: var(--mb-timing);

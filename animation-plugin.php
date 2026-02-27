@@ -215,8 +215,8 @@ function motion_blocks_render_block( $block_content, $block ) {
 
     // Scroll-interactive: range + direction.
     if ( $mode === 'scroll-interactive' ) {
-        $processor->set_attribute( 'data-mb-range-start', $attrs['animationRangeStart'] ?? 'cover 0%' );
-        $processor->set_attribute( 'data-mb-range-end', $attrs['animationRangeEnd'] ?? 'cover 100%' );
+        $processor->set_attribute( 'data-mb-range-start', $attrs['animationRangeStart'] ?? 'entry 0%' );
+        $processor->set_attribute( 'data-mb-range-end', $attrs['animationRangeEnd'] ?? 'exit 100%' );
 
         $direction = $attrs['animationDirection'] ?? '';
         if ( $direction ) {

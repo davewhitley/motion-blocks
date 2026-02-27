@@ -6,11 +6,20 @@ import {
 	SelectControl,
 	RangeControl,
 	ToggleControl,
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
+	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
 	Button,
 	Icon,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { symbol } from '@wordpress/icons';
+import {
+	desktop,
+	arrowUp,
+	arrowDown,
+	arrowLeft,
+	arrowRight,
+} from '@wordpress/icons';
 import { SVG, Path } from '@wordpress/primitives';
 
 import {
@@ -38,9 +47,17 @@ const stopIcon = (
 	</SVG>
 );
 
+const DIRECTION_ICON_MAP = {
+	btt: arrowUp,
+	ttb: arrowDown,
+	ltr: arrowRight,
+	rtl: arrowLeft,
+};
+
 export default function PageLoadControls( {
 	attributes,
 	setAttributes,
+	blockName,
 	onRemove,
 	onPreview,
 	onStopPreview,
@@ -58,6 +75,8 @@ export default function PageLoadControls( {
 		animationRepeat,
 		animationPauseOffscreen,
 	} = attributes;
+
+	const typeOptions = ANIMATION_TYPE_OPTIONS;
 
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
@@ -79,33 +98,31 @@ export default function PageLoadControls( {
 	return (
 		<div className="mb-sub-panel">
 			<div className="mb-sub-panel-header">
-				<Icon icon={ symbol } size={ 24 } />
-				<div className="mb-sub-panel-info">
-					<div className="mb-sub-panel-title-row">
-						<h2 className="mb-sub-panel-title">
-							{ __( 'On page load', 'motion-blocks' ) }
-						</h2>
-						<AnimationOptionsMenu
-							attributes={ attributes }
-							onPaste={ onPaste }
-							onReset={ onReset }
-							onRemove={ onRemove }
-						/>
-					</div>
-					<p className="mb-help-text">
-						{ __(
-							'The animation plays when the page is loaded.',
-							'motion-blocks'
-						) }
-					</p>
+				<div className="mb-sub-panel-title-row">
+					<Icon icon={ desktop } size={ 24 } />
+					<span className="mb-sub-panel-title">
+						{ __( 'On page load', 'motion-blocks' ) }
+					</span>
+					<AnimationOptionsMenu
+						attributes={ attributes }
+						onPaste={ onPaste }
+						onReset={ onReset }
+						onRemove={ onRemove }
+					/>
 				</div>
+				<p className="mb-help-text">
+					{ __(
+						'Animate when the page first loads. Great for hero sections and above-the-fold content.',
+						'motion-blocks'
+					) }
+				</p>
 			</div>
 
 			<div className="mb-select-row">
 				<SelectControl
 					label={ __( 'Animation', 'motion-blocks' ) }
 					value={ animationType }
-					options={ ANIMATION_TYPE_OPTIONS }
+					options={ typeOptions }
 					onChange={ handleTypeChange }
 					size="__unstable-large"
 					__nextHasNoMarginBottom
@@ -125,17 +142,80 @@ export default function PageLoadControls( {
 				/>
 			</div>
 
-			{ hasDirection && (
-				<SelectControl
+			{ animationType === 'scale' && (
+				<>
+					<ToggleControl
+						label={ __( 'Scale with direction', 'motion-blocks' ) }
+						checked={ animationDirection !== 'none' && animationDirection !== '' }
+						onChange={ ( checked ) =>
+							setAttributes( {
+								animationDirection: checked ? 'btt' : 'none',
+							} )
+						}
+						__nextHasNoMarginBottom
+					/>
+					{ animationDirection !== 'none' && animationDirection !== '' && (
+						<ToggleGroupControl
+							label={ __( 'Direction', 'motion-blocks' ) }
+							value={ animationDirection }
+							onChange={ ( value ) =>
+								setAttributes( { animationDirection: value } )
+							}
+							isBlock
+							__nextHasNoMarginBottom
+						>
+							{ directionOptions.map( ( opt ) => (
+								<ToggleGroupControlOptionIcon
+									key={ opt.value }
+									value={ opt.value }
+									icon={ DIRECTION_ICON_MAP[ opt.value ] }
+									label={ opt.label }
+								/>
+							) ) }
+						</ToggleGroupControl>
+					) }
+				</>
+			) }
+
+			{ hasDirection && animationType === 'curtain' && (
+				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
-					options={ directionOptions }
 					onChange={ ( value ) =>
 						setAttributes( { animationDirection: value } )
 					}
-					size="__unstable-large"
+					isBlock
 					__nextHasNoMarginBottom
-				/>
+				>
+					{ directionOptions.map( ( opt ) => (
+						<ToggleGroupControlOption
+							key={ opt.value }
+							value={ opt.value }
+							label={ opt.label }
+						/>
+					) ) }
+				</ToggleGroupControl>
+			) }
+
+			{ hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+				<ToggleGroupControl
+					label={ __( 'Direction', 'motion-blocks' ) }
+					value={ animationDirection }
+					onChange={ ( value ) =>
+						setAttributes( { animationDirection: value } )
+					}
+					isBlock
+					__nextHasNoMarginBottom
+				>
+					{ directionOptions.map( ( opt ) => (
+						<ToggleGroupControlOptionIcon
+							key={ opt.value }
+							value={ opt.value }
+							icon={ DIRECTION_ICON_MAP[ opt.value ] }
+							label={ opt.label }
+						/>
+					) ) }
+				</ToggleGroupControl>
 			) }
 
 			{ animationType === 'blur' && (

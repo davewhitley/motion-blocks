@@ -11,6 +11,7 @@ import {
 	SelectControl,
 	RangeControl,
 	ToggleControl,
+	TextControl,
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
@@ -33,7 +34,6 @@ import {
 	TYPES_WITH_DIRECTION,
 	TYPES_WITH_EXIT,
 	DEFAULT_DIRECTION,
-	SCROLL_TRIGGER_OPTIONS,
 	EXIT_MODE_OPTIONS,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
@@ -83,6 +83,7 @@ export default function ScrollAppearControls( {
 		animationExitDirection,
 		animationAcceleration,
 		animationBlurAmount,
+		animationRotateAngle,
 		animationExitDuration,
 		animationExitDelay,
 		animationExitAcceleration,
@@ -177,14 +178,26 @@ export default function ScrollAppearControls( {
 			</div>
 
 			{ /* Trigger selector */ }
-			<SelectControl
+			<ToggleGroupControl
 				label={ __( 'Trigger', 'motion-blocks' ) }
 				value={ trigger }
-				options={ SCROLL_TRIGGER_OPTIONS }
 				onChange={ handleTriggerChange }
-				size="__unstable-large"
+				isBlock
 				__nextHasNoMarginBottom
-			/>
+			>
+				<ToggleGroupControlOption
+					value="enter"
+					label={ __( 'Enter', 'motion-blocks' ) }
+				/>
+				<ToggleGroupControlOption
+					value="exit"
+					label={ __( 'Exit', 'motion-blocks' ) }
+				/>
+				<ToggleGroupControlOption
+					value="both"
+					label={ __( 'Both', 'motion-blocks' ) }
+				/>
+			</ToggleGroupControl>
 
 			{ /* ---- Enter animation config ---- */ }
 			{ showEnterConfig && (
@@ -319,6 +332,27 @@ export default function ScrollAppearControls( {
 							}
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
+						/>
+					) }
+
+					{ animationType === 'rotate' && (
+						<TextControl
+							label={ __(
+								'Angle',
+								'motion-blocks'
+							) }
+							type="number"
+							value={ String(
+								animationRotateAngle ?? 90
+							) }
+							onChange={ ( value ) =>
+								setAttributes( {
+									animationRotateAngle:
+										parseInt( value, 10 ) || 0,
+								} )
+							}
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
 						/>
 					) }
 
@@ -509,6 +543,27 @@ export default function ScrollAppearControls( {
 						/>
 					) }
 
+					{ trigger === 'exit' && animationType === 'rotate' && (
+						<TextControl
+							label={ __(
+								'Angle',
+								'motion-blocks'
+							) }
+							type="number"
+							value={ String(
+								animationRotateAngle ?? 90
+							) }
+							onChange={ ( value ) =>
+								setAttributes( {
+									animationRotateAngle:
+										parseInt( value, 10 ) || 0,
+								} )
+							}
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
+					) }
+
 					{ trigger === 'exit' && (
 						<>
 							<RangeControl
@@ -669,6 +724,28 @@ export default function ScrollAppearControls( {
 										/>
 									) ) }
 								</ToggleGroupControl>
+							) }
+
+							{ exitType === 'rotate' && (
+								<TextControl
+									label={ __(
+										'Angle',
+										'motion-blocks'
+									) }
+									type="number"
+									value={ String(
+										animationRotateAngle ?? 90
+									) }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationRotateAngle:
+												parseInt( value, 10 ) ||
+												0,
+										} )
+									}
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
 							) }
 
 							<RangeControl

@@ -64,6 +64,7 @@
 		flip: 'mbFadeOut',
 		scale: 'mbScaleOut',
 		blur: 'mbBlurOut',
+		rotate: 'mbRotateOut',
 	};
 
 	/* Exit class map — derives from enter type */
@@ -75,6 +76,7 @@
 		flip: 'mb-exit-fade',
 		scale: 'mb-exit-scale',
 		blur: 'mb-exit-blur',
+		rotate: 'mb-exit-rotate',
 	};
 
 	/* ---------------------------------------------------------------
@@ -130,6 +132,16 @@
 	}
 
 	/**
+	 * Apply rotate angle CSS custom property from data attribute.
+	 */
+	function applyRotateProps( el ) {
+		var rotateAngle = el.dataset.mbRotateAngle;
+		if ( rotateAngle ) {
+			el.style.setProperty( '--mb-rotate-angle', rotateAngle + 'deg' );
+		}
+	}
+
+	/**
 	 * Apply direction CSS custom properties for a given type + direction.
 	 */
 	function applyDirectionProps( el, type, direction ) {
@@ -164,6 +176,7 @@
 				el.dataset.mbDirection
 			);
 			applyBlurProps( el );
+			applyRotateProps( el );
 
 			// Handle repeat mode.
 			var repeat = el.dataset.mbRepeat || 'once';
@@ -255,6 +268,7 @@
 
 			// Apply blur amount (used by blur keyframe).
 			applyBlurProps( el );
+			applyRotateProps( el );
 
 			var observer = new IntersectionObserver(
 				function ( entries ) {
@@ -389,6 +403,7 @@
 				el.dataset.mbDirection
 			);
 			applyBlurProps( el );
+			applyRotateProps( el );
 
 			// Apply acceleration (timing function).
 			var acceleration = el.dataset.mbAcceleration;

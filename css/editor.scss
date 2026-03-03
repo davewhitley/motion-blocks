@@ -167,6 +167,7 @@
 @keyframes mbFlipIn { from { opacity: 0; transform: perspective(800px) var(--mb-flip-transform, rotateY(90deg)); } to { opacity: 1; transform: perspective(800px) rotateY(0deg) rotateX(0deg); } }
 @keyframes mbScaleIn { from { opacity: 0; transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0)); } to { opacity: 1; transform: scale(1) translate(0, 0); } }
 @keyframes mbBlurIn { from { opacity: 0; filter: blur(var(--mb-blur-amount, 8px)); } to { opacity: 1; filter: blur(0px); } }
+@keyframes mbRotateIn { from { opacity: 0; transform: rotate(var(--mb-rotate-angle, 90deg)); } to { opacity: 1; transform: rotate(0deg); } }
 
 // Exit
 @keyframes mbFadeOut { from { opacity: 1; } to { opacity: 0; } }
@@ -175,6 +176,7 @@
 @keyframes mbCurtainClose { from { clip-path: inset(0 0 0 0); } to { clip-path: var(--mb-curtain-from, inset(0 50% 0 50%)); } }
 @keyframes mbScaleOut { from { opacity: 1; transform: scale(1) translate(0, 0); } to { opacity: 0; transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0)); } }
 @keyframes mbBlurOut { from { opacity: 1; filter: blur(0px); } to { opacity: 0; filter: blur(var(--mb-blur-amount, 8px)); } }
+@keyframes mbRotateOut { from { opacity: 1; transform: rotate(0deg); } to { opacity: 0; transform: rotate(var(--mb-rotate-angle, 90deg)); } }
 
 // Connect animation classes to keyframes for editor preview.
 // CSS custom properties come from inline styles set by the
@@ -199,6 +201,7 @@
 	}
 	&.mb-animate-enter-scale { animation-name: mbScaleIn; }
 	&.mb-animate-enter-blur { animation-name: mbBlurIn; }
+	&.mb-animate-enter-rotate { animation-name: mbRotateIn; }
 
 	// Exit animations
 	&.mb-animate-exit-fade { animation-name: mbFadeOut; }
@@ -207,6 +210,7 @@
 	&.mb-animate-exit-curtain { animation-name: mbCurtainClose; }
 	&.mb-animate-exit-scale { animation-name: mbScaleOut; }
 	&.mb-animate-exit-blur { animation-name: mbBlurOut; }
+	&.mb-animate-exit-rotate { animation-name: mbRotateOut; }
 
 }
 

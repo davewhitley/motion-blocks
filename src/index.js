@@ -123,6 +123,10 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: 8,
 			},
+			animationRotateAngle: {
+				type: 'number',
+				default: 90,
+			},
 			animationRangeStart: {
 				type: 'string',
 				default: 'entry 0%',
@@ -198,6 +202,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationDelay,
 				animationAcceleration,
 				animationBlurAmount,
+				animationRotateAngle,
 				animationRepeat,
 				animationRangeStart,
 				animationRangeEnd,
@@ -236,6 +241,10 @@ const withAnimationPreview = createHigherOrderComponent(
 				if ( animationType === 'blur' ) {
 					scrollInteractiveStyles[ '--mb-blur-amount' ] =
 						( animationBlurAmount ?? 8 ) + 'px';
+				}
+				if ( animationType === 'rotate' ) {
+					scrollInteractiveStyles[ '--mb-rotate-angle' ] =
+						( animationRotateAngle ?? 90 ) + 'deg';
 				}
 				const newWrapperProps = {
 					...wrapperProps,
@@ -299,6 +308,10 @@ const withAnimationPreview = createHigherOrderComponent(
 			if ( animationType === 'blur' ) {
 				previewStyles[ '--mb-blur-amount' ] =
 					( animationBlurAmount ?? 8 ) + 'px';
+			}
+			if ( animationType === 'rotate' ) {
+				previewStyles[ '--mb-rotate-angle' ] =
+					( animationRotateAngle ?? 90 ) + 'deg';
 			}
 			const newWrapperProps = {
 				...wrapperProps,
@@ -368,6 +381,16 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 			DEFAULT_ATTRIBUTES.animationBlurAmount;
 		if ( blurAmount !== DEFAULT_ATTRIBUTES.animationBlurAmount ) {
 			dataAttrs[ 'data-mb-blur-amount' ] = String( blurAmount );
+		}
+	}
+
+	// Rotate angle (only when type is rotate and value differs from default).
+	if ( animationType === 'rotate' ) {
+		const rotateAngle =
+			attributes.animationRotateAngle ??
+			DEFAULT_ATTRIBUTES.animationRotateAngle;
+		if ( rotateAngle !== DEFAULT_ATTRIBUTES.animationRotateAngle ) {
+			dataAttrs[ 'data-mb-rotate-angle' ] = String( rotateAngle );
 		}
 	}
 

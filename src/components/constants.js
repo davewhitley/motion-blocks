@@ -9,6 +9,7 @@ export const ANIMATION_TYPE_OPTIONS = [
 	{ label: 'Flip', value: 'flip' },
 	{ label: 'Scale', value: 'scale' },
 	{ label: 'Blur', value: 'blur' },
+	{ label: 'Rotate', value: 'rotate' },
 ];
 
 /**
@@ -54,7 +55,7 @@ export const TYPES_WITH_DIRECTION = [ 'slide', 'wipe', 'curtain', 'flip', 'scale
  * Types that have exit animation variants.
  * Flip is entrance-only.
  */
-export const TYPES_WITH_EXIT = [ 'fade', 'slide', 'wipe', 'curtain', 'scale', 'blur' ];
+export const TYPES_WITH_EXIT = [ 'fade', 'slide', 'wipe', 'curtain', 'scale', 'blur', 'rotate' ];
 
 /**
  * Default direction when a directional type is first selected.
@@ -114,6 +115,7 @@ export const ENTER_KEYFRAME_MAP = {
 	flip: 'mbFlipIn',
 	scale: 'mbScaleIn',
 	blur: 'mbBlurIn',
+	rotate: 'mbRotateIn',
 };
 
 /**
@@ -128,6 +130,7 @@ export const EXIT_KEYFRAME_MAP = {
 	flip: 'mbFadeOut',
 	scale: 'mbScaleOut',
 	blur: 'mbBlurOut',
+	rotate: 'mbRotateOut',
 };
 
 /**
@@ -206,6 +209,7 @@ export const DEFAULT_ATTRIBUTES = {
 	animationExitDelay: 0,
 	animationExitAcceleration: 'ease',
 	animationBlurAmount: 8,
+	animationRotateAngle: 90,
 	animationRangeStart: 'entry 0%',
 	animationRangeEnd: 'exit 100%',
 };

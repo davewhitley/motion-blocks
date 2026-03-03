@@ -6,6 +6,7 @@ import {
 	SelectControl,
 	RangeControl,
 	ToggleControl,
+	TextControl,
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
@@ -72,6 +73,7 @@ export default function PageLoadControls( {
 		animationDelay,
 		animationAcceleration,
 		animationBlurAmount,
+		animationRotateAngle,
 		animationRepeat,
 		animationPauseOffscreen,
 	} = attributes;
@@ -231,6 +233,22 @@ export default function PageLoadControls( {
 					renderTooltipContent={ ( value ) => `${ value }px` }
 					__next40pxDefaultSize
 					__nextHasNoMarginBottom
+				/>
+			) }
+
+			{ animationType === 'rotate' && (
+				<TextControl
+					label={ __( 'Angle', 'motion-blocks' ) }
+					type="number"
+					value={ String( animationRotateAngle ?? 90 ) }
+					onChange={ ( value ) =>
+						setAttributes( {
+							animationRotateAngle:
+								parseInt( value, 10 ) || 0,
+						} )
+					}
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
 				/>
 			) }
 

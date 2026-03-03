@@ -194,6 +194,23 @@
     }
 }
 
+/* Rotate In — angle via --mb-rotate-angle */
+.mb-enter-rotate.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-rotate {
+    animation-name: mbRotateIn;
+}
+
+@keyframes mbRotateIn {
+    from {
+        opacity: 0;
+        transform: rotate(var(--mb-rotate-angle, 90deg));
+    }
+    to {
+        opacity: 1;
+        transform: rotate(0deg);
+    }
+}
+
 /* ----------------------------------------------------------------
  * Exit Keyframes & Class Bindings
  * -------------------------------------------------------------- */
@@ -273,6 +290,22 @@
     to {
         opacity: 0;
         filter: blur(var(--mb-blur-amount, 8px));
+    }
+}
+
+/* Rotate Out — angle via --mb-rotate-angle */
+.mb-exit-rotate.mb-exit-triggered {
+    animation-name: mbRotateOut;
+}
+
+@keyframes mbRotateOut {
+    from {
+        opacity: 1;
+        transform: rotate(0deg);
+    }
+    to {
+        opacity: 0;
+        transform: rotate(var(--mb-rotate-angle, 90deg));
     }
 }
 

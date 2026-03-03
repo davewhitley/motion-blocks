@@ -169,6 +169,14 @@ function motion_blocks_render_block( $block_content, $block ) {
         }
     }
 
+    // Rotate angle.
+    if ( $type === 'rotate' ) {
+        $rotate_angle = $attrs['animationRotateAngle'] ?? 90;
+        if ( (int) $rotate_angle !== 90 ) {
+            $processor->set_attribute( 'data-mb-rotate-angle', (string) $rotate_angle );
+        }
+    }
+
     // Page-load and scroll-appear: duration + delay.
     if ( $mode === 'page-load' || $mode === 'scroll-appear' ) {
         $processor->set_attribute( 'data-mb-duration', (string) ( $attrs['animationDuration'] ?? 0.6 ) );

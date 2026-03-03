@@ -37,8 +37,6 @@ import {
 	EXIT_MODE_OPTIONS,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
-	DURATION_SETTINGS,
-	DELAY_SETTINGS,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 
@@ -356,33 +354,32 @@ export default function ScrollAppearControls( {
 						/>
 					) }
 
-					<RangeControl
-						label={ __( 'Duration', 'motion-blocks' ) }
-						value={ animationDuration }
-						onChange={ ( value ) =>
-							setAttributes( { animationDuration: value } )
-						}
-						min={ DURATION_SETTINGS.min }
-						max={ DURATION_SETTINGS.max }
-						step={ DURATION_SETTINGS.step }
-						renderTooltipContent={ ( value ) => `${ value }s` }
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
-
-					<RangeControl
-						label={ __( 'Delay', 'motion-blocks' ) }
-						value={ animationDelay }
-						onChange={ ( value ) =>
-							setAttributes( { animationDelay: value } )
-						}
-						min={ DELAY_SETTINGS.min }
-						max={ DELAY_SETTINGS.max }
-						step={ DELAY_SETTINGS.step }
-						renderTooltipContent={ ( value ) => `${ value }s` }
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
+					<div className="mb-timing-row">
+						<TextControl
+							label={ __( 'Duration', 'motion-blocks' ) }
+							type="number"
+							min="0"
+							step="0.1"
+							value={ String( animationDuration ) }
+							onChange={ ( value ) =>
+								setAttributes( { animationDuration: parseFloat( value ) || 0 } )
+							}
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
+						<TextControl
+							label={ __( 'Delay', 'motion-blocks' ) }
+							type="number"
+							min="0"
+							step="0.1"
+							value={ String( animationDelay ) }
+							onChange={ ( value ) =>
+								setAttributes( { animationDelay: parseFloat( value ) || 0 } )
+							}
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
+					</div>
 
 					<SelectControl
 						label={ __( 'Acceleration', 'motion-blocks' ) }
@@ -566,41 +563,36 @@ export default function ScrollAppearControls( {
 
 					{ trigger === 'exit' && (
 						<>
-							<RangeControl
-								label={ __( 'Duration', 'motion-blocks' ) }
-								value={ animationDuration }
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationDuration: value,
-									} )
-								}
-								min={ DURATION_SETTINGS.min }
-								max={ DURATION_SETTINGS.max }
-								step={ DURATION_SETTINGS.step }
-								renderTooltipContent={ ( value ) =>
-									`${ value }s`
-								}
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
-
-							<RangeControl
-								label={ __( 'Delay', 'motion-blocks' ) }
-								value={ animationDelay }
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationDelay: value,
-									} )
-								}
-								min={ DELAY_SETTINGS.min }
-								max={ DELAY_SETTINGS.max }
-								step={ DELAY_SETTINGS.step }
-								renderTooltipContent={ ( value ) =>
-									`${ value }s`
-								}
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
+							<div className="mb-timing-row">
+								<TextControl
+									label={ __( 'Duration', 'motion-blocks' ) }
+									type="number"
+									min="0"
+									step="0.1"
+									value={ String( animationDuration ) }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationDuration: parseFloat( value ) || 0,
+										} )
+									}
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
+								<TextControl
+									label={ __( 'Delay', 'motion-blocks' ) }
+									type="number"
+									min="0"
+									step="0.1"
+									value={ String( animationDelay ) }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationDelay: parseFloat( value ) || 0,
+										} )
+									}
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
+							</div>
 
 							<SelectControl
 								label={ __(
@@ -748,47 +740,42 @@ export default function ScrollAppearControls( {
 								/>
 							) }
 
-							<RangeControl
-								label={ __(
-									'Exit duration',
-									'motion-blocks'
-								) }
-								value={ animationExitDuration }
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationExitDuration: value,
-									} )
-								}
-								min={ DURATION_SETTINGS.min }
-								max={ DURATION_SETTINGS.max }
-								step={ DURATION_SETTINGS.step }
-								renderTooltipContent={ ( value ) =>
-									`${ value }s`
-								}
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
-
-							<RangeControl
-								label={ __(
-									'Exit delay',
-									'motion-blocks'
-								) }
-								value={ animationExitDelay }
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationExitDelay: value,
-									} )
-								}
-								min={ DELAY_SETTINGS.min }
-								max={ DELAY_SETTINGS.max }
-								step={ DELAY_SETTINGS.step }
-								renderTooltipContent={ ( value ) =>
-									`${ value }s`
-								}
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
+							<div className="mb-timing-row">
+								<TextControl
+									label={ __(
+										'Exit duration',
+										'motion-blocks'
+									) }
+									type="number"
+									min="0"
+									step="0.1"
+									value={ String( animationExitDuration ) }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationExitDuration: parseFloat( value ) || 0,
+										} )
+									}
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
+								<TextControl
+									label={ __(
+										'Exit delay',
+										'motion-blocks'
+									) }
+									type="number"
+									min="0"
+									step="0.1"
+									value={ String( animationExitDelay ) }
+									onChange={ ( value ) =>
+										setAttributes( {
+											animationExitDelay: parseFloat( value ) || 0,
+										} )
+									}
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
+							</div>
 
 							<SelectControl
 								label={ __(

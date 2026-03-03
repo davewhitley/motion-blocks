@@ -253,7 +253,7 @@ export default function ScrollInteractiveControls( {
 			) }
 
 			<RangeControl
-				label={ __( 'Animation Start Offset', 'motion-blocks' ) }
+				label={ __( 'Start Offset', 'motion-blocks' ) }
 				value={ startOffset }
 				onChange={ ( value ) =>
 					setAttributes( {
@@ -262,13 +262,14 @@ export default function ScrollInteractiveControls( {
 				}
 				min={ 0 }
 				max={ 100 }
+				beforeIcon={ arrowDown }
 				renderTooltipContent={ ( value ) => `${ value }%` }
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
 
 			<RangeControl
-				label={ __( 'Animation End Offset', 'motion-blocks' ) }
+				label={ __( 'End Offset', 'motion-blocks' ) }
 				value={ endOffset }
 				onChange={ ( value ) =>
 					setAttributes( {
@@ -277,6 +278,7 @@ export default function ScrollInteractiveControls( {
 				}
 				min={ 0 }
 				max={ 100 }
+				beforeIcon={ arrowUp }
 				renderTooltipContent={ ( value ) => `${ value }%` }
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom

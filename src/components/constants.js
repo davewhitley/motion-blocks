@@ -74,10 +74,10 @@ export const DEFAULT_DIRECTION = {
  */
 export const DIRECTION_CSS_VARS = {
 	slide: {
-		ltr: { '--mb-slide-x': '-30px', '--mb-slide-y': '0' },
-		rtl: { '--mb-slide-x': '30px', '--mb-slide-y': '0' },
-		ttb: { '--mb-slide-x': '0', '--mb-slide-y': '-30px' },
-		btt: { '--mb-slide-x': '0', '--mb-slide-y': '30px' },
+		ltr: { '--mb-slide-x': '-50px', '--mb-slide-y': '0' },
+		rtl: { '--mb-slide-x': '50px', '--mb-slide-y': '0' },
+		ttb: { '--mb-slide-x': '0', '--mb-slide-y': '-50px' },
+		btt: { '--mb-slide-x': '0', '--mb-slide-y': '50px' },
 	},
 	wipe: {
 		ltr: { '--mb-wipe-from': 'inset(0 100% 0 0)' },
@@ -97,10 +97,10 @@ export const DIRECTION_CSS_VARS = {
 	},
 	scale: {
 		none: { '--mb-scale-x': '0', '--mb-scale-y': '0' },
-		btt: { '--mb-scale-x': '0', '--mb-scale-y': '30px' },
-		ttb: { '--mb-scale-x': '0', '--mb-scale-y': '-30px' },
-		ltr: { '--mb-scale-x': '-30px', '--mb-scale-y': '0' },
-		rtl: { '--mb-scale-x': '30px', '--mb-scale-y': '0' },
+		btt: { '--mb-scale-x': '0', '--mb-scale-y': '50px' },
+		ttb: { '--mb-scale-x': '0', '--mb-scale-y': '-50px' },
+		ltr: { '--mb-scale-x': '-50px', '--mb-scale-y': '0' },
+		rtl: { '--mb-scale-x': '50px', '--mb-scale-y': '0' },
 	},
 };
 
@@ -174,18 +174,6 @@ export const BLUR_SETTINGS = {
 	min: 1,
 	max: 20,
 	step: 1,
-};
-
-export const DURATION_SETTINGS = {
-	min: 0.1,
-	max: 2,
-	step: 0.1,
-};
-
-export const DELAY_SETTINGS = {
-	min: 0,
-	max: 4,
-	step: 0.1,
 };
 
 /**

@@ -108,7 +108,7 @@
 @keyframes mbSlideIn {
     from {
         opacity: 0;
-        transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 30px));
+        transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 50px));
     }
     to {
         opacity: 1;
@@ -237,7 +237,7 @@
     }
     to {
         opacity: 0;
-        transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 30px));
+        transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 50px));
     }
 }
 

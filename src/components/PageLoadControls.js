@@ -31,8 +31,6 @@ import {
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
 	REPEAT_OPTIONS,
-	DURATION_SETTINGS,
-	DELAY_SETTINGS,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 
@@ -252,33 +250,32 @@ export default function PageLoadControls( {
 				/>
 			) }
 
-			<RangeControl
-				label={ __( 'Duration', 'motion-blocks' ) }
-				value={ animationDuration }
-				onChange={ ( value ) =>
-					setAttributes( { animationDuration: value } )
-				}
-				min={ DURATION_SETTINGS.min }
-				max={ DURATION_SETTINGS.max }
-				step={ DURATION_SETTINGS.step }
-				renderTooltipContent={ ( value ) => `${ value }s` }
-				__next40pxDefaultSize
-				__nextHasNoMarginBottom
-			/>
-
-			<RangeControl
-				label={ __( 'Delay', 'motion-blocks' ) }
-				value={ animationDelay }
-				onChange={ ( value ) =>
-					setAttributes( { animationDelay: value } )
-				}
-				min={ DELAY_SETTINGS.min }
-				max={ DELAY_SETTINGS.max }
-				step={ DELAY_SETTINGS.step }
-				renderTooltipContent={ ( value ) => `${ value }s` }
-				__next40pxDefaultSize
-				__nextHasNoMarginBottom
-			/>
+			<div className="mb-timing-row">
+				<TextControl
+					label={ __( 'Duration', 'motion-blocks' ) }
+					type="number"
+					min="0"
+					step="0.1"
+					value={ String( animationDuration ) }
+					onChange={ ( value ) =>
+						setAttributes( { animationDuration: parseFloat( value ) || 0 } )
+					}
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+				/>
+				<TextControl
+					label={ __( 'Delay', 'motion-blocks' ) }
+					type="number"
+					min="0"
+					step="0.1"
+					value={ String( animationDelay ) }
+					onChange={ ( value ) =>
+						setAttributes( { animationDelay: parseFloat( value ) || 0 } )
+					}
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+				/>
+			</div>
 
 			<SelectControl
 				label={ __( 'Acceleration', 'motion-blocks' ) }

@@ -210,6 +210,10 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationPreviewPlaying,
 			} = attributes;
 
+			// Computed values — updated by the matching branch below.
+			let computedWrapperProps = wrapperProps;
+			let computedClassName = props.className;
+
 			// Scroll-interactive: persistent scroll-driven animation.
 			if (
 				animationMode === 'scroll-interactive' &&
@@ -246,83 +250,82 @@ const withAnimationPreview = createHigherOrderComponent(
 					scrollInteractiveStyles[ '--mb-rotate-angle' ] =
 						( animationRotateAngle ?? 90 ) + 'deg';
 				}
-				const newWrapperProps = {
+				computedWrapperProps = {
 					...wrapperProps,
 					style: scrollInteractiveStyles,
 				};
-
-				return (
-					<BlockListBlock
-						{ ...props }
-						wrapperProps={ newWrapperProps }
-					/>
-				);
 			}
 
 			// Page-load / Scroll-appear: class-based preview.
-			const repeat = animationRepeat || 'once';
-			const isLooping = repeat === 'loop' || repeat === 'alternate';
+			else {
+				const repeat = animationRepeat || 'once';
+				const isLooping =
+					repeat === 'loop' || repeat === 'alternate';
 
-			// One-shot: always preview when animation is configured.
-			// Looping: gate on animationPreviewPlaying (user-controlled).
-			const isPageLoadOrScrollAppear =
-				animationMode === 'page-load' ||
-				animationMode === 'scroll-appear';
-			const shouldAnimate =
-				isPageLoadOrScrollAppear && animationType
-					? isLooping
-						? animationPreviewPlaying
-						: true
-					: false;
+				const isPageLoadOrScrollAppear =
+					animationMode === 'page-load' ||
+					animationMode === 'scroll-appear';
+				const shouldAnimate =
+					isPageLoadOrScrollAppear && animationType
+						? isLooping
+							? animationPreviewPlaying
+							: true
+						: false;
 
-			if ( ! shouldAnimate ) {
-				return <BlockListBlock { ...props } />;
+				if ( shouldAnimate ) {
+					computedClassName = [
+						props.className || '',
+						'mb-preview',
+						`mb-animate-enter-${ animationType }`,
+					]
+						.filter( Boolean )
+						.join( ' ' );
+
+					const duration = animationDuration || 0.6;
+					const delay = animationDelay || 0;
+					const dirStyles = getDirectionStyles(
+						animationType,
+						animationDirection
+					);
+
+					const previewStyles = {
+						...( wrapperProps.style || {} ),
+						...dirStyles,
+						'--mb-duration': `${ duration }s`,
+						'--mb-delay': `${ delay }s`,
+						'--mb-timing': animationAcceleration || 'ease',
+						'--mb-iteration-count': isLooping
+							? 'infinite'
+							: '1',
+						'--mb-direction':
+							repeat === 'alternate'
+								? 'alternate'
+								: 'normal',
+						'--mb-fill-mode': isLooping ? 'none' : 'both',
+					};
+					if ( animationType === 'blur' ) {
+						previewStyles[ '--mb-blur-amount' ] =
+							( animationBlurAmount ?? 8 ) + 'px';
+					}
+					if ( animationType === 'rotate' ) {
+						previewStyles[ '--mb-rotate-angle' ] =
+							( animationRotateAngle ?? 90 ) + 'deg';
+					}
+					computedWrapperProps = {
+						...wrapperProps,
+						style: previewStyles,
+					};
+				}
 			}
 
-			const className = [
-				props.className || '',
-				'mb-preview',
-				`mb-animate-enter-${ animationType }`,
-			]
-				.filter( Boolean )
-				.join( ' ' );
-
-			const duration = animationDuration || 0.6;
-			const delay = animationDelay || 0;
-			const dirStyles = getDirectionStyles(
-				animationType,
-				animationDirection
-			);
-
-			const previewStyles = {
-				...( wrapperProps.style || {} ),
-				...dirStyles,
-				'--mb-duration': `${ duration }s`,
-				'--mb-delay': `${ delay }s`,
-				'--mb-timing': animationAcceleration || 'ease',
-				'--mb-iteration-count': isLooping ? 'infinite' : '1',
-				'--mb-direction':
-					repeat === 'alternate' ? 'alternate' : 'normal',
-				'--mb-fill-mode': isLooping ? 'none' : 'both',
-			};
-			if ( animationType === 'blur' ) {
-				previewStyles[ '--mb-blur-amount' ] =
-					( animationBlurAmount ?? 8 ) + 'px';
-			}
-			if ( animationType === 'rotate' ) {
-				previewStyles[ '--mb-rotate-angle' ] =
-					( animationRotateAngle ?? 90 ) + 'deg';
-			}
-			const newWrapperProps = {
-				...wrapperProps,
-				style: previewStyles,
-			};
-
+			// Single return — BlockListBlock is always at the same
+			// position in the React tree, so it never remounts when
+			// switching animation states.
 			return (
 				<BlockListBlock
 					{ ...props }
-					className={ className }
-					wrapperProps={ newWrapperProps }
+					className={ computedClassName }
+					wrapperProps={ computedWrapperProps }
 				/>
 			);
 		};

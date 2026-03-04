@@ -147,7 +147,7 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 					? __( 'Animation', 'motion-blocks' ) + ' ✦'
 					: __( 'Animation', 'motion-blocks' )
 			}
-			initialOpen={ false }
+			initialOpen={ !! animationMode }
 		>
 			{ ! animationMode && (
 				<div className="mb-mode-selector">

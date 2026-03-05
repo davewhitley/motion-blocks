@@ -2,6 +2,8 @@
   "name": "motion-blocks",
   "version": "0.1.0",
   "description": "Add CSS animations to WordPress blocks",
+  "license": "GPL-2.0-or-later",
+  "author": "Dave Whitley",
   "scripts": {
     "build": "wp-scripts build src/index.js src/frontend.js",
     "start": "wp-scripts start src/index.js src/frontend.js"

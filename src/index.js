@@ -232,15 +232,13 @@ const withAnimationPreview = createHigherOrderComponent(
 				const scrollInteractiveStyles = {
 					...( wrapperProps.style || {} ),
 					...dirStyles,
-					// DEBUG: mbDebugScroll adds green/red border.
-					// Remove the second values when done testing.
-					animationName: `${ getEnterKeyframe( animationType ) }, mbDebugScroll`,
-					animationTimeline: 'view(), view()',
-					animationRangeStart: `${ rangeStartVal }, ${ rangeStartVal }`,
-					animationRangeEnd: `${ rangeEndVal }, ${ rangeEndVal }`,
-					animationDuration: '1ms, 1ms',
-					animationTimingFunction: `${ animationAcceleration || 'ease' }, linear`,
-					animationFillMode: 'both, forwards',
+					animationName: getEnterKeyframe( animationType ),
+					animationTimeline: 'view()',
+					animationRangeStart: rangeStartVal,
+					animationRangeEnd: rangeEndVal,
+					animationDuration: '1ms',
+					animationTimingFunction: animationAcceleration || 'ease',
+					animationFillMode: 'both',
 				};
 				if ( animationType === 'blur' ) {
 					scrollInteractiveStyles[ '--mb-blur-amount' ] =
@@ -333,6 +331,8 @@ const withAnimationPreview = createHigherOrderComponent(
 	'withAnimationPreview'
 );
 
+// Priority 190 ensures this HOC runs after other filters that modify
+// wrapperProps (e.g. block supports), so our style/className wins.
 addFilter(
 	'editor.BlockListBlock',
 	'motion-blocks/with-animation-preview',

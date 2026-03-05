@@ -10,7 +10,7 @@ A WordPress plugin that adds CSS animations to any block in the Site Editor.
 
 ## Animation Effects
 
-Fade In, Slide Up, Slide Down, Slide Left, Slide Right, Zoom In.
+Fade, Slide, Wipe, Curtain, Flip, Scale, Blur, Rotate.
 
 ## Features
 
@@ -23,7 +23,7 @@ Fade In, Slide Up, Slide Down, Slide Left, Slide Right, Zoom In.
 
 ## Requirements
 
-- WordPress 6.0+
+- WordPress 6.2+
 - PHP 7.4+
 
 ## Development

@@ -418,16 +418,6 @@
 			el.style.animationRangeStart = rangeStart;
 			el.style.animationRangeEnd = rangeEnd;
 
-			// DEBUG: Add green/red border to visualise scroll progress.
-			// Remove this block when done testing.
-			var existingName = getComputedStyle( el ).animationName || 'none';
-			el.style.animationName = existingName + ', mbDebugScroll';
-			el.style.animationTimeline = 'view(), view()';
-			el.style.animationRangeStart = rangeStart + ', ' + rangeStart;
-			el.style.animationRangeEnd = rangeEnd + ', ' + rangeEnd;
-			el.style.animationDuration = '1ms, 1ms';
-			el.style.animationFillMode = 'both, forwards';
-			el.style.animationTimingFunction = ( acceleration || 'ease' ) + ', linear';
 		} );
 	}
 

@@ -161,13 +161,10 @@
 // Preview keyframes — applied via className on the block element.
 // Direction is parameterized via CSS custom properties set as inline
 // styles by the withAnimationPreview HOC.
-
-// DEBUG: Scroll-progress border — green = animating, red = complete. Remove when done.
-@keyframes mbDebugScroll {
-	0%    { outline: 3px solid lime; outline-offset: -3px; }
-	99.9% { outline: 3px solid lime; outline-offset: -3px; }
-	100%  { outline: 3px solid red;  outline-offset: -3px; }
-}
+//
+// These keyframes intentionally duplicate the ones in animations.css
+// because blocks render inside an iframe in the Site Editor, so the
+// editor needs its own copy of every keyframe.
 
 // Entrance
 @keyframes mbFadeIn { from { opacity: 0; } to { opacity: 1; } }

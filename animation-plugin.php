@@ -5,7 +5,7 @@
  * Version: 0.1.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
- * Author: Your Name
+ * Author: Dave Whitley
  * License: GPL-2.0-or-later
  * Text Domain: motion-blocks
  */
@@ -146,26 +146,26 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     // --- Data attributes ---
-    $processor->set_attribute( 'data-mb-mode', $mode );
-    $processor->set_attribute( 'data-mb-type', $type );
+    $processor->set_attribute( 'data-mb-mode', esc_attr( $mode ) );
+    $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
     // Acceleration.
     $acceleration = $attrs['animationAcceleration'] ?? 'ease';
     if ( $acceleration !== 'ease' ) {
-        $processor->set_attribute( 'data-mb-acceleration', $acceleration );
+        $processor->set_attribute( 'data-mb-acceleration', esc_attr( $acceleration ) );
     }
 
     // Direction.
     $direction = $attrs['animationDirection'] ?? '';
     if ( $direction ) {
-        $processor->set_attribute( 'data-mb-direction', $direction );
+        $processor->set_attribute( 'data-mb-direction', esc_attr( $direction ) );
     }
 
     // Blur amount.
     if ( $type === 'blur' ) {
         $blur_amount = $attrs['animationBlurAmount'] ?? 8;
         if ( (int) $blur_amount !== 8 ) {
-            $processor->set_attribute( 'data-mb-blur-amount', (string) $blur_amount );
+            $processor->set_attribute( 'data-mb-blur-amount', esc_attr( (string) $blur_amount ) );
         }
     }
 
@@ -173,49 +173,49 @@ function motion_blocks_render_block( $block_content, $block ) {
     if ( $type === 'rotate' ) {
         $rotate_angle = $attrs['animationRotateAngle'] ?? 90;
         if ( (int) $rotate_angle !== 90 ) {
-            $processor->set_attribute( 'data-mb-rotate-angle', (string) $rotate_angle );
+            $processor->set_attribute( 'data-mb-rotate-angle', esc_attr( (string) $rotate_angle ) );
         }
     }
 
     // Page-load and scroll-appear: duration + delay.
     if ( $mode === 'page-load' || $mode === 'scroll-appear' ) {
-        $processor->set_attribute( 'data-mb-duration', (string) ( $attrs['animationDuration'] ?? 0.6 ) );
-        $processor->set_attribute( 'data-mb-delay', (string) ( $attrs['animationDelay'] ?? 0.4 ) );
+        $processor->set_attribute( 'data-mb-duration', esc_attr( (string) ( $attrs['animationDuration'] ?? 0.6 ) ) );
+        $processor->set_attribute( 'data-mb-delay', esc_attr( (string) ( $attrs['animationDelay'] ?? 0.4 ) ) );
     }
 
     // Page-load only: repeat + pause-offscreen.
     if ( $mode === 'page-load' ) {
-        $processor->set_attribute( 'data-mb-repeat', $attrs['animationRepeat'] ?? 'once' );
+        $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
         $pause = $attrs['animationPauseOffscreen'] ?? true;
-        $processor->set_attribute( 'data-mb-pause-offscreen', $pause ? 'true' : 'false' );
+        $processor->set_attribute( 'data-mb-pause-offscreen', esc_attr( $pause ? 'true' : 'false' ) );
     }
 
     // Scroll-appear: trigger, play-once, exit config.
     if ( $mode === 'scroll-appear' ) {
         $trigger = $attrs['animationScrollTrigger'] ?? 'enter';
-        $processor->set_attribute( 'data-mb-scroll-trigger', $trigger );
+        $processor->set_attribute( 'data-mb-scroll-trigger', esc_attr( $trigger ) );
         $play_once = $attrs['animationPlayOnce'] ?? true;
-        $processor->set_attribute( 'data-mb-play-once', $play_once ? 'true' : 'false' );
+        $processor->set_attribute( 'data-mb-play-once', esc_attr( $play_once ? 'true' : 'false' ) );
 
         if ( $trigger === 'exit' || $trigger === 'both' ) {
             $exit_mode = $attrs['animationExitMode'] ?? 'mirror';
-            $processor->set_attribute( 'data-mb-exit-mode', $exit_mode );
+            $processor->set_attribute( 'data-mb-exit-mode', esc_attr( $exit_mode ) );
 
             if ( $exit_mode === 'custom' ) {
                 $exit_type = $attrs['animationExitType'] ?? 'fade';
-                $processor->set_attribute( 'data-mb-exit-type', $exit_type );
+                $processor->set_attribute( 'data-mb-exit-type', esc_attr( $exit_type ) );
 
                 $exit_direction = $attrs['animationExitDirection'] ?? '';
                 if ( $exit_direction ) {
-                    $processor->set_attribute( 'data-mb-exit-direction', $exit_direction );
+                    $processor->set_attribute( 'data-mb-exit-direction', esc_attr( $exit_direction ) );
                 }
 
-                $processor->set_attribute( 'data-mb-exit-duration', (string) ( $attrs['animationExitDuration'] ?? 0.6 ) );
-                $processor->set_attribute( 'data-mb-exit-delay', (string) ( $attrs['animationExitDelay'] ?? 0 ) );
+                $processor->set_attribute( 'data-mb-exit-duration', esc_attr( (string) ( $attrs['animationExitDuration'] ?? 0.6 ) ) );
+                $processor->set_attribute( 'data-mb-exit-delay', esc_attr( (string) ( $attrs['animationExitDelay'] ?? 0 ) ) );
 
                 $exit_accel = $attrs['animationExitAcceleration'] ?? 'ease';
                 if ( $exit_accel !== 'ease' ) {
-                    $processor->set_attribute( 'data-mb-exit-acceleration', $exit_accel );
+                    $processor->set_attribute( 'data-mb-exit-acceleration', esc_attr( $exit_accel ) );
                 }
             }
         }
@@ -223,12 +223,12 @@ function motion_blocks_render_block( $block_content, $block ) {
 
     // Scroll-interactive: range + direction.
     if ( $mode === 'scroll-interactive' ) {
-        $processor->set_attribute( 'data-mb-range-start', $attrs['animationRangeStart'] ?? 'entry 0%' );
-        $processor->set_attribute( 'data-mb-range-end', $attrs['animationRangeEnd'] ?? 'exit 100%' );
+        $processor->set_attribute( 'data-mb-range-start', esc_attr( $attrs['animationRangeStart'] ?? 'entry 0%' ) );
+        $processor->set_attribute( 'data-mb-range-end', esc_attr( $attrs['animationRangeEnd'] ?? 'exit 100%' ) );
 
         $direction = $attrs['animationDirection'] ?? '';
         if ( $direction ) {
-            $processor->set_attribute( 'data-mb-direction', $direction );
+            $processor->set_attribute( 'data-mb-direction', esc_attr( $direction ) );
         }
     }
 

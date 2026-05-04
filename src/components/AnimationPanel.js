@@ -14,7 +14,26 @@ import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
-import { DEFAULT_ATTRIBUTES } from './constants';
+import {
+	DEFAULT_ATTRIBUTES,
+	PROPERTY_DEFINITIONS,
+	FROM_ATTR,
+	TO_ATTR,
+} from './constants';
+
+/**
+ * Reset all custom From/To attributes to their identity defaults.
+ * Used by selectMode / resetSettings / removeAnimation so the custom
+ * editor starts fresh whenever the animation is reconfigured.
+ */
+function customFromToDefaults() {
+	const out = {};
+	for ( const def of PROPERTY_DEFINITIONS ) {
+		out[ FROM_ATTR[ def.id ] ] = DEFAULT_ATTRIBUTES[ FROM_ATTR[ def.id ] ];
+		out[ TO_ATTR[ def.id ] ] = DEFAULT_ATTRIBUTES[ TO_ATTR[ def.id ] ];
+	}
+	return out;
+}
 
 export default function AnimationPanel( { attributes, setAttributes, blockName } ) {
 	const {
@@ -22,6 +41,8 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 		animationType,
 		animationRepeat,
 		animationPreviewPlaying,
+		animationDuration,
+		animationDelay,
 	} = attributes;
 	const savedType = useRef( '' );
 
@@ -29,9 +50,17 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 		animationRepeat === 'loop' || animationRepeat === 'alternate';
 
 	/**
-	 * Replay the current animation preview by briefly clearing
-	 * animationType so the withAnimationPreview HOC re-triggers.
-	 * For looping modes, also set animationPreviewPlaying = true.
+	 * Replay the current animation preview.
+	 *
+	 * - Looping mode: just sets the play flag; the looping animation
+	 *   keeps cycling until stopped.
+	 * - Custom mode: also uses the play flag, but auto-clears it
+	 *   after duration+delay so the animation runs once. (Custom is
+	 *   static-by-default in the editor; the flag is the only thing
+	 *   that lets the keyframe attach.)
+	 * - Preset modes (Fade/Slide/etc.): briefly clears `animationType`
+	 *   so the HOC re-attaches the className, restarting the CSS
+	 *   animation.
 	 */
 	const replayPreview = useCallback( () => {
 		const current = animationType;
@@ -42,12 +71,28 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 			setAttributes( { animationPreviewPlaying: true } );
 			return;
 		}
+		if ( current === 'custom' ) {
+			setAttributes( { animationPreviewPlaying: true } );
+			const duration = parseFloat( animationDuration ) || 0.6;
+			const delay = parseFloat( animationDelay ) || 0;
+			const totalMs = ( duration + delay ) * 1000;
+			setTimeout( () => {
+				setAttributes( { animationPreviewPlaying: false } );
+			}, totalMs + 100 );
+			return;
+		}
 		savedType.current = current;
 		setAttributes( { animationType: '' } );
 		requestAnimationFrame( () => {
 			setAttributes( { animationType: savedType.current } );
 		} );
-	}, [ animationType, setAttributes, isLoopingMode ] );
+	}, [
+		animationType,
+		setAttributes,
+		isLoopingMode,
+		animationDuration,
+		animationDelay,
+	] );
 
 	/**
 	 * Stop a looping preview.
@@ -75,6 +120,7 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 			animationExitDuration: DEFAULT_ATTRIBUTES.animationExitDuration,
 			animationExitDelay: DEFAULT_ATTRIBUTES.animationExitDelay,
 			animationExitAcceleration: DEFAULT_ATTRIBUTES.animationExitAcceleration,
+			...customFromToDefaults(),
 		} );
 	};
 
@@ -112,6 +158,7 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
 			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
 			animationPreviewPlaying: false,
+			...customFromToDefaults(),
 		} );
 	}, [ setAttributes ] );
 
@@ -137,6 +184,7 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
 			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
 			animationPreviewPlaying: false,
+			...customFromToDefaults(),
 		} );
 	};
 

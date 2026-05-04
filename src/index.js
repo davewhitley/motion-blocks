@@ -8,6 +8,7 @@
 import { createHigherOrderComponent } from '@wordpress/compose';
 import { InspectorControls } from '@wordpress/block-editor';
 import { addFilter } from '@wordpress/hooks';
+import { useEffect } from '@wordpress/element';
 
 import AnimationPanel from './components/AnimationPanel';
 import {
@@ -17,6 +18,15 @@ import {
 	DIRECTION_CSS_VARS,
 	TYPES_WITH_DIRECTION,
 	DEFAULT_DIRECTION,
+	PROPERTY_DEFINITIONS,
+	FROM_ATTR,
+	TO_ATTR,
+	PROPERTY_CSS_VAR,
+	attrsToBag,
+	bagToReactStyles,
+	buildCustomKeyframe,
+	isPropertyAdded,
+	resolveTimingFunction,
 } from './components/constants';
 
 import '../css/editor.scss';
@@ -41,6 +51,36 @@ function getExitKeyframe( type ) {
 function getDirectionStyles( type, direction ) {
 	const vars = DIRECTION_CSS_VARS[ type ]?.[ direction ];
 	return vars || {};
+}
+
+/**
+ * Build the unique @keyframes name + rule body for a custom-type
+ * block. Returns null if the user hasn't added any properties on
+ * either side (no animation should run).
+ *
+ * Per-block keyframes mean the rule contains ONLY the properties the
+ * user explicitly added — CSS interpolates unspecified properties
+ * to the element's computed style, which matches the editor's
+ * "current state of the element" semantic.
+ *
+ * @param {string} clientId   Block clientId — drives the keyframe
+ *                            name so each block gets a unique rule.
+ * @param {Object} attributes Block attributes.
+ * @return {{ name: string, rule: string }|null}
+ */
+function getCustomKeyframe( clientId, attributes ) {
+	if ( ! clientId ) {
+		return null;
+	}
+	const safeId = String( clientId ).replace( /[^a-z0-9]/gi, '' );
+	const name = `mb-custom-${ safeId }`;
+	const fromBag = attrsToBag( attributes, FROM_ATTR );
+	const toBag = attrsToBag( attributes, TO_ATTR );
+	const rule = buildCustomKeyframe( name, fromBag, toBag );
+	if ( ! rule ) {
+		return null;
+	}
+	return { name, rule };
 }
 
 /**
@@ -111,6 +151,13 @@ function addAnimationAttributes( settings ) {
 				type: 'string',
 				default: 'ease',
 			},
+			// Stored CSS timing function used when animationAcceleration
+			// is set to 'custom'. Free-form so users can enter any valid
+			// CSS value (cubic-bezier, steps, linear() with stops, etc.).
+			animationCustomTimingFunction: {
+				type: 'string',
+				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+			},
 			animationExitDelay: {
 				type: 'number',
 				default: 0,
@@ -118,6 +165,10 @@ function addAnimationAttributes( settings ) {
 			animationExitAcceleration: {
 				type: 'string',
 				default: 'ease',
+			},
+			animationExitCustomTimingFunction: {
+				type: 'string',
+				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
 			},
 			animationBlurAmount: {
 				type: 'number',
@@ -143,6 +194,99 @@ function addAnimationAttributes( settings ) {
 				type: 'boolean',
 				default: false,
 			},
+			// Custom (Start / End) state — only consulted when
+			// animationType === 'custom'. `null` = property not added
+			// on that side; the per-block keyframe omits it and CSS
+			// falls through to the element's computed style.
+			animationFromOpacity: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationFromTranslateX: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationFromTranslateY: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationFromScale: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationFromRotate: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationToOpacity: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationToTranslateX: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationToTranslateY: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationToScale: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationToRotate: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			// 3D rotations (Flip support).
+			animationFromRotateX: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationFromRotateY: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationToRotateX: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationToRotateY: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			// Filter blur.
+			animationFromBlur: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationToBlur: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			// Clip-path (Curtain / Wipe support). Stored as the
+			// raw CSS value (e.g. `inset(0 50% 0 50%)`).
+			animationFromClipPath: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationToClipPath: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			// Which side the user is editing — saved as attribute so
+			// it survives remounts of FromToControls.
+			animationFromToActiveSide: {
+				type: 'string',
+				default: 'start',
+			},
+			// Eye-icon preview side. When set to 'start' or 'end',
+			// the editor freezes the block at that side's static
+			// values instead of running the keyframe animation.
+			animationFromToPreviewSide: {
+				type: 'string',
+				default: 'off',
+			},
 		},
 	};
 }
@@ -159,6 +303,27 @@ addFilter(
 const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 	return ( props ) => {
 		const { attributes, setAttributes, isSelected, name } = props;
+
+		// Safety net: when the block deselects, turn off the From/To
+		// preview. Otherwise a user who previewed a side that moved
+		// the block far off-screen would be unable to click it again
+		// to disable the preview — the click target is wherever the
+		// transform put it.
+		useEffect( () => {
+			if (
+				! isSelected &&
+				attributes.animationFromToPreviewSide &&
+				attributes.animationFromToPreviewSide !== 'off'
+			) {
+				setAttributes( {
+					animationFromToPreviewSide: 'off',
+				} );
+			}
+			// Only react to selection changes — running this on every
+			// attribute change would clear the preview as soon as the
+			// user toggles it on.
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ isSelected ] );
 
 		return (
 			<>
@@ -201,6 +366,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationDuration,
 				animationDelay,
 				animationAcceleration,
+				animationCustomTimingFunction,
 				animationBlurAmount,
 				animationRotateAngle,
 				animationRepeat,
@@ -208,11 +374,84 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationRangeEnd,
 				animationPreviewEnabled,
 				animationPreviewPlaying,
+				animationFromToPreviewSide,
 			} = attributes;
+
+			// Static state preview — eye icon in the From/To panel.
+			// When 'start' or 'end' is chosen, freeze the editor block
+			// at that side's values (no animation, no triggered class
+			// hides). Takes precedence over every animation branch
+			// below.
+			if (
+				animationType === 'custom' &&
+				animationFromToPreviewSide &&
+				animationFromToPreviewSide !== 'off'
+			) {
+				const sideMap =
+					animationFromToPreviewSide === 'start'
+						? FROM_ATTR
+						: TO_ATTR;
+				const bag = attrsToBag( attributes, sideMap );
+				const sideStyles = bagToReactStyles( bag );
+				// Force opacity:1 if the user didn't add opacity to
+				// this side — otherwise the .mb-mode-page-load /
+				// scroll-appear initial-hide rules would render the
+				// block invisible during preview.
+				if ( sideStyles.opacity === undefined ) {
+					sideStyles.opacity = 1;
+				}
+				return (
+					<BlockListBlock
+						{ ...props }
+						className={ props.className }
+						wrapperProps={ {
+							...wrapperProps,
+							style: {
+								...( wrapperProps.style || {} ),
+								...sideStyles,
+								animationName: 'none',
+							},
+						} }
+					/>
+				);
+			}
+
+			// Custom mode at rest — page-load and scroll-appear normally
+			// auto-play the keyframe animation in the editor on every
+			// re-render, which is distracting while the user is editing
+			// per-property values. Skip the animation entirely until
+			// the user clicks Play (which sets animationPreviewPlaying).
+			// Scroll-interactive doesn't auto-play in editor anyway
+			// (no scroll), so it's left alone.
+			if (
+				animationType === 'custom' &&
+				( animationMode === 'page-load' ||
+					animationMode === 'scroll-appear' ) &&
+				! animationPreviewPlaying
+			) {
+				return <BlockListBlock { ...props } />;
+			}
+
+			// Resolve `custom` acceleration to the user's custom CSS
+			// timing function string. Used wherever the legacy code
+			// passed `animationAcceleration` directly.
+			const resolvedTiming = resolveTimingFunction(
+				animationAcceleration,
+				animationCustomTimingFunction
+			);
 
 			// Computed values — updated by the matching branch below.
 			let computedWrapperProps = wrapperProps;
 			let computedClassName = props.className;
+			// Per-block @keyframes rule for custom-type animations.
+			// Injected next to BlockListBlock as a sibling <style>.
+			let injectedKeyframeRule = null;
+
+			// Resolve the custom keyframe once — used by both branches.
+			const customKeyframe =
+				animationType === 'custom'
+					? getCustomKeyframe( props.clientId, attributes )
+					: null;
 
 			// Scroll-interactive: persistent scroll-driven animation.
 			if (
@@ -220,24 +459,36 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationType &&
 				animationPreviewEnabled !== false
 			) {
-				const dirStyles = getDirectionStyles(
-					animationType,
-					animationDirection
-				);
+				const dirStyles =
+					animationType === 'custom'
+						? {}
+						: getDirectionStyles(
+								animationType,
+								animationDirection
+						  );
 
 				const rangeStartVal =
 					animationRangeStart || 'entry 0%';
 				const rangeEndVal =
 					animationRangeEnd || 'exit 100%';
+				// For custom: use the per-block keyframe name; if no
+				// properties are added, animation-name is empty and
+				// the block won't animate (which is the right call).
+				const resolvedAnimationName =
+					animationType === 'custom'
+						? customKeyframe
+							? customKeyframe.name
+							: 'none'
+						: getEnterKeyframe( animationType );
 				const scrollInteractiveStyles = {
 					...( wrapperProps.style || {} ),
 					...dirStyles,
-					animationName: getEnterKeyframe( animationType ),
+					animationName: resolvedAnimationName,
 					animationTimeline: 'view()',
 					animationRangeStart: rangeStartVal,
 					animationRangeEnd: rangeEndVal,
 					animationDuration: '1ms',
-					animationTimingFunction: animationAcceleration || 'ease',
+					animationTimingFunction: resolvedTiming,
 					animationFillMode: 'both',
 				};
 				if ( animationType === 'blur' ) {
@@ -247,6 +498,9 @@ const withAnimationPreview = createHigherOrderComponent(
 				if ( animationType === 'rotate' ) {
 					scrollInteractiveStyles[ '--mb-rotate-angle' ] =
 						( animationRotateAngle ?? 90 ) + 'deg';
+				}
+				if ( customKeyframe ) {
+					injectedKeyframeRule = customKeyframe.rule;
 				}
 				computedWrapperProps = {
 					...wrapperProps,
@@ -281,17 +535,20 @@ const withAnimationPreview = createHigherOrderComponent(
 
 					const duration = animationDuration || 0.6;
 					const delay = animationDelay || 0;
-					const dirStyles = getDirectionStyles(
-						animationType,
-						animationDirection
-					);
+					const dirStyles =
+						animationType === 'custom'
+							? {}
+							: getDirectionStyles(
+									animationType,
+									animationDirection
+							  );
 
 					const previewStyles = {
 						...( wrapperProps.style || {} ),
 						...dirStyles,
 						'--mb-duration': `${ duration }s`,
 						'--mb-delay': `${ delay }s`,
-						'--mb-timing': animationAcceleration || 'ease',
+						'--mb-timing': resolvedTiming,
 						'--mb-iteration-count': isLooping
 							? 'infinite'
 							: '1',
@@ -309,6 +566,19 @@ const withAnimationPreview = createHigherOrderComponent(
 						previewStyles[ '--mb-rotate-angle' ] =
 							( animationRotateAngle ?? 90 ) + 'deg';
 					}
+					// Custom-type: bind animation-name to the per-block
+					// keyframe via inline style. Inline style wins over
+					// the class-based binding so the unique keyframe
+					// runs instead of any shared one.
+					if ( animationType === 'custom' ) {
+						if ( customKeyframe ) {
+							previewStyles.animationName = customKeyframe.name;
+							injectedKeyframeRule = customKeyframe.rule;
+						} else {
+							// No properties added — disable animation.
+							previewStyles.animationName = 'none';
+						}
+					}
 					computedWrapperProps = {
 						...wrapperProps,
 						style: previewStyles,
@@ -317,14 +587,21 @@ const withAnimationPreview = createHigherOrderComponent(
 			}
 
 			// Single return — BlockListBlock is always at the same
-			// position in the React tree, so it never remounts when
-			// switching animation states.
+			// position in the React tree (index 1 inside the Fragment),
+			// so it never remounts when switching animation states.
+			// The optional <style> at index 0 emits a per-block
+			// @keyframes rule for custom-type animations.
 			return (
-				<BlockListBlock
-					{ ...props }
-					className={ computedClassName }
-					wrapperProps={ computedWrapperProps }
-				/>
+				<>
+					{ injectedKeyframeRule ? (
+						<style>{ injectedKeyframeRule }</style>
+					) : null }
+					<BlockListBlock
+						{ ...props }
+						className={ computedClassName }
+						wrapperProps={ computedWrapperProps }
+					/>
+				</>
 			);
 		};
 	},
@@ -364,10 +641,15 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 		'data-mb-type': animationType,
 	};
 
-	// Acceleration (timing function).
-	const acceleration =
+	// Acceleration (timing function). Resolve the `custom` sentinel
+	// to the actual CSS timing function string so the frontend
+	// doesn't need to know about it.
+	const acceleration = resolveTimingFunction(
 		attributes.animationAcceleration ||
-		DEFAULT_ATTRIBUTES.animationAcceleration;
+			DEFAULT_ATTRIBUTES.animationAcceleration,
+		attributes.animationCustomTimingFunction ||
+			DEFAULT_ATTRIBUTES.animationCustomTimingFunction
+	);
 	if ( acceleration !== 'ease' ) {
 		dataAttrs[ 'data-mb-acceleration' ] = acceleration;
 	}
@@ -394,6 +676,27 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 			DEFAULT_ATTRIBUTES.animationRotateAngle;
 		if ( rotateAngle !== DEFAULT_ATTRIBUTES.animationRotateAngle ) {
 			dataAttrs[ 'data-mb-rotate-angle' ] = String( rotateAngle );
+		}
+	}
+
+	// Custom (From/To) — emit one data attr per side per property.
+	// Frontend reads these and sets the matching `--mb-from-*` /
+	// `--mb-to-*` CSS custom properties on the element.
+	if ( animationType === 'custom' ) {
+		for ( const def of PROPERTY_DEFINITIONS ) {
+			const cssName = PROPERTY_CSS_VAR[ def.id ];
+			const fromVal = attributes[ FROM_ATTR[ def.id ] ];
+			const toVal = attributes[ TO_ATTR[ def.id ] ];
+			if (
+				fromVal !== undefined &&
+				fromVal !== null &&
+				fromVal !== ''
+			) {
+				dataAttrs[ `data-mb-from-${ cssName }` ] = String( fromVal );
+			}
+			if ( toVal !== undefined && toVal !== null && toVal !== '' ) {
+				dataAttrs[ `data-mb-to-${ cssName }` ] = String( toVal );
+			}
 		}
 	}
 
@@ -453,9 +756,12 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 					attributes.animationExitDelay ??
 						DEFAULT_ATTRIBUTES.animationExitDelay
 				);
-				const exitAccel =
+				const exitAccel = resolveTimingFunction(
 					attributes.animationExitAcceleration ||
-					DEFAULT_ATTRIBUTES.animationExitAcceleration;
+						DEFAULT_ATTRIBUTES.animationExitAcceleration,
+					attributes.animationExitCustomTimingFunction ||
+						DEFAULT_ATTRIBUTES.animationExitCustomTimingFunction
+				);
 				if ( exitAccel !== 'ease' ) {
 					dataAttrs[ 'data-mb-exit-acceleration' ] = exitAccel;
 				}

@@ -15,6 +15,9 @@ import {
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
+	__experimentalHStack as HStack,
+	__experimentalNumberControl as NumberControl,
+	FlexBlock,
 	Button,
 	Icon,
 } from '@wordpress/components';
@@ -33,12 +36,16 @@ import {
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
 	TYPES_WITH_EXIT,
+	TYPES_CUSTOMIZABLE_FROM_PRESET,
 	DEFAULT_DIRECTION,
 	EXIT_MODE_OPTIONS,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
+	getPresetFromTo,
+	fromToBagToAttrs,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import FromToControls from './FromToControls';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -80,15 +87,22 @@ export default function ScrollAppearControls( {
 		animationExitType,
 		animationExitDirection,
 		animationAcceleration,
+		animationCustomTimingFunction,
 		animationBlurAmount,
 		animationRotateAngle,
 		animationExitDuration,
 		animationExitDelay,
 		animationExitAcceleration,
+		animationExitCustomTimingFunction,
 	} = attributes;
 
 	const typeOptions = ANIMATION_TYPE_OPTIONS;
 	const exitTypeOptions = EXIT_TYPE_OPTIONS;
+
+	const isCustom = animationType === 'custom';
+	const canCustomizePreset = TYPES_CUSTOMIZABLE_FROM_PRESET.includes(
+		animationType
+	);
 
 	const trigger = animationScrollTrigger || 'enter';
 	const exitMode = animationExitMode || 'mirror';
@@ -130,6 +144,21 @@ export default function ScrollAppearControls( {
 			newAttrs.animationExitDirection = '';
 		}
 		setAttributes( newAttrs );
+	};
+
+	/**
+	 * Convert the current preset (fade/slide/scale/rotate) into the
+	 * `custom` type with from/to seeded from the preset's defaults.
+	 */
+	const handleCustomize = () => {
+		const bag = getPresetFromTo( animationType, animationDirection, {
+			rotateAngle: animationRotateAngle,
+		} );
+		setAttributes( {
+			animationType: 'custom',
+			animationDirection: '',
+			...fromToBagToAttrs( bag ),
+		} );
 	};
 
 	/**
@@ -200,23 +229,25 @@ export default function ScrollAppearControls( {
 			{ /* ---- Enter animation config ---- */ }
 			{ showEnterConfig && (
 				<>
-					<div className="mb-select-row">
-						<SelectControl
-							label={
-								trigger === 'both'
-									? __( 'Enter animation', 'motion-blocks' )
-									: __( 'Animation', 'motion-blocks' )
-							}
-							value={ animationType }
-							options={
-								trigger === 'enter'
-									? typeOptions
-									: exitTypeOptions
-							}
-							onChange={ handleEnterTypeChange }
-							size="__unstable-large"
-							__nextHasNoMarginBottom
-						/>
+					<HStack alignment="bottom" spacing={ 3 }>
+						<FlexBlock>
+							<SelectControl
+								label={
+									trigger === 'both'
+										? __( 'Enter effect', 'motion-blocks' )
+										: __( 'Effect', 'motion-blocks' )
+								}
+								value={ animationType }
+								options={
+									trigger === 'enter'
+										? typeOptions
+										: exitTypeOptions
+								}
+								onChange={ handleEnterTypeChange }
+								__next40pxDefaultSize
+								__nextHasNoMarginBottom
+							/>
+						</FlexBlock>
 						<Button
 							icon={ playIcon }
 							label={ __(
@@ -224,14 +255,32 @@ export default function ScrollAppearControls( {
 								'motion-blocks'
 							) }
 							variant="secondary"
-							size="default"
-							className="mb-preview-button"
 							onClick={ onPreview }
 							__next40pxDefaultSize
 						/>
-					</div>
+					</HStack>
 
-					{ animationType === 'scale' && (
+					{ isCustom && (
+						<FromToControls
+							attributes={ attributes }
+							setAttributes={ setAttributes }
+						/>
+					) }
+
+					{ ! isCustom && canCustomizePreset && (
+						<Button
+							variant="link"
+							onClick={ handleCustomize }
+							className="mb-customize-link"
+						>
+							{ __(
+								'Customize this animation…',
+								'motion-blocks'
+							) }
+						</Button>
+					) }
+
+					{ ! isCustom && animationType === 'scale' && (
 						<>
 							<ToggleControl
 								label={ __( 'Scale with direction', 'motion-blocks' ) }
@@ -268,7 +317,7 @@ export default function ScrollAppearControls( {
 						</>
 					) }
 
-					{ enterHasDirection && animationType === 'curtain' && (
+					{ ! isCustom && enterHasDirection && animationType === 'curtain' && (
 						<ToggleGroupControl
 							label={ __( 'Direction', 'motion-blocks' ) }
 							value={ animationDirection }
@@ -290,7 +339,7 @@ export default function ScrollAppearControls( {
 						</ToggleGroupControl>
 					) }
 
-					{ enterHasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+					{ ! isCustom && enterHasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
 						<ToggleGroupControl
 							label={ __( 'Direction', 'motion-blocks' ) }
 							value={ animationDirection }
@@ -313,7 +362,7 @@ export default function ScrollAppearControls( {
 						</ToggleGroupControl>
 					) }
 
-					{ animationType === 'blur' && (
+					{ ! isCustom && animationType === 'blur' && (
 						<RangeControl
 							label={ __( 'Blur', 'motion-blocks' ) }
 							value={ animationBlurAmount }
@@ -333,53 +382,60 @@ export default function ScrollAppearControls( {
 						/>
 					) }
 
-					{ animationType === 'rotate' && (
-						<TextControl
-							label={ __(
-								'Angle',
-								'motion-blocks'
-							) }
-							type="number"
-							value={ String(
-								animationRotateAngle ?? 90
-							) }
+					{ ! isCustom && animationType === 'rotate' && (
+						<NumberControl
+							label={ __( 'Angle', 'motion-blocks' ) }
+							value={ animationRotateAngle ?? 90 }
+							step={ 1 }
+							spinControls="custom"
 							onChange={ ( value ) =>
 								setAttributes( {
 									animationRotateAngle:
 										parseInt( value, 10 ) || 0,
 								} )
 							}
-							__nextHasNoMarginBottom
 							__next40pxDefaultSize
 						/>
 					) }
 
-					<div className="mb-timing-row">
-						<TextControl
-							label={ __( 'Duration', 'motion-blocks' ) }
-							type="number"
-							min="0"
-							step="0.1"
-							value={ String( animationDuration ) }
-							onChange={ ( value ) =>
-								setAttributes( { animationDuration: parseFloat( value ) || 0 } )
-							}
-							__nextHasNoMarginBottom
-							__next40pxDefaultSize
-						/>
-						<TextControl
-							label={ __( 'Delay', 'motion-blocks' ) }
-							type="number"
-							min="0"
-							step="0.1"
-							value={ String( animationDelay ) }
-							onChange={ ( value ) =>
-								setAttributes( { animationDelay: parseFloat( value ) || 0 } )
-							}
-							__nextHasNoMarginBottom
-							__next40pxDefaultSize
-						/>
+					<div className="mb-section-heading">
+						{ __( 'Timing', 'motion-blocks' ) }
 					</div>
+
+					<HStack spacing={ 3 }>
+						<FlexBlock>
+							<NumberControl
+								label={ __( 'Duration', 'motion-blocks' ) }
+								value={ animationDuration }
+								min={ 0 }
+								step={ 0.1 }
+								spinControls="custom"
+								onChange={ ( value ) =>
+									setAttributes( {
+										animationDuration:
+											parseFloat( value ) || 0,
+									} )
+								}
+								__next40pxDefaultSize
+							/>
+						</FlexBlock>
+						<FlexBlock>
+							<NumberControl
+								label={ __( 'Delay', 'motion-blocks' ) }
+								value={ animationDelay }
+								min={ 0 }
+								step={ 0.1 }
+								spinControls="custom"
+								onChange={ ( value ) =>
+									setAttributes( {
+										animationDelay:
+											parseFloat( value ) || 0,
+									} )
+								}
+								__next40pxDefaultSize
+							/>
+						</FlexBlock>
+					</HStack>
 
 					<SelectControl
 						label={ __( 'Acceleration', 'motion-blocks' ) }
@@ -390,9 +446,29 @@ export default function ScrollAppearControls( {
 								animationAcceleration: value,
 							} )
 						}
-						size="__unstable-large"
+						__next40pxDefaultSize
 						__nextHasNoMarginBottom
 					/>
+					{ animationAcceleration === 'custom' && (
+						<TextControl
+							label={ __(
+								'Custom timing function',
+								'motion-blocks'
+							) }
+							value={ animationCustomTimingFunction }
+							onChange={ ( v ) =>
+								setAttributes( {
+									animationCustomTimingFunction: v,
+								} )
+							}
+							help={ __(
+								'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+								'motion-blocks'
+							) }
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
+					) }
 				</>
 			) }
 
@@ -405,7 +481,7 @@ export default function ScrollAppearControls( {
 					onChange={ ( value ) =>
 						setAttributes( { animationExitMode: value } )
 					}
-					size="__unstable-large"
+					__next40pxDefaultSize
 					__nextHasNoMarginBottom
 				/>
 			) }
@@ -414,15 +490,17 @@ export default function ScrollAppearControls( {
 			{ showCustomExit && (
 				<>
 					{ trigger === 'exit' && (
-						<div className="mb-select-row">
-							<SelectControl
-								label={ __( 'Animation', 'motion-blocks' ) }
-								value={ animationType }
-								options={ exitTypeOptions }
-								onChange={ handleEnterTypeChange }
-								size="__unstable-large"
-								__nextHasNoMarginBottom
-							/>
+						<HStack alignment="bottom" spacing={ 3 }>
+							<FlexBlock>
+								<SelectControl
+									label={ __( 'Effect', 'motion-blocks' ) }
+									value={ animationType }
+									options={ exitTypeOptions }
+									onChange={ handleEnterTypeChange }
+									__next40pxDefaultSize
+									__nextHasNoMarginBottom
+								/>
+							</FlexBlock>
 							<Button
 								icon={ playIcon }
 								label={ __(
@@ -430,12 +508,10 @@ export default function ScrollAppearControls( {
 									'motion-blocks'
 								) }
 								variant="secondary"
-								size="default"
-								className="mb-preview-button"
 								onClick={ onPreview }
 								__next40pxDefaultSize
 							/>
-						</div>
+						</HStack>
 					) }
 
 					{ trigger === 'exit' && animationType === 'scale' && (
@@ -541,58 +617,61 @@ export default function ScrollAppearControls( {
 					) }
 
 					{ trigger === 'exit' && animationType === 'rotate' && (
-						<TextControl
-							label={ __(
-								'Angle',
-								'motion-blocks'
-							) }
-							type="number"
-							value={ String(
-								animationRotateAngle ?? 90
-							) }
+						<NumberControl
+							label={ __( 'Angle', 'motion-blocks' ) }
+							value={ animationRotateAngle ?? 90 }
+							step={ 1 }
+							spinControls="custom"
 							onChange={ ( value ) =>
 								setAttributes( {
 									animationRotateAngle:
 										parseInt( value, 10 ) || 0,
 								} )
 							}
-							__nextHasNoMarginBottom
 							__next40pxDefaultSize
 						/>
 					) }
 
 					{ trigger === 'exit' && (
 						<>
-							<div className="mb-timing-row">
-								<TextControl
-									label={ __( 'Duration', 'motion-blocks' ) }
-									type="number"
-									min="0"
-									step="0.1"
-									value={ String( animationDuration ) }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationDuration: parseFloat( value ) || 0,
-										} )
-									}
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
-								<TextControl
-									label={ __( 'Delay', 'motion-blocks' ) }
-									type="number"
-									min="0"
-									step="0.1"
-									value={ String( animationDelay ) }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationDelay: parseFloat( value ) || 0,
-										} )
-									}
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
+							<div className="mb-section-heading">
+								{ __( 'Timing', 'motion-blocks' ) }
 							</div>
+
+							<HStack spacing={ 3 }>
+								<FlexBlock>
+									<NumberControl
+										label={ __( 'Duration', 'motion-blocks' ) }
+										value={ animationDuration }
+										min={ 0 }
+										step={ 0.1 }
+										spinControls="custom"
+										onChange={ ( value ) =>
+											setAttributes( {
+												animationDuration:
+													parseFloat( value ) || 0,
+											} )
+										}
+										__next40pxDefaultSize
+									/>
+								</FlexBlock>
+								<FlexBlock>
+									<NumberControl
+										label={ __( 'Delay', 'motion-blocks' ) }
+										value={ animationDelay }
+										min={ 0 }
+										step={ 0.1 }
+										spinControls="custom"
+										onChange={ ( value ) =>
+											setAttributes( {
+												animationDelay:
+													parseFloat( value ) || 0,
+											} )
+										}
+										__next40pxDefaultSize
+									/>
+								</FlexBlock>
+							</HStack>
 
 							<SelectControl
 								label={ __(
@@ -606,9 +685,31 @@ export default function ScrollAppearControls( {
 										animationAcceleration: value,
 									} )
 								}
-								size="__unstable-large"
+								__next40pxDefaultSize
 								__nextHasNoMarginBottom
 							/>
+							{ animationAcceleration === 'custom' && (
+								<TextControl
+									label={ __(
+										'Custom timing function',
+										'motion-blocks'
+									) }
+									value={
+										animationCustomTimingFunction
+									}
+									onChange={ ( v ) =>
+										setAttributes( {
+											animationCustomTimingFunction: v,
+										} )
+									}
+									help={ __(
+										'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+										'motion-blocks'
+									) }
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
+							) }
 						</>
 					) }
 
@@ -623,7 +724,7 @@ export default function ScrollAppearControls( {
 								value={ exitType }
 								options={ exitTypeOptions }
 								onChange={ handleExitTypeChange }
-								size="__unstable-large"
+								__next40pxDefaultSize
 								__nextHasNoMarginBottom
 							/>
 
@@ -719,63 +820,65 @@ export default function ScrollAppearControls( {
 							) }
 
 							{ exitType === 'rotate' && (
-								<TextControl
-									label={ __(
-										'Angle',
-										'motion-blocks'
-									) }
-									type="number"
-									value={ String(
-										animationRotateAngle ?? 90
-									) }
+								<NumberControl
+									label={ __( 'Angle', 'motion-blocks' ) }
+									value={ animationRotateAngle ?? 90 }
+									step={ 1 }
+									spinControls="custom"
 									onChange={ ( value ) =>
 										setAttributes( {
 											animationRotateAngle:
-												parseInt( value, 10 ) ||
-												0,
+												parseInt( value, 10 ) || 0,
 										} )
 									}
-									__nextHasNoMarginBottom
 									__next40pxDefaultSize
 								/>
 							) }
 
-							<div className="mb-timing-row">
-								<TextControl
-									label={ __(
-										'Exit duration',
-										'motion-blocks'
-									) }
-									type="number"
-									min="0"
-									step="0.1"
-									value={ String( animationExitDuration ) }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationExitDuration: parseFloat( value ) || 0,
-										} )
-									}
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
-								<TextControl
-									label={ __(
-										'Exit delay',
-										'motion-blocks'
-									) }
-									type="number"
-									min="0"
-									step="0.1"
-									value={ String( animationExitDelay ) }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationExitDelay: parseFloat( value ) || 0,
-										} )
-									}
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
+							<div className="mb-section-heading">
+								{ __( 'Exit timing', 'motion-blocks' ) }
 							</div>
+
+							<HStack spacing={ 3 }>
+								<FlexBlock>
+									<NumberControl
+										label={ __(
+											'Exit duration',
+											'motion-blocks'
+										) }
+										value={ animationExitDuration }
+										min={ 0 }
+										step={ 0.1 }
+										spinControls="custom"
+										onChange={ ( value ) =>
+											setAttributes( {
+												animationExitDuration:
+													parseFloat( value ) || 0,
+											} )
+										}
+										__next40pxDefaultSize
+									/>
+								</FlexBlock>
+								<FlexBlock>
+									<NumberControl
+										label={ __(
+											'Exit delay',
+											'motion-blocks'
+										) }
+										value={ animationExitDelay }
+										min={ 0 }
+										step={ 0.1 }
+										spinControls="custom"
+										onChange={ ( value ) =>
+											setAttributes( {
+												animationExitDelay:
+													parseFloat( value ) || 0,
+											} )
+										}
+										__next40pxDefaultSize
+									/>
+								</FlexBlock>
+							</HStack>
 
 							<SelectControl
 								label={ __(
@@ -789,9 +892,31 @@ export default function ScrollAppearControls( {
 										animationExitAcceleration: value,
 									} )
 								}
-								size="__unstable-large"
+								__next40pxDefaultSize
 								__nextHasNoMarginBottom
 							/>
+							{ animationExitAcceleration === 'custom' && (
+								<TextControl
+									label={ __(
+										'Custom timing function',
+										'motion-blocks'
+									) }
+									value={
+										animationExitCustomTimingFunction
+									}
+									onChange={ ( v ) =>
+										setAttributes( {
+											animationExitCustomTimingFunction: v,
+										} )
+									}
+									help={ __(
+										'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+										'motion-blocks'
+									) }
+									__nextHasNoMarginBottom
+									__next40pxDefaultSize
+								/>
+							) }
 						</>
 					) }
 				</>

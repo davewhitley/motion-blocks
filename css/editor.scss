@@ -127,34 +127,83 @@
 		margin: 0;
 	}
 
-	.mb-select-row {
-		display: flex;
-		align-items: flex-end;
-		gap: vars.$grid-unit-15;
-		margin-bottom: vars.$grid-unit-20;
-
-		// Nested to bump specificity above Emotion CSS-in-JS.
-		.components-select-control {
-			flex: 1;
-			min-width: 0;
-			margin-bottom: 0;
-		}
-	}
-
-	.mb-timing-row {
-		display: flex;
-		gap: vars.$grid-unit-15;
-
-		> * {
-			flex: 1;
-			min-width: 0;
-		}
-	}
-
 	.mb-remove-button {
 		width: 100%;
 		justify-content: center;
 		margin-top: vars.$grid-unit-10;
+	}
+
+	// "Customize this animation…" link button. Wraps to next line
+	// inside the panel and uses the existing link-button styles.
+	.mb-customize-link {
+		align-self: flex-start;
+		margin-top: vars.$grid-unit-05;
+		margin-bottom: vars.$grid-unit-15;
+	}
+
+	// Section heading inside a sub-panel — visually matches the
+	// FromToControls "Properties" header (top divider, bold label,
+	// no inline action). Used for "Timing", "Exit timing", etc.
+	.mb-section-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: vars.$grid-unit-10;
+		padding-top: vars.$grid-unit-10;
+		margin-top: vars.$grid-unit-10;
+		border-top: 1px solid colors.$gray-400;
+		font-size: 13px;
+		font-weight: 500;
+		color: colors.$gray-900;
+	}
+}
+
+// Custom (Start / End) editor wrapper. Spacing only — the inner
+// ToolsPanel handles its own header, dropdown, and grid layout.
+//
+// `.single-column` half-width: WP's edit-site sidebar defines
+// this for global-styles, but it isn't a generic ToolsPanel hook.
+// Mirror that rule here so paired items (Move X/Y, Rotate X/Y)
+// span one of the two grid columns and sit side-by-side.
+@scope (.mb-from-to) {
+	:scope {
+		display: flex;
+		flex-direction: column;
+		gap: vars.$grid-unit-15;
+		margin-top: vars.$grid-unit-15;
+		margin-bottom: vars.$grid-unit-20;
+	}
+
+	.components-tools-panel-item.single-column {
+		grid-column: span 1;
+	}
+
+	// ToolsPanel is designed to sit at the sidebar's full width and
+	// applies its own 16px horizontal padding. Here it lives inside
+	// a PanelBody that already supplies 16px padding, so the inner
+	// content collapses to ~216px instead of the full 248px. Zero
+	// the horizontal padding (keep top/bottom) so the items stretch
+	// edge-to-edge of the sub-panel.
+	.components-tools-panel {
+		padding-left: 0;
+		padding-right: 0;
+	}
+
+	// Wrapper around ToolsPanel that anchors the absolutely-positioned
+	// preview button. Position it just to the left of the kebab in
+	// the panel's header row.
+	.mb-from-to__panel-wrapper {
+		position: relative;
+	}
+
+	.mb-from-to__preview-toggle {
+		position: absolute;
+		// Vertical: ToolsPanel header sits at the top of the panel
+		// with ~12px top-padding; kebab is centered in a ~24px row.
+		top: vars.$grid-unit-15;
+		// Horizontal: leave room for the kebab + its 4px margin.
+		right: vars.$grid-unit-30;
+		z-index: 1;
 	}
 }
 
@@ -176,6 +225,10 @@
 @keyframes mbBlurIn { from { opacity: 0; filter: blur(var(--mb-blur-amount, 8px)); } to { opacity: 1; filter: blur(0px); } }
 @keyframes mbRotateIn { from { opacity: 0; transform: rotate(var(--mb-rotate-angle, 90deg)); } to { opacity: 1; transform: rotate(0deg); } }
 
+// Custom (Start / End) — no shared keyframe. Each block gets a
+// unique @keyframes injected by withAnimationPreview as a sibling
+// <style> next to BlockListBlock. animation-name is set inline.
+
 // Exit
 @keyframes mbFadeOut { from { opacity: 1; } to { opacity: 0; } }
 @keyframes mbSlideOut { from { opacity: 1; transform: translate(0, 0); } to { opacity: 0; transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 50px)); } }
@@ -184,6 +237,8 @@
 @keyframes mbScaleOut { from { opacity: 1; transform: scale(1) translate(0, 0); } to { opacity: 0; transform: scale(0.75) translate(var(--mb-scale-x, 0), var(--mb-scale-y, 0)); } }
 @keyframes mbBlurOut { from { opacity: 1; filter: blur(0px); } to { opacity: 0; filter: blur(var(--mb-blur-amount, 8px)); } }
 @keyframes mbRotateOut { from { opacity: 1; transform: rotate(0deg); } to { opacity: 0; transform: rotate(var(--mb-rotate-angle, 90deg)); } }
+
+// (Custom-type exits also use per-block keyframes — see frontend.js.)
 
 // Connect animation classes to keyframes for editor preview.
 // CSS custom properties come from inline styles set by the
@@ -209,6 +264,8 @@
 	&.mb-animate-enter-scale { animation-name: mbScaleIn; }
 	&.mb-animate-enter-blur { animation-name: mbBlurIn; }
 	&.mb-animate-enter-rotate { animation-name: mbRotateIn; }
+	// .mb-animate-enter-custom intentionally omitted — animation-name
+	// is set inline by the HOC to a per-block keyframe name.
 
 	// Exit animations
 	&.mb-animate-exit-fade { animation-name: mbFadeOut; }

@@ -149,8 +149,14 @@ function motion_blocks_render_block( $block_content, $block ) {
     $processor->set_attribute( 'data-mb-mode', esc_attr( $mode ) );
     $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
-    // Acceleration.
+    // Acceleration. Resolve the `custom` sentinel to the actual CSS
+    // timing function string so the frontend doesn't need to know
+    // about the sentinel.
     $acceleration = $attrs['animationAcceleration'] ?? 'ease';
+    if ( $acceleration === 'custom' ) {
+        $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
+        $acceleration = trim( $custom_tf ) !== '' ? $custom_tf : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+    }
     if ( $acceleration !== 'ease' ) {
         $processor->set_attribute( 'data-mb-acceleration', esc_attr( $acceleration ) );
     }
@@ -174,6 +180,45 @@ function motion_blocks_render_block( $block_content, $block ) {
         $rotate_angle = $attrs['animationRotateAngle'] ?? 90;
         if ( (int) $rotate_angle !== 90 ) {
             $processor->set_attribute( 'data-mb-rotate-angle', esc_attr( (string) $rotate_angle ) );
+        }
+    }
+
+    // Custom (From/To) — emit a data attr per side per property.
+    // Mirrors addAnimationSaveProps in src/index.js. The frontend
+    // reads these and sets `--mb-from-*` / `--mb-to-*` CSS variables
+    // consumed by the shared mbCustomEnter / mbCustomExit keyframes.
+    if ( $type === 'custom' ) {
+        $custom_props = array(
+            'opacity'    => 'opacity',
+            'translateX' => 'translate-x',
+            'translateY' => 'translate-y',
+            'scale'      => 'scale',
+            'rotate'     => 'rotate',
+            // 3D rotation (Flip support).
+            'rotateX'    => 'rotate-x',
+            'rotateY'    => 'rotate-y',
+            // Filter blur.
+            'blur'       => 'blur',
+            // Clip path (Curtain / Wipe support).
+            'clipPath'   => 'clip-path',
+        );
+        foreach ( $custom_props as $prop_id => $css_name ) {
+            $from_key  = 'animationFrom' . ucfirst( $prop_id );
+            $to_key    = 'animationTo' . ucfirst( $prop_id );
+            $from_val  = $attrs[ $from_key ] ?? null;
+            $to_val    = $attrs[ $to_key ] ?? null;
+            if ( $from_val !== null && $from_val !== '' ) {
+                $processor->set_attribute(
+                    "data-mb-from-{$css_name}",
+                    esc_attr( (string) $from_val )
+                );
+            }
+            if ( $to_val !== null && $to_val !== '' ) {
+                $processor->set_attribute(
+                    "data-mb-to-{$css_name}",
+                    esc_attr( (string) $to_val )
+                );
+            }
         }
     }
 
@@ -214,6 +259,10 @@ function motion_blocks_render_block( $block_content, $block ) {
                 $processor->set_attribute( 'data-mb-exit-delay', esc_attr( (string) ( $attrs['animationExitDelay'] ?? 0 ) ) );
 
                 $exit_accel = $attrs['animationExitAcceleration'] ?? 'ease';
+                if ( $exit_accel === 'custom' ) {
+                    $exit_custom_tf = $attrs['animationExitCustomTimingFunction'] ?? '';
+                    $exit_accel = trim( $exit_custom_tf ) !== '' ? $exit_custom_tf : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+                }
                 if ( $exit_accel !== 'ease' ) {
                     $processor->set_attribute( 'data-mb-exit-acceleration', esc_attr( $exit_accel ) );
                 }

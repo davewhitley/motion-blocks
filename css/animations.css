@@ -203,6 +203,12 @@
     }
 }
 
+/* Custom (Start / End) animations don't have a static keyframe rule.
+ * Each block gets a unique `@keyframes mb-custom-{uid}` injected at
+ * runtime by the frontend script (or in the editor by the
+ * withAnimationPreview HOC). The `animation-name` is set inline on
+ * each block so the static class binding isn't needed. */
+
 /* ----------------------------------------------------------------
  * Exit Keyframes & Class Bindings
  * -------------------------------------------------------------- */
@@ -300,6 +306,8 @@
         transform: rotate(var(--mb-rotate-angle, 90deg));
     }
 }
+
+/* Custom exit: animation-name is set inline (see frontend.js). */
 
 /* ----------------------------------------------------------------
  * Accessibility: Reduced Motion

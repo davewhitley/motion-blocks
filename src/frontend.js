@@ -141,6 +141,148 @@
 		}
 	}
 
+	/* ---------------------------------------------------------------
+	 * Custom (Start / End) — per-block @keyframes injection.
+	 *
+	 * For animationType === 'custom', the editor saves data attrs
+	 * `data-mb-from-{prop}` / `data-mb-to-{prop}` for each property
+	 * the user explicitly added. Properties not added are absent —
+	 * which is meaningful: the keyframe will omit them and CSS will
+	 * interpolate to the element's computed style on that side.
+	 *
+	 * For each custom-type element, we synthesize a unique
+	 * `@keyframes mb-custom-{n}` rule from its data attrs, append it
+	 * to a shared <style> in <head>, and bind it via inline
+	 * animation-name on the element.
+	 * ------------------------------------------------------------- */
+
+	// Definition list mirrors PROPERTY_DEFINITIONS in constants.js.
+	// Order matters — composes left-to-right into the transform.
+	var CUSTOM_PROPS = [
+		{ id: 'opacity', dataFrom: 'mbFromOpacity', dataTo: 'mbToOpacity' },
+		{ id: 'translateX', dataFrom: 'mbFromTranslateX', dataTo: 'mbToTranslateX' },
+		{ id: 'translateY', dataFrom: 'mbFromTranslateY', dataTo: 'mbToTranslateY' },
+		{ id: 'scale', dataFrom: 'mbFromScale', dataTo: 'mbToScale' },
+		{ id: 'rotate', dataFrom: 'mbFromRotate', dataTo: 'mbToRotate' },
+		// 3D rotations (Flip).
+		{ id: 'rotateX', dataFrom: 'mbFromRotateX', dataTo: 'mbToRotateX' },
+		{ id: 'rotateY', dataFrom: 'mbFromRotateY', dataTo: 'mbToRotateY' },
+		// Filter blur.
+		{ id: 'blur', dataFrom: 'mbFromBlur', dataTo: 'mbToBlur' },
+		// Clip path (Curtain / Wipe).
+		{ id: 'clipPath', dataFrom: 'mbFromClipPath', dataTo: 'mbToClipPath' },
+	];
+
+	function isAddedDatasetVal( v ) {
+		return v !== undefined && v !== null && v !== '';
+	}
+
+	/**
+	 * Build the body of one side of the keyframe (the contents of
+	 * `from { … }` or `to { … }`) from the element's data attrs.
+	 */
+	function buildSideBody( el, sideKey ) {
+		var bag = {};
+		CUSTOM_PROPS.forEach( function ( p ) {
+			var raw =
+				el.dataset[ sideKey === 'from' ? p.dataFrom : p.dataTo ];
+			if ( isAddedDatasetVal( raw ) ) {
+				bag[ p.id ] = raw;
+			}
+		} );
+		var decls = [];
+		if ( bag.opacity !== undefined ) {
+			decls.push( 'opacity: ' + bag.opacity );
+		}
+		// Compose transform — perspective() only when a 3D rotation
+		// is present (mirrors buildKeyframeSide in constants.js).
+		var tx = [];
+		var has3D =
+			bag.rotateX !== undefined || bag.rotateY !== undefined;
+		if ( has3D ) {
+			tx.push( 'perspective(800px)' );
+		}
+		var hasTx = bag.translateX !== undefined;
+		var hasTy = bag.translateY !== undefined;
+		if ( hasTx || hasTy ) {
+			tx.push(
+				'translate(' +
+					( hasTx ? bag.translateX : '0px' ) +
+					', ' +
+					( hasTy ? bag.translateY : '0px' ) +
+					')'
+			);
+		}
+		if ( bag.scale !== undefined ) {
+			tx.push( 'scale(' + bag.scale + ')' );
+		}
+		if ( bag.rotate !== undefined ) {
+			tx.push( 'rotate(' + bag.rotate + 'deg)' );
+		}
+		if ( bag.rotateX !== undefined ) {
+			tx.push( 'rotateX(' + bag.rotateX + 'deg)' );
+		}
+		if ( bag.rotateY !== undefined ) {
+			tx.push( 'rotateY(' + bag.rotateY + 'deg)' );
+		}
+		if ( tx.length > 0 ) {
+			decls.push( 'transform: ' + tx.join( ' ' ) );
+		}
+		if ( bag.blur !== undefined ) {
+			decls.push( 'filter: blur(' + bag.blur + 'px)' );
+		}
+		if ( bag.clipPath !== undefined ) {
+			decls.push( 'clip-path: ' + bag.clipPath );
+		}
+		if ( decls.length === 0 ) {
+			return null;
+		}
+		return decls.join( '; ' ) + ';';
+	}
+
+	// Shared <style> element for all custom keyframes. Created
+	// lazily on first use; one rule appended per custom block.
+	var customStyleEl = null;
+	var customKeyframeCounter = 0;
+
+	function getCustomStyleEl() {
+		if ( ! customStyleEl ) {
+			customStyleEl = document.createElement( 'style' );
+			customStyleEl.setAttribute( 'data-mb-custom', '' );
+			document.head.appendChild( customStyleEl );
+		}
+		return customStyleEl;
+	}
+
+	/**
+	 * For a custom-type element: build its @keyframes rule, append
+	 * it to the shared style element, set animation-name inline.
+	 * No-op if neither side has any added properties.
+	 */
+	function applyCustomKeyframe( el ) {
+		if ( el.dataset.mbType !== 'custom' ) {
+			return;
+		}
+		var fromBody = buildSideBody( el, 'from' );
+		var toBody = buildSideBody( el, 'to' );
+		if ( ! fromBody && ! toBody ) {
+			return;
+		}
+		customKeyframeCounter += 1;
+		var name = 'mb-custom-runtime-' + customKeyframeCounter;
+		var lines = [ '@keyframes ' + name + ' {' ];
+		if ( fromBody ) {
+			lines.push( '  from { ' + fromBody + ' }' );
+		}
+		if ( toBody ) {
+			lines.push( '  to { ' + toBody + ' }' );
+		}
+		lines.push( '}' );
+		var styleEl = getCustomStyleEl();
+		styleEl.appendChild( document.createTextNode( lines.join( '\n' ) ) );
+		el.style.animationName = name;
+	}
+
 	/**
 	 * Apply direction CSS custom properties for a given type + direction.
 	 */
@@ -177,6 +319,7 @@
 			);
 			applyBlurProps( el );
 			applyRotateProps( el );
+			applyCustomKeyframe( el );
 
 			// Handle repeat mode.
 			var repeat = el.dataset.mbRepeat || 'once';
@@ -269,6 +412,7 @@
 			// Apply blur amount (used by blur keyframe).
 			applyBlurProps( el );
 			applyRotateProps( el );
+			applyCustomKeyframe( el );
 
 			var observer = new IntersectionObserver(
 				function ( entries ) {
@@ -404,6 +548,7 @@
 			);
 			applyBlurProps( el );
 			applyRotateProps( el );
+			applyCustomKeyframe( el );
 
 			// Apply acceleration (timing function).
 			var acceleration = el.dataset.mbAcceleration;

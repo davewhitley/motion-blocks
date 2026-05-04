@@ -14,6 +14,9 @@ import {
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
+	__experimentalHStack as HStack,
+	__experimentalNumberControl as NumberControl,
+	FlexBlock,
 	Button,
 	Icon,
 } from '@wordpress/components';
@@ -32,11 +35,15 @@ import {
 	ANIMATION_TYPE_OPTIONS,
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
+	TYPES_CUSTOMIZABLE_FROM_PRESET,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
+	getPresetFromTo,
+	fromToBagToAttrs,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import FromToControls from './FromToControls';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -64,6 +71,7 @@ export default function ScrollInteractiveControls( {
 		animationType,
 		animationDirection,
 		animationAcceleration,
+		animationCustomTimingFunction,
 		animationBlurAmount,
 		animationRotateAngle,
 		animationRangeStart,
@@ -74,8 +82,12 @@ export default function ScrollInteractiveControls( {
 	const typeOptions = ANIMATION_TYPE_OPTIONS;
 
 	const previewOn = animationPreviewEnabled !== false;
+	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+	const canCustomizePreset = TYPES_CUSTOMIZABLE_FROM_PRESET.includes(
+		animationType
+	);
 
 	const startOffset = parseOffset( animationRangeStart, 'entry 0%' );
 	const endOffset = parseOffset( animationRangeEnd, 'exit 100%' );
@@ -91,6 +103,21 @@ export default function ScrollInteractiveControls( {
 			newAttrs.animationDirection = '';
 		}
 		setAttributes( newAttrs );
+	};
+
+	/**
+	 * Convert the current preset into the `custom` type with from/to
+	 * seeded from the preset's defaults.
+	 */
+	const handleCustomize = () => {
+		const bag = getPresetFromTo( animationType, animationDirection, {
+			rotateAngle: animationRotateAngle,
+		} );
+		setAttributes( {
+			animationType: 'custom',
+			animationDirection: '',
+			...fromToBagToAttrs( bag ),
+		} );
 	};
 
 	return (
@@ -116,15 +143,17 @@ export default function ScrollInteractiveControls( {
 				</p>
 			</div>
 
-			<div className="mb-select-row">
-				<SelectControl
-					label={ __( 'Animation', 'motion-blocks' ) }
-					value={ animationType }
-					options={ typeOptions }
-					onChange={ handleTypeChange }
-					size="__unstable-large"
-					__nextHasNoMarginBottom
-				/>
+			<HStack alignment="bottom" spacing={ 3 }>
+				<FlexBlock>
+					<SelectControl
+						label={ __( 'Effect', 'motion-blocks' ) }
+						value={ animationType }
+						options={ typeOptions }
+						onChange={ handleTypeChange }
+						__next40pxDefaultSize
+						__nextHasNoMarginBottom
+					/>
+				</FlexBlock>
 				<Button
 					icon={ previewOn ? seen : unseen }
 					label={
@@ -133,8 +162,6 @@ export default function ScrollInteractiveControls( {
 							: __( 'Enable preview', 'motion-blocks' )
 					}
 					variant="secondary"
-					size="default"
-					className="mb-preview-button"
 					onClick={ () =>
 						setAttributes( {
 							animationPreviewEnabled: ! previewOn,
@@ -142,9 +169,26 @@ export default function ScrollInteractiveControls( {
 					}
 					__next40pxDefaultSize
 				/>
-			</div>
+			</HStack>
 
-			{ animationType === 'scale' && (
+			{ isCustom && (
+				<FromToControls
+					attributes={ attributes }
+					setAttributes={ setAttributes }
+				/>
+			) }
+
+			{ ! isCustom && canCustomizePreset && (
+				<Button
+					variant="link"
+					onClick={ handleCustomize }
+					className="mb-customize-link"
+				>
+					{ __( 'Customize this animation…', 'motion-blocks' ) }
+				</Button>
+			) }
+
+			{ ! isCustom && animationType === 'scale' && (
 				<>
 					<ToggleControl
 						label={ __( 'Scale with direction', 'motion-blocks' ) }
@@ -179,7 +223,7 @@ export default function ScrollInteractiveControls( {
 				</>
 			) }
 
-			{ hasDirection && animationType === 'curtain' && (
+			{ ! isCustom && hasDirection && animationType === 'curtain' && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -199,7 +243,7 @@ export default function ScrollInteractiveControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -220,7 +264,7 @@ export default function ScrollInteractiveControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ animationType === 'blur' && (
+			{ ! isCustom && animationType === 'blur' && (
 				<RangeControl
 					label={ __( 'Blur', 'motion-blocks' ) }
 					value={ animationBlurAmount }
@@ -236,18 +280,18 @@ export default function ScrollInteractiveControls( {
 				/>
 			) }
 
-			{ animationType === 'rotate' && (
-				<TextControl
+			{ ! isCustom && animationType === 'rotate' && (
+				<NumberControl
 					label={ __( 'Angle', 'motion-blocks' ) }
-					type="number"
-					value={ String( animationRotateAngle ?? 90 ) }
+					value={ animationRotateAngle ?? 90 }
+					step={ 1 }
+					spinControls="custom"
 					onChange={ ( value ) =>
 						setAttributes( {
 							animationRotateAngle:
 								parseInt( value, 10 ) || 0,
 						} )
 					}
-					__nextHasNoMarginBottom
 					__next40pxDefaultSize
 				/>
 			) }
@@ -291,9 +335,26 @@ export default function ScrollInteractiveControls( {
 				onChange={ ( value ) =>
 					setAttributes( { animationAcceleration: value } )
 				}
-				size="__unstable-large"
+				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
+			{ animationAcceleration === 'custom' && (
+				<TextControl
+					label={ __( 'Custom timing function', 'motion-blocks' ) }
+					value={ animationCustomTimingFunction }
+					onChange={ ( v ) =>
+						setAttributes( {
+							animationCustomTimingFunction: v,
+						} )
+					}
+					help={ __(
+						'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+						'motion-blocks'
+					) }
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+				/>
+			) }
 
 			<Button
 				variant="secondary"

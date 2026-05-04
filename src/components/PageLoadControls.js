@@ -10,6 +10,9 @@ import {
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
+	__experimentalHStack as HStack,
+	__experimentalNumberControl as NumberControl,
+	FlexBlock,
 	Button,
 	Icon,
 } from '@wordpress/components';
@@ -27,12 +30,16 @@ import {
 	ANIMATION_TYPE_OPTIONS,
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
+	TYPES_CUSTOMIZABLE_FROM_PRESET,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
 	REPEAT_OPTIONS,
+	getPresetFromTo,
+	fromToBagToAttrs,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import FromToControls from './FromToControls';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -70,6 +77,7 @@ export default function PageLoadControls( {
 		animationDuration,
 		animationDelay,
 		animationAcceleration,
+		animationCustomTimingFunction,
 		animationBlurAmount,
 		animationRotateAngle,
 		animationRepeat,
@@ -78,8 +86,12 @@ export default function PageLoadControls( {
 
 	const typeOptions = ANIMATION_TYPE_OPTIONS;
 
+	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+	const canCustomizePreset = TYPES_CUSTOMIZABLE_FROM_PRESET.includes(
+		animationType
+	);
 
 	/**
 	 * When animation type changes, auto-set direction to the default
@@ -93,6 +105,21 @@ export default function PageLoadControls( {
 			newAttrs.animationDirection = '';
 		}
 		setAttributes( newAttrs );
+	};
+
+	/**
+	 * Convert the current preset (fade/slide/scale/rotate) into the
+	 * `custom` type with from/to seeded from the preset's defaults.
+	 */
+	const handleCustomize = () => {
+		const bag = getPresetFromTo( animationType, animationDirection, {
+			rotateAngle: animationRotateAngle,
+		} );
+		setAttributes( {
+			animationType: 'custom',
+			animationDirection: '',
+			...fromToBagToAttrs( bag ),
+		} );
 	};
 
 	return (
@@ -118,15 +145,17 @@ export default function PageLoadControls( {
 				</p>
 			</div>
 
-			<div className="mb-select-row">
-				<SelectControl
-					label={ __( 'Animation', 'motion-blocks' ) }
-					value={ animationType }
-					options={ typeOptions }
-					onChange={ handleTypeChange }
-					size="__unstable-large"
-					__nextHasNoMarginBottom
-				/>
+			<HStack alignment="bottom" spacing={ 3 }>
+				<FlexBlock>
+					<SelectControl
+						label={ __( 'Effect', 'motion-blocks' ) }
+						value={ animationType }
+						options={ typeOptions }
+						onChange={ handleTypeChange }
+						__next40pxDefaultSize
+						__nextHasNoMarginBottom
+					/>
+				</FlexBlock>
 				<Button
 					icon={ isLoopRunning ? stopIcon : playIcon }
 					label={
@@ -135,14 +164,29 @@ export default function PageLoadControls( {
 							: __( 'Preview animation', 'motion-blocks' )
 					}
 					variant="secondary"
-					size="default"
-					className="mb-preview-button"
 					onClick={ isLoopRunning ? onStopPreview : onPreview }
 					__next40pxDefaultSize
 				/>
-			</div>
+			</HStack>
 
-			{ animationType === 'scale' && (
+			{ isCustom && (
+				<FromToControls
+					attributes={ attributes }
+					setAttributes={ setAttributes }
+				/>
+			) }
+
+			{ ! isCustom && canCustomizePreset && (
+				<Button
+					variant="link"
+					onClick={ handleCustomize }
+					className="mb-customize-link"
+				>
+					{ __( 'Customize this animation…', 'motion-blocks' ) }
+				</Button>
+			) }
+
+			{ ! isCustom && animationType === 'scale' && (
 				<>
 					<ToggleControl
 						label={ __( 'Scale with direction', 'motion-blocks' ) }
@@ -177,7 +221,7 @@ export default function PageLoadControls( {
 				</>
 			) }
 
-			{ hasDirection && animationType === 'curtain' && (
+			{ ! isCustom && hasDirection && animationType === 'curtain' && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -197,7 +241,7 @@ export default function PageLoadControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -218,7 +262,7 @@ export default function PageLoadControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ animationType === 'blur' && (
+			{ ! isCustom && animationType === 'blur' && (
 				<RangeControl
 					label={ __( 'Blur', 'motion-blocks' ) }
 					value={ animationBlurAmount }
@@ -234,48 +278,58 @@ export default function PageLoadControls( {
 				/>
 			) }
 
-			{ animationType === 'rotate' && (
-				<TextControl
+			{ ! isCustom && animationType === 'rotate' && (
+				<NumberControl
 					label={ __( 'Angle', 'motion-blocks' ) }
-					type="number"
-					value={ String( animationRotateAngle ?? 90 ) }
+					value={ animationRotateAngle ?? 90 }
+					step={ 1 }
+					spinControls="custom"
 					onChange={ ( value ) =>
 						setAttributes( {
 							animationRotateAngle:
 								parseInt( value, 10 ) || 0,
 						} )
 					}
-					__nextHasNoMarginBottom
 					__next40pxDefaultSize
 				/>
 			) }
 
-			<div className="mb-timing-row">
-				<TextControl
-					label={ __( 'Duration', 'motion-blocks' ) }
-					type="number"
-					min="0"
-					step="0.1"
-					value={ String( animationDuration ) }
-					onChange={ ( value ) =>
-						setAttributes( { animationDuration: parseFloat( value ) || 0 } )
-					}
-					__nextHasNoMarginBottom
-					__next40pxDefaultSize
-				/>
-				<TextControl
-					label={ __( 'Delay', 'motion-blocks' ) }
-					type="number"
-					min="0"
-					step="0.1"
-					value={ String( animationDelay ) }
-					onChange={ ( value ) =>
-						setAttributes( { animationDelay: parseFloat( value ) || 0 } )
-					}
-					__nextHasNoMarginBottom
-					__next40pxDefaultSize
-				/>
+			<div className="mb-section-heading">
+				{ __( 'Timing', 'motion-blocks' ) }
 			</div>
+
+			<HStack spacing={ 3 }>
+				<FlexBlock>
+					<NumberControl
+						label={ __( 'Duration', 'motion-blocks' ) }
+						value={ animationDuration }
+						min={ 0 }
+						step={ 0.1 }
+						spinControls="custom"
+						onChange={ ( value ) =>
+							setAttributes( {
+								animationDuration: parseFloat( value ) || 0,
+							} )
+						}
+						__next40pxDefaultSize
+					/>
+				</FlexBlock>
+				<FlexBlock>
+					<NumberControl
+						label={ __( 'Delay', 'motion-blocks' ) }
+						value={ animationDelay }
+						min={ 0 }
+						step={ 0.1 }
+						spinControls="custom"
+						onChange={ ( value ) =>
+							setAttributes( {
+								animationDelay: parseFloat( value ) || 0,
+							} )
+						}
+						__next40pxDefaultSize
+					/>
+				</FlexBlock>
+			</HStack>
 
 			<SelectControl
 				label={ __( 'Acceleration', 'motion-blocks' ) }
@@ -284,9 +338,26 @@ export default function PageLoadControls( {
 				onChange={ ( value ) =>
 					setAttributes( { animationAcceleration: value } )
 				}
-				size="__unstable-large"
+				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
+			{ animationAcceleration === 'custom' && (
+				<TextControl
+					label={ __( 'Custom timing function', 'motion-blocks' ) }
+					value={ animationCustomTimingFunction }
+					onChange={ ( v ) =>
+						setAttributes( {
+							animationCustomTimingFunction: v,
+						} )
+					}
+					help={ __(
+						'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+						'motion-blocks'
+					) }
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+				/>
+			) }
 
 			<SelectControl
 				label={ __( 'Repeat', 'motion-blocks' ) }
@@ -295,7 +366,7 @@ export default function PageLoadControls( {
 				onChange={ ( value ) =>
 					setAttributes( { animationRepeat: value } )
 				}
-				size="__unstable-large"
+				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
 

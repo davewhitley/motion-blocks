@@ -141,6 +141,13 @@
 	:scope {
 		display: flex;
 		flex-direction: column;
+		// 16px is WP's standard between-control gap inside a panel —
+		// matches `<VStack spacing={4}>` and what legacy components
+		// would supply via their own margin-bottom. Children all use
+		// `__nextHasNoMarginBottom`, so without this they'd stack
+		// flush. HStack-wrapped rows (Duration + Delay, etc.) keep
+		// their own internal spacing via the `spacing` prop.
+		gap: vars.$grid-unit-20;
 	}
 
 	.mb-sub-panel-header {

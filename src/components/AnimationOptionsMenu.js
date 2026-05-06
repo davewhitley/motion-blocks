@@ -16,6 +16,7 @@ import {
 import { useSelect, useDispatch } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
+import { store as noticesStore } from '@wordpress/notices';
 import { useState } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
@@ -95,6 +96,7 @@ export default function AnimationOptionsMenu( {
 	);
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
+	const { createSuccessNotice } = useDispatch( noticesStore );
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
 
 	const hasAnimation = !! attributes?.animationMode;
@@ -124,6 +126,24 @@ export default function AnimationOptionsMenu( {
 		updateBlockAttributes(
 			matchingIds,
 			pickAnimationAttributes( attributes )
+		);
+		// Snackbar bottom-left of the editor, auto-dismisses. Confirms
+		// the bulk apply happened (the user can't see all the blocks
+		// at once, so a quick visual receipt avoids the "did anything
+		// just happen?" moment).
+		createSuccessNotice(
+			sprintf(
+				/* translators: 1: block count, 2: block-type label */
+				_n(
+					'Animation applied to %1$d %2$s block.',
+					'Animation applied to %1$d %2$s blocks.',
+					matchingIds.length,
+					'motion-blocks'
+				),
+				matchingIds.length,
+				typeLabel
+			),
+			{ type: 'snackbar' }
 		);
 	};
 

@@ -41,6 +41,23 @@
 	}
 }
 
+// Document-tab Animations panel (PluginDocumentSettingPanel).
+// Lives outside the block inspector, so it can't piggy-back on
+// `.mb-sub-panel`'s scoped rules.
+.mb-page-settings {
+	.mb-page-settings__intro {
+		margin: 0;
+		font-size: 12px;
+		line-height: 16px;
+		color: colors.$gray-700;
+	}
+
+	.mb-remove-button {
+		width: 100%;
+		justify-content: center;
+	}
+}
+
 // Mode selector — initial state before animation is configured
 @scope (.mb-mode-selector) {
 	:scope {

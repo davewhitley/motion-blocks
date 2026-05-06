@@ -156,29 +156,39 @@ function MotionBlocksPagePanel() {
 			title={ __( 'Animations', 'motion-blocks' ) }
 			className="mb-page-settings"
 		>
-			<VStack spacing={ 3 }>
-				{ DEVICE_OPTIONS.map( ( opt ) => (
-					<HStack
-						key={ opt.key }
-						alignment="center"
-						justify="space-between"
-						spacing={ 3 }
-					>
-						<CheckboxControl
-							label={ opt.label }
-							checked={ !! meta[ opt.key ] }
-							onChange={ ( v ) =>
-								setMetaValue( opt.key, v )
-							}
-							__nextHasNoMarginBottom
-						/>
-						<Icon icon={ opt.icon } />
-					</HStack>
-				) ) }
+			<VStack spacing={ 4 }>
+				<p className="mb-page-settings__intro">
+					{ __(
+						'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
+						'motion-blocks'
+					) }
+				</p>
+
+				<VStack spacing={ 3 }>
+					{ DEVICE_OPTIONS.map( ( opt ) => (
+						<HStack
+							key={ opt.key }
+							alignment="center"
+							justify="space-between"
+							spacing={ 3 }
+						>
+							<CheckboxControl
+								label={ opt.label }
+								checked={ !! meta[ opt.key ] }
+								onChange={ ( v ) =>
+									setMetaValue( opt.key, v )
+								}
+								__nextHasNoMarginBottom
+							/>
+							<Icon icon={ opt.icon } />
+						</HStack>
+					) ) }
+				</VStack>
 
 				<Button
 					variant="secondary"
 					isDestructive
+					className="mb-remove-button"
 					onClick={ () => setConfirmOpen( true ) }
 					disabled={ animatedCount === 0 }
 					__next40pxDefaultSize

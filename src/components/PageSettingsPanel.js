@@ -4,10 +4,12 @@
  * Renders inside the Document/Page tab of the post inspector via
  * `PluginDocumentSettingPanel`. Provides:
  *
- *   1. Three per-device "Disable on …" checkboxes (desktop / tablet
+ *   1. "Auto-animate this page" — opens a modal that walks the block
+ *      tree and applies tasteful animations per block-type category.
+ *   2. Three per-device "Disable on …" checkboxes (desktop / tablet
  *      / mobile). Three independent flags — to disable everywhere,
  *      check all three.
- *   2. "Remove all animations" — destructive action that walks every
+ *   3. "Remove all animations" — destructive action that walks every
  *      block and resets `animationMode`. Reversible via WP Undo.
  *
  * The toggles persist as post meta (registered server-side in
@@ -36,6 +38,8 @@ import {
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
 import { desktop, tablet, mobile } from '@wordpress/icons';
+
+import AutoAnimateModal from './AutoAnimate';
 
 const DEVICE_OPTIONS = [
 	{
@@ -128,6 +132,7 @@ function MotionBlocksPagePanel() {
 	const { createSuccessNotice } = useDispatch( noticesStore );
 
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
+	const [ autoAnimateOpen, setAutoAnimateOpen ] = useState( false );
 
 	const setMetaValue = ( key, value ) => {
 		setMeta( { ...meta, [ key ]: value } );
@@ -171,45 +176,63 @@ function MotionBlocksPagePanel() {
 			title={ __( 'Animations', 'motion-blocks' ) }
 			className="mb-page-settings"
 		>
-			<VStack spacing={ 4 }>
-				<p className="mb-page-settings__intro">
-					{ __(
-						'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
-						'motion-blocks'
-					) }
-				</p>
-
-				<VStack spacing={ 3 }>
-					{ DEVICE_OPTIONS.map( ( opt ) => (
-						<HStack
-							key={ opt.key }
-							alignment="center"
-							justify="space-between"
-							spacing={ 3 }
-						>
-							<CheckboxControl
-								label={ opt.label }
-								checked={ !! meta[ opt.key ] }
-								onChange={ ( v ) =>
-									setMetaValue( opt.key, v )
-								}
-								__nextHasNoMarginBottom
-							/>
-							<Icon icon={ opt.icon } />
-						</HStack>
-					) ) }
-				</VStack>
-
+			<VStack spacing={ 5 }>
+				{ /* Primary action: walk the page and apply tasteful
+				   animations in one click. */ }
 				<Button
-					variant="secondary"
-					isDestructive
-					className="mb-remove-button"
-					onClick={ () => setConfirmOpen( true ) }
-					disabled={ animatedCount === 0 }
+					variant="primary"
+					className="mb-auto-animate-button"
+					onClick={ () => setAutoAnimateOpen( true ) }
 					__next40pxDefaultSize
 				>
-					{ __( 'Remove all animations', 'motion-blocks' ) }
+					{ __(
+						'Auto-animate this page',
+						'motion-blocks'
+					) }
 				</Button>
+
+				<div className="mb-page-settings__divider" />
+
+				<VStack spacing={ 4 }>
+					<p className="mb-page-settings__intro">
+						{ __(
+							'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
+							'motion-blocks'
+						) }
+					</p>
+
+					<VStack spacing={ 3 }>
+						{ DEVICE_OPTIONS.map( ( opt ) => (
+							<HStack
+								key={ opt.key }
+								alignment="center"
+								justify="space-between"
+								spacing={ 3 }
+							>
+								<CheckboxControl
+									label={ opt.label }
+									checked={ !! meta[ opt.key ] }
+									onChange={ ( v ) =>
+										setMetaValue( opt.key, v )
+									}
+									__nextHasNoMarginBottom
+								/>
+								<Icon icon={ opt.icon } />
+							</HStack>
+						) ) }
+					</VStack>
+
+					<Button
+						variant="secondary"
+						isDestructive
+						className="mb-remove-button"
+						onClick={ () => setConfirmOpen( true ) }
+						disabled={ animatedCount === 0 }
+						__next40pxDefaultSize
+					>
+						{ __( 'Remove all animations', 'motion-blocks' ) }
+					</Button>
+				</VStack>
 			</VStack>
 
 			<ConfirmDialog
@@ -229,6 +252,11 @@ function MotionBlocksPagePanel() {
 					animatedCount
 				) }
 			</ConfirmDialog>
+
+			<AutoAnimateModal
+				isOpen={ autoAnimateOpen }
+				onClose={ () => setAutoAnimateOpen( false ) }
+			/>
 		</PluginDocumentSettingPanel>
 	);
 }

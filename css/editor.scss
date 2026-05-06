@@ -90,9 +90,52 @@
 		color: colors.$gray-700;
 	}
 
+	// Thin horizontal rule separating the primary action (Auto-animate)
+	// from the secondary settings (disable toggles + remove).
+	.mb-page-settings__divider {
+		height: 1px;
+		background: colors.$gray-200;
+	}
+
+	.mb-auto-animate-button {
+		width: 100%;
+		justify-content: center;
+	}
+
 	.mb-remove-button {
 		width: 100%;
 		justify-content: center;
+	}
+}
+
+// Auto-animate modal — count list and helper text.
+.mb-auto-animate-modal {
+	.mb-auto-animate-modal__heading {
+		margin: 0 0 vars.$grid-unit-10;
+		font-size: 13px;
+		font-weight: 500;
+		color: colors.$gray-900;
+	}
+
+	.mb-auto-animate-modal__list {
+		margin: 0;
+		padding: 0 0 0 vars.$grid-unit-20;
+		font-size: 12px;
+		line-height: 18px;
+		color: colors.$gray-700;
+	}
+
+	.mb-auto-animate-modal__hint {
+		margin: 0;
+		font-size: 12px;
+		line-height: 16px;
+		color: colors.$gray-700;
+	}
+
+	.mb-auto-animate-modal__empty {
+		margin: 0;
+		font-size: 13px;
+		color: colors.$gray-700;
 	}
 }
 

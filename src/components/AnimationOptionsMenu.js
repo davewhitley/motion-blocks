@@ -2,26 +2,37 @@
  * AnimationOptionsMenu — dropdown menu for the moreVertical button
  * in each animation sub-panel header.
  *
- * Provides Copy / Paste / Apply-to-all-of-this-type / Reset / Remove
- * actions. Copy uses a module-level variable that persists across
- * block selections within the session.
+ * Provides:
+ *   - Copy / Paste (in-session clipboard)
+ *   - Apply to all blocks of this type (with overwrite confirm)
+ *   - Save animation as… (persists to site option `mb_saved_animations`)
+ *   - Apply / Delete saved animations
+ *   - Reset / Remove
+ *
+ * Saved-animation library is site-wide. Storage and shape live in
+ * `savedAnimations.js` and the PHP `register_setting` block.
  */
 
 import {
 	DropdownMenu,
 	MenuGroup,
 	MenuItem,
+	Icon,
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
+import { store as coreStore } from '@wordpress/core-data';
 import { store as noticesStore } from '@wordpress/notices';
+import { useEntityProp } from '@wordpress/core-data';
 import { useState } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
 import { DEFAULT_ATTRIBUTES } from './constants';
+import { generateUid, sortLibrary, stripUiState } from './savedAnimations';
+import SavedAnimationsModal from './SavedAnimationsModal';
 
 const ANIMATION_KEYS = Object.keys( DEFAULT_ATTRIBUTES );
 
@@ -95,17 +106,32 @@ export default function AnimationOptionsMenu( {
 		[ blockName, clientId ]
 	);
 
+	// Saved-animation library (site option, exposed via REST). Empty
+	// object until the entity loads — `useEntityProp` returns
+	// `undefined` initially, so default to `{}` for safe iteration.
+	const [ savedAnimations = {}, setSavedAnimations ] = useEntityProp(
+		'root',
+		'site',
+		'mb_saved_animations'
+	);
+	const savedEntries = sortLibrary( savedAnimations );
+
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
+	const { saveEditedEntityRecord } = useDispatch( coreStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );
+
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
+	const [ saveModalOpen, setSaveModalOpen ] = useState( false );
+	const [ deletePending, setDeletePending ] = useState( null ); // { uid, name }
 
 	const hasAnimation = !! attributes?.animationMode;
-	const canApply =
+	const canApplyToAll =
 		! pasteOnly &&
 		hasAnimation &&
 		matchingIds.length > 0 &&
 		!! blockName &&
 		!! clientId;
+	const canSave = ! pasteOnly && hasAnimation;
 
 	const handleCopy = ( onClose ) => {
 		copiedAnimation = pickAnimationAttributes( attributes );
@@ -119,6 +145,10 @@ export default function AnimationOptionsMenu( {
 		onClose();
 	};
 
+	// ── Apply to all blocks of this type ─────────────────────────
+
+	const typeLabel = blockTypeTitle || blockName || '';
+
 	const applyToAll = () => {
 		if ( matchingIds.length === 0 ) {
 			return;
@@ -127,10 +157,6 @@ export default function AnimationOptionsMenu( {
 			matchingIds,
 			pickAnimationAttributes( attributes )
 		);
-		// Snackbar bottom-left of the editor, auto-dismisses. Confirms
-		// the bulk apply happened (the user can't see all the blocks
-		// at once, so a quick visual receipt avoids the "did anything
-		// just happen?" moment).
 		createSuccessNotice(
 			sprintf(
 				/* translators: 1: block count, 2: block-type label */
@@ -148,9 +174,6 @@ export default function AnimationOptionsMenu( {
 	};
 
 	const handleApplyClick = ( onClose ) => {
-		// If any target already has an animation, confirm before
-		// overwriting. Otherwise apply silently — there's nothing
-		// to lose.
 		if ( existingCount > 0 ) {
 			setConfirmOpen( true );
 		} else {
@@ -159,18 +182,84 @@ export default function AnimationOptionsMenu( {
 		onClose();
 	};
 
-	const onConfirm = () => {
+	const onConfirmApplyToAll = () => {
 		applyToAll();
 		setConfirmOpen( false );
 	};
 
-	// Build the apply-item label. Three states:
-	//   - No matches  → disabled, "No other [Image] blocks"
-	//   - Matches     → "Apply to all 3 Image blocks"
-	//
-	// (Block-type title isn't always loaded on first render; fall
-	// back to the raw name so the label never reads "undefined".)
-	const typeLabel = blockTypeTitle || blockName || '';
+	// ── Save / Apply saved / Delete saved ────────────────────────
+
+	const persistLibrary = async ( nextLibrary ) => {
+		setSavedAnimations( nextLibrary );
+		// `useEntityProp` only edits the local entity record; persist
+		// to the server explicitly. Without this the change vanishes
+		// on the next REST round-trip.
+		await saveEditedEntityRecord( 'root', 'site', undefined, {
+			mb_saved_animations: nextLibrary,
+		} );
+	};
+
+	const handleSaveSubmit = async ( name ) => {
+		const uid = generateUid();
+		const cleaned = stripUiState( pickAnimationAttributes( attributes ) );
+		const next = {
+			...( savedAnimations || {} ),
+			[ uid ]: {
+				name,
+				createdAt: new Date().toISOString(),
+				attributes: cleaned,
+			},
+		};
+		await persistLibrary( next );
+		setSaveModalOpen( false );
+		createSuccessNotice(
+			sprintf(
+				/* translators: %s: user-supplied animation name */
+				__( "Animation saved as '%s'.", 'motion-blocks' ),
+				name
+			),
+			{ type: 'snackbar' }
+		);
+	};
+
+	const handleApplySaved = ( saved, onClose ) => {
+		if ( ! saved?.attributes ) {
+			onClose();
+			return;
+		}
+		updateBlockAttributes( clientId, saved.attributes );
+		createSuccessNotice(
+			sprintf(
+				/* translators: %s: user-supplied animation name */
+				__( "Applied '%s' to this block.", 'motion-blocks' ),
+				saved.name || ''
+			),
+			{ type: 'snackbar' }
+		);
+		onClose();
+	};
+
+	const handleDeleteSaved = async () => {
+		if ( ! deletePending?.uid ) {
+			return;
+		}
+		const next = { ...( savedAnimations || {} ) };
+		delete next[ deletePending.uid ];
+		await persistLibrary( next );
+		const name = deletePending.name;
+		setDeletePending( null );
+		createSuccessNotice(
+			sprintf(
+				/* translators: %s: user-supplied animation name */
+				__( "Deleted '%s'.", 'motion-blocks' ),
+				name || ''
+			),
+			{ type: 'snackbar' }
+		);
+	};
+
+	// ── Apply-to-all menu label ──────────────────────────────────
+
 	const applyLabel =
 		matchingIds.length === 0
 			? sprintf(
@@ -217,7 +306,7 @@ export default function AnimationOptionsMenu( {
 							</MenuItem>
 							{ ! pasteOnly && blockName && (
 								<MenuItem
-									disabled={ ! canApply }
+									disabled={ ! canApplyToAll }
 									onClick={ () =>
 										handleApplyClick( onClose )
 									}
@@ -226,6 +315,73 @@ export default function AnimationOptionsMenu( {
 								</MenuItem>
 							) }
 						</MenuGroup>
+
+						{ ! pasteOnly && (
+							<MenuGroup>
+								<MenuItem
+									disabled={ ! canSave }
+									onClick={ () => {
+										setSaveModalOpen( true );
+										onClose();
+									} }
+								>
+									{ __(
+										'Save animation as…',
+										'motion-blocks'
+									) }
+								</MenuItem>
+							</MenuGroup>
+						) }
+
+						{ savedEntries.length > 0 && (
+							<MenuGroup
+								label={ __(
+									'Apply saved animation',
+									'motion-blocks'
+								) }
+							>
+								{ savedEntries.map( ( [ uid, saved ] ) => (
+									<div
+										key={ uid }
+										className="mb-saved-animation-row"
+									>
+										<MenuItem
+											className="mb-saved-animation-row__apply"
+											onClick={ () =>
+												handleApplySaved(
+													saved,
+													onClose
+												)
+											}
+										>
+											{ saved.name || uid }
+										</MenuItem>
+										<button
+											type="button"
+											className="mb-saved-animation-row__delete"
+											aria-label={ sprintf(
+												/* translators: %s: saved animation name */
+												__(
+													'Delete %s',
+													'motion-blocks'
+												),
+												saved.name || uid
+											) }
+											onClick={ () => {
+												setDeletePending( {
+													uid,
+													name: saved.name,
+												} );
+												onClose();
+											} }
+										>
+											<Icon icon={ trash } size={ 16 } />
+										</button>
+									</div>
+								) ) }
+							</MenuGroup>
+						) }
+
 						{ ! pasteOnly && (
 							<MenuGroup>
 								<MenuItem
@@ -245,7 +401,10 @@ export default function AnimationOptionsMenu( {
 										onClose();
 									} }
 								>
-									{ __( 'Remove animation', 'motion-blocks' ) }
+									{ __(
+										'Remove animation',
+										'motion-blocks'
+									) }
 								</MenuItem>
 							</MenuGroup>
 						) }
@@ -253,9 +412,10 @@ export default function AnimationOptionsMenu( {
 				) }
 			</DropdownMenu>
 
+			{ /* Apply-to-all overwrite confirmation */ }
 			<ConfirmDialog
 				isOpen={ confirmOpen }
-				onConfirm={ onConfirm }
+				onConfirm={ onConfirmApplyToAll }
 				onCancel={ () => setConfirmOpen( false ) }
 				confirmButtonText={ __( 'Apply', 'motion-blocks' ) }
 			>
@@ -268,6 +428,30 @@ export default function AnimationOptionsMenu( {
 					matchingIds.length,
 					existingCount,
 					typeLabel
+				) }
+			</ConfirmDialog>
+
+			{ /* Save modal — name prompt */ }
+			<SavedAnimationsModal
+				isOpen={ saveModalOpen }
+				onSubmit={ handleSaveSubmit }
+				onCancel={ () => setSaveModalOpen( false ) }
+			/>
+
+			{ /* Delete confirmation */ }
+			<ConfirmDialog
+				isOpen={ !! deletePending }
+				onConfirm={ handleDeleteSaved }
+				onCancel={ () => setDeletePending( null ) }
+				confirmButtonText={ __( 'Delete', 'motion-blocks' ) }
+			>
+				{ sprintf(
+					/* translators: %s: saved animation name */
+					__(
+						"Delete '%s'? This won't affect blocks already using it.",
+						'motion-blocks'
+					),
+					deletePending?.name || ''
 				) }
 			</ConfirmDialog>
 		</>

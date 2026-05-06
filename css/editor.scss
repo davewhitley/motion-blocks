@@ -41,6 +41,44 @@
 	}
 }
 
+// Saved-animation rows in the kebab menu. Each row has the apply
+// MenuItem flexed to fill, plus a small trash button at the end.
+// We keep the MenuItem as the apply trigger (preserves keyboard nav,
+// hover state, accessibility roles); the trash button is a
+// regular <button> alongside it. CSS makes them sit on one row.
+.mb-saved-animation-row {
+	display: flex;
+	align-items: stretch;
+
+	.mb-saved-animation-row__apply {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.mb-saved-animation-row__delete {
+		flex: 0 0 auto;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0 vars.$grid-unit-10;
+		background: transparent;
+		border: 0;
+		cursor: pointer;
+		color: colors.$gray-700;
+
+		&:hover,
+		&:focus {
+			color: colors.$alert-red;
+			background: colors.$gray-100;
+		}
+
+		&:focus-visible {
+			outline: 1.5px solid var(--wp-admin-theme-color, #3858e9);
+			outline-offset: -1.5px;
+		}
+	}
+}
+
 // Document-tab Animations panel (PluginDocumentSettingPanel).
 // Lives outside the block inspector, so it can't piggy-back on
 // `.mb-sub-panel`'s scoped rules.

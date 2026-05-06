@@ -371,3 +371,57 @@ function motion_blocks_body_class( $classes ) {
     return $classes;
 }
 add_filter( 'body_class', 'motion_blocks_body_class' );
+
+/**
+ * Register the saved-animation library as a site option.
+ *
+ * Stored as a uid-keyed map of saved configurations:
+ *
+ *   {
+ *       "ab12cd34": {
+ *           "name":       "Slow fade up",
+ *           "createdAt":  "2026-05-06T15:42:00Z",
+ *           "attributes": { animationMode: "scroll-appear", … }
+ *       },
+ *       …
+ *   }
+ *
+ * Uid-keyed (not name-keyed) so renames don't break references and
+ * overlapping names don't collide. Exposed in REST so the editor's
+ * `useEntityProp('root', 'site', …)` can read/write it.
+ *
+ * `additionalProperties: true` on `attributes` because we don't want
+ * the schema to block forward-compat when new animation attributes
+ * are added — the editor is the canonical schema for what's inside.
+ *
+ * Capability: `edit_theme_options` matches "site design" ownership
+ * so non-admin Editors with that cap can manage the library.
+ */
+function motion_blocks_register_settings() {
+    register_setting(
+        'options',
+        'mb_saved_animations',
+        array(
+            'type'         => 'object',
+            'description'  => __( 'Motion Blocks saved animation library.', 'motion-blocks' ),
+            'default'      => array(),
+            'show_in_rest' => array(
+                'schema' => array(
+                    'type'                 => 'object',
+                    'additionalProperties' => array(
+                        'type'       => 'object',
+                        'properties' => array(
+                            'name'       => array( 'type' => 'string' ),
+                            'createdAt'  => array( 'type' => 'string' ),
+                            'attributes' => array(
+                                'type'                 => 'object',
+                                'additionalProperties' => true,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    );
+}
+add_action( 'init', 'motion_blocks_register_settings' );

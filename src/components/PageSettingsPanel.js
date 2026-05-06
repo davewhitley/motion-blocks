@@ -2,40 +2,61 @@
  * Motion Blocks — Page-level settings panel.
  *
  * Renders inside the Document/Page tab of the post inspector via
- * `PluginDocumentSettingPanel`. Provides three actions that operate
- * across the entire page rather than a single block:
+ * `PluginDocumentSettingPanel`. Provides:
  *
- *   1. Disable all animations on this page (post meta)
- *   2. Disable on mobile (≤ 768px) only      (post meta)
- *   3. Clear all animations on this page     (block-attr action)
+ *   1. Three per-device "Disable on …" checkboxes (desktop / tablet
+ *      / mobile). Three independent flags — to disable everywhere,
+ *      check all three.
+ *   2. "Remove all animations" — destructive action that walks every
+ *      block and resets `animationMode`. Reversible via WP Undo.
  *
- * The two toggles persist as post meta (registered server-side in
- * animation-plugin.php). The frontend reads the meta off `<body>`
- * (server-emitted body classes) and CSS handles the disable.
- *
- * "Clear" is a destructive one-shot: walks every block on the page
- * and resets `animationMode` to empty. Reversible via WP's native
- * undo (one undo step per block edit batch).
+ * The toggles persist as post meta (registered server-side in
+ * animation-plugin.php). The frontend reads them via body classes
+ * and the matching media-query CSS in animations.css.
  */
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
-import { useSelect, useDispatch, select as dataSelect } from '@wordpress/data';
+import {
+	useSelect,
+	useDispatch,
+	select as dataSelect,
+} from '@wordpress/data';
 import { store as editorStore } from '@wordpress/editor';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { useEntityProp } from '@wordpress/core-data';
+import { useState } from '@wordpress/element';
 import {
-	ToggleControl,
+	CheckboxControl,
 	Button,
+	Icon,
 	__experimentalVStack as VStack,
+	__experimentalHStack as HStack,
+	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
+import { desktop, tablet, mobile } from '@wordpress/icons';
 
-const META_DISABLED = 'mb_animations_disabled';
-const META_DISABLED_MOBILE = 'mb_animations_disabled_mobile';
+const DEVICE_OPTIONS = [
+	{
+		key: 'mb_animations_disabled_desktop',
+		label: __( 'Disable on Desktop', 'motion-blocks' ),
+		icon: desktop,
+	},
+	{
+		key: 'mb_animations_disabled_tablet',
+		label: __( 'Disable on Tablet', 'motion-blocks' ),
+		icon: tablet,
+	},
+	{
+		key: 'mb_animations_disabled_mobile',
+		label: __( 'Disable on Mobile', 'motion-blocks' ),
+		icon: mobile,
+	},
+];
 
 /**
  * Animation attributes that get reset when the user clicks
- * "Clear all animations". `animationMode: ''` is the kill switch
+ * "Remove all animations". `animationMode: ''` is the kill switch
  * (no class is emitted, no `data-mb-*` attrs); we also clear the
  * From/To bag so a future re-enable doesn't surprise the user with
  * stale values.
@@ -81,18 +102,13 @@ function MotionBlocksPagePanel() {
 		[]
 	);
 
-	// Skip rendering if there's no post being edited (e.g. in some
-	// site-editor contexts where the document panel still mounts).
 	const [ meta = {}, setMeta ] = useEntityProp(
 		'postType',
 		postType,
 		'meta'
 	);
 
-	const disabled = !! meta[ META_DISABLED ];
-	const disabledMobile = !! meta[ META_DISABLED_MOBILE ];
-
-	// Count animated blocks for context next to the Clear button.
+	// Count animated blocks for context next to the Remove button.
 	// `getClientIdsWithDescendants()` returns a flat array of all
 	// block ids, including nested ones — exactly what we want.
 	const animatedCount = useSelect( ( select ) => {
@@ -109,47 +125,29 @@ function MotionBlocksPagePanel() {
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 
+	const [ confirmOpen, setConfirmOpen ] = useState( false );
+
 	const setMetaValue = ( key, value ) => {
 		setMeta( { ...meta, [ key ]: value } );
 	};
 
-	const handleClearAll = () => {
-		if ( animatedCount === 0 ) {
-			return;
-		}
-		// eslint-disable-next-line no-alert
-		const ok = window.confirm(
-			sprintf(
-				/* translators: %d: number of animated blocks */
-				_n(
-					'Clear animation from %d block? This can be undone.',
-					'Clear animations from %d blocks? This can be undone.',
-					animatedCount,
-					'motion-blocks'
-				),
-				animatedCount
-			)
-		);
-		if ( ! ok ) {
-			return;
-		}
-
-		// Collect just the ids that actually need updating — avoids
-		// dirtying every block on the page. Use a fresh `select`
-		// snapshot at click time rather than the (potentially stale)
-		// useSelect-cached count.
+	const handleRemoveAll = () => {
+		// Use a fresh `select` snapshot at click time rather than
+		// the (potentially stale) useSelect-cached count.
 		const sel = dataSelect( blockEditorStore );
 		const ids = sel
 			.getClientIdsWithDescendants()
 			.filter( ( id ) => hasAnimation( sel.getBlock( id ) ) );
 
 		if ( ids.length === 0 ) {
+			setConfirmOpen( false );
 			return;
 		}
 
 		// Single dispatch, batched: one undo step covers the whole
-		// clear operation.
+		// remove operation.
 		updateBlockAttributes( ids, CLEAR_ATTRS );
+		setConfirmOpen( false );
 	};
 
 	return (
@@ -158,64 +156,54 @@ function MotionBlocksPagePanel() {
 			title={ __( 'Animations', 'motion-blocks' ) }
 			className="mb-page-settings"
 		>
-			<VStack spacing={ 4 }>
-				<ToggleControl
-					label={ __(
-						'Disable on this page',
-						'motion-blocks'
-					) }
-					help={ __(
-						'Animations stay configured on each block, but won’t play on the published page.',
-						'motion-blocks'
-					) }
-					checked={ disabled }
-					onChange={ ( v ) => setMetaValue( META_DISABLED, v ) }
-					__nextHasNoMarginBottom
-				/>
-
-				<ToggleControl
-					label={ __(
-						'Disable on mobile',
-						'motion-blocks'
-					) }
-					help={ __(
-						'Skip animations on screens 768px and narrower. Useful for performance and battery on smaller devices.',
-						'motion-blocks'
-					) }
-					checked={ disabledMobile }
-					onChange={ ( v ) =>
-						setMetaValue( META_DISABLED_MOBILE, v )
-					}
-					disabled={ disabled }
-					__nextHasNoMarginBottom
-				/>
-
-				<div>
-					<Button
-						variant="secondary"
-						isDestructive
-						onClick={ handleClearAll }
-						disabled={ animatedCount === 0 }
-						__next40pxDefaultSize
+			<VStack spacing={ 3 }>
+				{ DEVICE_OPTIONS.map( ( opt ) => (
+					<HStack
+						key={ opt.key }
+						alignment="center"
+						justify="space-between"
+						spacing={ 3 }
 					>
-						{ animatedCount === 0
-							? __(
-									'No animations to clear',
-									'motion-blocks'
-							  )
-							: sprintf(
-									/* translators: %d: number of animated blocks */
-									_n(
-										'Clear animation from %d block',
-										'Clear animations from %d blocks',
-										animatedCount,
-										'motion-blocks'
-									),
-									animatedCount
-							  ) }
-					</Button>
-				</div>
+						<CheckboxControl
+							label={ opt.label }
+							checked={ !! meta[ opt.key ] }
+							onChange={ ( v ) =>
+								setMetaValue( opt.key, v )
+							}
+							__nextHasNoMarginBottom
+						/>
+						<Icon icon={ opt.icon } />
+					</HStack>
+				) ) }
+
+				<Button
+					variant="secondary"
+					isDestructive
+					onClick={ () => setConfirmOpen( true ) }
+					disabled={ animatedCount === 0 }
+					__next40pxDefaultSize
+				>
+					{ __( 'Remove all animations', 'motion-blocks' ) }
+				</Button>
 			</VStack>
+
+			<ConfirmDialog
+				isOpen={ confirmOpen }
+				onConfirm={ handleRemoveAll }
+				onCancel={ () => setConfirmOpen( false ) }
+				confirmButtonText={ __( 'Remove', 'motion-blocks' ) }
+			>
+				{ sprintf(
+					/* translators: %d: number of animated blocks */
+					_n(
+						'Remove all animations on this page (%d block)? This can be reversed using the Undo button.',
+						'Remove all animations on this page (%d blocks)? This can be reversed using the Undo button.',
+						animatedCount,
+						'motion-blocks'
+					),
+					animatedCount
+				) }
+			</ConfirmDialog>
 		</PluginDocumentSettingPanel>
 	);
 }

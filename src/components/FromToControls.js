@@ -39,6 +39,7 @@ import {
 	FROM_ATTR,
 	TO_ATTR,
 	TRANSLATE_UNIT_OPTIONS,
+	IMAGE_TARGETABLE_BLOCKS,
 	isPropertyAdded,
 } from './constants';
 
@@ -185,7 +186,11 @@ function PropertyRow( { def, value, onChange } ) {
 	);
 }
 
-export default function FromToControls( { attributes, setAttributes } ) {
+export default function FromToControls( {
+	attributes,
+	setAttributes,
+	blockName,
+} ) {
 	// `side` lives in an attribute so it survives remounts of this
 	// component (e.g. when the Play-preview hack clears animationType
 	// briefly to retrigger CSS animation).
@@ -196,6 +201,14 @@ export default function FromToControls( { attributes, setAttributes } ) {
 	const panelId = `mb-from-to-${ side }`;
 	const previewSide = attributes.animationFromToPreviewSide || 'off';
 	const isPreviewing = previewSide !== 'off';
+	const target = attributes.animationFromToTarget || 'block';
+
+	// Show the Target toggle only on blocks where "Image only" is
+	// meaningful — single-image blocks where we know which img to
+	// animate. For other blocks ("the image inside" is ambiguous),
+	// users should drop down to the inner Image block instead.
+	const supportsImgTarget =
+		blockName && IMAGE_TARGETABLE_BLOCKS.includes( blockName );
 
 	/**
 	 * Toggle the static-state preview for the active side.
@@ -246,6 +259,38 @@ export default function FromToControls( { attributes, setAttributes } ) {
 
 	return (
 		<div className="mb-from-to">
+			{ supportsImgTarget && (
+				<ToggleGroupControl
+					value={ target }
+					onChange={ ( v ) =>
+						setAttributes( { animationFromToTarget: v } )
+					}
+					isBlock
+					label={ __( 'Target', 'motion-blocks' ) }
+					help={
+						target === 'img'
+							? __(
+									'Animates only the image. The wrapper acts as a clipping frame so transforms stay inside its natural area.',
+									'motion-blocks'
+							  )
+							: __(
+									'Animates the whole block, including any caption or surrounding markup.',
+									'motion-blocks'
+							  )
+					}
+					__nextHasNoMarginBottom
+				>
+					<ToggleGroupControlOption
+						value="block"
+						label={ __( 'Entire block', 'motion-blocks' ) }
+					/>
+					<ToggleGroupControlOption
+						value="img"
+						label={ __( 'Image only', 'motion-blocks' ) }
+					/>
+				</ToggleGroupControl>
+			) }
+
 			<ToggleGroupControl
 				value={ side }
 				onChange={ setSide }

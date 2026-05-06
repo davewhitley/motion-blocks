@@ -9,6 +9,38 @@
 @use "@wordpress/base-styles/variables" as vars;
 @use "@wordpress/base-styles/mixins" as mix;
 
+// Multi-block selection notice — shown above the panel content when
+// the user has selected more than one block. Hints that any change
+// they make will apply to all selected blocks at once.
+.mb-multiselect-notice {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: vars.$grid-unit-10;
+	margin-bottom: vars.$grid-unit-15;
+	padding: vars.$grid-unit-10 vars.$grid-unit-15;
+	background: colors.$gray-100;
+	border-radius: 2px;
+	font-size: 12px;
+	line-height: 16px;
+	color: colors.$gray-900;
+
+	.mb-multiselect-notice__count {
+		flex: 0 0 auto;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 22px;
+		height: 22px;
+		padding: 0 6px;
+		background: var(--wp-admin-theme-color, #3858e9);
+		color: #fff;
+		border-radius: 11px;
+		font-size: 11px;
+		font-weight: 500;
+	}
+}
+
 // Mode selector — initial state before animation is configured
 @scope (.mb-mode-selector) {
 	:scope {
@@ -131,14 +163,6 @@
 		width: 100%;
 		justify-content: center;
 		margin-top: vars.$grid-unit-10;
-	}
-
-	// "Customize this animation…" link button. Wraps to next line
-	// inside the panel and uses the existing link-button styles.
-	.mb-customize-link {
-		align-self: flex-start;
-		margin-top: vars.$grid-unit-05;
-		margin-bottom: vars.$grid-unit-15;
 	}
 
 	// Section heading inside a sub-panel — visually matches the

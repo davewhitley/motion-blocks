@@ -35,7 +35,12 @@ function customFromToDefaults() {
 	return out;
 }
 
-export default function AnimationPanel( { attributes, setAttributes, blockName } ) {
+export default function AnimationPanel( {
+	attributes,
+	setAttributes,
+	blockName,
+	multiSelectCount = 0,
+} ) {
 	const {
 		animationMode,
 		animationType,
@@ -197,6 +202,19 @@ export default function AnimationPanel( { attributes, setAttributes, blockName }
 			}
 			initialOpen={ !! animationMode }
 		>
+			{ multiSelectCount > 1 && (
+				<div className="mb-multiselect-notice">
+					{ /* eslint-disable-next-line @wordpress/i18n-translator-comments */ }
+					{ __(
+						'Changes apply to all selected blocks.',
+						'motion-blocks'
+					) }
+					<span className="mb-multiselect-notice__count">
+						{ multiSelectCount }
+					</span>
+				</div>
+			) }
+
 			{ ! animationMode && (
 				<div className="mb-mode-selector">
 					<div className="mb-mode-selector__header">

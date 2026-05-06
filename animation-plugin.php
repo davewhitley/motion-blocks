@@ -149,6 +149,19 @@ function motion_blocks_render_block( $block_content, $block ) {
     $processor->set_attribute( 'data-mb-mode', esc_attr( $mode ) );
     $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
+    // Animation target ('img' vs 'block'). Saved so the frontend
+    // script can switch to scoped CSS that animates the first <img>
+    // descendant with `overflow: clip` on its parent.
+    // `image-move` always implies img target.
+    if ( $type === 'image-move' ) {
+        $processor->set_attribute( 'data-mb-target', 'img' );
+    } elseif ( $type === 'custom' ) {
+        $target = $attrs['animationFromToTarget'] ?? 'block';
+        if ( $target === 'img' ) {
+            $processor->set_attribute( 'data-mb-target', 'img' );
+        }
+    }
+
     // Acceleration. Resolve the `custom` sentinel to the actual CSS
     // timing function string so the frontend doesn't need to know
     // about the sentinel.

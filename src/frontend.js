@@ -255,16 +255,125 @@
 	}
 
 	/**
+	 * Build the scoped CSS rule string for target='img' mode.
+	 * Mirrors buildImgTargetCSS in src/index.js — see that for the
+	 * full reasoning. Selectors cover the common WP image markup
+	 * paths (figure > img, a > img, figure > a > img, the wrapper
+	 * itself, plus cover-bg). `:has()` makes the img's immediate
+	 * parent the clipping frame without injecting any wrapper.
+	 */
+	function buildImgScopedCSS( uid, keyframeName, mode ) {
+		var scope = '[data-mb-uid="' + uid + '"]';
+		// Descendant selector — works in editor (extra wrappers) and
+		// frontend (direct figure child). `:first-of-type` filters
+		// to the first img in its sibling group, so figcaption stays
+		// unaffected.
+		var imgSelector = scope + ' img:first-of-type';
+		// Match both the wrapper itself (e.g. `<figure data-mb-uid>`)
+		// and any descendant of the wrapper that directly holds the
+		// img. The wrapper-self case is the common Image block path.
+		var parentSelector = [
+			scope + ':has(> img:first-of-type)',
+			scope + ' :has(> img:first-of-type)',
+		].join( ', ' );
+
+		var animProps;
+		if ( mode === 'scroll-interactive' ) {
+			animProps = [
+				'animation-name: ' + keyframeName,
+				'animation-timeline: view()',
+				'animation-range-start: var(--mb-range-start, entry 0%)',
+				'animation-range-end: var(--mb-range-end, exit 100%)',
+				'animation-duration: 1ms',
+				'animation-fill-mode: both',
+				'animation-timing-function: var(--mb-timing, linear)',
+			];
+		} else {
+			animProps = [
+				'animation-name: ' + keyframeName,
+				'animation-duration: var(--mb-duration, 0.6s)',
+				'animation-delay: var(--mb-delay, 0s)',
+				'animation-fill-mode: var(--mb-fill-mode, both)',
+				'animation-timing-function: var(--mb-timing, ease)',
+				'animation-iteration-count: var(--mb-iteration-count, 1)',
+				'animation-direction: var(--mb-direction, normal)',
+			];
+		}
+
+		return [
+			parentSelector + ' { overflow: clip; }',
+			'@supports not (overflow: clip) { ' +
+				parentSelector +
+				' { overflow: hidden; } }',
+			imgSelector + ' { ' + animProps.join( '; ' ) + '; }',
+		].join( '\n' );
+	}
+
+	/**
+	 * For `image-move` mode: synthesize the parallax from/to values
+	 * from the direction. Mirrors getPresetFromTo('image-move') in
+	 * constants.js — the formula is `(scale - 1) / 2 * 100%` for
+	 * the translate distance at SCALE = 1.2.
+	 */
+	function buildImageMoveSides( direction ) {
+		var SCALE = 1.2;
+		var SHIFT = ( ( SCALE - 1 ) / 2 ) * 100; // 10 (percent)
+		var dirs = {
+			btt: { x: 0, y: SHIFT },
+			ttb: { x: 0, y: -SHIFT },
+			ltr: { x: -SHIFT, y: 0 },
+			rtl: { x: SHIFT, y: 0 },
+		};
+		var m = dirs[ direction ] || dirs.btt;
+		var fromDecls = [ 'transform: ' ];
+		var toDecls = [ 'transform: ' ];
+		var fromTx = [];
+		var toTx = [];
+		// translate first, scale second (matches buildKeyframeSide).
+		if ( m.x !== 0 || m.y !== 0 ) {
+			fromTx.push(
+				'translate(' + m.x + '%, ' + m.y + '%)'
+			);
+			toTx.push(
+				'translate(' + -m.x + '%, ' + -m.y + '%)'
+			);
+		}
+		fromTx.push( 'scale(' + SCALE + ')' );
+		toTx.push( 'scale(' + SCALE + ')' );
+		fromDecls[ 0 ] += fromTx.join( ' ' ) + ';';
+		toDecls[ 0 ] += toTx.join( ' ' ) + ';';
+		return { fromBody: fromDecls[ 0 ], toBody: toDecls[ 0 ] };
+	}
+
+	/**
 	 * For a custom-type element: build its @keyframes rule, append
 	 * it to the shared style element, set animation-name inline.
 	 * No-op if neither side has any added properties.
+	 *
+	 * For target='img', also inject a scoped CSS rule that animates
+	 * the first img descendant instead of the block wrapper, with
+	 * `overflow: clip` on the img's immediate parent.
+	 *
+	 * For type='image-move', synthesize a parallax keyframe from the
+	 * direction and treat as img-target.
 	 */
 	function applyCustomKeyframe( el ) {
-		if ( el.dataset.mbType !== 'custom' ) {
+		var type = el.dataset.mbType;
+		if ( type !== 'custom' && type !== 'image-move' ) {
 			return;
 		}
-		var fromBody = buildSideBody( el, 'from' );
-		var toBody = buildSideBody( el, 'to' );
+		var fromBody;
+		var toBody;
+		if ( type === 'image-move' ) {
+			var sides = buildImageMoveSides(
+				el.dataset.mbDirection || 'btt'
+			);
+			fromBody = sides.fromBody;
+			toBody = sides.toBody;
+		} else {
+			fromBody = buildSideBody( el, 'from' );
+			toBody = buildSideBody( el, 'to' );
+		}
 		if ( ! fromBody && ! toBody ) {
 			return;
 		}
@@ -280,7 +389,21 @@
 		lines.push( '}' );
 		var styleEl = getCustomStyleEl();
 		styleEl.appendChild( document.createTextNode( lines.join( '\n' ) ) );
-		el.style.animationName = name;
+
+		// Branch on target: block (default) animates the wrapper;
+		// img scopes the keyframe to the first <img> descendant.
+		if ( el.dataset.mbTarget === 'img' ) {
+			var uid = 'mb-' + customKeyframeCounter;
+			el.setAttribute( 'data-mb-uid', uid );
+			var scopedCSS = buildImgScopedCSS(
+				uid,
+				name,
+				el.dataset.mbMode
+			);
+			styleEl.appendChild( document.createTextNode( scopedCSS ) );
+		} else {
+			el.style.animationName = name;
+		}
 	}
 
 	/**

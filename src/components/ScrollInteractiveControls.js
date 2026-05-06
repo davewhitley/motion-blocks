@@ -35,12 +35,9 @@ import {
 	ANIMATION_TYPE_OPTIONS,
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
-	TYPES_CUSTOMIZABLE_FROM_PRESET,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
-	getPresetFromTo,
-	fromToBagToAttrs,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
@@ -85,9 +82,6 @@ export default function ScrollInteractiveControls( {
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
-	const canCustomizePreset = TYPES_CUSTOMIZABLE_FROM_PRESET.includes(
-		animationType
-	);
 
 	const startOffset = parseOffset( animationRangeStart, 'entry 0%' );
 	const endOffset = parseOffset( animationRangeEnd, 'exit 100%' );
@@ -103,21 +97,6 @@ export default function ScrollInteractiveControls( {
 			newAttrs.animationDirection = '';
 		}
 		setAttributes( newAttrs );
-	};
-
-	/**
-	 * Convert the current preset into the `custom` type with from/to
-	 * seeded from the preset's defaults.
-	 */
-	const handleCustomize = () => {
-		const bag = getPresetFromTo( animationType, animationDirection, {
-			rotateAngle: animationRotateAngle,
-		} );
-		setAttributes( {
-			animationType: 'custom',
-			animationDirection: '',
-			...fromToBagToAttrs( bag ),
-		} );
 	};
 
 	return (
@@ -175,17 +154,8 @@ export default function ScrollInteractiveControls( {
 				<FromToControls
 					attributes={ attributes }
 					setAttributes={ setAttributes }
+					blockName={ blockName }
 				/>
-			) }
-
-			{ ! isCustom && canCustomizePreset && (
-				<Button
-					variant="link"
-					onClick={ handleCustomize }
-					className="mb-customize-link"
-				>
-					{ __( 'Customize this animation…', 'motion-blocks' ) }
-				</Button>
 			) }
 
 			{ ! isCustom && animationType === 'scale' && (

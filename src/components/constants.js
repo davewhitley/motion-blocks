@@ -14,26 +14,39 @@ export const ANIMATION_TYPE_OPTIONS = [
 	{ label: 'Scale', value: 'scale' },
 	{ label: 'Blur', value: 'blur' },
 	{ label: 'Rotate', value: 'rotate' },
+	{ label: 'Image Move (parallax)', value: 'image-move' },
 	{ label: 'Custom (From / To)', value: 'custom' },
 ];
 
 /**
- * Types whose effects can be re-expressed in the v1 From/To property
- * set (opacity, translate, scale, rotate). Used by the "Customize"
- * action to seed the From/To panel from a preset's defaults.
+ * Animation types that only make sense in scroll-interactive mode.
+ * The PageLoad and ScrollAppear panels filter these out of their
+ * effect dropdown; only ScrollInteractive offers them.
  *
- * Wipe / Curtain (clip-path), Flip (3D), and Blur (filter) are out of
- * scope for v1 — they remain available as legacy presets only.
+ * Currently just `image-move` (parallax requires scroll progress).
  */
-export const TYPES_CUSTOMIZABLE_FROM_PRESET = [
-	'fade',
-	'slide',
-	'scale',
-	'rotate',
-	'blur',
-	'flip',
-	'curtain',
-	'wipe',
+export const SCROLL_INTERACTIVE_ONLY_TYPES = [ 'image-move' ];
+
+/**
+ * Block types where the From/To "Target = Image only" toggle is
+ * meaningful. These all have a single primary `<img>` as their main
+ * subject, and animating that img specifically gives a cleaner result
+ * than animating the whole block wrapper.
+ *
+ * Other blocks (Group, Columns, Gallery, Query Loop) are intentionally
+ * omitted: for those, the right pattern is to apply the animation to
+ * the inner Image block itself, not to the container.
+ *
+ * Theme/plugin authors can extend the list via the `motion-blocks/
+ * image-targetable-blocks` JS filter (see src/index.js).
+ */
+export const IMAGE_TARGETABLE_BLOCKS = [
+	'core/image',
+	'core/post-featured-image',
+	'core/site-logo',
+	'core/cover',
+	'core/avatar',
+	'core/media-text',
 ];
 
 /**
@@ -68,12 +81,18 @@ export const DIRECTION_OPTIONS = {
 		{ label: 'Left to right', value: 'ltr' },
 		{ label: 'Right to left', value: 'rtl' },
 	],
+	'image-move': [
+		{ label: 'Bottom to top', value: 'btt' },
+		{ label: 'Top to bottom', value: 'ttb' },
+		{ label: 'Left to right', value: 'ltr' },
+		{ label: 'Right to left', value: 'rtl' },
+	],
 };
 
 /**
  * Types that show a direction control.
  */
-export const TYPES_WITH_DIRECTION = [ 'slide', 'wipe', 'curtain', 'flip', 'scale' ];
+export const TYPES_WITH_DIRECTION = [ 'slide', 'wipe', 'curtain', 'flip', 'scale', 'image-move' ];
 
 /**
  * Types that have exit animation variants.
@@ -90,6 +109,7 @@ export const DEFAULT_DIRECTION = {
 	curtain: 'horizontal',
 	flip: 'ltr',
 	scale: 'none',
+	'image-move': 'btt',
 };
 
 /**
@@ -526,6 +546,37 @@ export function getPresetFromTo( type, direction, options = {} ) {
 			};
 		}
 
+		case 'image-move': {
+			// Parallax-style scroll. The img is held statically larger
+			// than its frame (Scale = 1.2 on both sides). With the
+			// img's layout box still at 100% of the parent (we scale
+			// via transform, not width), the image can translate up
+			// to ±(scale − 1) / 2 × 100% in either axis without
+			// revealing the parent's clip edge — that's ±10% for
+			// scale 1.2. We use 10% for a noticeable but contained
+			// parallax effect.
+			const SCALE = 1.2;
+			const SHIFT = ( ( SCALE - 1 ) / 2 ) * 100; // 10% for SCALE=1.2
+			const moveDirs = {
+				btt: { y: SHIFT, x: 0 },
+				ttb: { y: -SHIFT, x: 0 },
+				ltr: { x: -SHIFT, y: 0 },
+				rtl: { x: SHIFT, y: 0 },
+			};
+			const m = moveDirs[ direction ] || moveDirs.btt;
+			const fromBag = { scale: SCALE };
+			const toBag = { scale: SCALE };
+			if ( m.x !== 0 ) {
+				fromBag.translateX = `${ m.x }%`;
+				toBag.translateX = `${ -m.x }%`;
+			}
+			if ( m.y !== 0 ) {
+				fromBag.translateY = `${ m.y }%`;
+				toBag.translateY = `${ -m.y }%`;
+			}
+			return { from: fromBag, to: toBag };
+		}
+
 		default:
 			return null;
 	}
@@ -703,26 +754,6 @@ export function attrsToBag( attributes, attrMap ) {
 	return bag;
 }
 
-/**
- * Translate a Start/End property bag into a flat `setAttributes`
- * payload. Properties not in the bag are written as `null` —
- * the "not added" sentinel, so the keyframe omits them and CSS
- * interpolates to the element's computed style on that side.
- */
-export function fromToBagToAttrs( bag ) {
-	const attrs = {};
-	const fromBag = bag?.from || {};
-	const toBag = bag?.to || {};
-	for ( const def of PROPERTY_DEFINITIONS ) {
-		const fromVal = fromBag[ def.id ];
-		const toVal = toBag[ def.id ];
-		attrs[ FROM_ATTR[ def.id ] ] =
-			fromVal !== undefined ? fromVal : null;
-		attrs[ TO_ATTR[ def.id ] ] =
-			toVal !== undefined ? toVal : null;
-	}
-	return attrs;
-}
 
 /**
  * Default attribute values for all animation settings.
@@ -782,4 +813,10 @@ export const DEFAULT_ATTRIBUTES = {
 	// animation; 'start' or 'end' freezes the editor block at the
 	// chosen side's static values (no animation).
 	animationFromToPreviewSide: 'off',
+	// Custom animation target: 'block' applies transforms to the
+	// block wrapper (default); 'img' applies them to the first
+	// `<img>` descendant via scoped CSS so the surrounding figure /
+	// figcaption / link wrapper stays stationary. Only meaningful
+	// for blocks listed in IMAGE_TARGETABLE_BLOCKS.
+	animationFromToTarget: 'block',
 };

@@ -30,13 +30,11 @@ import {
 	ANIMATION_TYPE_OPTIONS,
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
-	TYPES_CUSTOMIZABLE_FROM_PRESET,
+	SCROLL_INTERACTIVE_ONLY_TYPES,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
 	REPEAT_OPTIONS,
-	getPresetFromTo,
-	fromToBagToAttrs,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
@@ -84,14 +82,15 @@ export default function PageLoadControls( {
 		animationPauseOffscreen,
 	} = attributes;
 
-	const typeOptions = ANIMATION_TYPE_OPTIONS;
+	// Image Move is parallax — only meaningful in scroll-interactive
+	// mode. Filter it out of the page-load dropdown.
+	const typeOptions = ANIMATION_TYPE_OPTIONS.filter(
+		( opt ) => ! SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value )
+	);
 
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
-	const canCustomizePreset = TYPES_CUSTOMIZABLE_FROM_PRESET.includes(
-		animationType
-	);
 
 	/**
 	 * When animation type changes, auto-set direction to the default
@@ -105,21 +104,6 @@ export default function PageLoadControls( {
 			newAttrs.animationDirection = '';
 		}
 		setAttributes( newAttrs );
-	};
-
-	/**
-	 * Convert the current preset (fade/slide/scale/rotate) into the
-	 * `custom` type with from/to seeded from the preset's defaults.
-	 */
-	const handleCustomize = () => {
-		const bag = getPresetFromTo( animationType, animationDirection, {
-			rotateAngle: animationRotateAngle,
-		} );
-		setAttributes( {
-			animationType: 'custom',
-			animationDirection: '',
-			...fromToBagToAttrs( bag ),
-		} );
 	};
 
 	return (
@@ -173,17 +157,8 @@ export default function PageLoadControls( {
 				<FromToControls
 					attributes={ attributes }
 					setAttributes={ setAttributes }
+					blockName={ blockName }
 				/>
-			) }
-
-			{ ! isCustom && canCustomizePreset && (
-				<Button
-					variant="link"
-					onClick={ handleCustomize }
-					className="mb-customize-link"
-				>
-					{ __( 'Customize this animation…', 'motion-blocks' ) }
-				</Button>
 			) }
 
 			{ ! isCustom && animationType === 'scale' && (

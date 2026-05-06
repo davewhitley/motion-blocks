@@ -36,6 +36,10 @@ import {
 
 import '../css/editor.scss';
 
+// Page-level settings panel — registers itself via registerPlugin
+// on import. Lives in the Document/Page tab of the inspector.
+import './components/PageSettingsPanel';
+
 /**
  * Get the entrance keyframe name for a given animation type.
  */

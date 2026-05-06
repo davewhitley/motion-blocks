@@ -297,3 +297,78 @@ function motion_blocks_render_block( $block_content, $block ) {
     return $processor->get_updated_html();
 }
 add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );
+
+/**
+ * Register page-level settings as post meta.
+ *
+ * - `mb_animations_disabled`        — disable all Motion Blocks animations
+ *   on the published page.
+ * - `mb_animations_disabled_mobile` — disable animations only on viewports
+ *   ≤ 768px (a separate meta so users can have one without the other).
+ *
+ * Both are exposed in REST so the block editor's `useEntityProp` can
+ * read/write them. Registered for every public post type that supports
+ * the editor — covers `post`, `page`, plus anything theme/plugin
+ * authors register that opts into the block editor.
+ */
+function motion_blocks_register_meta() {
+    $post_types = get_post_types( array( 'public' => true ), 'names' );
+    foreach ( $post_types as $post_type ) {
+        if ( ! post_type_supports( $post_type, 'editor' ) ) {
+            continue;
+        }
+        register_post_meta( $post_type, 'mb_animations_disabled', array(
+            'show_in_rest'  => true,
+            'single'        => true,
+            'type'          => 'boolean',
+            'default'       => false,
+            'auth_callback' => function () {
+                return current_user_can( 'edit_posts' );
+            },
+        ) );
+        register_post_meta( $post_type, 'mb_animations_disabled_mobile', array(
+            'show_in_rest'  => true,
+            'single'        => true,
+            'type'          => 'boolean',
+            'default'       => false,
+            'auth_callback' => function () {
+                return current_user_can( 'edit_posts' );
+            },
+        ) );
+    }
+}
+add_action( 'init', 'motion_blocks_register_meta' );
+
+/**
+ * Add body classes that the frontend CSS uses to disable animations.
+ *
+ * Only fires for singular views (`is_singular()`) since the meta
+ * lives on the queried post. We don't try to combine meta values
+ * across loops on archive/home pages — animation usage in those
+ * contexts is per-block-template, not per-post.
+ *
+ * Classes:
+ *   - `mb-animations-disabled`        — kills all animation playback.
+ *   - `mb-animations-disabled-mobile` — kills playback below 768px
+ *     (paired with a media query in animations.css).
+ *
+ * @param array $classes Existing body classes.
+ * @return array
+ */
+function motion_blocks_body_class( $classes ) {
+    if ( ! is_singular() ) {
+        return $classes;
+    }
+    $post_id = get_queried_object_id();
+    if ( ! $post_id ) {
+        return $classes;
+    }
+    if ( get_post_meta( $post_id, 'mb_animations_disabled', true ) ) {
+        $classes[] = 'mb-animations-disabled';
+    }
+    if ( get_post_meta( $post_id, 'mb_animations_disabled_mobile', true ) ) {
+        $classes[] = 'mb-animations-disabled-mobile';
+    }
+    return $classes;
+}
+add_filter( 'body_class', 'motion_blocks_body_class' );

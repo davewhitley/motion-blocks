@@ -325,3 +325,38 @@
         clip-path: none !important;
     }
 }
+
+/* ----------------------------------------------------------------
+ * Page-level disable (post meta → body class)
+ *
+ * `mb-animations-disabled`        kills playback everywhere.
+ * `mb-animations-disabled-mobile` kills playback ≤ 768px only.
+ *
+ * Both pin the element to its visible state so a disabled animation
+ * doesn't leave the block stuck at its hidden start frame.
+ * -------------------------------------------------------------- */
+body.mb-animations-disabled .mb-animated,
+body.mb-animations-disabled .mb-animated.mb-triggered,
+body.mb-animations-disabled .mb-animated.mb-exit-triggered,
+body.mb-animations-disabled .mb-mode-scroll-interactive {
+    animation: none !important;
+    animation-timeline: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+}
+
+@media (max-width: 768px) {
+    body.mb-animations-disabled-mobile .mb-animated,
+    body.mb-animations-disabled-mobile .mb-animated.mb-triggered,
+    body.mb-animations-disabled-mobile .mb-animated.mb-exit-triggered,
+    body.mb-animations-disabled-mobile .mb-mode-scroll-interactive {
+        animation: none !important;
+        animation-timeline: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        clip-path: none !important;
+    }
+}

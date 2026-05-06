@@ -1,16 +1,47 @@
 /**
  * Pure helpers for the saved-animation library.
  *
- * Storage shape (lives at `mb_saved_animations` site option, exposed
- * via REST):
+ * Two sources, same shape:
  *
- *   {
- *     [uid]: {
- *       name: string,
- *       createdAt: ISO string,
- *       attributes: { animation*: ... }
- *     }
- *   }
+ * 1. USER LIBRARY — `mb_saved_animations` site option (REST).
+ *    Authored in the editor; uid-keyed; each entry has a `createdAt`.
+ *    Editable & deletable from the kebab menu.
+ *
+ *      { [uid]: { name, createdAt, attributes: { animation*: ... } } }
+ *
+ * 2. THEME LIBRARY — `theme.json` under
+ *    `settings.custom.motionBlocks.savedAnimations`. Slug-keyed (the
+ *    theme author chooses the slug); read-only from the editor.
+ *
+ *      // theme.json
+ *      {
+ *        "settings": {
+ *          "custom": {
+ *            "motionBlocks": {
+ *              "savedAnimations": {
+ *                "smooth-fade-up": {
+ *                  "name": "Smooth Fade Up",
+ *                  "attributes": {
+ *                    "animationMode": "scroll-appear",
+ *                    "animationType": "custom",
+ *                    "animationFromOpacity": 0,
+ *                    "animationFromTranslateY": "20px",
+ *                    "animationToOpacity": 1,
+ *                    "animationToTranslateY": "0px",
+ *                    "animationDuration": 0.8,
+ *                    "animationAcceleration": "ease-out"
+ *                  }
+ *                }
+ *              }
+ *            }
+ *          }
+ *        }
+ *      }
+ *
+ * Both render in the kebab menu under separate group labels.
+ * Applying either writes a copy of the attributes to the block —
+ * no live link, so theme updates / library deletes don't disturb
+ * blocks that previously applied an animation.
  *
  * Keep this module side-effect-free — no React, no WP store calls.
  * All the React/store glue lives in AnimationOptionsMenu.
@@ -69,6 +100,25 @@ export function sortLibrary( library ) {
 		}
 		const na = a[ 1 ]?.name || '';
 		const nb = b[ 1 ]?.name || '';
+		return na.localeCompare( nb );
+	} );
+	return entries;
+}
+
+/**
+ * Sort a theme-supplied animation library alphabetically by name.
+ * Theme entries don't have `createdAt` (they're declared, not
+ * authored over time), so a stable alphabetical order is the right
+ * default.
+ *
+ * @param {Object} library slug-keyed library.
+ * @return {Array<[string, Object]>}
+ */
+export function sortThemeLibrary( library ) {
+	const entries = Object.entries( library || {} );
+	entries.sort( ( a, b ) => {
+		const na = a[ 1 ]?.name || a[ 0 ];
+		const nb = b[ 1 ]?.name || b[ 0 ];
 		return na.localeCompare( nb );
 	} );
 	return entries;

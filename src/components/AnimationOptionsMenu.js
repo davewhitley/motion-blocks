@@ -21,7 +21,10 @@ import {
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
 import { useSelect, useDispatch } from '@wordpress/data';
-import { store as blockEditorStore } from '@wordpress/block-editor';
+import {
+	store as blockEditorStore,
+	useSetting,
+} from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
 import { store as coreStore } from '@wordpress/core-data';
 import { store as noticesStore } from '@wordpress/notices';
@@ -31,7 +34,12 @@ import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
 import { DEFAULT_ATTRIBUTES } from './constants';
-import { generateUid, sortLibrary, stripUiState } from './savedAnimations';
+import {
+	generateUid,
+	sortLibrary,
+	sortThemeLibrary,
+	stripUiState,
+} from './savedAnimations';
 import SavedAnimationsModal from './SavedAnimationsModal';
 
 const ANIMATION_KEYS = Object.keys( DEFAULT_ATTRIBUTES );
@@ -106,8 +114,8 @@ export default function AnimationOptionsMenu( {
 		[ blockName, clientId ]
 	);
 
-	// Saved-animation library (site option, exposed via REST). Empty
-	// object until the entity loads — `useEntityProp` returns
+	// User saved-animation library (site option, exposed via REST).
+	// Empty object until the entity loads — `useEntityProp` returns
 	// `undefined` initially, so default to `{}` for safe iteration.
 	const [ savedAnimations = {}, setSavedAnimations ] = useEntityProp(
 		'root',
@@ -115,6 +123,15 @@ export default function AnimationOptionsMenu( {
 		'mb_saved_animations'
 	);
 	const savedEntries = sortLibrary( savedAnimations );
+
+	// Theme-supplied animations from theme.json:
+	//   settings.custom.motionBlocks.savedAnimations
+	// Read-only (the user can't delete them), shown in a separate
+	// menu group so the visual distinction is clear. Same shape as
+	// user library: `{ [slug]: { name, attributes } }`.
+	const themeAnimations =
+		useSetting( 'custom.motionBlocks.savedAnimations' ) || {};
+	const themeEntries = sortThemeLibrary( themeAnimations );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	const { saveEditedEntityRecord } = useDispatch( coreStore );
@@ -333,12 +350,42 @@ export default function AnimationOptionsMenu( {
 							</MenuGroup>
 						) }
 
-						{ savedEntries.length > 0 && (
+						{ themeEntries.length > 0 && (
 							<MenuGroup
 								label={ __(
-									'Apply saved animation',
+									'Theme animations',
 									'motion-blocks'
 								) }
+							>
+								{ themeEntries.map( ( [ slug, saved ] ) => (
+									<MenuItem
+										key={ slug }
+										onClick={ () =>
+											handleApplySaved(
+												saved,
+												onClose
+											)
+										}
+									>
+										{ saved.name || slug }
+									</MenuItem>
+								) ) }
+							</MenuGroup>
+						) }
+
+						{ savedEntries.length > 0 && (
+							<MenuGroup
+								label={
+									themeEntries.length > 0
+										? __(
+												'Your saved animations',
+												'motion-blocks'
+										  )
+										: __(
+												'Apply saved animation',
+												'motion-blocks'
+										  )
+								}
 							>
 								{ savedEntries.map( ( [ uid, saved ] ) => (
 									<div

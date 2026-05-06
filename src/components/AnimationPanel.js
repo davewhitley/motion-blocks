@@ -223,6 +223,9 @@ export default function AnimationPanel( {
 							{ __( 'Animation type', 'motion-blocks' ) }
 						</span>
 						<AnimationOptionsMenu
+							attributes={ attributes }
+							blockName={ blockName }
+							clientId={ clientId }
 							onPaste={ pasteAnimation }
 							pasteOnly
 						/>

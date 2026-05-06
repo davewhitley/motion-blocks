@@ -523,6 +523,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 							attributes={ attributes }
 							setAttributes={ fanSetAttributes }
 							blockName={ name }
+							clientId={ clientId }
 							multiSelectCount={
 								isMultiSelecting
 									? selectedClientIds.length

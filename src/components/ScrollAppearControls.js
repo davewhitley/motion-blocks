@@ -69,6 +69,7 @@ export default function ScrollAppearControls( {
 	attributes,
 	setAttributes,
 	blockName,
+	clientId,
 	onRemove,
 	onPreview,
 	onPaste,
@@ -175,6 +176,8 @@ export default function ScrollAppearControls( {
 					</span>
 					<AnimationOptionsMenu
 						attributes={ attributes }
+						blockName={ blockName }
+						clientId={ clientId }
 						onPaste={ onPaste }
 						onReset={ onReset }
 						onRemove={ onRemove }

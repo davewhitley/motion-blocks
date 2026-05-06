@@ -60,6 +60,7 @@ export default function ScrollInteractiveControls( {
 	attributes,
 	setAttributes,
 	blockName,
+	clientId,
 	onRemove,
 	onPaste,
 	onReset,
@@ -109,6 +110,8 @@ export default function ScrollInteractiveControls( {
 					</span>
 					<AnimationOptionsMenu
 						attributes={ attributes }
+						blockName={ blockName }
+						clientId={ clientId }
 						onPaste={ onPaste }
 						onReset={ onReset }
 						onRemove={ onRemove }

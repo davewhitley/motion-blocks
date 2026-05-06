@@ -39,6 +39,7 @@ export default function AnimationPanel( {
 	attributes,
 	setAttributes,
 	blockName,
+	clientId,
 	multiSelectCount = 0,
 } ) {
 	const {
@@ -301,6 +302,7 @@ export default function AnimationPanel( {
 					attributes={ attributes }
 					setAttributes={ setAttributes }
 					blockName={ blockName }
+					clientId={ clientId }
 					onRemove={ removeAnimation }
 					onPreview={ replayPreview }
 					onStopPreview={ stopPreview }
@@ -317,6 +319,7 @@ export default function AnimationPanel( {
 					attributes={ attributes }
 					setAttributes={ setAttributes }
 					blockName={ blockName }
+					clientId={ clientId }
 					onRemove={ removeAnimation }
 					onPreview={ replayPreview }
 					onPaste={ pasteAnimation }
@@ -329,6 +332,7 @@ export default function AnimationPanel( {
 					attributes={ attributes }
 					setAttributes={ setAttributes }
 					blockName={ blockName }
+					clientId={ clientId }
 					onRemove={ removeAnimation }
 					onPaste={ pasteAnimation }
 					onReset={ resetSettings }

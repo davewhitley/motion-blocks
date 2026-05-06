@@ -62,6 +62,7 @@ export default function PageLoadControls( {
 	attributes,
 	setAttributes,
 	blockName,
+	clientId,
 	onRemove,
 	onPreview,
 	onStopPreview,
@@ -116,6 +117,8 @@ export default function PageLoadControls( {
 					</span>
 					<AnimationOptionsMenu
 						attributes={ attributes }
+						blockName={ blockName }
+						clientId={ clientId }
 						onPaste={ onPaste }
 						onReset={ onReset }
 						onRemove={ onRemove }

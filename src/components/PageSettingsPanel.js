@@ -24,6 +24,7 @@ import {
 } from '@wordpress/data';
 import { store as editorStore } from '@wordpress/editor';
 import { store as blockEditorStore } from '@wordpress/block-editor';
+import { store as noticesStore } from '@wordpress/notices';
 import { useEntityProp } from '@wordpress/core-data';
 import { useState } from '@wordpress/element';
 import {
@@ -124,6 +125,7 @@ function MotionBlocksPagePanel() {
 	}, [] );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
+	const { createSuccessNotice } = useDispatch( noticesStore );
 
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
 
@@ -147,6 +149,19 @@ function MotionBlocksPagePanel() {
 		// Single dispatch, batched: one undo step covers the whole
 		// remove operation.
 		updateBlockAttributes( ids, CLEAR_ATTRS );
+		createSuccessNotice(
+			sprintf(
+				/* translators: %d: number of blocks animations were removed from */
+				_n(
+					'Animation removed from %d block.',
+					'Animations removed from %d blocks.',
+					ids.length,
+					'motion-blocks'
+				),
+				ids.length
+			),
+			{ type: 'snackbar' }
+		);
 		setConfirmOpen( false );
 	};
 

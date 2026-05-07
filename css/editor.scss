@@ -139,6 +139,63 @@
 	}
 }
 
+// Viewport guide lines on the editor canvas — drawn inside the
+// iframe via React portal. Show where the selected scroll-interactive
+// block's animation start and end ranges land in the viewport.
+//
+// The lines themselves are pinned `position: fixed` to the iframe
+// viewport so they stay put while the user scrolls; the block's
+// motion through them illustrates "this is where the animation fires."
+.mb-viewport-guide {
+	position: fixed;
+	left: 0;
+	right: 0;
+	height: 0;
+	border-top: 1px dashed;
+	pointer-events: none;
+	z-index: 9999;
+	transition: top 0.15s ease;
+
+	&--start {
+		border-top-color: #0f9d58;
+
+		.mb-viewport-guide__label {
+			color: #0f9d58;
+		}
+	}
+
+	&--end {
+		border-top-color: #db4437;
+
+		.mb-viewport-guide__label {
+			color: #db4437;
+		}
+	}
+
+	// When the computed line position falls outside the viewport, we
+	// clamp to the nearest edge. Use a solid border so the user can
+	// tell something is "off" — the actual trigger fires beyond the
+	// edge of what they can see.
+	&.is-clamped {
+		border-top-style: solid;
+		opacity: 0.7;
+	}
+
+	.mb-viewport-guide__label {
+		position: absolute;
+		right: vars.$grid-unit-20;
+		top: 2px;
+		font-size: 11px;
+		font-weight: 500;
+		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+		letter-spacing: 0.02em;
+		text-transform: uppercase;
+		background: #fff;
+		padding: 1px vars.$grid-unit-05;
+		border-radius: 2px;
+	}
+}
+
 // Hint shown above the empty-state mode selector when the user is
 // editing a child of an animated container. Without this, the
 // "no animation" panel was confusing — auto-animate often picks

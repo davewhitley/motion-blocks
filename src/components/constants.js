@@ -50,6 +50,35 @@ export const IMAGE_TARGETABLE_BLOCKS = [
 ];
 
 /**
+ * Block types that support the "Stagger children" toggle. When stagger
+ * is enabled on one of these, the parent's animation config is applied
+ * to each direct child with a stepped delay (computed via CSS
+ * `:nth-child()` rules in animations.css / editor.scss). The parent
+ * itself stops animating and becomes the cascade controller.
+ *
+ * Whitelisted because stagger only makes sense for blocks whose
+ * meaningful content IS their direct children (lists, galleries, button
+ * groups, etc.). For arbitrary content blocks (e.g. core/paragraph)
+ * staggering "children" doesn't have a coherent meaning.
+ */
+export const STAGGER_CONTAINER_BLOCKS = [
+	'core/group',
+	'core/columns',
+	'core/buttons',
+	'core/gallery',
+	'core/list',
+];
+
+/**
+ * Animation types that don't compose with the stagger cascade in v1.
+ * Custom (From/To) and image-move both use per-block @keyframes
+ * injection — replicating that to N children would require N injected
+ * @keyframes rules and breaks the simple `:nth-child()` model. Hide
+ * the Stagger toggle (or surface a "not available" note) for these.
+ */
+export const STAGGER_INCOMPATIBLE_TYPES = [ 'custom', 'image-move' ];
+
+/**
  * Direction options per animation type.
  */
 export const DIRECTION_OPTIONS = {
@@ -866,4 +895,10 @@ export const DEFAULT_ATTRIBUTES = {
 	// figcaption / link wrapper stays stationary. Only meaningful
 	// for blocks listed in IMAGE_TARGETABLE_BLOCKS.
 	animationFromToTarget: 'block',
+	// Stagger cascade — only meaningful when the block is a
+	// STAGGER_CONTAINER_BLOCKS member. When true, the parent stops
+	// animating itself and becomes the cascade controller for its
+	// direct children. Step is the delay added per child (in ms).
+	animationStaggerEnabled: false,
+	animationStaggerStep: 100,
 };

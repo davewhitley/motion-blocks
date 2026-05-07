@@ -46,6 +46,7 @@ import {
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
+import StaggerControls from './StaggerControls';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -918,6 +919,12 @@ export default function ScrollAppearControls( {
 					'motion-blocks'
 				) }
 				__nextHasNoMarginBottom
+			/>
+
+			<StaggerControls
+				attributes={ attributes }
+				setAttributes={ setAttributes }
+				blockName={ blockName }
 			/>
 
 			<Button

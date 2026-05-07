@@ -381,3 +381,106 @@
         clip-path: none !important;
     }
 }
+
+/* ----------------------------------------------------------------
+ * Stagger cascade (parent owns its children's animation)
+ *
+ * When `mb-stagger-parent` is on a container block (Group / Columns
+ * / Buttons / Gallery / List), the parent stops animating itself and
+ * its direct children pick up the parent's animation classes via
+ * descendant selectors, with a stepped delay computed via
+ * `:nth-child()`. Cap at 30 children — past that the cumulative
+ * delay stops being useful anyway.
+ *
+ * Pure CSS. The existing IntersectionObserver still adds `.mb-triggered`
+ * to the parent; the rules below propagate that trigger to the children.
+ * -------------------------------------------------------------- */
+
+/* Suppress the parent's own animation. Stays visible from frame 0 so
+   the children can fade/slide/etc. into the static container. */
+.mb-stagger-parent.mb-animated {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+}
+
+/* Initial hidden state for children — mirrors the parent's
+   "before triggered" rule but applied to the kids. */
+.mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
+.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="enter"]:not(.mb-triggered) > *,
+.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="both"]:not(.mb-triggered):not(.mb-exit-triggered) > * {
+    opacity: 0;
+}
+
+/* Triggered state — children inherit the parent's animation timing
+   variables and animation-name (bound per enter type below). */
+.mb-stagger-parent.mb-triggered > * {
+    animation-duration: var(--mb-duration);
+    animation-fill-mode: both;
+    animation-timing-function: var(--mb-timing);
+}
+
+/* Bind animation-name per enter type. Children use the same keyframes
+   the parent would have used. Custom (From/To) and image-move are
+   intentionally not listed — they use per-block keyframes which
+   don't compose with this descendant-selector cascade (see
+   STAGGER_INCOMPATIBLE_TYPES in constants.js). */
+.mb-stagger-parent.mb-enter-fade.mb-triggered    > * { animation-name: mbFadeIn; }
+.mb-stagger-parent.mb-enter-slide.mb-triggered   > * { animation-name: mbSlideIn; }
+.mb-stagger-parent.mb-enter-scale.mb-triggered   > * { animation-name: mbScaleIn; }
+.mb-stagger-parent.mb-enter-rotate.mb-triggered  > * { animation-name: mbRotateIn; }
+.mb-stagger-parent.mb-enter-blur.mb-triggered    > * { animation-name: mbBlurIn; }
+.mb-stagger-parent.mb-enter-wipe.mb-triggered    > * { animation-name: mbWipeIn; }
+.mb-stagger-parent.mb-enter-curtain.mb-triggered > * { animation-name: mbCurtainReveal; }
+.mb-stagger-parent.mb-enter-flip.mb-triggered    > * {
+    animation-name: mbFlipIn;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+/* Stepped delay per child. CSS doesn't have a `for` so we list 30
+   nth-child rules. Each one adds (n-1) * --mb-stagger-step to the
+   parent's --mb-delay. */
+.mb-stagger-parent.mb-triggered > *:nth-child(1)  { animation-delay: calc(var(--mb-delay, 0s) +  0 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(2)  { animation-delay: calc(var(--mb-delay, 0s) +  1 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(3)  { animation-delay: calc(var(--mb-delay, 0s) +  2 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(4)  { animation-delay: calc(var(--mb-delay, 0s) +  3 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(5)  { animation-delay: calc(var(--mb-delay, 0s) +  4 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(6)  { animation-delay: calc(var(--mb-delay, 0s) +  5 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(7)  { animation-delay: calc(var(--mb-delay, 0s) +  6 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(8)  { animation-delay: calc(var(--mb-delay, 0s) +  7 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(9)  { animation-delay: calc(var(--mb-delay, 0s) +  8 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(10) { animation-delay: calc(var(--mb-delay, 0s) +  9 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(11) { animation-delay: calc(var(--mb-delay, 0s) + 10 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(12) { animation-delay: calc(var(--mb-delay, 0s) + 11 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(13) { animation-delay: calc(var(--mb-delay, 0s) + 12 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(14) { animation-delay: calc(var(--mb-delay, 0s) + 13 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(15) { animation-delay: calc(var(--mb-delay, 0s) + 14 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(16) { animation-delay: calc(var(--mb-delay, 0s) + 15 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(17) { animation-delay: calc(var(--mb-delay, 0s) + 16 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(18) { animation-delay: calc(var(--mb-delay, 0s) + 17 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(19) { animation-delay: calc(var(--mb-delay, 0s) + 18 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(20) { animation-delay: calc(var(--mb-delay, 0s) + 19 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(21) { animation-delay: calc(var(--mb-delay, 0s) + 20 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(22) { animation-delay: calc(var(--mb-delay, 0s) + 21 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(23) { animation-delay: calc(var(--mb-delay, 0s) + 22 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(24) { animation-delay: calc(var(--mb-delay, 0s) + 23 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(25) { animation-delay: calc(var(--mb-delay, 0s) + 24 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(26) { animation-delay: calc(var(--mb-delay, 0s) + 25 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(27) { animation-delay: calc(var(--mb-delay, 0s) + 26 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(28) { animation-delay: calc(var(--mb-delay, 0s) + 27 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(29) { animation-delay: calc(var(--mb-delay, 0s) + 28 * var(--mb-stagger-step, 100ms)); }
+.mb-stagger-parent.mb-triggered > *:nth-child(30) { animation-delay: calc(var(--mb-delay, 0s) + 29 * var(--mb-stagger-step, 100ms)); }
+
+/* Reduced motion override — children also need to ignore the cascade. */
+@media (prefers-reduced-motion: reduce) {
+    .mb-stagger-parent > * {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        clip-path: none !important;
+    }
+}

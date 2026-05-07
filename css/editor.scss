@@ -444,3 +444,66 @@
 
 }
 
+
+// ----------------------------------------------------------------
+// Stagger cascade — editor preview parity
+//
+// Mirrors the rules in animations.css so the editor canvas iframe
+// renders the same cascade behavior the frontend will. animations.css
+// ALSO loads in the iframe (via enqueue_block_assets), but the editor
+// keyframes are duplicated in this file as a safety net. Same applies
+// here — duplicate the cascade rules so the preview is reliable.
+// ----------------------------------------------------------------
+
+.mb-stagger-parent.mb-animated {
+	animation: none !important;
+	opacity: 1 !important;
+	transform: none !important;
+	filter: none !important;
+	clip-path: none !important;
+}
+
+.mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
+.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="enter"]:not(.mb-triggered) > *,
+.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="both"]:not(.mb-triggered):not(.mb-exit-triggered) > * {
+	opacity: 0;
+}
+
+.mb-stagger-parent.mb-triggered > * {
+	animation-duration: var(--mb-duration);
+	animation-fill-mode: both;
+	animation-timing-function: var(--mb-timing);
+}
+
+.mb-stagger-parent.mb-enter-fade.mb-triggered    > * { animation-name: mbFadeIn; }
+.mb-stagger-parent.mb-enter-slide.mb-triggered   > * { animation-name: mbSlideIn; }
+.mb-stagger-parent.mb-enter-scale.mb-triggered   > * { animation-name: mbScaleIn; }
+.mb-stagger-parent.mb-enter-rotate.mb-triggered  > * { animation-name: mbRotateIn; }
+.mb-stagger-parent.mb-enter-blur.mb-triggered    > * { animation-name: mbBlurIn; }
+.mb-stagger-parent.mb-enter-wipe.mb-triggered    > * { animation-name: mbWipeIn; }
+.mb-stagger-parent.mb-enter-curtain.mb-triggered > * { animation-name: mbCurtainReveal; }
+.mb-stagger-parent.mb-enter-flip.mb-triggered    > * {
+	animation-name: mbFlipIn;
+	backface-visibility: hidden;
+	transform-style: preserve-3d;
+}
+
+// SCSS @for keeps this concise vs the 30 hand-written rules in
+// animations.css (no SCSS available there). Same output.
+@for $i from 1 through 30 {
+	.mb-stagger-parent.mb-triggered > *:nth-child(#{$i}) {
+		animation-delay: calc(
+			var(--mb-delay, 0s) + #{$i - 1} * var(--mb-stagger-step, 100ms)
+		);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mb-stagger-parent > * {
+		animation: none !important;
+		opacity: 1 !important;
+		transform: none !important;
+		filter: none !important;
+		clip-path: none !important;
+	}
+}

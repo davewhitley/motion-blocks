@@ -308,6 +308,37 @@ function motion_blocks_render_block( $block_content, $block ) {
         }
     }
 
+    // Stagger cascade — mirrors the JS `addAnimationSaveProps` so the
+    // server-rendered output matches what the editor save filter
+    // produced. Whitelisted parent block types only, and skipped for
+    // animation types that don't compose with the cascade.
+    $stagger_blocks   = array(
+        'core/group',
+        'core/columns',
+        'core/buttons',
+        'core/gallery',
+        'core/list',
+    );
+    $stagger_skip_types = array( 'custom', 'image-move' );
+    $stagger_enabled    = ! empty( $attrs['animationStaggerEnabled'] );
+    $block_name         = $block['blockName'] ?? '';
+    if (
+        $stagger_enabled
+        && in_array( $block_name, $stagger_blocks, true )
+        && ! in_array( $type, $stagger_skip_types, true )
+    ) {
+        $processor->add_class( 'mb-stagger-parent' );
+        $step = (int) ( $attrs['animationStaggerStep'] ?? 100 );
+        // Append the CSS var to any existing inline style so we don't
+        // clobber theme/block styles that were already there.
+        $existing_style = trim( (string) ( $processor->get_attribute( 'style' ) ?? '' ) );
+        if ( $existing_style !== '' && substr( $existing_style, -1 ) !== ';' ) {
+            $existing_style .= ';';
+        }
+        $existing_style .= '--mb-stagger-step:' . $step . 'ms;';
+        $processor->set_attribute( 'style', $existing_style );
+    }
+
     return $processor->get_updated_html();
 }
 add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );

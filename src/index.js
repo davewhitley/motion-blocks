@@ -26,6 +26,8 @@ import {
 	FROM_ATTR,
 	TO_ATTR,
 	PROPERTY_CSS_VAR,
+	STAGGER_CONTAINER_BLOCKS,
+	STAGGER_INCOMPATIBLE_TYPES,
 	attrsToBag,
 	bagToReactStyles,
 	buildCustomKeyframe,
@@ -440,6 +442,18 @@ function addAnimationAttributes( settings ) {
 			animationFromToTarget: {
 				type: 'string',
 				default: 'block',
+			},
+			// Stagger cascade — only meaningful on STAGGER_CONTAINER_BLOCKS.
+			// When `animationStaggerEnabled` is true, the parent stops
+			// animating itself and becomes the cascade controller for its
+			// direct children (step in ms applied via CSS :nth-child).
+			animationStaggerEnabled: {
+				type: 'boolean',
+				default: false,
+			},
+			animationStaggerStep: {
+				type: 'number',
+				default: 100,
 			},
 		},
 	};
@@ -940,6 +954,33 @@ const withAnimationPreview = createHigherOrderComponent(
 				}
 			}
 
+			// Stagger cascade in the editor preview. Mirrors the save-
+			// props emission so the editor renders the same cascade
+			// the frontend will. Class + inline CSS var; rules in
+			// editor.scss + animations.css do the rest via :nth-child.
+			if (
+				attributes.animationStaggerEnabled &&
+				STAGGER_CONTAINER_BLOCKS.includes( props.name ) &&
+				! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
+			) {
+				const step =
+					attributes.animationStaggerStep ??
+					DEFAULT_ATTRIBUTES.animationStaggerStep;
+				computedClassName = [
+					computedClassName,
+					'mb-stagger-parent',
+				]
+					.filter( Boolean )
+					.join( ' ' );
+				computedWrapperProps = {
+					...computedWrapperProps,
+					style: {
+						...( computedWrapperProps.style || {} ),
+						'--mb-stagger-step': `${ step }ms`,
+					},
+				};
+			}
+
 			// Single return — BlockListBlock is always at the same
 			// position in the React tree (index 1 inside the Fragment),
 			// so it never remounts when switching animation states.
@@ -1169,11 +1210,33 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 		}
 	}
 
-	return {
+	// Stagger cascade — emit `mb-stagger-parent` class + the step as
+	// a CSS var. The CSS rules in animations.css / editor.scss handle
+	// the cascade via `:nth-child()`. Gated on a whitelist of container
+	// block types and incompatible animation types (custom, image-move).
+	let staggerStyle = null;
+	if (
+		attributes.animationStaggerEnabled &&
+		STAGGER_CONTAINER_BLOCKS.includes( blockType.name ) &&
+		! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
+	) {
+		classNames.push( 'mb-stagger-parent' );
+		const step =
+			attributes.animationStaggerStep ??
+			DEFAULT_ATTRIBUTES.animationStaggerStep;
+		// Inline CSS variable that the nth-child rules consume.
+		staggerStyle = { '--mb-stagger-step': `${ step }ms` };
+	}
+
+	const out = {
 		...props,
 		className: classNames.filter( Boolean ).join( ' ' ).trim(),
 		...dataAttrs,
 	};
+	if ( staggerStyle ) {
+		out.style = { ...( props.style || {} ), ...staggerStyle };
+	}
+	return out;
 }
 
 addFilter(

@@ -50,11 +50,21 @@ function motion_blocks_enqueue_block_assets() {
     // Editor CSS — compiled from css/editor.scss via wp-scripts.
     // Includes preview keyframes + animation class rules.
     // Must load inside the iframe for BlockListBlock className preview to work.
+    //
+    // Use filemtime() as the version so every rebuild busts the
+    // browser cache. Hardcoding MOTION_BLOCKS_VERSION (e.g. 0.1.0)
+    // means the browser keeps the cached stylesheet across rebuilds
+    // — fine for releases, breaks dev iteration. JS uses the asset
+    // .php hash already; CSS gets the same treatment via mtime.
+    $editor_css_path = plugin_dir_path( __FILE__ ) . 'build/index.css';
+    $editor_css_ver  = file_exists( $editor_css_path )
+        ? filemtime( $editor_css_path )
+        : MOTION_BLOCKS_VERSION;
     wp_enqueue_style(
         'motion-blocks-editor-styles',
         plugins_url( 'build/index.css', __FILE__ ),
         array(),
-        MOTION_BLOCKS_VERSION
+        $editor_css_ver
     );
 
     if ( ! is_admin() ) {
@@ -73,11 +83,15 @@ function motion_blocks_enqueue_block_assets() {
             );
         }
 
+        $anim_css_path = plugin_dir_path( __FILE__ ) . 'css/animations.css';
+        $anim_css_ver  = file_exists( $anim_css_path )
+            ? filemtime( $anim_css_path )
+            : MOTION_BLOCKS_VERSION;
         wp_enqueue_style(
             'motion-blocks-styles',
             plugins_url( 'css/animations.css', __FILE__ ),
             array(),
-            MOTION_BLOCKS_VERSION
+            $anim_css_ver
         );
     }
 }

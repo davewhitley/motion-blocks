@@ -165,7 +165,12 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 			title={ __( 'Auto-animate this page', 'motion-blocks' ) }
 			onRequestClose={ onClose }
 			className="mb-auto-animate-modal"
-			size="medium"
+			// 512px isn't one of WP's standard `size` values
+			// (small/medium/large/fill = 384/480/840/100vw). The
+			// inline style overrides whatever the default size class
+			// applies. Same width applied to every dialog in the
+			// plugin for visual consistency.
+			style={ { maxWidth: '512px' } }
 		>
 			<VStack spacing={ 5 }>
 				<ToggleGroupControl

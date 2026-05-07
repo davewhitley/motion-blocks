@@ -108,6 +108,21 @@
 	}
 }
 
+// Constrain WP's ConfirmDialog (used for Apply-to-all confirm,
+// Remove-all confirm, Delete-saved confirm) to match the rest of
+// our 512px dialogs.
+//
+// Why CSS instead of a `style` prop on ConfirmDialog itself: the
+// component's prop pass-through is inconsistent across WP versions —
+// `className`, `style`, and `modalProps` all silently drop in some
+// builds. Targeting the always-present `components-confirm-dialog`
+// class on the modal frame is the only reliable path. Other plugins'
+// ConfirmDialogs would also pick up this width, but 512px is a more
+// reasonable default than the spec's `calc(100% - 32px)` anyway.
+.components-modal__frame.components-confirm-dialog {
+	max-width: 512px;
+}
+
 // Auto-animate modal — count list and helper text.
 .mb-auto-animate-modal {
 	.mb-auto-animate-modal__heading {

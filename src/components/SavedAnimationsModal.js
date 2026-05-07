@@ -52,6 +52,7 @@ export default function SavedAnimationsModal( {
 			title={ __( 'Save animation', 'motion-blocks' ) }
 			onRequestClose={ onCancel }
 			className="mb-saved-animations-modal"
+			style={ { maxWidth: '512px' } }
 		>
 			<form onSubmit={ handleSubmit }>
 				<VStack spacing={ 4 }>

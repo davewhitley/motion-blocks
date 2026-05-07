@@ -1,19 +1,24 @@
 /**
- * StaggerControls — "Stagger children" toggle + step slider.
+ * StaggerControls — "Stagger inner blocks" toggle + offset.
  *
- * Rendered by the mode panels (PageLoad / ScrollAppear) for
- * supported parent block types. Hidden completely for blocks that
- * aren't on the stagger whitelist or for animation types that don't
- * compose with the cascade (Custom, Image Move).
+ * Lives inside the Timing section of the mode panels (PageLoad,
+ * ScrollAppear) for supported parent block types. Hidden completely
+ * for blocks that aren't on the stagger whitelist or for animation
+ * types that don't compose with the cascade (Custom, Image Move).
  *
  * When enabled, the parent's animation classes carry through to
  * each direct child via CSS `:nth-child()` rules with a stepped
  * delay. Implementation detail lives in animations.css /
  * editor.scss; this component only writes the two attributes.
+ *
+ * Note: stagger offset and the existing Delay attribute are
+ * orthogonal — Delay is the wait before the first child starts
+ * (`child_N_delay = Delay + (N - 1) * Offset`). Both fields stay
+ * editable when stagger is on.
  */
 import {
 	ToggleControl,
-	RangeControl,
+	__experimentalNumberControl as NumberControl,
 	__experimentalVStack as VStack,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -28,9 +33,9 @@ export default function StaggerControls( {
 	setAttributes,
 	blockName,
 } ) {
-	// Hide entirely on unsupported block types — staggering "children"
-	// only has a coherent meaning for container blocks. The Animation
-	// panel for everything else is unchanged.
+	// Hide entirely on unsupported block types — staggering "inner
+	// blocks" only has a coherent meaning for container blocks. The
+	// Animation panel for everything else is unchanged.
 	if ( ! STAGGER_CONTAINER_BLOCKS.includes( blockName ) ) {
 		return null;
 	}
@@ -46,14 +51,10 @@ export default function StaggerControls( {
 
 	return (
 		<VStack spacing={ 3 }>
-			<div className="mb-section-heading">
-				{ __( 'Children', 'motion-blocks' ) }
-			</div>
-
 			<ToggleControl
-				label={ __( 'Stagger children', 'motion-blocks' ) }
+				label={ __( 'Stagger inner blocks', 'motion-blocks' ) }
 				help={ __(
-					'Animate each child one after another instead of animating the whole container at once.',
+					'Each inner block will start animating at different time.',
 					'motion-blocks'
 				) }
 				checked={ !! animationStaggerEnabled }
@@ -64,8 +65,12 @@ export default function StaggerControls( {
 			/>
 
 			{ animationStaggerEnabled && (
-				<RangeControl
-					label={ __( 'Step (ms)', 'motion-blocks' ) }
+				<NumberControl
+					label={ __( 'Stagger offset', 'motion-blocks' ) }
+					help={ __(
+						'The amount of time to wait in between each inner block animation.',
+						'motion-blocks'
+					) }
 					value={ animationStaggerStep }
 					onChange={ ( v ) =>
 						setAttributes( {
@@ -73,11 +78,9 @@ export default function StaggerControls( {
 						} )
 					}
 					min={ 0 }
-					max={ 1000 }
 					step={ 25 }
-					renderTooltipContent={ ( v ) => `${ v }ms` }
+					spinControls="custom"
 					__next40pxDefaultSize
-					__nextHasNoMarginBottom
 				/>
 			) }
 		</VStack>

@@ -200,15 +200,6 @@ export default function ScrollAppearControls( {
 				</p>
 			</div>
 
-			{ /* Stagger lives at the top — structural decision before
-			   per-effect options. Renders nothing on non-container
-			   block types. */ }
-			<StaggerControls
-				attributes={ attributes }
-				setAttributes={ setAttributes }
-				blockName={ blockName }
-			/>
-
 			{ /* Trigger selector */ }
 			<ToggleGroupControl
 				label={ __( 'Trigger', 'motion-blocks' ) }
@@ -395,6 +386,13 @@ export default function ScrollAppearControls( {
 					<div className="mb-section-heading">
 						{ __( 'Timing', 'motion-blocks' ) }
 					</div>
+
+					{ /* Stagger inside Timing — same as PageLoad. */ }
+					<StaggerControls
+						attributes={ attributes }
+						setAttributes={ setAttributes }
+						blockName={ blockName }
+					/>
 
 					<HStack spacing={ 3 }>
 						<FlexBlock>

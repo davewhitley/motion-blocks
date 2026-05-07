@@ -638,18 +638,27 @@ const withAnimationPreview = createHigherOrderComponent(
 				}
 
 				return (
-					<BlockListBlock
-						{ ...props }
-						className={ props.className }
-						wrapperProps={ {
-							...wrapperProps,
-							style: {
-								...( wrapperProps.style || {} ),
-								...sideStyles,
-								animationName: 'none',
-							},
-						} }
-					/>
+					// Fragment-wrap with a null sibling so this return
+					// has the same React tree shape as every other
+					// branch in this HOC (style|null at index 0,
+					// BlockListBlock at index 1). Shape consistency
+					// keeps BlockListBlock from remounting when state
+					// transitions between branches.
+					<>
+						{ null }
+						<BlockListBlock
+							{ ...props }
+							className={ props.className }
+							wrapperProps={ {
+								...wrapperProps,
+								style: {
+									...( wrapperProps.style || {} ),
+									...sideStyles,
+									animationName: 'none',
+								},
+							} }
+						/>
+					</>
 				);
 			}
 
@@ -666,7 +675,18 @@ const withAnimationPreview = createHigherOrderComponent(
 					animationMode === 'scroll-appear' ) &&
 				! animationPreviewPlaying
 			) {
-				return <BlockListBlock { ...props } />;
+				// Same Fragment shape as every other return in this
+				// HOC. Without the wrapping Fragment, transitioning
+				// from "rest" (this branch) to "playing" (the main
+				// path) would change the React tree shape from a
+				// bare BlockListBlock to a Fragment with BlockListBlock
+				// at index 1 — forcing a remount + visible flicker.
+				return (
+					<>
+						{ null }
+						<BlockListBlock { ...props } />
+					</>
+				);
 			}
 
 			// Resolve `custom` acceleration to the user's custom CSS

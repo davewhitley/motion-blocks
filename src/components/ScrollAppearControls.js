@@ -72,6 +72,7 @@ export default function ScrollAppearControls( {
 	clientId,
 	onRemove,
 	onPreview,
+	isPlayPending,
 	onPaste,
 	onReset,
 } ) {
@@ -243,6 +244,7 @@ export default function ScrollAppearControls( {
 							) }
 							variant="secondary"
 							onClick={ onPreview }
+							disabled={ isPlayPending }
 							__next40pxDefaultSize
 						/>
 					</HStack>
@@ -484,6 +486,7 @@ export default function ScrollAppearControls( {
 								) }
 								variant="secondary"
 								onClick={ onPreview }
+								disabled={ isPlayPending }
 								__next40pxDefaultSize
 							/>
 						</HStack>

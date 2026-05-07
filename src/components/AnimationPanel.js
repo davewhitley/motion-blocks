@@ -6,7 +6,7 @@
  */
 
 import { PanelBody, Icon, Button } from '@wordpress/components';
-import { useRef, useCallback } from '@wordpress/element';
+import { useRef, useCallback, useState, useEffect } from '@wordpress/element';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
@@ -87,6 +87,36 @@ export default function AnimationPanel( {
 	const isLoopingMode =
 		animationRepeat === 'loop' || animationRepeat === 'alternate';
 
+	// Pending state for one-shot previews. The button uses this to
+	// disable itself while the animation is in flight — without it,
+	// re-clicking mid-playback restarts the keyframe (visible jump)
+	// AND the original setTimeout still fires partway into the
+	// second run, killing the preview prematurely.
+	//
+	// Looping previews don't use this — the button is a play/stop
+	// toggle in that mode, not a one-shot trigger.
+	const [ isPlayPending, setIsPlayPending ] = useState( false );
+	const playTimeoutRef = useRef( null );
+	const playFrameRef = useRef( null );
+
+	const clearPlayTimers = useCallback( () => {
+		if ( playTimeoutRef.current !== null ) {
+			clearTimeout( playTimeoutRef.current );
+			playTimeoutRef.current = null;
+		}
+		if ( playFrameRef.current !== null ) {
+			cancelAnimationFrame( playFrameRef.current );
+			playFrameRef.current = null;
+		}
+	}, [] );
+
+	// Cancel any pending preview when the component unmounts or the
+	// selected block changes. Otherwise a stale setTimeout could fire
+	// against a different block's setAttributes.
+	useEffect( () => {
+		return clearPlayTimers;
+	}, [ clearPlayTimers, clientId ] );
+
 	/**
 	 * Replay the current animation preview.
 	 *
@@ -105,31 +135,57 @@ export default function AnimationPanel( {
 		if ( ! current ) {
 			return;
 		}
+		// Defensive — the button should be disabled, but bail anyway
+		// if a previous play is still in flight.
+		if ( isPlayPending ) {
+			return;
+		}
 		if ( isLoopingMode ) {
 			setAttributes( { animationPreviewPlaying: true } );
 			return;
 		}
+
+		// Compute the total runtime for the disable-button window.
+		// Used by both custom and preset paths so we cover the entire
+		// animation duration regardless of preview mechanism.
+		const duration = parseFloat( animationDuration ) || 0.6;
+		const delay = parseFloat( animationDelay ) || 0;
+		const totalMs = ( duration + delay ) * 1000;
+
+		setIsPlayPending( true );
+		clearPlayTimers();
+
 		if ( current === 'custom' ) {
 			setAttributes( { animationPreviewPlaying: true } );
-			const duration = parseFloat( animationDuration ) || 0.6;
-			const delay = parseFloat( animationDelay ) || 0;
-			const totalMs = ( duration + delay ) * 1000;
-			setTimeout( () => {
+			playTimeoutRef.current = setTimeout( () => {
 				setAttributes( { animationPreviewPlaying: false } );
+				setIsPlayPending( false );
+				playTimeoutRef.current = null;
 			}, totalMs + 100 );
 			return;
 		}
+
+		// Preset path: clear+restore type to retrigger the CSS
+		// animation, then release the pending flag after the
+		// animation completes.
 		savedType.current = current;
 		setAttributes( { animationType: '' } );
-		requestAnimationFrame( () => {
+		playFrameRef.current = requestAnimationFrame( () => {
 			setAttributes( { animationType: savedType.current } );
+			playFrameRef.current = null;
+			playTimeoutRef.current = setTimeout( () => {
+				setIsPlayPending( false );
+				playTimeoutRef.current = null;
+			}, totalMs + 100 );
 		} );
 	}, [
 		animationType,
 		setAttributes,
 		isLoopingMode,
+		isPlayPending,
 		animationDuration,
 		animationDelay,
+		clearPlayTimers,
 	] );
 
 	/**
@@ -372,6 +428,7 @@ export default function AnimationPanel( {
 					isLoopRunning={
 						isLoopingMode && animationPreviewPlaying
 					}
+					isPlayPending={ isPlayPending }
 					onPaste={ pasteAnimation }
 					onReset={ resetSettings }
 				/>
@@ -385,6 +442,7 @@ export default function AnimationPanel( {
 					clientId={ clientId }
 					onRemove={ removeAnimation }
 					onPreview={ replayPreview }
+					isPlayPending={ isPlayPending }
 					onPaste={ pasteAnimation }
 					onReset={ resetSettings }
 				/>

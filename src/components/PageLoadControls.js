@@ -67,6 +67,7 @@ export default function PageLoadControls( {
 	onPreview,
 	onStopPreview,
 	isLoopRunning,
+	isPlayPending,
 	onPaste,
 	onReset,
 } ) {
@@ -152,6 +153,11 @@ export default function PageLoadControls( {
 					}
 					variant="secondary"
 					onClick={ isLoopRunning ? onStopPreview : onPreview }
+					// Disable while a one-shot preview is in flight to
+					// prevent jumpy mid-playback restarts. Looping
+					// previews are exempt — the button is a stop
+					// toggle in that mode.
+					disabled={ ! isLoopRunning && isPlayPending }
 					__next40pxDefaultSize
 				/>
 			</HStack>

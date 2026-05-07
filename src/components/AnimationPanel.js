@@ -17,6 +17,7 @@ import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import StaggerControls from './StaggerControls';
 import {
 	DEFAULT_ATTRIBUTES,
 	PROPERTY_DEFINITIONS,
@@ -333,6 +334,7 @@ export default function AnimationPanel( {
 			) }
 
 			{ ! animationMode && (
+				<>
 				<div className="mb-mode-selector">
 					<div className="mb-mode-selector__header">
 						<span className="mb-mode-selector__label">
@@ -414,6 +416,17 @@ export default function AnimationPanel( {
 						</button>
 					</div>
 				</div>
+
+				{ /* Stagger toggle — visible from the start on container
+				   block types so the user discovers it before picking
+				   a mode. Toggle state persists; once they pick a mode
+				   the populated panel shows the same toggle at the top. */ }
+				<StaggerControls
+					attributes={ attributes }
+					setAttributes={ setAttributes }
+					blockName={ blockName }
+				/>
+				</>
 			) }
 
 			{ animationMode === 'page-load' && (

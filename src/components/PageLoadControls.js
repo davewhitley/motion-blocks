@@ -141,6 +141,16 @@ export default function PageLoadControls( {
 				</p>
 			</div>
 
+			{ /* Stagger lives at the top — it's a structural decision
+			   ("animate the container as one vs. cascade through its
+			   children") that should be visible before per-effect
+			   options. Renders nothing on non-container block types. */ }
+			<StaggerControls
+				attributes={ attributes }
+				setAttributes={ setAttributes }
+				blockName={ blockName }
+			/>
+
 			<HStack alignment="bottom" spacing={ 3 }>
 				<FlexBlock>
 					<SelectControl
@@ -373,12 +383,6 @@ export default function PageLoadControls( {
 					'motion-blocks'
 				) }
 				__nextHasNoMarginBottom
-			/>
-
-			<StaggerControls
-				attributes={ attributes }
-				setAttributes={ setAttributes }
-				blockName={ blockName }
 			/>
 
 			<Button

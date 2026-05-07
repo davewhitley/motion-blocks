@@ -200,6 +200,15 @@ export default function ScrollAppearControls( {
 				</p>
 			</div>
 
+			{ /* Stagger lives at the top — structural decision before
+			   per-effect options. Renders nothing on non-container
+			   block types. */ }
+			<StaggerControls
+				attributes={ attributes }
+				setAttributes={ setAttributes }
+				blockName={ blockName }
+			/>
+
 			{ /* Trigger selector */ }
 			<ToggleGroupControl
 				label={ __( 'Trigger', 'motion-blocks' ) }
@@ -919,12 +928,6 @@ export default function ScrollAppearControls( {
 					'motion-blocks'
 				) }
 				__nextHasNoMarginBottom
-			/>
-
-			<StaggerControls
-				attributes={ attributes }
-				setAttributes={ setAttributes }
-				blockName={ blockName }
 			/>
 
 			<Button

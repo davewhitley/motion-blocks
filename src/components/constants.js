@@ -406,6 +406,53 @@ export const TO_ATTR = {
 };
 
 /**
+ * The four properties seeded into the From/To panel when the user
+ * picks "Custom" for the first time on a block. All eight values
+ * are identity (no visual change) so the four rows render as
+ * editable form fields the user can immediately tweak. The block
+ * itself doesn't move/fade/scale until the user changes a value.
+ *
+ * Re-seeding policy: only applied when no From/To attribute is
+ * currently set on the block. If the user explicitly removes all
+ * four from the panel, switching to a preset and back will re-seed
+ * (since all attrs are null at that point). Switching back with
+ * any From/To value still set preserves the user's work.
+ */
+export const CUSTOM_DEFAULT_FROM_TO = {
+	animationFromOpacity: 1,
+	animationToOpacity: 1,
+	animationFromScale: 1,
+	animationToScale: 1,
+	animationFromTranslateX: '0px',
+	animationToTranslateX: '0px',
+	animationFromTranslateY: '0px',
+	animationToTranslateY: '0px',
+};
+
+const ALL_CUSTOM_FROM_TO_KEYS = [
+	...Object.values( FROM_ATTR ),
+	...Object.values( TO_ATTR ),
+];
+
+/**
+ * Does the block have ANY From/To property currently set? Used to
+ * decide whether picking "Custom" should seed defaults — if all
+ * From/To attrs are null, seed; if anything is set, preserve.
+ *
+ * @param {Object} attributes Block attributes.
+ * @return {boolean}
+ */
+export function hasAnyCustomFromToSet( attributes ) {
+	if ( ! attributes ) {
+		return false;
+	}
+	return ALL_CUSTOM_FROM_TO_KEYS.some( ( key ) => {
+		const v = attributes[ key ];
+		return v !== null && v !== undefined;
+	} );
+}
+
+/**
  * Map property id → CSS-friendly kebab name. Used for generating
  * `data-mb-from-{cssVar}` / `data-mb-to-{cssVar}` data attributes
  * the frontend reads.

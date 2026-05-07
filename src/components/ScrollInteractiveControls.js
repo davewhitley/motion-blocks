@@ -38,6 +38,8 @@ import {
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
+	CUSTOM_DEFAULT_FROM_TO,
+	hasAnyCustomFromToSet,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
@@ -96,6 +98,11 @@ export default function ScrollInteractiveControls( {
 			newAttrs.animationDirection = DEFAULT_DIRECTION[ value ] || '';
 		} else {
 			newAttrs.animationDirection = '';
+		}
+		// Seed the four default From/To rows when picking Custom for
+		// the first time. Preserves any existing custom config.
+		if ( value === 'custom' && ! hasAnyCustomFromToSet( attributes ) ) {
+			Object.assign( newAttrs, CUSTOM_DEFAULT_FROM_TO );
 		}
 		setAttributes( newAttrs );
 	};

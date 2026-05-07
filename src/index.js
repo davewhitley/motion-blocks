@@ -15,6 +15,7 @@ import { addFilter } from '@wordpress/hooks';
 import { useEffect, useCallback } from '@wordpress/element';
 
 import AnimationPanel from './components/AnimationPanel';
+import ViewportGuides from './components/ViewportGuides';
 import {
 	DEFAULT_ATTRIBUTES,
 	ENTER_KEYFRAME_MAP,
@@ -894,6 +895,16 @@ const withAnimationPreview = createHigherOrderComponent(
 				}
 			}
 
+			// Viewport guides: two horizontal lines on the editor
+			// canvas showing where this block's scroll-interactive
+			// animation will start and end. Only mount when the
+			// block is selected AND in scroll-interactive mode —
+			// gating in the HOC keeps the iframe DOM clean for
+			// every other block.
+			const showViewportGuides =
+				props.isSelected &&
+				animationMode === 'scroll-interactive';
+
 			// Single return — BlockListBlock is always at the same
 			// position in the React tree (index 1 inside the Fragment),
 			// so it never remounts when switching animation states.
@@ -909,6 +920,13 @@ const withAnimationPreview = createHigherOrderComponent(
 						className={ computedClassName }
 						wrapperProps={ computedWrapperProps }
 					/>
+					{ showViewportGuides ? (
+						<ViewportGuides
+							clientId={ props.clientId }
+							rangeStart={ animationRangeStart }
+							rangeEnd={ animationRangeEnd }
+						/>
+					) : null }
 				</>
 			);
 		};

@@ -139,6 +139,28 @@
 	}
 }
 
+// Hint shown above the empty-state mode selector when the user is
+// editing a child of an animated container. Without this, the
+// "no animation" panel was confusing — auto-animate often picks
+// the parent (Group, Cover, Buttons), and clicking a child showed
+// a blank panel even though the page "had" animations.
+.mb-ancestor-hint {
+	display: flex;
+	flex-direction: column;
+	gap: vars.$grid-unit-10;
+	padding: vars.$grid-unit-15;
+	margin-bottom: vars.$grid-unit-20;
+	background: colors.$gray-100;
+	border-radius: 2px;
+
+	.mb-ancestor-hint__text {
+		margin: 0;
+		font-size: 12px;
+		line-height: 16px;
+		color: colors.$gray-900;
+	}
+}
+
 // Mode selector — initial state before animation is configured
 @scope (.mb-mode-selector) {
 	:scope {

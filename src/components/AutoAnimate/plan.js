@@ -44,6 +44,11 @@ const CATEGORY_BY_BLOCK_NAME = {
 	// Synced pattern reference — animate the reference, not its inner
 	// blocks. Treated as opaque section content.
 	'core/block': 'SECTION',
+	// Broken-block placeholder for third-party blocks whose plugin is
+	// missing. Animating these is pointless (they render as a "this
+	// block contains unexpected content" warning, not the actual
+	// thing). Skipped from auto-animate.
+	'core/missing': 'BROKEN',
 };
 
 /**
@@ -167,6 +172,7 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 	const apply = [];
 	const skipBody = [];
 	const skipChrome = [];
+	const skipBroken = [];
 	const skipExisting = [];
 	let descendantCount = 0;
 	let heroSoFar = 0;
@@ -193,6 +199,10 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 			skipChrome.push( block );
 			continue;
 		}
+		if ( category === 'BROKEN' ) {
+			skipBroken.push( block );
+			continue;
+		}
 
 		if ( category === 'HERO' ) {
 			heroSoFar += 1;
@@ -209,6 +219,7 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 		apply,
 		skipBody,
 		skipChrome,
+		skipBroken,
 		skipExisting,
 		descendantCount,
 	};

@@ -5,9 +5,12 @@
  * or the matching sub-panel when a mode is active.
  */
 
-import { PanelBody, Icon } from '@wordpress/components';
+import { PanelBody, Icon, Button } from '@wordpress/components';
 import { useRef, useCallback } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { useSelect, useDispatch } from '@wordpress/data';
+import { store as blockEditorStore } from '@wordpress/block-editor';
+import { store as blocksStore } from '@wordpress/blocks';
+import { __, sprintf } from '@wordpress/i18n';
 import { desktop, seen, drawerRight } from '@wordpress/icons';
 
 import PageLoadControls from './PageLoadControls';
@@ -42,6 +45,35 @@ export default function AnimationPanel( {
 	clientId,
 	multiSelectCount = 0,
 } ) {
+	// Detect whether any ancestor of this block has an animation set.
+	// If so, the user is editing a child of an animated container —
+	// the empty mode-selector below would be confusing without a hint
+	// pointing them at the ancestor that owns the animation.
+	const animatedAncestor = useSelect(
+		( select ) => {
+			if ( ! clientId ) {
+				return null;
+			}
+			const sel = select( blockEditorStore );
+			const blocksSel = select( blocksStore );
+			const parentIds = sel.getBlockParents( clientId );
+			// Walk from nearest ancestor outward — the closest animated
+			// ancestor is the most relevant one to point the user at.
+			for ( let i = parentIds.length - 1; i >= 0; i-- ) {
+				const id = parentIds[ i ];
+				const block = sel.getBlock( id );
+				if ( block?.attributes?.animationMode ) {
+					const title =
+						blocksSel.getBlockType( block.name )?.title ||
+						block.name;
+					return { clientId: id, title };
+				}
+			}
+			return null;
+		},
+		[ clientId ]
+	);
+	const { selectBlock } = useDispatch( blockEditorStore );
 	const {
 		animationMode,
 		animationType,
@@ -213,6 +245,34 @@ export default function AnimationPanel( {
 					<span className="mb-multiselect-notice__count">
 						{ multiSelectCount }
 					</span>
+				</div>
+			) }
+
+			{ ! animationMode && animatedAncestor && (
+				<div className="mb-ancestor-hint">
+					<p className="mb-ancestor-hint__text">
+						{ sprintf(
+							/* translators: %s: ancestor block-type label, e.g. "Group" */
+							__(
+								'A parent %s already has an animation. The whole container — including this block — animates as one.',
+								'motion-blocks'
+							),
+							animatedAncestor.title
+						) }
+					</p>
+					<Button
+						variant="secondary"
+						onClick={ () =>
+							selectBlock( animatedAncestor.clientId )
+						}
+						__next40pxDefaultSize
+					>
+						{ sprintf(
+							/* translators: %s: ancestor block-type label */
+							__( 'Select parent %s', 'motion-blocks' ),
+							animatedAncestor.title
+						) }
+					</Button>
 				</div>
 			) }
 

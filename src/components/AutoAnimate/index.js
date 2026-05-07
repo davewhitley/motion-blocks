@@ -92,6 +92,7 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 	const skippedTotal =
 		plan.skipBody.length +
 		plan.skipChrome.length +
+		( plan.skipBroken?.length || 0 ) +
 		plan.skipExisting.length +
 		plan.descendantCount;
 
@@ -287,6 +288,20 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 											'motion-blocks'
 										),
 										plan.skipChrome.length
+									) }
+								</li>
+							) }
+							{ ( plan.skipBroken?.length || 0 ) > 0 && (
+								<li>
+									{ sprintf(
+										/* translators: %d: count */
+										_n(
+											'%d unsupported block (plugin missing)',
+											'%d unsupported blocks (plugin missing)',
+											plan.skipBroken.length,
+											'motion-blocks'
+										),
+										plan.skipBroken.length
 									) }
 								</li>
 							) }

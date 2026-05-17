@@ -47,6 +47,13 @@ export const IMAGE_TARGETABLE_BLOCKS = [
 	'core/cover',
 	'core/avatar',
 	'core/media-text',
+	// Renders an author avatar <img> alongside name/bio text. The
+	// avatar is part of the block's output, not a selectable inner
+	// block, so users can't animate it via per-block targeting.
+	'core/post-author',
+	// Single <img> for a commenter's avatar inside the comment
+	// template. No inner block to pick.
+	'core/comment-author-avatar',
 ];
 
 /**

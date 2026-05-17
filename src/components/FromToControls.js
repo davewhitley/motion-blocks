@@ -25,7 +25,7 @@ import {
 	__experimentalUnitControl as UnitControl,
 	__experimentalNumberControl as NumberControl,
 	__experimentalHStack as HStack,
-	__experimentalTabs as Tabs,
+	TabPanel,
 	FlexBlock,
 	RangeControl,
 	TextControl,
@@ -292,26 +292,34 @@ export default function FromToControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ /* Tabs visual (underline indicator under active tab) for
-			   the Start/End side picker. The actual side state is
-			   managed externally via `side`/`setSide` and drives the
-			   ToolsPanel below — we don't use Tabs.TabPanel because
-			   the same ToolsPanel is rendered for both sides (with a
-			   `key={side}` remount). Only TabList is rendered inside
-			   the Tabs context. */ }
-			<Tabs
-				selectedTabId={ side }
-				onSelect={ ( tabId ) => tabId && setSide( tabId ) }
+			{ /* Tabs visual (underline indicator under active tab)
+			   for the Start/End side picker. WP's `__experimentalTabs`
+			   compound component (with Tabs.TabList) isn't exported
+			   in older WP/Gutenberg versions, so we use the stable
+			   `TabPanel` instead and style it via CSS to match the
+			   underline look. The render-prop returns null because
+			   the same ToolsPanel renders below regardless of side
+			   (with `key={side}` to remount per side). `key={side}`
+			   on TabPanel itself handles any external side change
+			   (e.g. from applying a saved animation). */ }
+			<TabPanel
+				key={ side }
+				className="mb-side-tabs"
+				initialTabName={ side }
+				onSelect={ ( name ) => name && setSide( name ) }
+				tabs={ [
+					{
+						name: 'start',
+						title: __( 'Start', 'motion-blocks' ),
+					},
+					{
+						name: 'end',
+						title: __( 'End', 'motion-blocks' ),
+					},
+				] }
 			>
-				<Tabs.TabList>
-					<Tabs.Tab tabId="start">
-						{ __( 'Start', 'motion-blocks' ) }
-					</Tabs.Tab>
-					<Tabs.Tab tabId="end">
-						{ __( 'End', 'motion-blocks' ) }
-					</Tabs.Tab>
-				</Tabs.TabList>
-			</Tabs>
+				{ () => null }
+			</TabPanel>
 			{ sideHelp && (
 				<p className="mb-side-help">{ sideHelp }</p>
 			) }

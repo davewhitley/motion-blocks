@@ -154,6 +154,17 @@
 	}
 }
 
+// Help text below the Start / End tabs in the From/To panel.
+// Replaces the `help` prop on the old ToggleGroupControl with a
+// styled paragraph that matches WP's standard help-text appearance
+// (12px, gray-700).
+.mb-side-help {
+	margin: 0;
+	font-size: 12px;
+	line-height: 16px;
+	color: colors.$gray-700;
+}
+
 // Hint shown above the empty-state mode selector when the user is
 // editing a child of an animated container. Without this, the
 // "no animation" panel was confusing — auto-animate often picks

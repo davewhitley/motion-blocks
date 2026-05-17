@@ -25,6 +25,7 @@ import {
 	__experimentalUnitControl as UnitControl,
 	__experimentalNumberControl as NumberControl,
 	__experimentalHStack as HStack,
+	__experimentalTabs as Tabs,
 	FlexBlock,
 	RangeControl,
 	TextControl,
@@ -291,23 +292,29 @@ export default function FromToControls( {
 				</ToggleGroupControl>
 			) }
 
-			<ToggleGroupControl
-				value={ side }
-				onChange={ setSide }
-				isBlock
-				label={ __( 'Start and end', 'motion-blocks' ) }
-				help={ sideHelp }
-				__nextHasNoMarginBottom
+			{ /* Tabs visual (underline indicator under active tab) for
+			   the Start/End side picker. The actual side state is
+			   managed externally via `side`/`setSide` and drives the
+			   ToolsPanel below — we don't use Tabs.TabPanel because
+			   the same ToolsPanel is rendered for both sides (with a
+			   `key={side}` remount). Only TabList is rendered inside
+			   the Tabs context. */ }
+			<Tabs
+				selectedTabId={ side }
+				onSelect={ ( tabId ) => tabId && setSide( tabId ) }
 			>
-				<ToggleGroupControlOption
-					value="start"
-					label={ __( 'Start', 'motion-blocks' ) }
-				/>
-				<ToggleGroupControlOption
-					value="end"
-					label={ __( 'End', 'motion-blocks' ) }
-				/>
-			</ToggleGroupControl>
+				<Tabs.TabList>
+					<Tabs.Tab tabId="start">
+						{ __( 'Start', 'motion-blocks' ) }
+					</Tabs.Tab>
+					<Tabs.Tab tabId="end">
+						{ __( 'End', 'motion-blocks' ) }
+					</Tabs.Tab>
+				</Tabs.TabList>
+			</Tabs>
+			{ sideHelp && (
+				<p className="mb-side-help">{ sideHelp }</p>
+			) }
 
 			{ /*
 			 * `key={side}` forces ToolsPanel to remount when the user

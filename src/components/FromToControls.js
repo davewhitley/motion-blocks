@@ -30,8 +30,9 @@ import {
 	RangeControl,
 	TextControl,
 	Button,
+	ExternalLink,
 } from '@wordpress/components';
-import { useEffect } from '@wordpress/element';
+import { createInterpolateElement, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { seen, unseen } from '@wordpress/icons';
 
@@ -69,6 +70,27 @@ function PropertyInput( { def, value, onChange } ) {
 	}
 
 	if ( def.kind === 'text' ) {
+		// Clip path takes a free-form CSS value (`inset(...)`, `circle(...)`,
+		// `polygon(...)`, etc.) that few users will know by heart. Surface
+		// a one-line explanation + a link to the MDN reference so they
+		// can copy a known-good string. Other text-kind properties (none
+		// today, but room for future ones) get no help by default.
+		const help =
+			def.id === 'clipPath'
+				? createInterpolateElement(
+						__(
+							'A CSS expression that masks the visible area of the element. <a>Learn about clip-path</a>.',
+							'motion-blocks'
+						),
+						{
+							a: (
+								<ExternalLink
+									href="https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path"
+								/>
+							),
+						}
+				  )
+				: undefined;
 		return (
 			<TextControl
 				label={ __( def.label, 'motion-blocks' ) }
@@ -76,6 +98,7 @@ function PropertyInput( { def, value, onChange } ) {
 					value === null || value === undefined ? '' : String( value )
 				}
 				placeholder={ def.placeholder }
+				help={ help }
 				onChange={ ( v ) => onChange( v === '' ? def.identity : v ) }
 				__nextHasNoMarginBottom
 				__next40pxDefaultSize

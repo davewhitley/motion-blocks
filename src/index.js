@@ -28,6 +28,7 @@ import {
 	PROPERTY_CSS_VAR,
 	STAGGER_CONTAINER_BLOCKS,
 	STAGGER_INCOMPATIBLE_TYPES,
+	staggerStepSeconds,
 	attrsToBag,
 	bagToReactStyles,
 	buildCustomKeyframe,
@@ -977,9 +978,9 @@ const withAnimationPreview = createHigherOrderComponent(
 				STAGGER_CONTAINER_BLOCKS.includes( props.name ) &&
 				! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
 			) {
-				const step =
-					attributes.animationStaggerStep ??
-					DEFAULT_ATTRIBUTES.animationStaggerStep;
+				const step = staggerStepSeconds(
+					attributes.animationStaggerStep
+				);
 				computedClassName = [
 					computedClassName,
 					'mb-stagger-parent',
@@ -990,7 +991,7 @@ const withAnimationPreview = createHigherOrderComponent(
 					...computedWrapperProps,
 					style: {
 						...( computedWrapperProps.style || {} ),
-						'--mb-stagger-step': `${ step }ms`,
+						'--mb-stagger-step': `${ step }s`,
 					},
 				};
 			}
@@ -1251,11 +1252,9 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 		! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
 	) {
 		classNames.push( 'mb-stagger-parent' );
-		const step =
-			attributes.animationStaggerStep ??
-			DEFAULT_ATTRIBUTES.animationStaggerStep;
+		const step = staggerStepSeconds( attributes.animationStaggerStep );
 		// Inline CSS variable that the nth-child rules consume.
-		staggerStyle = { '--mb-stagger-step': `${ step }ms` };
+		staggerStyle = { '--mb-stagger-step': `${ step }s` };
 	}
 
 	const out = {

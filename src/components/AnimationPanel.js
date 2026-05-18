@@ -282,13 +282,24 @@ export default function AnimationPanel( {
 		} );
 	};
 
+	const panelTitle = animationMode ? (
+		<span className="mb-panel-title">
+			{ __( 'Animation', 'motion-blocks' ) }
+			<span
+				className="mb-panel-title__dot"
+				aria-label={ __(
+					'Animation configured on this block',
+					'motion-blocks'
+				) }
+			/>
+		</span>
+	) : (
+		__( 'Animation', 'motion-blocks' )
+	);
+
 	return (
 		<PanelBody
-			title={
-				animationMode
-					? __( 'Animation', 'motion-blocks' ) + ' ✦'
-					: __( 'Animation', 'motion-blocks' )
-			}
+			title={ panelTitle }
 			initialOpen={ !! animationMode }
 		>
 			{ multiSelectCount > 1 && (

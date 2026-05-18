@@ -9,6 +9,26 @@
 @use "@wordpress/base-styles/variables" as vars;
 @use "@wordpress/base-styles/mixins" as mix;
 
+// PanelBody title with a status dot — shown when the block has an
+// animation configured. Mirrors WP's pattern for indicating active
+// state on collapsed panel sections (cf. the Block Settings "edited"
+// indicator). Color is `alert-green` from @wordpress/base-styles,
+// the same token Gutenberg uses for success states elsewhere.
+.mb-panel-title {
+	display: inline-flex;
+	align-items: center;
+	gap: vars.$grid-unit-10;
+
+	.mb-panel-title__dot {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: colors.$alert-green;
+		flex: 0 0 auto;
+	}
+}
+
 // Wrapper for WP's `<Notice>` inside our PanelBody. The component
 // ships with its own default margins meant for editor headers /
 // modals; in our sidebar panel we want it flush with surrounding
@@ -480,7 +500,7 @@
 @for $i from 1 through 30 {
 	.mb-stagger-parent.mb-triggered > *:nth-child(#{$i}) {
 		animation-delay: calc(
-			var(--mb-delay, 0s) + #{$i - 1} * var(--mb-stagger-step, 100ms)
+			var(--mb-delay, 0s) + #{$i - 1} * var(--mb-stagger-step, 0.1s)
 		);
 	}
 }

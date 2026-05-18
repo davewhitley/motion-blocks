@@ -26,6 +26,7 @@ import { __ } from '@wordpress/i18n';
 import {
 	STAGGER_CONTAINER_BLOCKS,
 	STAGGER_INCOMPATIBLE_TYPES,
+	staggerStepSeconds,
 } from './constants';
 
 export default function StaggerControls( {
@@ -47,7 +48,12 @@ export default function StaggerControls( {
 		return null;
 	}
 
-	const { animationStaggerEnabled, animationStaggerStep } = attributes;
+	const { animationStaggerEnabled } = attributes;
+	// Normalize to seconds before display. Old blocks may have the
+	// value stored as milliseconds (legacy pre-seconds unit) — the
+	// helper detects ms-magnitude values and converts. See
+	// staggerStepSeconds() for the heuristic.
+	const stepSec = staggerStepSeconds( attributes.animationStaggerStep );
 
 	return (
 		<VStack spacing={ 3 }>
@@ -68,17 +74,18 @@ export default function StaggerControls( {
 				<NumberControl
 					label={ __( 'Stagger offset', 'motion-blocks' ) }
 					help={ __(
-						'The amount of time to wait in between each inner block animation.',
+						'Seconds to wait between each inner block.',
 						'motion-blocks'
 					) }
-					value={ animationStaggerStep }
+					value={ stepSec }
 					onChange={ ( v ) =>
 						setAttributes( {
-							animationStaggerStep: parseInt( v, 10 ) || 0,
+							animationStaggerStep: parseFloat( v ) || 0,
 						} )
 					}
 					min={ 0 }
-					step={ 25 }
+					max={ 5 }
+					step={ 0.05 }
 					spinControls="custom"
 					__next40pxDefaultSize
 				/>

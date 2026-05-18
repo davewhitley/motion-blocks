@@ -336,14 +336,25 @@ function motion_blocks_render_block( $block_content, $block ) {
         && ! in_array( $type, $stagger_skip_types, true )
     ) {
         $processor->add_class( 'mb-stagger-parent' );
-        $step = (int) ( $attrs['animationStaggerStep'] ?? 100 );
+        // Stagger step is stored in seconds (default 0.1). Pre-migration
+        // blocks may have it in ms (default 100); the > 5 check folds
+        // those down to seconds so old saves keep working. Mirrors the
+        // JS `staggerStepSeconds()` helper in constants.js.
+        $raw_step = $attrs['animationStaggerStep'] ?? 0.1;
+        $step     = is_numeric( $raw_step ) ? (float) $raw_step : 0.1;
+        if ( $step < 0 ) {
+            $step = 0.1;
+        }
+        if ( $step > 5 ) {
+            $step = $step / 1000;
+        }
         // Append the CSS var to any existing inline style so we don't
         // clobber theme/block styles that were already there.
         $existing_style = trim( (string) ( $processor->get_attribute( 'style' ) ?? '' ) );
         if ( $existing_style !== '' && substr( $existing_style, -1 ) !== ';' ) {
             $existing_style .= ';';
         }
-        $existing_style .= '--mb-stagger-step:' . $step . 'ms;';
+        $existing_style .= '--mb-stagger-step:' . $step . 's;';
         $processor->set_attribute( 'style', $existing_style );
     }
 

@@ -86,6 +86,40 @@ export const STAGGER_CONTAINER_BLOCKS = [
 export const STAGGER_INCOMPATIBLE_TYPES = [ 'custom', 'image-move' ];
 
 /**
+ * Default stagger step in seconds — matches the units used by
+ * `animationDuration` and `animationDelay` so all three timing
+ * controls in the panel are read the same way.
+ *
+ * Stored on the block as `animationStaggerStep`.
+ */
+export const DEFAULT_STAGGER_STEP_SECONDS = 0.1;
+
+/**
+ * Stagger steps used to live in milliseconds (default 100). They're
+ * now seconds (default 0.1) to match the rest of the timing
+ * controls. Some blocks in the wild still carry the legacy value.
+ *
+ * Heuristic: anything > 5 is ms-magnitude (was 100, 200, 500, …).
+ * Anything ≤ 5 is the new seconds-magnitude (0.05, 0.5, 2, …). The
+ * panel caps input at 5 so new data can't ever land in the ms zone,
+ * making this a stable one-way migration.
+ *
+ * Read every saved value through here in both editor preview and
+ * frontend save-props so old blocks keep working without a forced
+ * write-back to the data store.
+ */
+export function staggerStepSeconds( raw ) {
+	if ( raw == null || raw === '' ) {
+		return DEFAULT_STAGGER_STEP_SECONDS;
+	}
+	const n = parseFloat( raw );
+	if ( ! Number.isFinite( n ) || n < 0 ) {
+		return DEFAULT_STAGGER_STEP_SECONDS;
+	}
+	return n > 5 ? n / 1000 : n;
+}
+
+/**
  * Direction options per animation type.
  */
 export const DIRECTION_OPTIONS = {
@@ -247,6 +281,14 @@ export const ACCELERATION_OPTIONS = [
 	{ label: 'Ease In', value: 'ease-in' },
 	{ label: 'Ease Out', value: 'ease-out' },
 	{ label: 'Ease In-Out', value: 'ease-in-out' },
+	// Single-bump overshoot curves (easings.net "Back" family). A
+	// true multi-bump bounce requires the CSS `linear()` function
+	// with multiple stops, which we don't ship a preset for — pick
+	// Custom and paste a linear() string for that. These three cover
+	// the common "settle past target, snap back" feel.
+	{ label: 'Bounce In', value: 'cubic-bezier(0.36, 0, 0.66, -0.56)' },
+	{ label: 'Bounce Out', value: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+	{ label: 'Bounce In-Out', value: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)' },
 	{ label: 'Custom', value: 'custom' },
 ];
 
@@ -905,7 +947,8 @@ export const DEFAULT_ATTRIBUTES = {
 	// Stagger cascade — only meaningful when the block is a
 	// STAGGER_CONTAINER_BLOCKS member. When true, the parent stops
 	// animating itself and becomes the cascade controller for its
-	// direct children. Step is the delay added per child (in ms).
+	// direct children. Step is the delay added per child (in seconds
+	// — see staggerStepSeconds for the legacy-ms heuristic).
 	animationStaggerEnabled: false,
-	animationStaggerStep: 100,
+	animationStaggerStep: DEFAULT_STAGGER_STEP_SECONDS,
 };

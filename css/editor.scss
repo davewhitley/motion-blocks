@@ -35,10 +35,19 @@
 
 	// Tighten the Button's vertical padding so it visually aligns
 	// with the label text without inflating the row.
+	//
+	// Note: WP's small-button line-height (22px) gives the button
+	// the WCAG-recommended click target. Overriding it to inherit
+	// from the row matches the VisualLabel's height so the row sits
+	// flush, but the click target now matches the label's height
+	// rather than WP's standard 22px. Acceptable trade-off here
+	// because the row label is taller than the button text would be
+	// alone — the click target is effectively the label's height.
 	.mb-effect-field__label-row .components-button.is-link {
 		min-height: 0;
 		padding: 0;
 		height: auto;
+		line-height: inherit;
 	}
 }
 

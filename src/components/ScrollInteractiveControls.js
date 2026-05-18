@@ -39,6 +39,7 @@ import {
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
 	CUSTOM_DEFAULT_FROM_TO,
+	STAGGER_INCOMPATIBLE_TYPES,
 	hasAnyCustomFromToSet,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
@@ -103,6 +104,16 @@ export default function ScrollInteractiveControls( {
 		// the first time. Preserves any existing custom config.
 		if ( value === 'custom' && ! hasAnyCustomFromToSet( attributes ) ) {
 			Object.assign( newAttrs, CUSTOM_DEFAULT_FROM_TO );
+		}
+		// Stagger isn't supported on custom / image-move — clear the
+		// flag on the way in so it doesn't silently persist and then
+		// re-activate when the user switches back to a preset. See
+		// PageLoadControls.handleTypeChange for the full rationale.
+		if (
+			STAGGER_INCOMPATIBLE_TYPES.includes( value ) &&
+			attributes.animationStaggerEnabled
+		) {
+			newAttrs.animationStaggerEnabled = false;
 		}
 		setAttributes( newAttrs );
 	};

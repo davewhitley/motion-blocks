@@ -36,6 +36,7 @@ import {
 	BLUR_SETTINGS,
 	REPEAT_OPTIONS,
 	CUSTOM_DEFAULT_FROM_TO,
+	STAGGER_INCOMPATIBLE_TYPES,
 	hasAnyCustomFromToSet,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
@@ -112,6 +113,19 @@ export default function PageLoadControls( {
 		// the first time. Preserves any existing custom config.
 		if ( value === 'custom' && ! hasAnyCustomFromToSet( attributes ) ) {
 			Object.assign( newAttrs, CUSTOM_DEFAULT_FROM_TO );
+		}
+		// Stagger isn't supported on custom / image-move (each block
+		// needs its own keyframe — see STAGGER_INCOMPATIBLE_TYPES).
+		// StaggerControls already hides the toggle for those types,
+		// but the attribute would silently persist as `true`, which
+		// is confusing: switch to a preset later and the cascade
+		// suddenly re-activates with no UI breadcrumb. Clear it on
+		// the way in so what you see matches what's saved.
+		if (
+			STAGGER_INCOMPATIBLE_TYPES.includes( value ) &&
+			attributes.animationStaggerEnabled
+		) {
+			newAttrs.animationStaggerEnabled = false;
 		}
 		setAttributes( newAttrs );
 	};

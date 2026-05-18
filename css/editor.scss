@@ -462,53 +462,24 @@
 
 // (Custom-type exits also use per-block keyframes — see frontend.js.)
 
-// Connect animation classes to keyframes for editor preview.
-// CSS custom properties come from inline styles set by the
-// withAnimationPreview HOC so the preview respects user settings.
-.mb-preview {
-	animation-duration: var(--mb-duration, 0.6s);
-	animation-timing-function: var(--mb-timing, ease);
-	animation-delay: var(--mb-delay, 0s);
-	animation-fill-mode: var(--mb-fill-mode, both);
-	animation-iteration-count: var(--mb-iteration-count, 1);
-	animation-direction: var(--mb-direction, normal);
-
-	// Entrance animations
-	&.mb-animate-enter-fade { animation-name: mbFadeIn; }
-	&.mb-animate-enter-slide { animation-name: mbSlideIn; }
-	&.mb-animate-enter-wipe { animation-name: mbWipeIn; }
-	&.mb-animate-enter-curtain { animation-name: mbCurtainReveal; }
-	&.mb-animate-enter-flip {
-		animation-name: mbFlipIn;
-		backface-visibility: hidden;
-		transform-style: preserve-3d;
-	}
-	&.mb-animate-enter-scale { animation-name: mbScaleIn; }
-	&.mb-animate-enter-blur { animation-name: mbBlurIn; }
-	&.mb-animate-enter-rotate { animation-name: mbRotateIn; }
-	// .mb-animate-enter-custom intentionally omitted — animation-name
-	// is set inline by the HOC to a per-block keyframe name.
-
-	// Exit animations
-	&.mb-animate-exit-fade { animation-name: mbFadeOut; }
-	&.mb-animate-exit-slide { animation-name: mbSlideOut; }
-	&.mb-animate-exit-wipe { animation-name: mbWipeOut; }
-	&.mb-animate-exit-curtain { animation-name: mbCurtainClose; }
-	&.mb-animate-exit-scale { animation-name: mbScaleOut; }
-	&.mb-animate-exit-blur { animation-name: mbBlurOut; }
-	&.mb-animate-exit-rotate { animation-name: mbRotateOut; }
-
-}
+// Note: the editor's withAnimationPreview HOC emits the same frontend
+// classes (`mb-animated`, `mb-enter-<type>`, `mb-triggered`) so the
+// rules in animations.css drive both editor preview and the rendered
+// frontend. The editor used to have a parallel namespace
+// (`mb-preview` / `mb-animate-enter-*`) but the two were unified to
+// avoid the duplication bugs that caused (stagger preview silently
+// not firing because the stagger rules were keyed on the frontend
+// namespace only).
 
 
 // ----------------------------------------------------------------
-// Stagger cascade — editor preview parity
+// Stagger cascade
 //
-// Mirrors the rules in animations.css so the editor canvas iframe
-// renders the same cascade behavior the frontend will. animations.css
-// ALSO loads in the iframe (via enqueue_block_assets), but the editor
-// keyframes are duplicated in this file as a safety net. Same applies
-// here — duplicate the cascade rules so the preview is reliable.
+// Mirrors the rules in animations.css. animations.css ALSO loads in
+// the iframe (via enqueue_block_assets), so these rules are largely a
+// safety net — but the @keyframes above are duplicated for the same
+// reason, and keeping the cascade rules adjacent to them makes the
+// pairing obvious.
 // ----------------------------------------------------------------
 
 .mb-stagger-parent.mb-animated {
@@ -564,68 +535,3 @@
 	}
 }
 
-// ----------------------------------------------------------------
-// Stagger cascade — EDITOR PREVIEW NAMESPACE
-//
-// The block above mirrors animations.css and uses frontend class
-// names (mb-animated / mb-triggered / mb-enter-*). Those classes
-// don't exist in the editor preview pipeline, which uses a
-// different namespace (mb-preview / mb-animate-enter-*). Without
-// the rules below the cascade would only work on the frontend.
-//
-// withAnimationPreview already adds `mb-stagger-parent` to the
-// parent's editor className alongside `mb-preview` and
-// `mb-animate-enter-<type>` whenever the preview is in its
-// "playing" state (Play button pressed for one-shot custom, or
-// continuously for preset types on page-load / scroll-appear).
-// ----------------------------------------------------------------
-
-// Suppress the parent's own animation while staggering. Otherwise
-// the existing `.mb-preview.mb-animate-enter-fade { animation-name:
-// mbFadeIn }` rule would animate the wrapper.
-.mb-stagger-parent.mb-preview {
-	animation: none !important;
-	opacity: 1 !important;
-	transform: none !important;
-	filter: none !important;
-	clip-path: none !important;
-}
-
-// Apply animation timing variables to the direct children. CSS
-// custom properties cascade naturally; the explicit shorthand
-// values do not, so children need their own animation-* declarations.
-.mb-stagger-parent.mb-preview > * {
-	animation-duration: var(--mb-duration, 0.6s);
-	animation-fill-mode: var(--mb-fill-mode, both);
-	animation-timing-function: var(--mb-timing, ease);
-	animation-iteration-count: var(--mb-iteration-count, 1);
-	animation-direction: var(--mb-direction, normal);
-}
-
-// Bind the keyframe per enter type. Custom (From/To) and image-move
-// are intentionally not listed — those types are gated out via
-// STAGGER_INCOMPATIBLE_TYPES in the JS (each block would need its
-// own per-block @keyframes, which doesn't compose with this
-// descendant-selector cascade).
-.mb-stagger-parent.mb-preview.mb-animate-enter-fade    > * { animation-name: mbFadeIn; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-slide   > * { animation-name: mbSlideIn; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-scale   > * { animation-name: mbScaleIn; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-rotate  > * { animation-name: mbRotateIn; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-blur    > * { animation-name: mbBlurIn; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-wipe    > * { animation-name: mbWipeIn; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-curtain > * { animation-name: mbCurtainReveal; }
-.mb-stagger-parent.mb-preview.mb-animate-enter-flip    > * {
-	animation-name: mbFlipIn;
-	backface-visibility: hidden;
-	transform-style: preserve-3d;
-}
-
-// Stepped delay per child — same shape as frontend, gated on the
-// editor's preview class.
-@for $i from 1 through 30 {
-	.mb-stagger-parent.mb-preview > *:nth-child(#{$i}) {
-		animation-delay: calc(
-			var(--mb-delay, 0s) + #{$i - 1} * var(--mb-stagger-step, 100ms)
-		);
-	}
-}

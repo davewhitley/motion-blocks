@@ -882,10 +882,24 @@ const withAnimationPreview = createHigherOrderComponent(
 						: false;
 
 				if ( shouldAnimate ) {
+					// Unified namespace with the frontend: same
+					// `mb-animated` / `mb-enter-*` / `mb-triggered`
+					// classes so the rules in animations.css apply
+					// in both contexts. Editor-specific aliases
+					// (`mb-preview`, `mb-animate-enter-*`) were
+					// retired in favor of this.
+					//
+					// We deliberately don't emit `mb-mode-*` here —
+					// that would trigger the frontend's
+					// initial-hidden rules (`.mb-mode-page-load:not(
+					// .mb-triggered) { opacity: 0 }`) before the
+					// user clicks Play, blanking the block while
+					// they're editing.
 					computedClassName = [
 						props.className || '',
-						'mb-preview',
-						`mb-animate-enter-${ animationType }`,
+						'mb-animated',
+						`mb-enter-${ animationType }`,
+						'mb-triggered',
 					]
 						.filter( Boolean )
 						.join( ' ' );

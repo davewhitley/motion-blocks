@@ -542,11 +542,17 @@
 // does not, so `:not([data-block])` cleanly filters chrome out. The
 // frontend has no analogue, which is why this lives in editor.scss
 // rather than animations.css.
-.mb-stagger-parent > :not([data-block]) {
-	animation: none !important;
-	opacity: 1 !important;
-	transform: none !important;
-	filter: none !important;
-	clip-path: none !important;
+//
+// Three classes (mb-stagger-parent + mb-animated + mb-triggered) give
+// this rule specificity (0,3,1) — enough to beat the per-type cascade
+// `.mb-stagger-parent.mb-enter-X.mb-triggered > *` (0,3,0) and the
+// nth-child delay rule (0,2,1) without needing !important. The HOC
+// always emits these three classes together (src/index.js).
+.mb-stagger-parent.mb-animated.mb-triggered > :not([data-block]) {
+	animation: none;
+	opacity: 1;
+	transform: none;
+	filter: none;
+	clip-path: none;
 }
 

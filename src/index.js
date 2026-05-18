@@ -664,7 +664,6 @@ const withAnimationPreview = createHigherOrderComponent(
 					].join( '\n' );
 					return (
 						<>
-							<style>{ previewCSS }</style>
 							<BlockListBlock
 								{ ...props }
 								className={ props.className }
@@ -673,6 +672,7 @@ const withAnimationPreview = createHigherOrderComponent(
 									'data-mb-uid': safeId,
 								} }
 							/>
+							<style>{ previewCSS }</style>
 						</>
 					);
 				}
@@ -680,12 +680,11 @@ const withAnimationPreview = createHigherOrderComponent(
 				return (
 					// Fragment-wrap with a null sibling so this return
 					// has the same React tree shape as every other
-					// branch in this HOC (style|null at index 0,
-					// BlockListBlock at index 1). Shape consistency
-					// keeps BlockListBlock from remounting when state
+					// branch in this HOC (BlockListBlock at index 0,
+					// style|null at index 1). Shape consistency keeps
+					// BlockListBlock from remounting when state
 					// transitions between branches.
 					<>
-						{ null }
 						<BlockListBlock
 							{ ...props }
 							className={ props.className }
@@ -698,6 +697,7 @@ const withAnimationPreview = createHigherOrderComponent(
 								},
 							} }
 						/>
+						{ null }
 					</>
 				);
 			}
@@ -720,11 +720,11 @@ const withAnimationPreview = createHigherOrderComponent(
 				// from "rest" (this branch) to "playing" (the main
 				// path) would change the React tree shape from a
 				// bare BlockListBlock to a Fragment with BlockListBlock
-				// at index 1 — forcing a remount + visible flicker.
+				// at index 0 — forcing a remount + visible flicker.
 				return (
 					<>
-						{ null }
 						<BlockListBlock { ...props } />
+						{ null }
 					</>
 				);
 			}
@@ -996,20 +996,36 @@ const withAnimationPreview = createHigherOrderComponent(
 			}
 
 			// Single return — BlockListBlock is always at the same
-			// position in the React tree (index 1 inside the Fragment),
+			// position in the React tree (index 0 inside the Fragment),
 			// so it never remounts when switching animation states.
-			// The optional <style> at index 0 emits a per-block
+			// The optional <style> at index 1 emits a per-block
 			// @keyframes rule for custom-type animations.
+			//
+			// Why index 0 (BlockListBlock first) and not the reverse:
+			// the injected <style> renders as a real DOM sibling of
+			// the block's wrapper inside whatever container holds the
+			// block list. WordPress's flex/flow layout polyfills
+			// apply `margin-block-start: var(--wp--style--block-gap)`
+			// to `> *:not(:first-child)`. If the <style> sits before
+			// the block, it bumps the block out of first-child
+			// position, and WP adds ~19.2px of top margin to it —
+			// only while the keyframe is injected (i.e. only during
+			// preview playback). The block visibly jumps down when
+			// Play starts and back up when it ends. Putting the
+			// <style> after the block keeps the block as the layout
+			// container's first child; the <style> sits at second
+			// position, which WP's gap rule treats as a normal
+			// not-first-child (invisible since <style> has no box).
 			return (
 				<>
-					{ injectedKeyframeRule ? (
-						<style>{ injectedKeyframeRule }</style>
-					) : null }
 					<BlockListBlock
 						{ ...props }
 						className={ computedClassName }
 						wrapperProps={ computedWrapperProps }
 					/>
+					{ injectedKeyframeRule ? (
+						<style>{ injectedKeyframeRule }</style>
+					) : null }
 				</>
 			);
 		};

@@ -67,6 +67,25 @@ function motion_blocks_enqueue_block_assets() {
         $editor_css_ver
     );
 
+    // animations.css: the single source of truth for animation
+    // class → keyframe bindings, duration/delay/fill-mode bindings,
+    // and the stagger cascade. The `enqueue_block_assets` hook fires
+    // for BOTH the editor iframe and the frontend, so loading it
+    // here (outside the !is_admin guard) means editor preview and
+    // saved-block rendering use the same CSS — no duplication, no
+    // drift. editor.scss still ships duplicate @keyframes as a
+    // safety net (and adds editor-only overrides for chrome).
+    $anim_css_path = plugin_dir_path( __FILE__ ) . 'css/animations.css';
+    $anim_css_ver  = file_exists( $anim_css_path )
+        ? filemtime( $anim_css_path )
+        : MOTION_BLOCKS_VERSION;
+    wp_enqueue_style(
+        'motion-blocks-styles',
+        plugins_url( 'css/animations.css', __FILE__ ),
+        array(),
+        $anim_css_ver
+    );
+
     if ( ! is_admin() ) {
         // Frontend-only assets.
         $frontend_asset_file = plugin_dir_path( __FILE__ ) . 'build/frontend.asset.php';
@@ -82,17 +101,6 @@ function motion_blocks_enqueue_block_assets() {
                 true
             );
         }
-
-        $anim_css_path = plugin_dir_path( __FILE__ ) . 'css/animations.css';
-        $anim_css_ver  = file_exists( $anim_css_path )
-            ? filemtime( $anim_css_path )
-            : MOTION_BLOCKS_VERSION;
-        wp_enqueue_style(
-            'motion-blocks-styles',
-            plugins_url( 'css/animations.css', __FILE__ ),
-            array(),
-            $anim_css_ver
-        );
     }
 }
 add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );

@@ -563,3 +563,69 @@
 		clip-path: none !important;
 	}
 }
+
+// ----------------------------------------------------------------
+// Stagger cascade — EDITOR PREVIEW NAMESPACE
+//
+// The block above mirrors animations.css and uses frontend class
+// names (mb-animated / mb-triggered / mb-enter-*). Those classes
+// don't exist in the editor preview pipeline, which uses a
+// different namespace (mb-preview / mb-animate-enter-*). Without
+// the rules below the cascade would only work on the frontend.
+//
+// withAnimationPreview already adds `mb-stagger-parent` to the
+// parent's editor className alongside `mb-preview` and
+// `mb-animate-enter-<type>` whenever the preview is in its
+// "playing" state (Play button pressed for one-shot custom, or
+// continuously for preset types on page-load / scroll-appear).
+// ----------------------------------------------------------------
+
+// Suppress the parent's own animation while staggering. Otherwise
+// the existing `.mb-preview.mb-animate-enter-fade { animation-name:
+// mbFadeIn }` rule would animate the wrapper.
+.mb-stagger-parent.mb-preview {
+	animation: none !important;
+	opacity: 1 !important;
+	transform: none !important;
+	filter: none !important;
+	clip-path: none !important;
+}
+
+// Apply animation timing variables to the direct children. CSS
+// custom properties cascade naturally; the explicit shorthand
+// values do not, so children need their own animation-* declarations.
+.mb-stagger-parent.mb-preview > * {
+	animation-duration: var(--mb-duration, 0.6s);
+	animation-fill-mode: var(--mb-fill-mode, both);
+	animation-timing-function: var(--mb-timing, ease);
+	animation-iteration-count: var(--mb-iteration-count, 1);
+	animation-direction: var(--mb-direction, normal);
+}
+
+// Bind the keyframe per enter type. Custom (From/To) and image-move
+// are intentionally not listed — those types are gated out via
+// STAGGER_INCOMPATIBLE_TYPES in the JS (each block would need its
+// own per-block @keyframes, which doesn't compose with this
+// descendant-selector cascade).
+.mb-stagger-parent.mb-preview.mb-animate-enter-fade    > * { animation-name: mbFadeIn; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-slide   > * { animation-name: mbSlideIn; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-scale   > * { animation-name: mbScaleIn; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-rotate  > * { animation-name: mbRotateIn; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-blur    > * { animation-name: mbBlurIn; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-wipe    > * { animation-name: mbWipeIn; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-curtain > * { animation-name: mbCurtainReveal; }
+.mb-stagger-parent.mb-preview.mb-animate-enter-flip    > * {
+	animation-name: mbFlipIn;
+	backface-visibility: hidden;
+	transform-style: preserve-3d;
+}
+
+// Stepped delay per child — same shape as frontend, gated on the
+// editor's preview class.
+@for $i from 1 through 30 {
+	.mb-stagger-parent.mb-preview > *:nth-child(#{$i}) {
+		animation-delay: calc(
+			var(--mb-delay, 0s) + #{$i - 1} * var(--mb-stagger-step, 100ms)
+		);
+	}
+}

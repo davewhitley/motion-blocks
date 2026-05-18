@@ -375,6 +375,13 @@ export const PROPERTY_DEFINITIONS = [
 		step: 0.05,
 		identity: 1,
 		withSlider: true,
+		// Opacity anchors every From/To animation — almost every preset
+		// uses it (fade, slide, scale, blur, rotate…) and it's the
+		// property users reach for first. Pinning it via
+		// isShownByDefault keeps the row always visible and renders
+		// the kebab menu entry with disabled (grey-checkmark) styling,
+		// matching the "Size" pattern in WP's Typography panel.
+		isShownByDefault: true,
 	},
 	{
 		id: 'scale',

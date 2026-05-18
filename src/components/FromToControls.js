@@ -412,7 +412,7 @@ export default function FromToControls( {
 								...updates,
 								[ attrName ]: null,
 							} ) }
-							isShownByDefault={ false }
+							isShownByDefault={ !! def.isShownByDefault }
 							className={
 								def.halfWidth ? 'single-column' : undefined
 							}

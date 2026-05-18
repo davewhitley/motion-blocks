@@ -5,7 +5,7 @@
  * or the matching sub-panel when a mode is active.
  */
 
-import { PanelBody, Icon, Button } from '@wordpress/components';
+import { PanelBody, Icon, Notice } from '@wordpress/components';
 import { useRef, useCallback, useState, useEffect } from '@wordpress/element';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
@@ -292,21 +292,38 @@ export default function AnimationPanel( {
 			initialOpen={ !! animationMode }
 		>
 			{ multiSelectCount > 1 && (
-				<div className="mb-multiselect-notice">
-					{ /* eslint-disable-next-line @wordpress/i18n-translator-comments */ }
-					{ __(
-						'Changes apply to all selected blocks.',
-						'motion-blocks'
-					) }
-					<span className="mb-multiselect-notice__count">
-						{ multiSelectCount }
-					</span>
+				<div className="mb-panel-notice">
+					<Notice status="info" isDismissible={ false }>
+						{ sprintf(
+							/* translators: %d: number of blocks currently selected */
+							__(
+								'Changes apply to all %d selected blocks.',
+								'motion-blocks'
+							),
+							multiSelectCount
+						) }
+					</Notice>
 				</div>
 			) }
 
 			{ ! animationMode && animatedAncestor && (
-				<div className="mb-ancestor-hint">
-					<p className="mb-ancestor-hint__text">
+				<div className="mb-panel-notice">
+					<Notice
+						status="warning"
+						isDismissible={ false }
+						actions={ [
+							{
+								label: sprintf(
+									/* translators: %s: ancestor block-type label */
+									__( 'Select parent %s', 'motion-blocks' ),
+									animatedAncestor.title
+								),
+								onClick: () =>
+									selectBlock( animatedAncestor.clientId ),
+								variant: 'link',
+							},
+						] }
+					>
 						{ sprintf(
 							/* translators: %s: ancestor block-type label, e.g. "Group" */
 							__(
@@ -315,20 +332,7 @@ export default function AnimationPanel( {
 							),
 							animatedAncestor.title
 						) }
-					</p>
-					<Button
-						variant="secondary"
-						onClick={ () =>
-							selectBlock( animatedAncestor.clientId )
-						}
-						__next40pxDefaultSize
-					>
-						{ sprintf(
-							/* translators: %s: ancestor block-type label */
-							__( 'Select parent %s', 'motion-blocks' ),
-							animatedAncestor.title
-						) }
-					</Button>
+					</Notice>
 				</div>
 			) }
 

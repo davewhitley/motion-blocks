@@ -535,3 +535,18 @@
 	}
 }
 
+// Editor-only correction: Gutenberg renders editor chrome (the "+"
+// block appender, drop-target placeholders, etc.) as direct children
+// of the block wrapper, so they'd otherwise get caught in the stagger
+// cascade above. Real blocks carry a `data-block` attribute; chrome
+// does not, so `:not([data-block])` cleanly filters chrome out. The
+// frontend has no analogue, which is why this lives in editor.scss
+// rather than animations.css.
+.mb-stagger-parent > :not([data-block]) {
+	animation: none !important;
+	opacity: 1 !important;
+	transform: none !important;
+	filter: none !important;
+	clip-path: none !important;
+}
+

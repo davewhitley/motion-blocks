@@ -3,6 +3,7 @@
  */
 
 import {
+	BaseControl,
 	SelectControl,
 	RangeControl,
 	ToggleControl,
@@ -38,6 +39,7 @@ import {
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
 	hasAnyCustomFromToSet,
+	presetToFromToAttributes,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
@@ -130,6 +132,54 @@ export default function PageLoadControls( {
 		setAttributes( newAttrs );
 	};
 
+	/**
+	 * "Edit" button next to the Effect dropdown: convert the current
+	 * preset to Custom mode with the equivalent From/To values
+	 * pre-filled. Lets the user start from a familiar preset and
+	 * fine-tune individual properties instead of building one from
+	 * scratch.
+	 *
+	 * Visible only when the current type is a preset that has a
+	 * From/To representation (fade/slide/scale/rotate/blur/flip/
+	 * curtain/wipe). Hidden on Custom (no-op there) and image-move
+	 * (parallax doesn't map cleanly to the per-block keyframe model).
+	 */
+	const handleEditPreset = () => {
+		const seed = presetToFromToAttributes(
+			animationType,
+			animationDirection,
+			{
+				rotateAngle: animationRotateAngle,
+				blurAmount: animationBlurAmount,
+			}
+		);
+		if ( ! seed ) {
+			return;
+		}
+		const newAttrs = {
+			animationType: 'custom',
+			animationDirection: '',
+			...seed,
+		};
+		if ( attributes.animationStaggerEnabled ) {
+			newAttrs.animationStaggerEnabled = false;
+		}
+		setAttributes( newAttrs );
+	};
+
+	const canEditPreset =
+		!! animationType &&
+		animationType !== 'custom' &&
+		animationType !== 'image-move' &&
+		!! presetToFromToAttributes(
+			animationType,
+			animationDirection,
+			{
+				rotateAngle: animationRotateAngle,
+				blurAmount: animationBlurAmount,
+			}
+		);
+
 	return (
 		<div className="mb-sub-panel">
 			<div className="mb-sub-panel-header">
@@ -157,14 +207,35 @@ export default function PageLoadControls( {
 
 			<HStack alignment="bottom" spacing={ 3 }>
 				<FlexBlock>
-					<SelectControl
-						label={ __( 'Effect', 'motion-blocks' ) }
-						value={ animationType }
-						options={ typeOptions }
-						onChange={ handleTypeChange }
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
+					<div className="mb-effect-field">
+						<HStack
+							className="mb-effect-field__label-row"
+							justify="flex-start"
+							spacing={ 2 }
+						>
+							<BaseControl.VisualLabel>
+								{ __( 'Effect', 'motion-blocks' ) }
+							</BaseControl.VisualLabel>
+							{ canEditPreset && (
+								<Button
+									variant="link"
+									size="small"
+									onClick={ handleEditPreset }
+								>
+									{ __( 'Edit', 'motion-blocks' ) }
+								</Button>
+							) }
+						</HStack>
+						<SelectControl
+							label={ __( 'Effect', 'motion-blocks' ) }
+							hideLabelFromVision
+							value={ animationType }
+							options={ typeOptions }
+							onChange={ handleTypeChange }
+							__next40pxDefaultSize
+							__nextHasNoMarginBottom
+						/>
+					</div>
 				</FlexBlock>
 				<Button
 					icon={ isLoopRunning ? stopIcon : playIcon }

@@ -8,6 +8,7 @@
  */
 
 import {
+	BaseControl,
 	SelectControl,
 	RangeControl,
 	ToggleControl,
@@ -44,6 +45,7 @@ import {
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
 	hasAnyCustomFromToSet,
+	presetToFromToAttributes,
 } from './constants';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
@@ -154,6 +156,47 @@ export default function ScrollAppearControls( {
 	};
 
 	/**
+	 * "Edit" — convert the current enter preset into Custom mode with
+	 * its From/To values pre-filled. Only wired on the enter dropdown
+	 * — exit effects keep the preset-only flow for v1.
+	 */
+	const handleEditPreset = () => {
+		const seed = presetToFromToAttributes(
+			animationType,
+			animationDirection,
+			{
+				rotateAngle: animationRotateAngle,
+				blurAmount: animationBlurAmount,
+			}
+		);
+		if ( ! seed ) {
+			return;
+		}
+		const newAttrs = {
+			animationType: 'custom',
+			animationDirection: '',
+			...seed,
+		};
+		if ( attributes.animationStaggerEnabled ) {
+			newAttrs.animationStaggerEnabled = false;
+		}
+		setAttributes( newAttrs );
+	};
+
+	const canEditPreset =
+		!! animationType &&
+		animationType !== 'custom' &&
+		animationType !== 'image-move' &&
+		!! presetToFromToAttributes(
+			animationType,
+			animationDirection,
+			{
+				rotateAngle: animationRotateAngle,
+				blurAmount: animationBlurAmount,
+			}
+		);
+
+	/**
 	 * When exit animation type changes, auto-set exit direction.
 	 */
 	const handleExitTypeChange = ( value ) => {
@@ -238,22 +281,45 @@ export default function ScrollAppearControls( {
 				<>
 					<HStack alignment="bottom" spacing={ 3 }>
 						<FlexBlock>
-							<SelectControl
-								label={
-									trigger === 'both'
-										? __( 'Enter effect', 'motion-blocks' )
-										: __( 'Effect', 'motion-blocks' )
-								}
-								value={ animationType }
-								options={
-									trigger === 'enter'
-										? typeOptions
-										: exitTypeOptions
-								}
-								onChange={ handleEnterTypeChange }
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
+							<div className="mb-effect-field">
+								<HStack
+									className="mb-effect-field__label-row"
+									justify="flex-start"
+									spacing={ 2 }
+								>
+									<BaseControl.VisualLabel>
+										{ trigger === 'both'
+											? __( 'Enter effect', 'motion-blocks' )
+											: __( 'Effect', 'motion-blocks' ) }
+									</BaseControl.VisualLabel>
+									{ canEditPreset && (
+										<Button
+											variant="link"
+											size="small"
+											onClick={ handleEditPreset }
+										>
+											{ __( 'Edit', 'motion-blocks' ) }
+										</Button>
+									) }
+								</HStack>
+								<SelectControl
+									label={
+										trigger === 'both'
+											? __( 'Enter effect', 'motion-blocks' )
+											: __( 'Effect', 'motion-blocks' )
+									}
+									hideLabelFromVision
+									value={ animationType }
+									options={
+										trigger === 'enter'
+											? typeOptions
+											: exitTypeOptions
+									}
+									onChange={ handleEnterTypeChange }
+									__next40pxDefaultSize
+									__nextHasNoMarginBottom
+								/>
+							</div>
 						</FlexBlock>
 						<Button
 							icon={ playIcon }

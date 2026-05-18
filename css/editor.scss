@@ -9,6 +9,30 @@
 @use "@wordpress/base-styles/variables" as vars;
 @use "@wordpress/base-styles/mixins" as mix;
 
+// Effect dropdown row — the label area sits above the SelectControl
+// with an "Edit" link button to its right, so users can convert the
+// current preset into Custom (From/To) mode without leaving the
+// flow. The SelectControl hides its own label and we render a
+// BaseControl.VisualLabel manually so we can pack the Edit button
+// onto the same horizontal line.
+.mb-effect-field {
+	.mb-effect-field__label-row {
+		// Match the gap WP places between a control's label and its
+		// input (BaseControl.VisualLabel ships with margin-bottom: 8px
+		// when used standalone, but inside our flex row the margin
+		// gets collapsed — this restores it).
+		margin-bottom: vars.$grid-unit-10;
+	}
+
+	// Tighten the Button's vertical padding so it visually aligns
+	// with the label text without inflating the row.
+	.mb-effect-field__label-row .components-button.is-link {
+		min-height: 0;
+		padding: 0;
+		height: auto;
+	}
+}
+
 // PanelBody title with a status dot — shown when the block has an
 // animation configured. Mirrors WP's pattern for indicating active
 // state on collapsed panel sections (cf. the Block Settings "edited"

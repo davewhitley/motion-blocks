@@ -535,20 +535,21 @@
 	}
 }
 
-// Editor-only correction: Gutenberg renders editor chrome (the "+"
-// block appender, drop-target placeholders, etc.) as direct children
-// of the block wrapper, so they'd otherwise get caught in the stagger
-// cascade above. Real blocks carry a `data-block` attribute; chrome
-// does not, so `:not([data-block])` cleanly filters chrome out. The
-// frontend has no analogue, which is why this lives in editor.scss
-// rather than animations.css.
+// Editor-only correction: Gutenberg renders the inline "+" block
+// appender as a direct child of the block wrapper, so it'd otherwise
+// get caught in the stagger cascade above. The appender's element
+// actually carries `data-block` (value: "true", not a UUID), so a
+// `:not([data-block])` filter does NOT catch it — but it has no
+// `data-type`, while every real block does. `:not([data-type])` is
+// the reliable discriminator. The frontend has no analogue, which is
+// why this lives in editor.scss rather than animations.css.
 //
 // Three classes (mb-stagger-parent + mb-animated + mb-triggered) give
 // this rule specificity (0,3,1) — enough to beat the per-type cascade
 // `.mb-stagger-parent.mb-enter-X.mb-triggered > *` (0,3,0) and the
 // nth-child delay rule (0,2,1) without needing !important. The HOC
 // always emits these three classes together (src/index.js).
-.mb-stagger-parent.mb-animated.mb-triggered > :not([data-block]) {
+.mb-stagger-parent.mb-animated.mb-triggered > :not([data-type]) {
 	animation: none;
 	opacity: 1;
 	transform: none;

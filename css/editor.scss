@@ -17,11 +17,20 @@
 // onto the same horizontal line.
 .mb-effect-field {
 	.mb-effect-field__label-row {
-		// Match the gap WP places between a control's label and its
-		// input (BaseControl.VisualLabel ships with margin-bottom: 8px
-		// when used standalone, but inside our flex row the margin
-		// gets collapsed — this restores it).
+		// Standard WP label→input gap (BaseControl.VisualLabel's own
+		// margin-bottom only fires when used standalone — inside our
+		// flex row it has to be applied to the wrapper instead).
 		margin-bottom: vars.$grid-unit-10;
+
+		// VisualLabel ships with its own margin-bottom (~8px) so it
+		// sits above the input it labels. Inside our HStack the Edit
+		// button has no such margin, so the VisualLabel's extra
+		// bottom space tips the row's baseline and the "Effect" text
+		// floats above the "Edit" text. Zero it out — the row's own
+		// margin-bottom above handles the gap to the SelectControl.
+		.components-base-control__label {
+			margin-bottom: 0;
+		}
 	}
 
 	// Tighten the Button's vertical padding so it visually aligns

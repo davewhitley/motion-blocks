@@ -258,14 +258,21 @@ export default function FromToControls( {
 	}, [ side, isPreviewing, previewSide, setAttributes ] );
 
 
+	// Help text under the Start/End tabs. The trickiest part of the
+	// From/To model is that omitted properties don't mean "identity" —
+	// they fall through to whatever the element looks like naturally
+	// on that end of the timeline. The second sentence explicitly
+	// surfaces that, framed as "properties you don't add" to match
+	// the ToolsPanel kebab UX (add a row to track a property; don't
+	// add it = leave it alone).
 	const sideHelp =
 		side === 'start'
 			? __(
-					'Edit the properties of the animation’s start state.',
+					"Adjust how the block looks when the animation starts. Properties you don't add use the block's normal styling.",
 					'motion-blocks'
 			  )
 			: __(
-					'Edit the properties of the animation’s end state.',
+					"Adjust how the block looks when the animation ends. Properties you don't add use the block's normal styling.",
 					'motion-blocks'
 			  );
 
@@ -376,7 +383,11 @@ export default function FromToControls( {
 				/>
 			<ToolsPanel
 				key={ side }
-				label={ __( 'Properties', 'motion-blocks' ) }
+				label={
+					side === 'start'
+						? __( 'Start Properties', 'motion-blocks' )
+						: __( 'End Properties', 'motion-blocks' )
+				}
 				resetAll={ resetAll }
 				panelId={ panelId }
 			>

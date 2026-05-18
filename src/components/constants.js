@@ -15,7 +15,7 @@ export const ANIMATION_TYPE_OPTIONS = [
 	{ label: 'Blur', value: 'blur' },
 	{ label: 'Rotate', value: 'rotate' },
 	{ label: 'Image Move (parallax)', value: 'image-move' },
-	{ label: 'Custom (From / To)', value: 'custom' },
+	{ label: 'Custom', value: 'custom' },
 ];
 
 /**

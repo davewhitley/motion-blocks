@@ -1,8 +1,28 @@
 /**
- * Editor-only styles for the Motion Blocks plugin.
+ * Editor styles for the Motion Blocks plugin.
  *
  * Uses @scope for clean specificity over Emotion CSS-in-JS,
  * and WPDS tokens from @wordpress/base-styles.
+ *
+ * ⚠️ FRONTEND-LEAK WARNING
+ * This file compiles to `build/index.css`, which is enqueued via
+ * `enqueue_block_assets` so the styles reach the editor canvas
+ * iframe — but that hook ALSO fires on the public frontend. So
+ * every rule in here ships to the rendered site too.
+ *
+ * Most of the file is fine because the selectors target our own
+ * `.mb-*` UI components (sidebar panels, modals, etc.) or WP's
+ * `.components-*` admin elements, none of which exist outside the
+ * editor. Animation-related rules also work the same way in both
+ * contexts and are intentionally duplicated with `animations.css`.
+ *
+ * The pitfall: any rule that uses a GENERIC selector (e.g. `> *`,
+ * `:not([something])`, `.wp-block`) AND assumes editor context
+ * will match real elements on the frontend too. When that's
+ * unavoidable, gate the rule with `[data-block]` on the parent —
+ * `data-block` is set on every block wrapper in the editor and
+ * never on rendered frontend HTML. Example: see the editor-chrome
+ * stagger-exclusion rule at the bottom of this file.
  */
 
 @use "@wordpress/base-styles/colors" as colors;
@@ -500,68 +520,14 @@
 // namespace only).
 
 
-// ----------------------------------------------------------------
-// Stagger cascade
-//
-// Mirrors the rules in animations.css. animations.css ALSO loads in
-// the iframe (via enqueue_block_assets), so these rules are largely a
-// safety net — but the @keyframes above are duplicated for the same
-// reason, and keeping the cascade rules adjacent to them makes the
-// pairing obvious.
-// ----------------------------------------------------------------
-
-.mb-stagger-parent.mb-animated {
-	animation: none !important;
-	opacity: 1 !important;
-	transform: none !important;
-	filter: none !important;
-	clip-path: none !important;
-}
-
-.mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
-.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="enter"]:not(.mb-triggered) > *,
-.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="both"]:not(.mb-triggered):not(.mb-exit-triggered) > * {
-	opacity: 0;
-}
-
-.mb-stagger-parent.mb-triggered > * {
-	animation-duration: var(--mb-duration);
-	animation-fill-mode: both;
-	animation-timing-function: var(--mb-timing);
-}
-
-.mb-stagger-parent.mb-enter-fade.mb-triggered    > * { animation-name: mbFadeIn; }
-.mb-stagger-parent.mb-enter-slide.mb-triggered   > * { animation-name: mbSlideIn; }
-.mb-stagger-parent.mb-enter-scale.mb-triggered   > * { animation-name: mbScaleIn; }
-.mb-stagger-parent.mb-enter-rotate.mb-triggered  > * { animation-name: mbRotateIn; }
-.mb-stagger-parent.mb-enter-blur.mb-triggered    > * { animation-name: mbBlurIn; }
-.mb-stagger-parent.mb-enter-wipe.mb-triggered    > * { animation-name: mbWipeIn; }
-.mb-stagger-parent.mb-enter-curtain.mb-triggered > * { animation-name: mbCurtainReveal; }
-.mb-stagger-parent.mb-enter-flip.mb-triggered    > * {
-	animation-name: mbFlipIn;
-	backface-visibility: hidden;
-	transform-style: preserve-3d;
-}
-
-// SCSS @for keeps this concise vs the 30 hand-written rules in
-// animations.css (no SCSS available there). Same output.
-@for $i from 1 through 30 {
-	.mb-stagger-parent.mb-triggered > *:nth-child(#{$i}) {
-		animation-delay: calc(
-			var(--mb-delay, 0s) + #{$i - 1} * var(--mb-stagger-step, 0.1s)
-		);
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.mb-stagger-parent > * {
-		animation: none !important;
-		opacity: 1 !important;
-		transform: none !important;
-		filter: none !important;
-		clip-path: none !important;
-	}
-}
+// Stagger cascade rules used to live here as a defensive duplicate
+// of animations.css for the case when animations.css didn't reach
+// the editor iframe. That case is resolved (commit e685d2f moved the
+// animations.css enqueue outside the !is_admin gate so it loads via
+// `enqueue_block_assets` in both contexts), so the duplicates are
+// gone. The keyframe definitions above stay duplicated for safety
+// — keyframes are global registrations and double-declaring them
+// is harmless.
 
 // Editor-only correction: Gutenberg renders the inline "+" block
 // appender as a direct child of the block wrapper, so it'd otherwise

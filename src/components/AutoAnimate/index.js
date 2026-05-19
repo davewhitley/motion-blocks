@@ -107,18 +107,14 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 		}
 
 		// Per-block dispatch so each animated block gets its own
-		// attribute payload — needed for two reasons:
+		// attribute payload. Two reasons it has to be per-block:
 		//   1. Direction-from-align (MEDIA): `attrsForCategory` reads
 		//      `block.attributes.align` so a left-aligned image slides
 		//      from the left and a right-aligned one from the right.
-		//   2. Horizontal column cascade: each apply item carries a
-		//      `siblingIndex` computed by the planner — non-zero only
-		//      for blocks nested inside a `core/columns` row. The
-		//      cascade is intentionally scoped to columns; vertical
-		//      document-order siblings don't accumulate delay so the
-		//      page doesn't feel sluggish as it scrolls.
-		const preset = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.smooth;
-		const stepSec = preset.sequenceStep || 0;
+		//   2. STAGGER_ROW gets the stagger toggle enabled + the
+		//      preset's step value — the plugin's existing stagger
+		//      CSS cascade handles the per-column delay, so no
+		//      manual delay math here anymore.
 		plan.apply.forEach( ( item ) => {
 			const baseAttrs = attrsForCategory(
 				item.category,
@@ -128,13 +124,7 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 			if ( ! baseAttrs ) {
 				return;
 			}
-			const extraDelay = ( item.siblingIndex || 0 ) * stepSec;
-			const attrs = {
-				...baseAttrs,
-				animationDelay:
-					( baseAttrs.animationDelay || 0 ) + extraDelay,
-			};
-			updateBlockAttributes( item.clientId, attrs );
+			updateBlockAttributes( item.clientId, baseAttrs );
 		} );
 
 		createSuccessNotice(

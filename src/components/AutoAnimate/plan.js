@@ -59,10 +59,15 @@ const CATEGORY_BY_BLOCK_NAME = {
  * SECTION fade).
  *
  * Conceptually these are layout-only wrappers, not designed units.
+ *
+ * `core/columns` is deliberately NOT in this set — it's handled by
+ * its own STAGGER_ROW branch in `recurse()` (animates the Columns
+ * block as one unit with stagger enabled, leveraging the plugin's
+ * existing stagger cascade instead of hand-rolling per-child
+ * delays). See the special-case in `recurse()`.
  */
 const TRANSPARENT_CONTAINERS = new Set( [
 	'core/group',
-	'core/columns',
 	'core/column',
 ] );
 
@@ -100,31 +105,30 @@ function subtreeHasInterestingLeaf( block ) {
 		const cat = classifyBlock( block );
 		return cat === 'HERO' || cat === 'MEDIA' || cat === 'CTA';
 	}
-	if ( ! TRANSPARENT_CONTAINERS.has( name ) ) {
-		// Leaf block — classify it directly.
-		const cat = classifyBlock( block );
-		return cat === 'HERO' || cat === 'MEDIA' || cat === 'CTA';
+	// Transparent containers + `core/columns` (which is its own
+	// special category but still has children worth inspecting):
+	// recurse to find any interesting descendant.
+	if ( TRANSPARENT_CONTAINERS.has( name ) || name === 'core/columns' ) {
+		return ( block.innerBlocks || [] ).some( subtreeHasInterestingLeaf );
 	}
-	// Transparent container — any interesting descendant counts.
-	return ( block.innerBlocks || [] ).some( subtreeHasInterestingLeaf );
+	// Leaf block — classify it directly.
+	const cat = classifyBlock( block );
+	return cat === 'HERO' || cat === 'MEDIA' || cat === 'CTA';
 }
 
 /**
  * Style presets — drive the timing of all categories.
  *
- * `sequenceStep` is the extra delay added per *horizontal* sibling
- * inside a `core/columns` block. Column 0 gets `0`, column 1 gets
- * `1 × step`, column 2 gets `2 × step`, etc. — so columns cascade
- * left-to-right when they all enter the viewport at the same scroll
- * position (the case where the natural per-block scroll trigger
- * doesn't add visible staggering on its own).
+ * `sequenceStep` is the stagger step (in seconds) written into
+ * `animationStaggerStep` on every Columns block we animate. The
+ * plugin's own stagger CSS cascade then produces the per-column
+ * delay via `:nth-child()`. So picking a preset effectively picks
+ * the cascade speed too — column 0 starts at 0s, column 1 at
+ * `1 × step`, column 2 at `2 × step`, etc.
  *
- * Vertically-stacked top-level blocks DO NOT cascade — they trigger
- * naturally as the user scrolls past each one, and piling extra
- * delay on top makes the page feel sluggish. Scope is intentionally
- * tight: Columns only, not Group / Row / Flex.
- *
- * Set `sequenceStep: 0` on a preset to disable column cascade too.
+ * Set `sequenceStep: 0` on a preset to disable column cascade.
+ * (The block still gets `animationStaggerEnabled: true` and an
+ * effective 0-step, so all columns animate simultaneously.)
  */
 export const STYLE_PRESETS = {
 	subtle: {
@@ -225,6 +229,24 @@ export function attrsForCategory( category, stylePreset = 'smooth', block = null
 				animationPlayOnce: true,
 			};
 		}
+		case 'STAGGER_ROW':
+			// Columns block animates as one unit with the plugin's
+			// stagger feature enabled — each child column cascades
+			// in via the CSS `:nth-child()` rules in animations.css.
+			// `animationStaggerStep` is in seconds (post-cedf2ed unit
+			// change); preset.sequenceStep is already in seconds.
+			return {
+				animationMode: 'scroll-appear',
+				animationType: 'slide',
+				animationDirection: 'btt',
+				animationDuration: style.duration,
+				animationDelay: 0,
+				animationAcceleration: 'ease',
+				animationScrollTrigger: 'enter',
+				animationPlayOnce: true,
+				animationStaggerEnabled: true,
+				animationStaggerStep: style.sequenceStep,
+			};
 		case 'SECTION':
 			return {
 				animationMode: 'scroll-appear',
@@ -280,30 +302,22 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 	/**
 	 * Walk a block and apply the auto-animate decision rules.
 	 *  - Skip subtree if the block already has an animation set.
-	 *  - Opaque containers (Cover, Buttons, Gallery): animate as
-	 *    their category; inner blocks ride along (counted as
-	 *    descendants).
-	 *  - Transparent containers (Group, Columns, Column):
+	 *  - `core/columns`: animate the Columns block as a single
+	 *    STAGGER_ROW unit if its subtree has any interesting leaf.
+	 *    The plugin's existing stagger feature handles the
+	 *    column-by-column cascade via CSS; no per-child delay
+	 *    plumbing needed. Empty / text-only Columns fall through
+	 *    to SECTION.
+	 *  - Other opaque containers (Cover, Buttons, Gallery): animate
+	 *    as their category; inner blocks ride along.
+	 *  - Transparent containers (Group, Column):
 	 *      • If their subtree has any HERO/MEDIA/CTA leaf, descend
 	 *        without animating the container itself.
-	 *      • Otherwise animate the container as SECTION (a text-only
-	 *        Group keeps its fade-in behavior from before).
-	 *      • Special-case `core/columns`: iterate inner columns with
-	 *        an index and accumulate it into `siblingIndex` so each
-	 *        column's leaves get a horizontal cascade delay applied
-	 *        by the dispatcher.
+	 *      • Otherwise animate the container as SECTION.
 	 *  - Leaf blocks: classify by their category and either skip
 	 *    (BODY/CHROME/BROKEN) or animate.
-	 *
-	 * @param {Object} block
-	 * @param {number} siblingIndex Accumulated horizontal-sibling
-	 *   index from any enclosing `core/columns` ancestors. The
-	 *   dispatcher multiplies this by the preset's `sequenceStep` to
-	 *   produce the per-block extra animation-delay. Vertical/
-	 *   document-order siblings keep their parent's `siblingIndex`,
-	 *   so the cascade is scoped to horizontal layouts only.
 	 */
-	function recurse( block, siblingIndex = 0 ) {
+	function recurse( block ) {
 		if ( ! block ) {
 			return;
 		}
@@ -317,6 +331,33 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 		}
 
 		const name = block.name;
+
+		// core/columns — special case. The plugin's stagger feature
+		// already produces a cascade across direct children when
+		// enabled, so we animate the Columns block as a unit with
+		// stagger turned on rather than recursing and hand-rolling
+		// per-child delays. The output matches what a user would
+		// create by selecting the Columns block manually and
+		// flipping the Stagger toggle — round-trippable and
+		// editable from the same UI later.
+		if ( name === 'core/columns' ) {
+			if ( subtreeHasInterestingLeaf( block ) ) {
+				apply.push( {
+					clientId: block.clientId,
+					category: 'STAGGER_ROW',
+					block,
+				} );
+			} else {
+				// Text-only / empty Columns: fade in as one section.
+				apply.push( {
+					clientId: block.clientId,
+					category: 'SECTION',
+					block,
+				} );
+			}
+			descendantCount += countDescendants( block.clientId ) || 0;
+			return;
+		}
 
 		// Opaque container: animate as one unit.
 		if ( OPAQUE_CONTAINERS.has( name ) ) {
@@ -340,7 +381,6 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 				clientId: block.clientId,
 				category,
 				block,
-				siblingIndex,
 			} );
 			// Subtree rides along with the container's animation.
 			descendantCount += countDescendants( block.clientId ) || 0;
@@ -351,24 +391,8 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 		// leaf in its subtree; otherwise animate it as SECTION.
 		if ( TRANSPARENT_CONTAINERS.has( name ) ) {
 			if ( subtreeHasInterestingLeaf( block ) ) {
-				const children = block.innerBlocks || [];
-				if ( name === 'core/columns' ) {
-					// Horizontal cascade: each column gets an
-					// incrementing siblingIndex relative to its
-					// position in the row. Accumulates across
-					// nested Columns (rare but allowed) so deeply
-					// nested horizontal layouts still cascade
-					// correctly relative to outer ones.
-					children.forEach( ( child, colIndex ) => {
-						recurse( child, siblingIndex + colIndex );
-					} );
-				} else {
-					// Group / Column / other transparent wrappers:
-					// children inherit the parent's siblingIndex
-					// unchanged. No vertical/document-order cascade.
-					for ( const child of children ) {
-						recurse( child, siblingIndex );
-					}
+				for ( const child of block.innerBlocks || [] ) {
+					recurse( child );
 				}
 				return;
 			}
@@ -377,7 +401,6 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 				clientId: block.clientId,
 				category: 'SECTION',
 				block,
-				siblingIndex,
 			} );
 			descendantCount += countDescendants( block.clientId ) || 0;
 			return;
@@ -404,12 +427,11 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 			clientId: block.clientId,
 			category,
 			block,
-			siblingIndex,
 		} );
 	}
 
 	for ( const block of topLevelBlocks || [] ) {
-		recurse( block, 0 );
+		recurse( block );
 	}
 
 	return {

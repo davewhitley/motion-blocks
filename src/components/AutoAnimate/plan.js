@@ -53,22 +53,34 @@ const CATEGORY_BY_BLOCK_NAME = {
 
 /**
  * Style presets — drive the timing of all categories.
+ *
+ * `sequenceStep` is the extra delay added per sibling animated block
+ * in document order: block 0 gets `0`, block 1 gets `1 × step`, block
+ * 2 gets `2 × step`, etc. Gives the page a sense of rhythm rather
+ * than every visible block firing simultaneously on load / scroll.
+ * Tied to the preset so the rhythm scales with the rest of the
+ * timing.
+ *
+ * Set `sequenceStep: 0` on a preset to disable sequencing for it.
  */
 export const STYLE_PRESETS = {
 	subtle: {
 		label: 'Subtle',
 		duration: 0.5,
 		ctaDuration: 0.3,
+		sequenceStep: 0.06,
 	},
 	smooth: {
 		label: 'Smooth',
 		duration: 0.7,
 		ctaDuration: 0.4,
+		sequenceStep: 0.08,
 	},
 	bold: {
 		label: 'Bold',
 		duration: 1.0,
 		ctaDuration: 0.5,
+		sequenceStep: 0.12,
 	},
 };
 
@@ -98,14 +110,21 @@ export function classifyBlock( block, heroSoFar = 0 ) {
 
 /**
  * Get the attribute payload for a category, parameterized by the
- * chosen style preset. Each call returns a fresh object so callers
- * can safely mutate (e.g., to add per-block delay).
+ * chosen style preset and (optionally) the block itself. Each call
+ * returns a fresh object so callers can safely mutate (e.g., to add
+ * per-block delay for sibling sequencing).
+ *
+ * The `block` arg lets categories infer per-block details from the
+ * block's own attributes — currently used by MEDIA to pick the slide
+ * direction from `block.attributes.align` (left/right). Other
+ * categories ignore it for now.
  *
  * @param {string} category
  * @param {string} stylePreset One of 'subtle' | 'smooth' | 'bold'.
+ * @param {Object} [block]     Optional Gutenberg block object.
  * @return {Object|null}
  */
-export function attrsForCategory( category, stylePreset = 'smooth' ) {
+export function attrsForCategory( category, stylePreset = 'smooth', block = null ) {
 	const style = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.smooth;
 	switch ( category ) {
 		case 'HERO':
@@ -118,17 +137,31 @@ export function attrsForCategory( category, stylePreset = 'smooth' ) {
 				animationRepeat: 'once',
 				animationPauseOffscreen: true,
 			};
-		case 'MEDIA':
+		case 'MEDIA': {
+			// Direction-from-align: images placed with the toolbar's
+			// "Align left" / "Align right" affordance get a horizontal
+			// slide that matches their layout anchor — feels intentional
+			// instead of every image rising from the bottom. Wide /
+			// full / center / unset fall back to the original `btt`
+			// default.
+			const align = block?.attributes?.align;
+			const direction =
+				align === 'left'
+					? 'ltr'
+					: align === 'right'
+					? 'rtl'
+					: 'btt';
 			return {
 				animationMode: 'scroll-appear',
 				animationType: 'slide',
-				animationDirection: 'btt',
+				animationDirection: direction,
 				animationDuration: style.duration,
 				animationDelay: 0,
 				animationAcceleration: 'ease',
 				animationScrollTrigger: 'enter',
 				animationPlayOnce: true,
 			};
+		}
 		case 'SECTION':
 			return {
 				animationMode: 'scroll-appear',

@@ -27,7 +27,6 @@ import {
 	STYLE_PRESETS,
 	attrsForCategory,
 	computeAutoAnimatePlan,
-	groupApplyByCategory,
 	summarizeByBlockType,
 } from './plan';
 
@@ -107,38 +106,37 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 			return;
 		}
 
-		const grouped = groupApplyByCategory( plan.apply );
-
-		// One dispatch per category. HERO needs special handling for
-		// the 0.15s stagger on the second hero so they don't fire
-		// simultaneously: send the first immediately, then a second
-		// dispatch with the staggered delay attribute.
-		for ( const [ category, items ] of grouped ) {
-			const baseAttrs = attrsForCategory( category, stylePreset );
+		// Per-block dispatch so each animated block gets its own
+		// attribute payload — needed for two reasons:
+		//   1. Direction-from-align (MEDIA): `attrsForCategory` reads
+		//      `block.attributes.align` so a left-aligned image slides
+		//      from the left and a right-aligned one from the right.
+		//   2. Sibling sequencing: each block gets an incremental
+		//      `animationDelay = preset.sequenceStep * seq` so the
+		//      page animates with a sense of rhythm rather than every
+		//      visible block firing at the same instant.
+		// `plan.apply` is already in document order (the planner walks
+		// top-level blocks in order), so the sequence index = array
+		// index gives the expected cascade direction.
+		const preset = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.smooth;
+		const stepSec = preset.sequenceStep || 0;
+		plan.apply.forEach( ( item, seq ) => {
+			const baseAttrs = attrsForCategory(
+				item.category,
+				stylePreset,
+				item.block
+			);
 			if ( ! baseAttrs ) {
-				continue;
+				return;
 			}
-			if ( category === 'HERO' && items.length > 1 ) {
-				// First hero: zero delay (already in baseAttrs).
-				updateBlockAttributes( items[ 0 ].clientId, baseAttrs );
-				// Second hero: delayed.
-				updateBlockAttributes( items[ 1 ].clientId, {
-					...baseAttrs,
-					animationDelay: 0.15,
-				} );
-				// Any further hero blocks (rare — we cap at 2 in the
-				// planner) get the same delayed bag for predictability.
-				for ( let i = 2; i < items.length; i++ ) {
-					updateBlockAttributes( items[ i ].clientId, {
-						...baseAttrs,
-						animationDelay: 0.15,
-					} );
-				}
-			} else {
-				const ids = items.map( ( item ) => item.clientId );
-				updateBlockAttributes( ids, baseAttrs );
-			}
-		}
+			const seqDelay = stepSec * seq;
+			const attrs = {
+				...baseAttrs,
+				animationDelay:
+					( baseAttrs.animationDelay || 0 ) + seqDelay,
+			};
+			updateBlockAttributes( item.clientId, attrs );
+		} );
 
 		createSuccessNotice(
 			sprintf(

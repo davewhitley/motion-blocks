@@ -15,11 +15,9 @@ import {
 	__experimentalNumberControl as NumberControl,
 	FlexBlock,
 	Button,
-	Icon,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
-	desktop,
 	arrowUp,
 	arrowDown,
 	arrowLeft,
@@ -41,9 +39,9 @@ import {
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
-import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
 import StaggerControls from './StaggerControls';
+import SubPanelModeHeader from './SubPanelModeHeader';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -182,28 +180,20 @@ export default function PageLoadControls( {
 
 	return (
 		<div className="mb-sub-panel">
-			<div className="mb-sub-panel-header">
-				<div className="mb-sub-panel-title-row">
-					<Icon icon={ desktop } size={ 24 } />
-					<span className="mb-sub-panel-title">
-						{ __( 'On page load', 'motion-blocks' ) }
-					</span>
-					<AnimationOptionsMenu
-						attributes={ attributes }
-						blockName={ blockName }
-						clientId={ clientId }
-						onPaste={ onPaste }
-						onReset={ onReset }
-						onRemove={ onRemove }
-					/>
-				</div>
-				<p className="mb-help-text">
-					{ __(
-						'Animate when the page first loads. Great for hero sections and above-the-fold content.',
-						'motion-blocks'
-					) }
-				</p>
-			</div>
+			<SubPanelModeHeader
+				mode="page-load"
+				attributes={ attributes }
+				setAttributes={ setAttributes }
+				blockName={ blockName }
+				clientId={ clientId }
+				onPaste={ onPaste }
+				onReset={ onReset }
+				onRemove={ onRemove }
+				helpText={ __(
+					'Animate when the page first loads. Great for hero sections and above-the-fold content.',
+					'motion-blocks'
+				) }
+			/>
 
 			<HStack alignment="bottom" spacing={ 3 }>
 				<FlexBlock>

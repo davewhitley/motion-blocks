@@ -19,7 +19,6 @@ import {
 	__experimentalNumberControl as NumberControl,
 	FlexBlock,
 	Button,
-	Icon,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
@@ -30,7 +29,6 @@ import {
 	arrowLeft,
 	arrowRight,
 } from '@wordpress/icons';
-import { scrollInteractiveIcon } from './icons';
 
 import {
 	ANIMATION_TYPE_OPTIONS,
@@ -44,8 +42,8 @@ import {
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
-import AnimationOptionsMenu from './AnimationOptionsMenu';
 import FromToControls from './FromToControls';
+import SubPanelModeHeader from './SubPanelModeHeader';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -163,28 +161,20 @@ export default function ScrollInteractiveControls( {
 
 	return (
 		<div className="mb-sub-panel">
-			<div className="mb-sub-panel-header">
-				<div className="mb-sub-panel-title-row">
-					<Icon icon={ scrollInteractiveIcon } size={ 24 } />
-					<span className="mb-sub-panel-title">
-						{ __( 'Interactive scroll', 'motion-blocks' ) }
-					</span>
-					<AnimationOptionsMenu
-						attributes={ attributes }
-						blockName={ blockName }
-						clientId={ clientId }
-						onPaste={ onPaste }
-						onReset={ onReset }
-						onRemove={ onRemove }
-					/>
-				</div>
-				<p className="mb-help-text">
-					{ __(
-						'Animation is tied to scroll position. Adjust the offsets to control the start (bottom of screen) and the end (top of the screen).',
-						'motion-blocks'
-					) }
-				</p>
-			</div>
+			<SubPanelModeHeader
+				mode="scroll-interactive"
+				attributes={ attributes }
+				setAttributes={ setAttributes }
+				blockName={ blockName }
+				clientId={ clientId }
+				onPaste={ onPaste }
+				onReset={ onReset }
+				onRemove={ onRemove }
+				helpText={ __(
+					'Animation is tied to scroll position. Adjust the offsets to control the start (bottom of screen) and the end (top of the screen).',
+					'motion-blocks'
+				) }
+			/>
 
 			<HStack alignment="bottom" spacing={ 3 }>
 				<FlexBlock>

@@ -399,6 +399,60 @@
 		padding: 0;
 	}
 
+	// Click-to-open mode picker that replaces the static title.
+	// Wraps the icon + title + chevron in a `<Dropdown>` toggle. The
+	// `.components-button` class comes from WP's Button; we need
+	// higher specificity than its defaults to undo the button look
+	// (chunky padding, hover bg, etc.) and make it read as a heading.
+	.mb-mode-picker {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.mb-mode-picker__toggle.components-button {
+		display: inline-flex;
+		align-items: center;
+		gap: vars.$grid-unit-10;
+		width: 100%;
+		height: auto;
+		min-height: 0;
+		padding: vars.$grid-unit-05 vars.$grid-unit-10;
+		margin: 0;
+		background: transparent;
+		border: 0;
+		border-radius: 2px;
+		color: colors.$gray-900;
+		font-size: 13px;
+		font-weight: 500;
+		line-height: 20px;
+		text-align: left;
+		cursor: pointer;
+
+		&:hover {
+			background: colors.$gray-100;
+			color: colors.$gray-900;
+		}
+
+		&:focus-visible {
+			outline: 1.5px solid var(--wp-admin-theme-color, #3858e9);
+			outline-offset: -1.5px;
+		}
+
+		// Title fills the available space so the chevron sits at the
+		// far right of the toggle's hit area.
+		.mb-sub-panel-title {
+			flex: 1;
+		}
+
+		// Dim the chevron — last child of the toggle. Using a position
+		// selector instead of a class because WP's <Icon> doesn't emit
+		// a stable class for the rendered SVG.
+		> svg:last-child {
+			color: colors.$gray-700;
+			flex: 0 0 auto;
+		}
+	}
+
 	.mb-help-text {
 		font-size: 12px;
 		font-weight: 400;

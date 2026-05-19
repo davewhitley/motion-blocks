@@ -1024,3 +1024,100 @@ export const DEFAULT_ATTRIBUTES = {
 	// its natural bounds. Default off — opt-in per block.
 	animationClipParentOverflow: false,
 };
+
+/**
+ * Mode metadata for the in-place mode picker in the sub-panel
+ * header. Icon imports live in the consumer (SubPanelModeHeader)
+ * because constants.js shouldn't pull React/JSX. We only carry the
+ * icon *key* here (the string name in @wordpress/icons) and the
+ * consumer resolves it to a real icon. `scroll-interactive` uses
+ * our local custom icon — the consumer special-cases that.
+ */
+export const MODE_META = {
+	'page-load': {
+		label: 'On page load',
+		iconName: 'desktop',
+	},
+	'scroll-appear': {
+		label: 'Appear on scroll',
+		iconName: 'seen',
+	},
+	'scroll-interactive': {
+		label: 'Interactive scroll',
+		iconName: 'scrollInteractive', // custom icon, see icons.js
+	},
+};
+
+/**
+ * Order modes show up in the picker dropdown — matches the order
+ * of the empty-state mode-selector cards in AnimationPanel.js.
+ */
+export const MODE_ORDER = [ 'page-load', 'scroll-appear', 'scroll-interactive' ];
+
+/**
+ * Compute the attribute payload to dispatch when the user changes
+ * an existing animation's mode in place (NOT the same as the
+ * empty-state `selectMode()` in AnimationPanel.js, which seeds
+ * defaults for a fresh animation).
+ *
+ * Mode-agnostic attributes (effect, direction, timing, From/To
+ * values, stagger, blur, rotate, clip-overflow…) are preserved
+ * by simply omitting them from the output — `setAttributes` only
+ * touches keys present in the partial. Mode-specific attributes
+ * for the OLD mode get reset to defaults so they don't linger
+ * on a block that no longer supports them.
+ *
+ * Type coercion: `image-move` is in SCROLL_INTERACTIVE_ONLY_TYPES,
+ * so switching out of scroll-interactive while that type is set
+ * silently demotes to `slide` (the closest non-image-move effect)
+ * with the default `btt` direction.
+ *
+ * Also resets `animationPreviewPlaying` so a preview running on
+ * the old mode's branch doesn't auto-resume on the new mode.
+ *
+ * @param {Object} attributes Current block attributes.
+ * @param {string} newMode    One of 'page-load' | 'scroll-appear' |
+ *                            'scroll-interactive'.
+ * @return {Object} Partial attribute payload ready for setAttributes().
+ */
+export function switchModeAttributes( attributes, newMode ) {
+	const oldMode = attributes?.animationMode;
+	const out = {
+		animationMode: newMode,
+		animationPreviewPlaying: false,
+	};
+
+	// Type coercion: image-move only works in scroll-interactive.
+	if (
+		attributes?.animationType === 'image-move' &&
+		newMode !== 'scroll-interactive'
+	) {
+		out.animationType = 'slide';
+		out.animationDirection = 'btt';
+	}
+
+	// Reset attributes that belonged to the OLD mode and don't
+	// apply to the new one. Each block only fires when the user
+	// is leaving that specific mode.
+	if ( oldMode === 'page-load' ) {
+		out.animationRepeat = DEFAULT_ATTRIBUTES.animationRepeat;
+		out.animationPauseOffscreen = DEFAULT_ATTRIBUTES.animationPauseOffscreen;
+	}
+	if ( oldMode === 'scroll-appear' ) {
+		out.animationScrollTrigger = DEFAULT_ATTRIBUTES.animationScrollTrigger;
+		out.animationExitMode = DEFAULT_ATTRIBUTES.animationExitMode;
+		out.animationExitType = DEFAULT_ATTRIBUTES.animationExitType;
+		out.animationExitDirection = DEFAULT_ATTRIBUTES.animationExitDirection;
+		out.animationExitDuration = DEFAULT_ATTRIBUTES.animationExitDuration;
+		out.animationExitDelay = DEFAULT_ATTRIBUTES.animationExitDelay;
+		out.animationExitAcceleration = DEFAULT_ATTRIBUTES.animationExitAcceleration;
+		out.animationExitCustomTimingFunction =
+			DEFAULT_ATTRIBUTES.animationExitCustomTimingFunction;
+	}
+	if ( oldMode === 'scroll-interactive' ) {
+		out.animationRangeStart = DEFAULT_ATTRIBUTES.animationRangeStart;
+		out.animationRangeEnd = DEFAULT_ATTRIBUTES.animationRangeEnd;
+	}
+
+	return out;
+}

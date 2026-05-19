@@ -29,6 +29,7 @@ import {
 	FlexBlock,
 	RangeControl,
 	TextControl,
+	ToggleControl,
 	Button,
 	ExternalLink,
 } from '@wordpress/components';
@@ -429,6 +430,29 @@ export default function FromToControls( {
 				} ) }
 			</ToolsPanel>
 			</div>
+
+			{ /*
+			 * Clip-parent-overflow opt-in. Lives outside the per-side
+			 * ToolsPanel because it's not a per-side property — it's a
+			 * single boolean flag that applies to both Start and End.
+			 * Solves the "translateX: 1000px creates a horizontal
+			 * scrollbar" case by clipping the parent via a `:has()`
+			 * rule in animations.css. Mirrors the existing image-target
+			 * clipping pattern (which also clips the parent), generalized
+			 * to wrapper-target animations via a marker class.
+			 */ }
+			<ToggleControl
+				label={ __( 'Clip overflow on parent', 'motion-blocks' ) }
+				help={ __(
+					"Hide motion that extends past the parent block's bounds. Useful when sliding an element in from off-screen.",
+					'motion-blocks'
+				) }
+				checked={ !! attributes.animationClipParentOverflow }
+				onChange={ ( v ) =>
+					setAttributes( { animationClipParentOverflow: v } )
+				}
+				__nextHasNoMarginBottom
+			/>
 		</div>
 	);
 }

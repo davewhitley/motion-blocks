@@ -358,6 +358,12 @@ function motion_blocks_render_block( $block_content, $block ) {
         $processor->set_attribute( 'style', $existing_style );
     }
 
+    // Clip parent overflow opt-in. Marker class for the `:has()` rule
+    // in animations.css. Mirrors addAnimationSaveProps in src/index.js.
+    if ( ! empty( $attrs['animationClipParentOverflow'] ) ) {
+        $processor->add_class( 'mb-clip-parent-overflow' );
+    }
+
     return $processor->get_updated_html();
 }
 add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );

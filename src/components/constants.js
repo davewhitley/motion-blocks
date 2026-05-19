@@ -1020,4 +1020,7 @@ export const DEFAULT_ATTRIBUTES = {
 	// — see staggerStepSeconds for the legacy-ms heuristic).
 	animationStaggerEnabled: false,
 	animationStaggerStep: DEFAULT_STAGGER_STEP_SECONDS,
+	// Clip parent overflow on the x-axis when this block animates off
+	// its natural bounds. Default off — opt-in per block.
+	animationClipParentOverflow: false,
 };

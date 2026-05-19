@@ -456,6 +456,16 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: 100,
 			},
+			// Clip the parent's horizontal overflow when the block
+			// animates off its natural bounds (e.g. translateX: 1000px
+			// to slide in from off-screen). Mirrors what the existing
+			// image-target path does for transformed images: emits a
+			// marker class so a `:has()` rule in animations.css clips
+			// the parent without the user having to touch theme CSS.
+			animationClipParentOverflow: {
+				type: 'boolean',
+				default: false,
+			},
 		},
 	};
 }
@@ -1014,6 +1024,22 @@ const withAnimationPreview = createHigherOrderComponent(
 				};
 			}
 
+			// Clip the parent's horizontal overflow when the block
+			// animates off-screen. The class is the trigger; the
+			// `:has(> .mb-clip-parent-overflow)` rule in animations.css
+			// applies `overflow-x: clip` to the parent. Emitted on
+			// every animation type — Custom is where the bug shows up,
+			// but the user might also hit it with custom Slide
+			// direction values, so don't gate by type.
+			if ( attributes.animationClipParentOverflow ) {
+				computedClassName = [
+					computedClassName,
+					'mb-clip-parent-overflow',
+				]
+					.filter( Boolean )
+					.join( ' ' );
+			}
+
 			// Single return — BlockListBlock is always at the same
 			// position in the React tree (index 0 inside the Fragment),
 			// so it never remounts when switching animation states.
@@ -1273,6 +1299,12 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 		const step = staggerStepSeconds( attributes.animationStaggerStep );
 		// Inline CSS variable that the nth-child rules consume.
 		staggerStyle = { '--mb-stagger-step': `${ step }s` };
+	}
+
+	// Clip parent overflow opt-in. Marker class for the `:has()` rule
+	// in animations.css that applies `overflow-x: clip` to the parent.
+	if ( attributes.animationClipParentOverflow ) {
+		classNames.push( 'mb-clip-parent-overflow' );
 	}
 
 	const out = {

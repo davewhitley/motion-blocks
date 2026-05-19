@@ -11,6 +11,21 @@
  * `@wordpress/components`.
  */
 
+// Note on the fills:
+//
+// The outer rect is supposed to be a stroked outline (mouse body)
+// with no fill, but WP's Button-derived components (MenuItem,
+// DropdownMenu items, etc.) ship a stylesheet rule like
+// `.components-button svg { fill: currentColor }` that overrides
+// the SVG-level `fill="none"` and bleeds into rect children via
+// SVG fill inheritance. Result: the outline rect renders as a
+// solid pill, making the icon look like a filled blob.
+//
+// Inline `style={{ fill: 'none' }}` on the outer rect has
+// specificity that beats any author CSS rule without !important,
+// so the outline stays outlined regardless of which WP component
+// wraps the icon. The inner fill rect keeps its own `fill=
+// "currentColor"` so it inherits the surrounding text color.
 export const scrollInteractiveIcon = (
 	<svg
 		width="24"
@@ -27,6 +42,7 @@ export const scrollInteractiveIcon = (
 			rx="5.25"
 			stroke="currentColor"
 			strokeWidth="1.5"
+			style={ { fill: 'none' } }
 		/>
 		<rect
 			x="11"

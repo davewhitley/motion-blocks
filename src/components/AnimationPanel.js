@@ -11,7 +11,8 @@ import { useSelect, useDispatch } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
 import { __, sprintf } from '@wordpress/i18n';
-import { desktop, seen, drawerRight } from '@wordpress/icons';
+import { desktop, seen } from '@wordpress/icons';
+import { scrollInteractiveIcon } from './icons';
 
 import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
@@ -434,7 +435,7 @@ export default function AnimationPanel( {
 							}
 						>
 							<div className="mb-mode-card__header">
-								<Icon icon={ drawerRight } size={ 24 } />
+								<Icon icon={ scrollInteractiveIcon } size={ 24 } />
 								<span className="mb-mode-card__title">
 									{ __(
 										'Interactive scroll',

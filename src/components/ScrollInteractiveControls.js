@@ -23,7 +23,6 @@ import {
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
-	drawerRight,
 	seen,
 	unseen,
 	arrowUp,
@@ -31,6 +30,7 @@ import {
 	arrowLeft,
 	arrowRight,
 } from '@wordpress/icons';
+import { scrollInteractiveIcon } from './icons';
 
 import {
 	ANIMATION_TYPE_OPTIONS,
@@ -165,7 +165,7 @@ export default function ScrollInteractiveControls( {
 		<div className="mb-sub-panel">
 			<div className="mb-sub-panel-header">
 				<div className="mb-sub-panel-title-row">
-					<Icon icon={ drawerRight } size={ 24 } />
+					<Icon icon={ scrollInteractiveIcon } size={ 24 } />
 					<span className="mb-sub-panel-title">
 						{ __( 'Interactive scroll', 'motion-blocks' ) }
 					</span>

@@ -306,17 +306,17 @@ export default function AnimationPanel( {
 
 	const panelTitle = animationMode ? (
 		<span className="mb-panel-title">
-			{ __( 'Animation', 'motion-blocks' ) }
+			{ __( 'Motion Effects', 'motion-blocks' ) }
 			<span
 				className="mb-panel-title__dot"
 				aria-label={ __(
-					'Animation configured on this block',
+					'Motion effect configured on this block',
 					'motion-blocks'
 				) }
 			/>
 		</span>
 	) : (
-		__( 'Animation', 'motion-blocks' )
+		__( 'Motion Effects', 'motion-blocks' )
 	);
 
 	return (

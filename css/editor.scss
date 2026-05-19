@@ -206,9 +206,17 @@
 .mb-side-tabs {
 	.components-tab-panel__tabs {
 		border-bottom: 1px solid colors.$gray-200;
+		// Stretch each tab to fill half the row. With two tabs that's
+		// 50% / 50%; the existing flex container in TabPanel already
+		// gives the tabs equal room when each gets `flex: 1`.
+		display: flex;
 	}
 
 	.components-tab-panel__tabs-item {
+		flex: 1 1 0;
+		// Center the label inside its now-wider hit area.
+		justify-content: center;
+		text-align: center;
 		background: transparent;
 		border: 0;
 		border-radius: 0;

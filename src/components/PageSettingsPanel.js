@@ -173,7 +173,7 @@ function MotionBlocksPagePanel() {
 	return (
 		<PluginDocumentSettingPanel
 			name="motion-blocks-page-settings"
-			title={ __( 'Animations', 'motion-blocks' ) }
+			title={ __( 'Motion Effects', 'motion-blocks' ) }
 			className="mb-page-settings"
 		>
 			<VStack spacing={ 5 }>

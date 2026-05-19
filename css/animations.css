@@ -50,8 +50,14 @@
 .mb-animated.mb-triggered {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
-    animation-fill-mode: both;
+    animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-timing);
+    /* Loop / alternate support — the HOC and frontend.js both emit
+       `--mb-iteration-count` (`infinite` for loop) and `--mb-direction`
+       (`alternate` for back-and-forth). Without consuming them here,
+       Repeat = Loop / Back-and-forth silently played once. */
+    animation-iteration-count: var(--mb-iteration-count, 1);
+    animation-direction: var(--mb-direction, normal);
 }
 
 /* ----------------------------------------------------------------
@@ -60,8 +66,12 @@
 .mb-animated.mb-exit-triggered {
     animation-duration: var(--mb-exit-duration, var(--mb-duration));
     animation-delay: var(--mb-exit-delay, 0s);
-    animation-fill-mode: both;
+    animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-exit-timing, var(--mb-timing));
+    /* Parity with the entrance rule above — same iteration-count /
+       direction vars apply if a looping exit is ever wired in. */
+    animation-iteration-count: var(--mb-iteration-count, 1);
+    animation-direction: var(--mb-direction, normal);
 }
 
 /* ----------------------------------------------------------------

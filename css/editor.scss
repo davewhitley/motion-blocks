@@ -569,15 +569,25 @@
 // actually carries `data-block` (value: "true", not a UUID), so a
 // `:not([data-block])` filter does NOT catch it — but it has no
 // `data-type`, while every real block does. `:not([data-type])` is
-// the reliable discriminator. The frontend has no analogue, which is
-// why this lives in editor.scss rather than animations.css.
+// the reliable discriminator INSIDE THE EDITOR.
 //
-// Three classes (mb-stagger-parent + mb-animated + mb-triggered) give
-// this rule specificity (0,3,1) — enough to beat the per-type cascade
+// IMPORTANT: this file (build/index.css) is enqueued via
+// `enqueue_block_assets` so the keyframes reach the editor canvas
+// iframe — but that hook ALSO fires for the public frontend. On the
+// frontend none of the rendered HTML has a `data-type` attribute
+// (editor-only), so without a guard `> :not([data-type])` would
+// match every real column child and wipe out the cascade. Gate the
+// rule on a parent attribute that ONLY exists in the editor:
+// `[data-block]` is set on every block wrapper there and never on
+// frontend output. With this guard the rule is a no-op on the
+// frontend; in the editor it works exactly as before.
+//
+// Three classes (mb-stagger-parent + mb-animated + mb-triggered) +
+// one attribute (`[data-block]`) + one `:not()` give this rule
+// specificity (0,4,2) — comfortably above the per-type cascade
 // `.mb-stagger-parent.mb-enter-X.mb-triggered > *` (0,3,0) and the
-// nth-child delay rule (0,2,1) without needing !important. The HOC
-// always emits these three classes together (src/index.js).
-.mb-stagger-parent.mb-animated.mb-triggered > :not([data-type]) {
+// nth-child delay rule (0,2,1) without needing !important.
+.mb-stagger-parent.mb-animated.mb-triggered[data-block] > :not([data-type]) {
 	animation: none;
 	opacity: 1;
 	transform: none;

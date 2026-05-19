@@ -641,6 +641,19 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationFromToPreviewSide,
 			} = attributes;
 
+			// Clip-parent-overflow class snippet shared across every
+			// HOC return branch. The class needs to apply in both the
+			// animated-preview path AND the eye-icon static-preview
+			// path — in the latter the off-screen transform is applied
+			// inline via wrapperProps.style, so without the class the
+			// parent doesn't clip and the editor canvas grows a
+			// horizontal scrollbar. The "Custom at rest" branch
+			// (no animation visible) doesn't paint off-screen, so the
+			// class is harmless there even though unnecessary.
+			const clipExtraClass = attributes.animationClipParentOverflow
+				? ' mb-clip-parent-overflow'
+				: '';
+
 			// Static state preview — eye icon in the From/To panel.
 			// When 'start' or 'end' is chosen, freeze the editor block
 			// at that side's values (no animation, no triggered class
@@ -695,7 +708,10 @@ const withAnimationPreview = createHigherOrderComponent(
 						<>
 							<BlockListBlock
 								{ ...props }
-								className={ props.className }
+								className={
+									( props.className || '' ) +
+									clipExtraClass
+								}
 								wrapperProps={ {
 									...wrapperProps,
 									'data-mb-uid': safeId,
@@ -716,7 +732,9 @@ const withAnimationPreview = createHigherOrderComponent(
 					<>
 						<BlockListBlock
 							{ ...props }
-							className={ props.className }
+							className={
+								( props.className || '' ) + clipExtraClass
+							}
 							wrapperProps={ {
 								...wrapperProps,
 								style: {

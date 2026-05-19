@@ -81,6 +81,7 @@ export default function AnimationPanel( {
 		animationPreviewPlaying,
 		animationDuration,
 		animationDelay,
+		animationFromToPreviewSide,
 	} = attributes;
 	const savedType = useRef( '' );
 
@@ -140,8 +141,22 @@ export default function AnimationPanel( {
 		if ( isPlayPending ) {
 			return;
 		}
+		// If the user is currently previewing a Start/End state via
+		// the eye icon, that preview branch in the HOC takes
+		// precedence over the animated branch (it returns early). Play
+		// would visually do nothing. Turn the eye preview off so Play
+		// wins. The eye toggle itself is fine to leave alone for
+		// future clicks — we're only nullifying the active override.
+		const baseAttrs =
+			animationFromToPreviewSide &&
+			animationFromToPreviewSide !== 'off'
+				? { animationFromToPreviewSide: 'off' }
+				: {};
 		if ( isLoopingMode ) {
-			setAttributes( { animationPreviewPlaying: true } );
+			setAttributes( {
+				...baseAttrs,
+				animationPreviewPlaying: true,
+			} );
 			return;
 		}
 
@@ -156,7 +171,10 @@ export default function AnimationPanel( {
 		clearPlayTimers();
 
 		if ( current === 'custom' ) {
-			setAttributes( { animationPreviewPlaying: true } );
+			setAttributes( {
+				...baseAttrs,
+				animationPreviewPlaying: true,
+			} );
 			playTimeoutRef.current = setTimeout( () => {
 				setAttributes( { animationPreviewPlaying: false } );
 				setIsPlayPending( false );
@@ -169,7 +187,10 @@ export default function AnimationPanel( {
 		// animation, then release the pending flag after the
 		// animation completes.
 		savedType.current = current;
-		setAttributes( { animationType: '' } );
+		setAttributes( {
+			...baseAttrs,
+			animationType: '',
+		} );
 		playFrameRef.current = requestAnimationFrame( () => {
 			setAttributes( { animationType: savedType.current } );
 			playFrameRef.current = null;
@@ -180,6 +201,7 @@ export default function AnimationPanel( {
 		} );
 	}, [
 		animationType,
+		animationFromToPreviewSide,
 		setAttributes,
 		isLoopingMode,
 		isPlayPending,

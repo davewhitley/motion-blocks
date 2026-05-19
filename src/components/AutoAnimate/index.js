@@ -111,16 +111,15 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 		//   1. Direction-from-align (MEDIA): `attrsForCategory` reads
 		//      `block.attributes.align` so a left-aligned image slides
 		//      from the left and a right-aligned one from the right.
-		//   2. Sibling sequencing: each block gets an incremental
-		//      `animationDelay = preset.sequenceStep * seq` so the
-		//      page animates with a sense of rhythm rather than every
-		//      visible block firing at the same instant.
-		// `plan.apply` is already in document order (the planner walks
-		// top-level blocks in order), so the sequence index = array
-		// index gives the expected cascade direction.
+		//   2. Horizontal column cascade: each apply item carries a
+		//      `siblingIndex` computed by the planner — non-zero only
+		//      for blocks nested inside a `core/columns` row. The
+		//      cascade is intentionally scoped to columns; vertical
+		//      document-order siblings don't accumulate delay so the
+		//      page doesn't feel sluggish as it scrolls.
 		const preset = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.smooth;
 		const stepSec = preset.sequenceStep || 0;
-		plan.apply.forEach( ( item, seq ) => {
+		plan.apply.forEach( ( item ) => {
 			const baseAttrs = attrsForCategory(
 				item.category,
 				stylePreset,
@@ -129,11 +128,11 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 			if ( ! baseAttrs ) {
 				return;
 			}
-			const seqDelay = stepSec * seq;
+			const extraDelay = ( item.siblingIndex || 0 ) * stepSec;
 			const attrs = {
 				...baseAttrs,
 				animationDelay:
-					( baseAttrs.animationDelay || 0 ) + seqDelay,
+					( baseAttrs.animationDelay || 0 ) + extraDelay,
 			};
 			updateBlockAttributes( item.clientId, attrs );
 		} );

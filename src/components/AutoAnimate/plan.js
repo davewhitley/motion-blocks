@@ -112,14 +112,19 @@ function subtreeHasInterestingLeaf( block ) {
 /**
  * Style presets — drive the timing of all categories.
  *
- * `sequenceStep` is the extra delay added per sibling animated block
- * in document order: block 0 gets `0`, block 1 gets `1 × step`, block
- * 2 gets `2 × step`, etc. Gives the page a sense of rhythm rather
- * than every visible block firing simultaneously on load / scroll.
- * Tied to the preset so the rhythm scales with the rest of the
- * timing.
+ * `sequenceStep` is the extra delay added per *horizontal* sibling
+ * inside a `core/columns` block. Column 0 gets `0`, column 1 gets
+ * `1 × step`, column 2 gets `2 × step`, etc. — so columns cascade
+ * left-to-right when they all enter the viewport at the same scroll
+ * position (the case where the natural per-block scroll trigger
+ * doesn't add visible staggering on its own).
  *
- * Set `sequenceStep: 0` on a preset to disable sequencing for it.
+ * Vertically-stacked top-level blocks DO NOT cascade — they trigger
+ * naturally as the user scrolls past each one, and piling extra
+ * delay on top makes the page feel sluggish. Scope is intentionally
+ * tight: Columns only, not Group / Row / Flex.
+ *
+ * Set `sequenceStep: 0` on a preset to disable column cascade too.
  */
 export const STYLE_PRESETS = {
 	subtle: {
@@ -280,15 +285,25 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 	 *    descendants).
 	 *  - Transparent containers (Group, Columns, Column):
 	 *      • If their subtree has any HERO/MEDIA/CTA leaf, descend
-	 *        without animating the container itself. Non-interesting
-	 *        descendants (BODY/CHROME) are counted as "handled
-	 *        implicitly".
+	 *        without animating the container itself.
 	 *      • Otherwise animate the container as SECTION (a text-only
 	 *        Group keeps its fade-in behavior from before).
+	 *      • Special-case `core/columns`: iterate inner columns with
+	 *        an index and accumulate it into `siblingIndex` so each
+	 *        column's leaves get a horizontal cascade delay applied
+	 *        by the dispatcher.
 	 *  - Leaf blocks: classify by their category and either skip
 	 *    (BODY/CHROME/BROKEN) or animate.
+	 *
+	 * @param {Object} block
+	 * @param {number} siblingIndex Accumulated horizontal-sibling
+	 *   index from any enclosing `core/columns` ancestors. The
+	 *   dispatcher multiplies this by the preset's `sequenceStep` to
+	 *   produce the per-block extra animation-delay. Vertical/
+	 *   document-order siblings keep their parent's `siblingIndex`,
+	 *   so the cascade is scoped to horizontal layouts only.
 	 */
-	function recurse( block ) {
+	function recurse( block, siblingIndex = 0 ) {
 		if ( ! block ) {
 			return;
 		}
@@ -321,7 +336,12 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 			if ( category === 'HERO' ) {
 				heroSoFar += 1;
 			}
-			apply.push( { clientId: block.clientId, category, block } );
+			apply.push( {
+				clientId: block.clientId,
+				category,
+				block,
+				siblingIndex,
+			} );
 			// Subtree rides along with the container's animation.
 			descendantCount += countDescendants( block.clientId ) || 0;
 			return;
@@ -331,11 +351,24 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 		// leaf in its subtree; otherwise animate it as SECTION.
 		if ( TRANSPARENT_CONTAINERS.has( name ) ) {
 			if ( subtreeHasInterestingLeaf( block ) ) {
-				// Don't animate the container itself; descend into
-				// each child. BODY/CHROME children get filtered into
-				// their skip buckets inside the recurse() call.
-				for ( const child of block.innerBlocks || [] ) {
-					recurse( child );
+				const children = block.innerBlocks || [];
+				if ( name === 'core/columns' ) {
+					// Horizontal cascade: each column gets an
+					// incrementing siblingIndex relative to its
+					// position in the row. Accumulates across
+					// nested Columns (rare but allowed) so deeply
+					// nested horizontal layouts still cascade
+					// correctly relative to outer ones.
+					children.forEach( ( child, colIndex ) => {
+						recurse( child, siblingIndex + colIndex );
+					} );
+				} else {
+					// Group / Column / other transparent wrappers:
+					// children inherit the parent's siblingIndex
+					// unchanged. No vertical/document-order cascade.
+					for ( const child of children ) {
+						recurse( child, siblingIndex );
+					}
 				}
 				return;
 			}
@@ -344,6 +377,7 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 				clientId: block.clientId,
 				category: 'SECTION',
 				block,
+				siblingIndex,
 			} );
 			descendantCount += countDescendants( block.clientId ) || 0;
 			return;
@@ -366,11 +400,16 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 		if ( category === 'HERO' ) {
 			heroSoFar += 1;
 		}
-		apply.push( { clientId: block.clientId, category, block } );
+		apply.push( {
+			clientId: block.clientId,
+			category,
+			block,
+			siblingIndex,
+		} );
 	}
 
 	for ( const block of topLevelBlocks || [] ) {
-		recurse( block );
+		recurse( block, 0 );
 	}
 
 	return {

@@ -555,6 +555,24 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ isSelected ] );
 
+		// Same safety net for the Play preview itself. Looping
+		// animations (Repeat = Loop / Back-and-forth) keep running
+		// indefinitely after the user clicks Play; if they then
+		// click another block on the page the loop would otherwise
+		// keep animating in the canvas with no way to halt it short
+		// of re-selecting the original block and pressing Stop.
+		// Non-looping previews auto-clear after duration+delay
+		// anyway, but turning them off on deselect is harmless and
+		// keeps the behavior consistent across Repeat options.
+		useEffect( () => {
+			if ( ! isSelected && attributes.animationPreviewPlaying ) {
+				setAttributes( {
+					animationPreviewPlaying: false,
+				} );
+			}
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ isSelected ] );
+
 		return (
 			<>
 				<BlockEdit { ...props } />

@@ -52,6 +52,64 @@ const CATEGORY_BY_BLOCK_NAME = {
 };
 
 /**
+ * Container blocks the planner treats as transparent wrappers — it
+ * descends through them looking for "interesting" leaves (HERO/MEDIA
+ * /CTA). The container itself animates only when its subtree has no
+ * interesting leaves (e.g. a Group that's just paragraphs becomes a
+ * SECTION fade).
+ *
+ * Conceptually these are layout-only wrappers, not designed units.
+ */
+const TRANSPARENT_CONTAINERS = new Set( [
+	'core/group',
+	'core/columns',
+	'core/column',
+] );
+
+/**
+ * Container blocks the planner treats as opaque — animate them as
+ * a single unit, never descend. These represent semantic groupings
+ * the user designed as one thing: a hero scene (Cover), a button
+ * row (Buttons), a gallery grid (Gallery).
+ */
+const OPAQUE_CONTAINERS = new Set( [
+	'core/cover',
+	'core/buttons',
+	'core/gallery',
+] );
+
+/**
+ * Walk a block's subtree and return true if any descendant (or the
+ * block itself, if it's a non-container leaf) is in HERO / MEDIA /
+ * CTA. Used by `computeAutoAnimatePlan` to decide whether a
+ * transparent container should be descended into (interesting child
+ * exists) or animated as a whole SECTION (text-only group).
+ *
+ * Opaque containers count as their own category — they don't expose
+ * their inner content for recursion.
+ *
+ * @param {Object} block
+ * @return {boolean}
+ */
+function subtreeHasInterestingLeaf( block ) {
+	if ( ! block ) {
+		return false;
+	}
+	const name = block.name;
+	if ( OPAQUE_CONTAINERS.has( name ) ) {
+		const cat = classifyBlock( block );
+		return cat === 'HERO' || cat === 'MEDIA' || cat === 'CTA';
+	}
+	if ( ! TRANSPARENT_CONTAINERS.has( name ) ) {
+		// Leaf block — classify it directly.
+		const cat = classifyBlock( block );
+		return cat === 'HERO' || cat === 'MEDIA' || cat === 'CTA';
+	}
+	// Transparent container — any interesting descendant counts.
+	return ( block.innerBlocks || [] ).some( subtreeHasInterestingLeaf );
+}
+
+/**
  * Style presets — drive the timing of all categories.
  *
  * `sequenceStep` is the extra delay added per sibling animated block
@@ -208,44 +266,111 @@ export function computeAutoAnimatePlan( topLevelBlocks, countDescendants ) {
 	const skipBroken = [];
 	const skipExisting = [];
 	let descendantCount = 0;
+	// `heroSoFar` lives outside the recursion so the count threads
+	// through the whole walk — a third HERO anywhere on the page
+	// (top-level OR nested inside a container we descended into)
+	// still gets cap-demoted by `classifyBlock`.
 	let heroSoFar = 0;
 
-	for ( const block of topLevelBlocks || [] ) {
-		// Already animated → idempotent skip (re-running doesn't
-		// double up).
-		if ( block?.attributes?.animationMode ) {
-			skipExisting.push( block );
-			// If it's a container, its children are still skipped via
-			// "container handles it" semantics (we never animate
-			// nested blocks). Add its descendant count.
-			descendantCount += countDescendants( block.clientId ) || 0;
-			continue;
+	/**
+	 * Walk a block and apply the auto-animate decision rules.
+	 *  - Skip subtree if the block already has an animation set.
+	 *  - Opaque containers (Cover, Buttons, Gallery): animate as
+	 *    their category; inner blocks ride along (counted as
+	 *    descendants).
+	 *  - Transparent containers (Group, Columns, Column):
+	 *      • If their subtree has any HERO/MEDIA/CTA leaf, descend
+	 *        without animating the container itself. Non-interesting
+	 *        descendants (BODY/CHROME) are counted as "handled
+	 *        implicitly".
+	 *      • Otherwise animate the container as SECTION (a text-only
+	 *        Group keeps its fade-in behavior from before).
+	 *  - Leaf blocks: classify by their category and either skip
+	 *    (BODY/CHROME/BROKEN) or animate.
+	 */
+	function recurse( block ) {
+		if ( ! block ) {
+			return;
 		}
 
-		const category = classifyBlock( block, heroSoFar );
+		// Already animated → idempotent skip. The whole subtree is
+		// owned by that animation; don't recurse below it.
+		if ( block.attributes?.animationMode ) {
+			skipExisting.push( block );
+			descendantCount += countDescendants( block.clientId ) || 0;
+			return;
+		}
 
+		const name = block.name;
+
+		// Opaque container: animate as one unit.
+		if ( OPAQUE_CONTAINERS.has( name ) ) {
+			const category = classifyBlock( block, heroSoFar );
+			if ( category === 'BODY' ) {
+				skipBody.push( block );
+				return;
+			}
+			if ( category === 'CHROME' ) {
+				skipChrome.push( block );
+				return;
+			}
+			if ( category === 'BROKEN' ) {
+				skipBroken.push( block );
+				return;
+			}
+			if ( category === 'HERO' ) {
+				heroSoFar += 1;
+			}
+			apply.push( { clientId: block.clientId, category, block } );
+			// Subtree rides along with the container's animation.
+			descendantCount += countDescendants( block.clientId ) || 0;
+			return;
+		}
+
+		// Transparent container: descend if it has any interesting
+		// leaf in its subtree; otherwise animate it as SECTION.
+		if ( TRANSPARENT_CONTAINERS.has( name ) ) {
+			if ( subtreeHasInterestingLeaf( block ) ) {
+				// Don't animate the container itself; descend into
+				// each child. BODY/CHROME children get filtered into
+				// their skip buckets inside the recurse() call.
+				for ( const child of block.innerBlocks || [] ) {
+					recurse( child );
+				}
+				return;
+			}
+			// Text-only Group / empty Column → animate as SECTION.
+			apply.push( {
+				clientId: block.clientId,
+				category: 'SECTION',
+				block,
+			} );
+			descendantCount += countDescendants( block.clientId ) || 0;
+			return;
+		}
+
+		// Leaf block — classify and route.
+		const category = classifyBlock( block, heroSoFar );
 		if ( category === 'BODY' ) {
 			skipBody.push( block );
-			continue;
+			return;
 		}
 		if ( category === 'CHROME' ) {
 			skipChrome.push( block );
-			continue;
+			return;
 		}
 		if ( category === 'BROKEN' ) {
 			skipBroken.push( block );
-			continue;
+			return;
 		}
-
 		if ( category === 'HERO' ) {
 			heroSoFar += 1;
 		}
-
 		apply.push( { clientId: block.clientId, category, block } );
-		// Descendants of this animated container are intentionally
-		// not animated (parent animates as a unit). Count them so
-		// we can show "12 nested blocks (handled by their containers)".
-		descendantCount += countDescendants( block.clientId ) || 0;
+	}
+
+	for ( const block of topLevelBlocks || [] ) {
+		recurse( block );
 	}
 
 	return {

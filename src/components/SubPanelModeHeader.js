@@ -16,14 +16,12 @@
  */
 
 import {
-	Icon,
-	Button,
-	Dropdown,
+	DropdownMenu,
 	MenuGroup,
 	MenuItem,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { desktop, seen, chevronDown } from '@wordpress/icons';
+import { desktop, seen } from '@wordpress/icons';
 
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import {
@@ -77,28 +75,14 @@ export default function SubPanelModeHeader( {
 	return (
 		<div className="mb-sub-panel-header">
 			<div className="mb-sub-panel-title-row">
-				<Dropdown
+				<DropdownMenu
 					className="mb-mode-picker"
 					popoverProps={ { placement: 'bottom-start' } }
-					renderToggle={ ( { isOpen, onToggle } ) => (
-						<Button
-							type="button"
-							className="mb-mode-picker__toggle"
-							aria-expanded={ isOpen }
-							aria-label={ __(
-								'Change animation mode',
-								'motion-blocks'
-							) }
-							onClick={ onToggle }
-						>
-							<Icon icon={ getIcon( mode ) } size={ 24 } />
-							<span className="mb-sub-panel-title">
-								{ getLabel( mode ) }
-							</span>
-							<Icon icon={ chevronDown } size={ 18 } />
-						</Button>
-					) }
-					renderContent={ ( { onClose } ) => (
+					icon={ getIcon( mode ) }
+					text={ getLabel( mode ) }
+					label={ __( 'Change animation mode', 'motion-blocks' ) }
+				>
+					{ ( { onClose } ) => (
 						<MenuGroup>
 							{ MODE_ORDER.map( ( m ) => (
 								<MenuItem
@@ -120,7 +104,7 @@ export default function SubPanelModeHeader( {
 							) ) }
 						</MenuGroup>
 					) }
-				/>
+				</DropdownMenu>
 				<AnimationOptionsMenu
 					attributes={ attributes }
 					blockName={ blockName }

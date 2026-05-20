@@ -91,7 +91,7 @@ export default function SubPanelModeHeader( {
 							) }
 							onClick={ onToggle }
 						>
-							<Icon icon={ getIcon( mode ) } size={ 24 } />
+							<Icon icon={ getIcon( mode ) } size={ 18 } />
 							<span className="mb-sub-panel-title">
 								{ getLabel( mode ) }
 							</span>

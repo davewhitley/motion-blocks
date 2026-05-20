@@ -83,6 +83,7 @@ export default function SubPanelModeHeader( {
 					renderToggle={ ( { isOpen, onToggle } ) => (
 						<Button
 							type="button"
+							size="compact"
 							className="mb-mode-picker__toggle"
 							aria-expanded={ isOpen }
 							aria-label={ __(

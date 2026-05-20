@@ -400,10 +400,9 @@
 	}
 
 	// Click-to-open mode picker that replaces the static title.
-	// Styled like a standard WP form control (matches the
-	// SelectControls below it): white background, 1px border,
-	// 40px tall — the `__next40pxDefaultSize` medium form-control
-	// height. WP's default Button look (transparent, chunky pill
+	// Styled like a compact WP form control: white background,
+	// 1px border, 32px tall — matches `size="compact"` on WP's
+	// Button. WP's default Button look (transparent, chunky pill
 	// hover) needs to be overridden via `.components-button`
 	// specificity.
 	.mb-mode-picker {
@@ -416,8 +415,8 @@
 		align-items: center;
 		gap: vars.$grid-unit-10;
 		width: 100%;
-		height: 40px;
-		min-height: 40px;
+		height: 32px;
+		min-height: 32px;
 		padding: 0 vars.$grid-unit-10 0 vars.$grid-unit-15;
 		margin: 0;
 		background: #fff;

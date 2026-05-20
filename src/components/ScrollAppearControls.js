@@ -250,6 +250,22 @@ export default function ScrollAppearControls( {
 				value={ trigger }
 				onChange={ handleTriggerChange }
 				isBlock
+				help={
+					trigger === 'exit'
+						? __(
+								'Animation plays when the element scrolls out of view.',
+								'motion-blocks'
+						  )
+						: trigger === 'both'
+						? __(
+								'Animation plays when the element enters the viewport, then plays again on exit.',
+								'motion-blocks'
+						  )
+						: __(
+								'Animation plays when the element scrolls into view.',
+								'motion-blocks'
+						  )
+				}
 				__nextHasNoMarginBottom
 			>
 				<ToggleGroupControlOption

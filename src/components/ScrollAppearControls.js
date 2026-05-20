@@ -239,7 +239,7 @@ export default function ScrollAppearControls( {
 				onReset={ onReset }
 				onRemove={ onRemove }
 				helpText={ __(
-					'Trigger animation when the element scrolls into the viewport.',
+					'Trigger animations when the element enters or exits the screen.',
 					'motion-blocks'
 				) }
 			/>

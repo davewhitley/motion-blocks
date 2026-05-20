@@ -190,7 +190,7 @@ export default function PageLoadControls( {
 				onReset={ onReset }
 				onRemove={ onRemove }
 				helpText={ __(
-					'Animate when the page first loads. Great for hero sections and above-the-fold content.',
+					'Plays once (or loops continuously) when the page first loads.',
 					'motion-blocks'
 				) }
 			/>

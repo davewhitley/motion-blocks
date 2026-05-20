@@ -171,7 +171,7 @@ export default function ScrollInteractiveControls( {
 				onReset={ onReset }
 				onRemove={ onRemove }
 				helpText={ __(
-					'Animation is tied to scroll position. Adjust the offsets to control the start (bottom of screen) and the end (top of the screen).',
+					'Ties animation progress directly to scroll position.',
 					'motion-blocks'
 				) }
 			/>

@@ -17,8 +17,39 @@
     --mb-duration: 0.6s;
     --mb-delay: 0.4s;
     --mb-timing: ease;
-    --mb-exit-duration: 0.6s;
-    --mb-exit-delay: 0s;
+}
+
+/* ----------------------------------------------------------------
+ * Page-level overflow clip
+ *
+ * Off-screen animation transforms (Slide In from the left, large
+ * translates, scaled-up entries, etc.) would otherwise extend the
+ * document width past the viewport and create a horizontal
+ * scrollbar — even though the user can't actually scroll anywhere
+ * useful, the page just looks broken.
+ *
+ * Clipping `<html>` at the page level fixes this without disturbing
+ * any intermediate container's `overflow` — Group blocks, Columns,
+ * and Sections keep `overflow: visible`, so animations can still
+ * visibly break out of their local box. Only the page boundary
+ * itself does the clipping.
+ *
+ * Modern `overflow: clip` is preferred — it doesn't create a scroll
+ * container the way `overflow: hidden` does, so third-party JS that
+ * uses `scrollLeft` / `scrollIntoView()` on its own scroll
+ * containers (carousels, smooth-scroll libraries) is unaffected.
+ * The carousel's scrolling happens inside its own wrapper, not on
+ * `<html>`.
+ *
+ * Gated on `body.mb-clip-page-overflow`, which the PHP body_class
+ * filter emits when `motion_blocks_apply_overflow_clip` resolves
+ * truthy. Sites with intentional document-level horizontal scroll
+ * can opt out with one line in functions.php:
+ *
+ *     add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
+ * -------------------------------------------------------------- */
+html:has(body.mb-clip-page-overflow) {
+    overflow-x: clip;
 }
 
 /* ----------------------------------------------------------------
@@ -32,17 +63,37 @@
     opacity: 0;
 }
 
-/* Enter trigger: hidden until IO adds .mb-triggered */
-.mb-mode-scroll-appear[data-mb-scroll-trigger="enter"]:not(.mb-triggered) {
+/* Scroll Appear initial-hide (slot model): hide the element only
+   when its Entry slot is filled (`.mb-has-entry`) AND no animation
+   class is active. An Exit-only block (`.mb-has-entry` absent)
+   starts visible — its exit animation hides it via forwards fill
+   when the user scrolls past. */
+.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) {
     opacity: 0;
 }
-
-/* Both trigger: hidden until first enter, then toggled by JS */
-.mb-mode-scroll-appear[data-mb-scroll-trigger="both"]:not(.mb-triggered):not(.mb-exit-triggered) {
-    opacity: 0;
+/* img-target Custom: the wrapper never animates — only the first
+   img descendant does. Keep the figure / caption visible by opting
+   out of the wrapper-level pre-hide. The img's own from-state is
+   applied via the scoped keyframe's `animation-fill-mode: both`
+   once the trigger class lands. */
+.mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered) {
+    opacity: 1;
 }
 
-/* Exit trigger: always visible (exit animation hides it via forwards fill) */
+/* "Out" preset variants for Page Load and Scroll Interactive
+   invert the initial state — element starts VISIBLE because the
+   animation goes 1 → 0. Scroll Appear no longer uses Out variants
+   (the slot direction encodes which keyframe runs), so we don't
+   need to override its initial-hide rule here. */
+.mb-mode-page-load:is(
+        .mb-enter-fade-out,
+        .mb-enter-slide-out,
+        .mb-enter-scale-out,
+        .mb-enter-blur-out,
+        .mb-enter-rotate-out
+    ):not(.mb-triggered) {
+    opacity: 1;
+}
 
 /* ----------------------------------------------------------------
  * Triggered State — Entrance (page-load + scroll-appear)
@@ -62,14 +113,24 @@
 
 /* ----------------------------------------------------------------
  * Triggered State — Exit (scroll-appear only)
+ *
+ * Exit shares duration / timing with enter — v2 dropped the separate
+ * exit-* vars. Delay is forced to 0 so the exit fires immediately
+ * when the element scrolls out of view (the enter delay was a one-
+ * shot pre-roll, not part of the loop).
+ *
+ * `animation-direction` is consumed here so `custom` / `image-move`
+ * types can reverse-play their per-block enter keyframe on exit
+ * (set by frontend.js handleScrollExit). For non-custom types the
+ * `.mb-exit-{type}.mb-exit-triggered` rules below swap in a
+ * pre-reversed `mbXxxOut` keyframe, so `--mb-direction` stays at
+ * normal and the Out keyframe runs forward.
  * -------------------------------------------------------------- */
 .mb-animated.mb-exit-triggered {
-    animation-duration: var(--mb-exit-duration, var(--mb-duration));
-    animation-delay: var(--mb-exit-delay, 0s);
+    animation-duration: var(--mb-duration);
+    animation-delay: 0s;
     animation-fill-mode: var(--mb-fill-mode, both);
-    animation-timing-function: var(--mb-exit-timing, var(--mb-timing));
-    /* Parity with the entrance rule above — same iteration-count /
-       direction vars apply if a looping exit is ever wired in. */
+    animation-timing-function: var(--mb-timing);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
 }
@@ -101,6 +162,14 @@
     to   { opacity: 1; }
 }
 
+/* Fade Out (entrance plays the Out keyframe — element starts
+   visible and fades away when triggered). The Out variant's "exit"
+   half (for Mirror) plays mbFadeIn in reverse. */
+.mb-enter-fade-out.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-fade-out {
+    animation-name: mbFadeOut;
+}
+
 /* Slide In — direction via --mb-slide-x, --mb-slide-y */
 .mb-enter-slide.mb-triggered,
 .mb-mode-scroll-interactive.mb-enter-slide {
@@ -116,6 +185,13 @@
         opacity: 1;
         transform: translate(0, 0);
     }
+}
+
+/* Slide Out — plays mbSlideOut. Direction vars name the END
+   position so the motion direction matches the In variant. */
+.mb-enter-slide-out.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-slide-out {
+    animation-name: mbSlideOut;
 }
 
 /* Wipe In — direction via --mb-wipe-from */
@@ -179,6 +255,13 @@
     }
 }
 
+/* Scale Out — plays mbScaleOut. Direction vars name the END
+   position so the motion direction matches the In variant. */
+.mb-enter-scale-out.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-scale-out {
+    animation-name: mbScaleOut;
+}
+
 /* Blur In — blur amount via --mb-blur-amount */
 .mb-enter-blur.mb-triggered,
 .mb-mode-scroll-interactive.mb-enter-blur {
@@ -196,6 +279,12 @@
     }
 }
 
+/* Blur Out — plays mbBlurOut (visible/sharp → invisible/blurred). */
+.mb-enter-blur-out.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-blur-out {
+    animation-name: mbBlurOut;
+}
+
 /* Rotate In — angle via --mb-rotate-angle */
 .mb-enter-rotate.mb-triggered,
 .mb-mode-scroll-interactive.mb-enter-rotate {
@@ -211,6 +300,12 @@
         opacity: 1;
         transform: rotate(0deg);
     }
+}
+
+/* Rotate Out — plays mbRotateOut (0deg → angle, opacity 1 → 0). */
+.mb-enter-rotate-out.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-rotate-out {
+    animation-name: mbRotateOut;
 }
 
 /* Custom (Start / End) animations don't have a static keyframe rule.
@@ -233,6 +328,12 @@
     to   { opacity: 0; }
 }
 
+/* Fade Out preset's exit half — reverse of its entrance, so the
+   element fades back IN. Drives Mirror's return phase. */
+.mb-exit-fade-out.mb-exit-triggered {
+    animation-name: mbFadeIn;
+}
+
 /* Slide Out — direction via --mb-slide-x, --mb-slide-y */
 .mb-exit-slide.mb-exit-triggered {
     animation-name: mbSlideOut;
@@ -247,6 +348,11 @@
         opacity: 0;
         transform: translate(var(--mb-slide-x, 0), var(--mb-slide-y, 50px));
     }
+}
+
+/* Slide Out preset's exit half — drives Mirror's return phase. */
+.mb-exit-slide-out.mb-exit-triggered {
+    animation-name: mbSlideIn;
 }
 
 /* Wipe Out — direction via --mb-wipe-from */
@@ -285,6 +391,11 @@
     }
 }
 
+/* Scale Out preset's exit half — drives Mirror's return phase. */
+.mb-exit-scale-out.mb-exit-triggered {
+    animation-name: mbScaleIn;
+}
+
 /* Blur Out — blur amount via --mb-blur-amount */
 .mb-exit-blur.mb-exit-triggered {
     animation-name: mbBlurOut;
@@ -299,6 +410,11 @@
         opacity: 0;
         filter: blur(var(--mb-blur-amount, 8px));
     }
+}
+
+/* Blur Out preset's exit half — drives Mirror's return phase. */
+.mb-exit-blur-out.mb-exit-triggered {
+    animation-name: mbBlurIn;
 }
 
 /* Rotate Out — angle via --mb-rotate-angle */
@@ -317,7 +433,24 @@
     }
 }
 
-/* Custom exit: animation-name is set inline (see frontend.js). */
+/* Rotate Out preset's exit half — drives Mirror's return phase. */
+.mb-exit-rotate-out.mb-exit-triggered {
+    animation-name: mbRotateIn;
+}
+
+/* Scroll Appear Custom (slot model). The per-block keyframe names
+   come from the frontend script via these CSS custom properties.
+   Each phase reads its own var so Entry and Exit can hold
+   independent Custom keyframes. */
+.mb-mode-scroll-appear.mb-enter-custom.mb-triggered {
+    animation-name: var(--mb-entry-anim-name);
+}
+.mb-mode-scroll-appear.mb-exit-custom.mb-exit-triggered {
+    animation-name: var(--mb-exit-anim-name);
+}
+
+/* Custom exit (Page Load / Scroll Interactive): animation-name is
+   set inline by frontend.js — no class binding needed. */
 
 /* ----------------------------------------------------------------
  * Accessibility: Reduced Motion
@@ -417,11 +550,26 @@
 }
 
 /* Initial hidden state for children — mirrors the parent's
-   "before triggered" rule but applied to the kids. */
+   "before triggered" rule but applied to the kids. Scroll Appear
+   gates on `.mb-has-entry` (slot model) so Exit-only blocks don't
+   hide their kids before the entry animation has anything to do. */
 .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
-.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="enter"]:not(.mb-triggered) > *,
-.mb-stagger-parent.mb-mode-scroll-appear[data-mb-scroll-trigger="both"]:not(.mb-triggered):not(.mb-exit-triggered) > * {
+.mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > * {
     opacity: 0;
+}
+
+/* Page Load "Out" preset inner blocks start visible — invert the
+   hide above. Scroll Appear no longer uses Out variants under the
+   slot model (the Exit slot's `mb-exit-{type}` class encodes
+   direction directly), so no Scroll Appear selectors here. */
+.mb-stagger-parent:is(
+        .mb-enter-fade-out,
+        .mb-enter-slide-out,
+        .mb-enter-scale-out,
+        .mb-enter-blur-out,
+        .mb-enter-rotate-out
+    ).mb-mode-page-load:not(.mb-triggered) > * {
+    opacity: 1;
 }
 
 /* Triggered state — children inherit the parent's animation timing
@@ -432,22 +580,58 @@
     animation-timing-function: var(--mb-timing);
 }
 
-/* Bind animation-name per enter type. Children use the same keyframes
-   the parent would have used. Custom (From/To) and image-move are
-   intentionally not listed — they use per-block keyframes which
-   don't compose with this descendant-selector cascade (see
-   STAGGER_INCOMPATIBLE_TYPES in constants.js). */
-.mb-stagger-parent.mb-enter-fade.mb-triggered    > * { animation-name: mbFadeIn; }
-.mb-stagger-parent.mb-enter-slide.mb-triggered   > * { animation-name: mbSlideIn; }
-.mb-stagger-parent.mb-enter-scale.mb-triggered   > * { animation-name: mbScaleIn; }
-.mb-stagger-parent.mb-enter-rotate.mb-triggered  > * { animation-name: mbRotateIn; }
-.mb-stagger-parent.mb-enter-blur.mb-triggered    > * { animation-name: mbBlurIn; }
-.mb-stagger-parent.mb-enter-wipe.mb-triggered    > * { animation-name: mbWipeIn; }
-.mb-stagger-parent.mb-enter-curtain.mb-triggered > * { animation-name: mbCurtainReveal; }
+/* Bind animation-name per enter type. Inner blocks use the same
+   keyframes the parent block would have used.
+
+   For Custom (From/To), the parent block generates a unique per-
+   block keyframe at runtime and exposes its name via the
+   `--mb-stagger-anim-name` custom property. The custom property
+   inherits down the cascade to inner blocks, which read it back
+   here. `image-move` is excluded — it's a scroll-interactive
+   parallax preset which doesn't use the `.mb-triggered` toggle. */
+.mb-stagger-parent.mb-enter-fade.mb-triggered       > * { animation-name: mbFadeIn; }
+.mb-stagger-parent.mb-enter-fade-out.mb-triggered   > * { animation-name: mbFadeOut; }
+.mb-stagger-parent.mb-enter-slide.mb-triggered      > * { animation-name: mbSlideIn; }
+.mb-stagger-parent.mb-enter-slide-out.mb-triggered  > * { animation-name: mbSlideOut; }
+.mb-stagger-parent.mb-enter-scale.mb-triggered      > * { animation-name: mbScaleIn; }
+.mb-stagger-parent.mb-enter-scale-out.mb-triggered  > * { animation-name: mbScaleOut; }
+.mb-stagger-parent.mb-enter-rotate.mb-triggered     > * { animation-name: mbRotateIn; }
+.mb-stagger-parent.mb-enter-rotate-out.mb-triggered > * { animation-name: mbRotateOut; }
+.mb-stagger-parent.mb-enter-blur.mb-triggered       > * { animation-name: mbBlurIn; }
+.mb-stagger-parent.mb-enter-blur-out.mb-triggered   > * { animation-name: mbBlurOut; }
+.mb-stagger-parent.mb-enter-wipe.mb-triggered       > * { animation-name: mbWipeIn; }
+.mb-stagger-parent.mb-enter-curtain.mb-triggered    > * { animation-name: mbCurtainReveal; }
 .mb-stagger-parent.mb-enter-flip.mb-triggered    > * {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
+}
+.mb-stagger-parent.mb-enter-custom.mb-triggered  > * {
+    animation-name: var(--mb-stagger-anim-name, none);
+}
+
+/* Exit-phase stagger bindings. When the Scroll Appear parent has
+   Exit slot filled, inner blocks need their own animation-name on
+   `.mb-exit-triggered`. Mirrors the enter-phase bindings above —
+   one rule per type. */
+.mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > * { animation-name: mbFadeOut; }
+.mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > * { animation-name: mbSlideOut; }
+.mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > * { animation-name: mbScaleOut; }
+.mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > * { animation-name: mbRotateOut; }
+.mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > * { animation-name: mbBlurOut; }
+.mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > * { animation-name: mbWipeOut; }
+.mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > * { animation-name: mbCurtainClose; }
+.mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > * {
+    animation-name: var(--mb-exit-anim-name, none);
+}
+
+/* Exit-phase timing — inner blocks pick up the same vars as the
+   parent's exit-triggered state (delay 0, otherwise inherits). */
+.mb-stagger-parent.mb-exit-triggered > * {
+    animation-duration: var(--mb-duration);
+    animation-fill-mode: both;
+    animation-timing-function: var(--mb-timing);
+    animation-delay: 0s;
 }
 
 /* Stepped delay per child. CSS doesn't have a `for` so we list 30
@@ -526,3 +710,4 @@
         overflow-x: hidden;
     }
 }
+

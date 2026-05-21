@@ -1,12 +1,20 @@
 /**
  * FromToControls — Editor for the `custom` animation type.
  *
- * Single-side-at-a-time UX: a Start / End toggle picks which side
- * the user is editing. Properties are added/removed via WP's
- * standard ToolsPanel kebab dropdown — same component used by
- * Border & Shadow, Typography, Dimensions, etc. — so we get its
- * checkbox-list, "Reset all", focus management, and styling for
- * free.
+ * Single-side-at-a-time UX: a From / To segmented toggle picks
+ * which side the user is editing. Labels intentionally match the
+ * CSS `@keyframes { from {...} to {...} }` vocabulary that the
+ * underlying machinery emits, so anyone inspecting the generated
+ * CSS sees the same terminology they clicked.
+ *
+ * (Internal attribute value still uses 'start'/'end' for
+ * `animationFromToActiveSide` to avoid a data migration; the UI
+ * label is the only thing that changed.)
+ *
+ * Properties are added/removed via WP's standard ToolsPanel kebab
+ * dropdown — same component used by Border & Shadow, Typography,
+ * Dimensions, etc. — so we get its checkbox-list, "Reset all",
+ * focus management, and styling for free.
  *
  * "Not added" is encoded as `null` in the corresponding attribute.
  * Properties not added on a side are omitted from the generated
@@ -15,6 +23,13 @@
  *
  * The ToolsPanel is keyed on `side` so it remounts when the user
  * flips Start↔End, giving each side its own clean panel state.
+ *
+ * **Slot support.** When the `slot` prop is set ('entry' or 'exit'),
+ * this component reads/writes the per-slot keyframe attributes
+ * (`animationEntryFromX`, `animationExitToX`, etc.) instead of the
+ * shared `animationFromX` / `animationToX` pair. Callers that don't
+ * pass a slot prop (Page Load Custom) fall back to the shared attrs —
+ * unchanged behavior.
  */
 
 import {
@@ -25,11 +40,9 @@ import {
 	__experimentalUnitControl as UnitControl,
 	__experimentalNumberControl as NumberControl,
 	__experimentalHStack as HStack,
-	TabPanel,
 	FlexBlock,
 	RangeControl,
 	TextControl,
-	ToggleControl,
 	Button,
 	ExternalLink,
 } from '@wordpress/components';
@@ -45,6 +58,39 @@ import {
 	IMAGE_TARGETABLE_BLOCKS,
 	isPropertyAdded,
 } from './constants';
+
+/**
+ * Compute the attribute-name maps for a slot.
+ *
+ * When `slot` is undefined or null, returns the shared attribute
+ * maps (animationFromOpacity, animationToOpacity, …). When `slot`
+ * is 'entry' or 'exit', returns slot-prefixed maps
+ * (animationEntryFromOpacity, animationExitToOpacity, …).
+ *
+ * @param {?('entry'|'exit')} slot
+ * @return {{ from: Object, to: Object }}
+ */
+function slotAttrMaps( slot ) {
+	if ( ! slot ) {
+		return { from: FROM_ATTR, to: TO_ATTR };
+	}
+	const prefix = slot === 'entry' ? 'animationEntry' : 'animationExit';
+	const from = {};
+	const to = {};
+	for ( const prop of Object.keys( FROM_ATTR ) ) {
+		// FROM_ATTR[prop] is 'animationFromOpacity' etc. Replace the
+		// leading 'animationFrom' / 'animationTo' with the slot prefix.
+		from[ prop ] = FROM_ATTR[ prop ].replace(
+			/^animationFrom/,
+			`${ prefix }From`
+		);
+		to[ prop ] = TO_ATTR[ prop ].replace(
+			/^animationTo/,
+			`${ prefix }To`
+		);
+	}
+	return { from, to };
+}
 
 /**
  * Render the input control for a property based on its kind:
@@ -215,6 +261,7 @@ export default function FromToControls( {
 	attributes,
 	setAttributes,
 	blockName,
+	slot,
 } ) {
 	// `side` lives in an attribute so it survives remounts of this
 	// component (e.g. when the Play-preview hack clears animationType
@@ -222,8 +269,10 @@ export default function FromToControls( {
 	const side = attributes.animationFromToActiveSide || 'start';
 	const setSide = ( newSide ) =>
 		setAttributes( { animationFromToActiveSide: newSide } );
-	const attrMap = side === 'start' ? FROM_ATTR : TO_ATTR;
-	const panelId = `mb-from-to-${ side }`;
+
+	const { from: fromMap, to: toMap } = slotAttrMaps( slot );
+	const attrMap = side === 'start' ? fromMap : toMap;
+	const panelId = `mb-from-to-${ slot || 'shared' }-${ side }`;
 	const previewSide = attributes.animationFromToPreviewSide || 'off';
 	const isPreviewing = previewSide !== 'off';
 	const target = attributes.animationFromToTarget || 'block';
@@ -259,21 +308,21 @@ export default function FromToControls( {
 	}, [ side, isPreviewing, previewSide, setAttributes ] );
 
 
-	// Help text under the Start/End tabs. The trickiest part of the
-	// From/To model is that omitted properties don't mean "identity" —
-	// they fall through to whatever the element looks like naturally
-	// on that end of the timeline. The second sentence explicitly
-	// surfaces that, framed as "properties you don't add" to match
-	// the ToolsPanel kebab UX (add a row to track a property; don't
-	// add it = leave it alone).
+	// Help text rendered via the ToggleGroupControl's native `help`
+	// prop. The trickiest part of the From/To model is that omitted
+	// properties don't mean "identity" — they fall through to whatever
+	// the element looks like naturally on that end of the timeline.
+	// The second sentence surfaces that, framed as "properties you
+	// don't add" to match the ToolsPanel kebab UX (add a row to track
+	// a property; don't add it = leave it alone).
 	const sideHelp =
 		side === 'start'
 			? __(
-					"Adjust how the block looks when the animation starts. Properties you don't add use the block's normal styling.",
+					"Adjust how the block looks at the start of the animation. Properties you don't add use the block's normal styling.",
 					'motion-blocks'
 			  )
 			: __(
-					"Adjust how the block looks when the animation ends. Properties you don't add use the block's normal styling.",
+					"Adjust how the block looks at the end of the animation. Properties you don't add use the block's normal styling.",
 					'motion-blocks'
 			  );
 
@@ -323,37 +372,33 @@ export default function FromToControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ /* Tabs visual (underline indicator under active tab)
-			   for the Start/End side picker. WP's `__experimentalTabs`
-			   compound component (with Tabs.TabList) isn't exported
-			   in older WP/Gutenberg versions, so we use the stable
-			   `TabPanel` instead and style it via CSS to match the
-			   underline look. The render-prop returns null because
-			   the same ToolsPanel renders below regardless of side
-			   (with `key={side}` to remount per side). `key={side}`
-			   on TabPanel itself handles any external side change
-			   (e.g. from applying a saved animation). */ }
-			<TabPanel
-				key={ side }
-				className="mb-side-tabs"
-				initialTabName={ side }
-				onSelect={ ( name ) => name && setSide( name ) }
-				tabs={ [
-					{
-						name: 'start',
-						title: __( 'Start', 'motion-blocks' ),
-					},
-					{
-						name: 'end',
-						title: __( 'End', 'motion-blocks' ),
-					},
-				] }
+			{ /* Segmented toggle for the Start/End side picker. Earlier
+			   versions used a styled TabPanel here; in the slot model
+			   the panel already has Entry/Exit tabs at the top level,
+			   so a second row of tabs would create visual nested-tabs
+			   confusion. ToggleGroupControl distinguishes the inner
+			   side-picker from the outer slot tabs by metaphor. */ }
+			<ToggleGroupControl
+				label={ __( 'Edit side', 'motion-blocks' ) }
+				value={ side }
+				onChange={ ( newSide ) => newSide && setSide( newSide ) }
+				isBlock
+				help={ sideHelp }
+				__nextHasNoMarginBottom
 			>
-				{ () => null }
-			</TabPanel>
-			{ sideHelp && (
-				<p className="mb-side-help">{ sideHelp }</p>
-			) }
+				{ /* Values stay 'start'/'end' for backward compat with
+				   the `animationFromToActiveSide` attribute; only the
+				   labels switched to From/To to match the underlying
+				   CSS @keyframes vocabulary. */ }
+				<ToggleGroupControlOption
+					value="start"
+					label={ __( 'From', 'motion-blocks' ) }
+				/>
+				<ToggleGroupControlOption
+					value="end"
+					label={ __( 'To', 'motion-blocks' ) }
+				/>
+			</ToggleGroupControl>
 
 			{ /*
 			 * `key={side}` forces ToolsPanel to remount when the user
@@ -377,17 +422,17 @@ export default function FromToControls( {
 						isPreviewing
 							? __( 'Stop previewing', 'motion-blocks' )
 							: side === 'start'
-							? __( 'Preview start state', 'motion-blocks' )
-							: __( 'Preview end state', 'motion-blocks' )
+							? __( 'Preview from state', 'motion-blocks' )
+							: __( 'Preview to state', 'motion-blocks' )
 					}
 					onClick={ togglePreview }
 				/>
 			<ToolsPanel
-				key={ side }
+				key={ `${ slot || 'shared' }-${ side }` }
 				label={
 					side === 'start'
-						? __( 'Start Properties', 'motion-blocks' )
-						: __( 'End Properties', 'motion-blocks' )
+						? __( 'From Properties', 'motion-blocks' )
+						: __( 'To Properties', 'motion-blocks' )
 				}
 				resetAll={ resetAll }
 				panelId={ panelId }
@@ -432,27 +477,14 @@ export default function FromToControls( {
 			</div>
 
 			{ /*
-			 * Clip-parent-overflow opt-in. Lives outside the per-side
-			 * ToolsPanel because it's not a per-side property — it's a
-			 * single boolean flag that applies to both Start and End.
-			 * Solves the "translateX: 1000px creates a horizontal
-			 * scrollbar" case by clipping the parent via a `:has()`
-			 * rule in animations.css. Mirrors the existing image-target
-			 * clipping pattern (which also clips the parent), generalized
-			 * to wrapper-target animations via a marker class.
+			 * Clip-parent-overflow used to be rendered here, but the
+			 * setting applies to any animation that paints past the
+			 * block's natural bounds (Slide In with big offsets,
+			 * Custom translate, etc.) — not just Custom From/To. It
+			 * now lives on the parent mode panel (PageLoadControls /
+			 * ScrollAppearControls) so it's available for all
+			 * presets, not gated behind Custom mode.
 			 */ }
-			<ToggleControl
-				label={ __( 'Clip overflow on parent', 'motion-blocks' ) }
-				help={ __(
-					"Hide motion that extends past the parent block's bounds. Useful when sliding an element in from off-screen.",
-					'motion-blocks'
-				) }
-				checked={ !! attributes.animationClipParentOverflow }
-				onChange={ ( v ) =>
-					setAttributes( { animationClipParentOverflow: v } )
-				}
-				__nextHasNoMarginBottom
-			/>
 		</div>
 	);
 }

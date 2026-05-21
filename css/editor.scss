@@ -218,31 +218,38 @@
 	}
 }
 
-// Start / End tabs in the From/To panel. Uses WP's stable
-// `TabPanel` component (the newer `__experimentalTabs` isn't
-// available in older WP versions). Override the default button-
-// group styling to match the underlined-tab look the user
-// requested.
-.mb-side-tabs {
+// Entry / Exit tabs at the top of the Scroll Appear sub-panel.
+// Uses the stable `TabPanel` component (the newer `__experimentalTabs`
+// isn't available in older WP versions). Same underlined-tab look as
+// the previous Start/End tabs — the slot tabs are the visible nav
+// element of the panel now.
+.mb-slot-tabs {
 	.components-tab-panel__tabs {
 		border-bottom: 1px solid colors.$gray-200;
-		// Stretch each tab to fill half the row. With two tabs that's
-		// 50% / 50%; the existing flex container in TabPanel already
-		// gives the tabs equal room when each gets `flex: 1`.
 		display: flex;
+		margin-bottom: vars.$grid-unit-20;
+	}
+
+	// The tab content panel itself doesn't need padding — WP's
+	// default TabPanel adds 20px on all sides, but SlotControls
+	// handles its own internal spacing via `.mb-slot-controls`
+	// and the parent `.mb-sub-panel` supplies the outer gap rhythm.
+	// Zeroing the padding keeps the slot content flush with the
+	// rest of the sub-panel's controls.
+	.components-tab-panel__tab-content {
+		display: flex;
+		flex-direction: column;
+		padding: 0;
 	}
 
 	.components-tab-panel__tabs-item {
 		flex: 1 1 0;
-		// Center the label inside its now-wider hit area.
 		justify-content: center;
 		text-align: center;
 		background: transparent;
 		border: 0;
 		border-radius: 0;
 		padding: vars.$grid-unit-10 vars.$grid-unit-15;
-		// Pull active border down to overlap the bottom border on
-		// the tabs row, so the underline sits on the divider.
 		margin-bottom: -1px;
 		font-weight: 500;
 		color: colors.$gray-700;
@@ -263,23 +270,17 @@
 			outline-offset: -1.5px;
 		}
 	}
-
-	// We don't use tab content — the side state drives a ToolsPanel
-	// rendered outside the TabPanel.
-	.components-tab-panel__tab-content {
-		display: none;
-	}
 }
 
-// Help text below the Start / End tabs in the From/To panel.
-// Replaces the `help` prop on the old ToggleGroupControl with a
-// styled paragraph that matches WP's standard help-text appearance
-// (12px, gray-700).
-.mb-side-help {
-	margin: 0;
-	font-size: 12px;
-	line-height: 16px;
-	color: colors.$gray-700;
+// SlotControls — per-slot config (Effect + direction + timing).
+// Children stack with the same `$grid-unit-20` rhythm the rest of
+// the sub-panel uses, so the Effect dropdown, FromToControls embed,
+// direction/blur/rotate sub-controls, and timing rows all share
+// consistent breathing room.
+.mb-slot-controls {
+	display: flex;
+	flex-direction: column;
+	gap: vars.$grid-unit-20;
 }
 
 // Mode selector — initial state before animation is configured
@@ -378,9 +379,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: vars.$grid-unit-10;
-		padding-bottom: vars.$grid-unit-20;
-		margin-bottom: vars.$grid-unit-20;
+		padding-bottom: vars.$grid-unit-15;
 		border-bottom: 1px solid colors.$gray-400;
+		// No margin-bottom — the parent `.mb-sub-panel` already
+		// supplies `gap: $grid-unit-20` between children. Doubling it
+		// produced a ~48px void below the help text under the new
+		// Scroll Appear tab layout.
 	}
 
 	.mb-sub-panel-title-row {

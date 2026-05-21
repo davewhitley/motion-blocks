@@ -30,6 +30,15 @@
 			ttb: { '--mb-slide-x': '0', '--mb-slide-y': '-50px' },
 			btt: { '--mb-slide-x': '0', '--mb-slide-y': '50px' },
 		},
+		// Slide Out — vars are the END position. Negated from `slide`
+		// so the direction value still names the motion direction
+		// (btt = element moves upward, ending above its rest spot).
+		'slide-out': {
+			ltr: { '--mb-slide-x': '50px', '--mb-slide-y': '0' },
+			rtl: { '--mb-slide-x': '-50px', '--mb-slide-y': '0' },
+			ttb: { '--mb-slide-x': '0', '--mb-slide-y': '50px' },
+			btt: { '--mb-slide-x': '0', '--mb-slide-y': '-50px' },
+		},
 		wipe: {
 			ltr: { '--mb-wipe-from': 'inset(0 100% 0 0)' },
 			rtl: { '--mb-wipe-from': 'inset(0 0 0 100%)' },
@@ -52,6 +61,14 @@
 			ttb: { '--mb-scale-x': '0', '--mb-scale-y': '-50px' },
 			ltr: { '--mb-scale-x': '-50px', '--mb-scale-y': '0' },
 			rtl: { '--mb-scale-x': '50px', '--mb-scale-y': '0' },
+		},
+		// Scale Out — same negation rationale as slide-out above.
+		'scale-out': {
+			none: { '--mb-scale-x': '0', '--mb-scale-y': '0' },
+			btt: { '--mb-scale-x': '0', '--mb-scale-y': '-50px' },
+			ttb: { '--mb-scale-x': '0', '--mb-scale-y': '50px' },
+			ltr: { '--mb-scale-x': '50px', '--mb-scale-y': '0' },
+			rtl: { '--mb-scale-x': '-50px', '--mb-scale-y': '0' },
 		},
 	};
 
@@ -99,25 +116,6 @@
 		}
 		if ( acceleration ) {
 			el.style.setProperty( '--mb-timing', acceleration );
-		}
-	}
-
-	/**
-	 * Apply exit timing CSS custom properties from data attributes.
-	 */
-	function applyExitTimingProps( el ) {
-		var duration = el.dataset.mbExitDuration;
-		var delay = el.dataset.mbExitDelay;
-		var acceleration = el.dataset.mbExitAcceleration;
-
-		if ( duration ) {
-			el.style.setProperty( '--mb-exit-duration', duration + 's' );
-		}
-		if ( delay !== undefined ) {
-			el.style.setProperty( '--mb-exit-delay', delay + 's' );
-		}
-		if ( acceleration ) {
-			el.style.setProperty( '--mb-exit-timing', acceleration );
 		}
 	}
 
@@ -180,12 +178,27 @@
 	/**
 	 * Build the body of one side of the keyframe (the contents of
 	 * `from { … }` or `to { … }`) from the element's data attrs.
+	 *
+	 * `attrPrefix` overrides the dataset prefix when reading per-slot
+	 * Custom From/To values. Pass 'mbEntryFrom'/'mbEntryTo' or
+	 * 'mbExitFrom'/'mbExitTo' to read the slot-prefixed attrs; default
+	 * is the shared `mbFromX` / `mbToX` used by Page Load and Scroll
+	 * Interactive.
 	 */
-	function buildSideBody( el, sideKey ) {
+	function buildSideBody( el, sideKey, attrPrefix ) {
 		var bag = {};
 		CUSTOM_PROPS.forEach( function ( p ) {
-			var raw =
-				el.dataset[ sideKey === 'from' ? p.dataFrom : p.dataTo ];
+			var key;
+			if ( attrPrefix ) {
+				// p.id is the lowerCamel key suffix (Opacity, TranslateX, …)
+				key =
+					attrPrefix +
+					p.id.charAt( 0 ).toUpperCase() +
+					p.id.slice( 1 );
+			} else {
+				key = sideKey === 'from' ? p.dataFrom : p.dataTo;
+			}
+			var raw = el.dataset[ key ];
 			if ( isAddedDatasetVal( raw ) ) {
 				bag[ p.id ] = raw;
 			}
@@ -358,6 +371,17 @@
 	 * direction and treat as img-target.
 	 */
 	function applyCustomKeyframe( el ) {
+		// Scroll Appear blocks read per-slot data attributes
+		// (`data-mb-entry-*` / `data-mb-exit-*`) instead of the shared
+		// `data-mb-type` / `data-mb-from-*` / `data-mb-to-*`. Up to
+		// two keyframes are injected (one per Custom slot) and bound
+		// via `--mb-entry-anim-name` / `--mb-exit-anim-name` CSS
+		// variables, which the slot-specific CSS rules consume.
+		if ( el.dataset.mbMode === 'scroll-appear' ) {
+			applyScrollAppearCustomKeyframes( el );
+			return;
+		}
+
 		var type = el.dataset.mbType;
 		if ( type !== 'custom' && type !== 'image-move' ) {
 			return;
@@ -379,16 +403,7 @@
 		}
 		customKeyframeCounter += 1;
 		var name = 'mb-custom-runtime-' + customKeyframeCounter;
-		var lines = [ '@keyframes ' + name + ' {' ];
-		if ( fromBody ) {
-			lines.push( '  from { ' + fromBody + ' }' );
-		}
-		if ( toBody ) {
-			lines.push( '  to { ' + toBody + ' }' );
-		}
-		lines.push( '}' );
-		var styleEl = getCustomStyleEl();
-		styleEl.appendChild( document.createTextNode( lines.join( '\n' ) ) );
+		appendKeyframeRule( name, fromBody, toBody );
 
 		// Branch on target: block (default) animates the wrapper;
 		// img scopes the keyframe to the first <img> descendant.
@@ -400,10 +415,184 @@
 				name,
 				el.dataset.mbMode
 			);
-			styleEl.appendChild( document.createTextNode( scopedCSS ) );
+			getCustomStyleEl().appendChild(
+				document.createTextNode( scopedCSS )
+			);
 		} else {
 			el.style.animationName = name;
+			// Stagger cascade for Custom: inner blocks bind their
+			// animation-name to this same per-block keyframe via
+			// `--mb-stagger-anim-name` (see animations.css). Custom
+			// properties inherit by default, so simply setting it on
+			// the parent block is enough — no per-child wiring
+			// required. Safe to set unconditionally: the CSS rule
+			// that reads it only fires on `.mb-stagger-parent`
+			// elements, so non-stagger blocks ignore it.
+			el.style.setProperty( '--mb-stagger-anim-name', name );
 		}
+	}
+
+	/**
+	 * Inject 0-2 per-block keyframes for a Scroll Appear block's
+	 * Custom slots, and expose their names via CSS variables that
+	 * the slot-binding rules in animations.css consume.
+	 *
+	 * Both slots share the wrapper's `--mb-stagger-anim-name` (which
+	 * the existing Stagger cascade reads) — but only the Entry slot
+	 * sets it. Exit-only Custom blocks don't compose with Stagger
+	 * meaningfully (no entry animation to cascade), and the inner
+	 * blocks wouldn't run an exit animation either.
+	 *
+	 * When the block carries `data-mb-target="img"`, the per-slot
+	 * keyframes are bound to the first `<img>` descendant instead of
+	 * the wrapper — same approach as Page Load + Custom + img. The
+	 * wrapper is left animation-free; a CSS override keeps the
+	 * `mb-has-entry` pre-hide from applying so the figure / caption
+	 * remain visible.
+	 */
+	function applyScrollAppearCustomKeyframes( el ) {
+		var entryType = el.dataset.mbEntryType || '';
+		var exitType = el.dataset.mbExitType || '';
+		var imgTarget = el.dataset.mbTarget === 'img';
+		var entryName = null;
+		var exitName = null;
+
+		// Entry slot
+		if ( entryType === 'custom' ) {
+			var entryFrom = buildSideBody( el, null, 'mbEntryFrom' );
+			var entryTo = buildSideBody( el, null, 'mbEntryTo' );
+			if ( entryFrom || entryTo ) {
+				customKeyframeCounter += 1;
+				entryName = 'mb-custom-runtime-' + customKeyframeCounter;
+				appendKeyframeRule( entryName, entryFrom, entryTo );
+				if ( ! imgTarget ) {
+					el.style.setProperty(
+						'--mb-entry-anim-name',
+						entryName
+					);
+					// Stagger cascade for the entry phase — inner
+					// blocks inherit this var via the cascade.
+					el.style.setProperty(
+						'--mb-stagger-anim-name',
+						entryName
+					);
+				}
+			}
+		}
+
+		// Exit slot
+		if ( exitType === 'custom' ) {
+			var exitFrom = buildSideBody( el, null, 'mbExitFrom' );
+			var exitTo = buildSideBody( el, null, 'mbExitTo' );
+			if ( exitFrom || exitTo ) {
+				customKeyframeCounter += 1;
+				exitName = 'mb-custom-runtime-' + customKeyframeCounter;
+				appendKeyframeRule( exitName, exitFrom, exitTo );
+				if ( ! imgTarget ) {
+					el.style.setProperty( '--mb-exit-anim-name', exitName );
+				}
+			}
+		}
+
+		// img-target: emit slot-aware scoped CSS that animates the
+		// first <img> descendant for each filled slot, scoped to a
+		// per-block uid so multiple img-target blocks don't collide.
+		if ( imgTarget && ( entryName || exitName ) ) {
+			customKeyframeCounter += 1;
+			var uid = 'mb-' + customKeyframeCounter;
+			el.setAttribute( 'data-mb-uid', uid );
+			var scopedCSS = buildScrollAppearImgScopedCSS(
+				uid,
+				entryName,
+				exitName
+			);
+			if ( scopedCSS ) {
+				getCustomStyleEl().appendChild(
+					document.createTextNode( scopedCSS )
+				);
+			}
+		}
+	}
+
+	/**
+	 * Build slot-aware scoped CSS for Scroll Appear + Custom +
+	 * img-target. Each slot binds its keyframe to the first img
+	 * descendant gated on the slot's trigger class
+	 * (`.mb-triggered` for entry, `.mb-exit-triggered` for exit).
+	 * Animation timing reads the shared `--mb-duration` etc. vars
+	 * that the IO callback swaps between phases.
+	 *
+	 * `overflow: clip` on the img's immediate parent (matched via
+	 * `:has(> img:first-of-type)`) provides a static clipping
+	 * rectangle. A transformed img child gets clipped against that
+	 * rectangle — clip-path on the img itself wouldn't work because
+	 * the clip transforms with the element and follows it past its
+	 * natural border.
+	 */
+	function buildScrollAppearImgScopedCSS( uid, entryName, exitName ) {
+		var scope = '[data-mb-uid="' + uid + '"]';
+		var imgSelector = scope + ' img:first-of-type';
+		var parentSelector = [
+			scope + ':has(> img:first-of-type)',
+			scope + ' :has(> img:first-of-type)',
+		].join( ', ' );
+		var rules = [];
+		rules.push( parentSelector + ' { overflow: clip; }' );
+		rules.push(
+			'@supports not (overflow: clip) { ' +
+				parentSelector +
+				' { overflow: hidden; } }'
+		);
+		var sharedAnim = [
+			'animation-duration: var(--mb-duration, 0.6s)',
+			'animation-delay: var(--mb-delay, 0s)',
+			'animation-fill-mode: var(--mb-fill-mode, both)',
+			'animation-timing-function: var(--mb-timing, ease)',
+			'animation-iteration-count: var(--mb-iteration-count, 1)',
+			'animation-direction: var(--mb-direction, normal)',
+		];
+		if ( entryName ) {
+			rules.push(
+				scope +
+					'.mb-triggered img:first-of-type { ' +
+					'animation-name: ' +
+					entryName +
+					'; ' +
+					sharedAnim.join( '; ' ) +
+					'; }'
+			);
+		}
+		if ( exitName ) {
+			rules.push(
+				scope +
+					'.mb-exit-triggered img:first-of-type { ' +
+					'animation-name: ' +
+					exitName +
+					'; ' +
+					sharedAnim.join( '; ' ) +
+					'; }'
+			);
+		}
+		return rules.join( '\n' );
+	}
+
+	/**
+	 * Append a `@keyframes name { from { … } to { … } }` rule to the
+	 * shared `<style data-mb-custom>` element. Either body may be null
+	 * (CSS interpolates to the element's computed style on that end).
+	 */
+	function appendKeyframeRule( name, fromBody, toBody ) {
+		var lines = [ '@keyframes ' + name + ' {' ];
+		if ( fromBody ) {
+			lines.push( '  from { ' + fromBody + ' }' );
+		}
+		if ( toBody ) {
+			lines.push( '  to { ' + toBody + ' }' );
+		}
+		lines.push( '}' );
+		getCustomStyleEl().appendChild(
+			document.createTextNode( lines.join( '\n' ) )
+		);
 	}
 
 	/**
@@ -485,14 +674,23 @@
 	}
 
 	/* ---------------------------------------------------------------
-	 * 2. Scroll in View Animations
+	 * 2. Scroll in View Animations (slot model)
 	 *
-	 * Supports three trigger modes:
-	 *   - enter: animate in when scrolled into view
-	 *   - exit: animate out when scrolled out of view
-	 *   - both: animate in on enter, animate out on exit
-	 *     - mirror: exit is the reverse of enter
-	 *     - custom: independent exit animation config
+	 * Each block has an Entry slot and an Exit slot, each
+	 * independently filled or empty. The IO callback fires the
+	 * matching slot's animation on each scroll-direction transition:
+	 *
+	 *   - intersecting (forward enter)     → Entry slot fires
+	 *   - not intersecting (forward leave) → Exit slot fires
+	 *   - intersecting after exit          → Entry slot fires again
+	 *   - …
+	 *
+	 * `mb-has-entry` class on the wrapper signals "Entry slot is
+	 * filled" — used by the CSS initial-hide rule.
+	 *
+	 * Slot config comes from per-slot data attributes
+	 * (data-mb-entry-* / data-mb-exit-*). The frontend doesn't read
+	 * `data-mb-type` for Scroll Appear blocks any more.
 	 * ------------------------------------------------------------- */
 
 	function initScrollAppearAnimations() {
@@ -503,66 +701,83 @@
 		}
 
 		elements.forEach( function ( el ) {
-			var trigger = el.dataset.mbScrollTrigger || 'enter';
-			var playOnce = el.dataset.mbPlayOnce !== 'false';
-			var enterType = el.dataset.mbType;
-			var enterDirection = el.dataset.mbDirection || '';
-			var exitMode = el.dataset.mbExitMode || 'mirror';
-
-			// Track whether the element has been seen at least once.
-			// Prevents the IO's initial "not intersecting" callback
-			// from firing the exit animation before any enter.
+			var entry = readSlotConfig( el, 'entry' );
+			var exit = readSlotConfig( el, 'exit' );
+			var hasEntry = entry.type !== '';
+			var hasExit = exit.type !== '';
+			if ( ! hasEntry && ! hasExit ) {
+				return;
+			}
+			// Play once is meaningful only when the Entry slot is
+			// filled (semantic: "fire the entry animation exactly
+			// once, then unobserve"). When only Exit is filled, the
+			// block is observable indefinitely so the user can scroll
+			// back to it and see the fade-out replay.
+			var playOnce =
+				hasEntry && el.dataset.mbPlayOnce !== 'false';
+			// Track whether the element has been seen at least once,
+			// so the IO's initial "not intersecting" callback doesn't
+			// fire the exit animation before any enter has happened.
 			var hasEntered = false;
 
-			// Determine exit animation config.
-			var exitType, exitDirection;
-			if ( trigger === 'exit' || trigger === 'both' ) {
-				if ( exitMode === 'custom' ) {
-					exitType = el.dataset.mbExitType || 'fade';
-					exitDirection = el.dataset.mbExitDirection || '';
-				} else {
-					// Mirror: exit type = enter type.
-					exitType = enterType;
-					exitDirection = enterDirection;
-				}
-			}
-
-			// Apply enter direction props (used by enter keyframe).
-			if ( trigger !== 'exit' ) {
-				applyDirectionProps( el, enterType, enterDirection );
-			}
-
-			// Apply blur amount (used by blur keyframe).
+			// Apply baseline direction / blur / rotate / custom-keyframe
+			// setup. Per-slot timing is applied on each transition below.
+			applyCustomKeyframe( el );
 			applyBlurProps( el );
 			applyRotateProps( el );
-			applyCustomKeyframe( el );
 
 			var observer = new IntersectionObserver(
 				function ( entries ) {
-					entries.forEach( function ( entry ) {
-						if ( entry.isIntersecting ) {
+					entries.forEach( function ( ioEntry ) {
+						if ( ioEntry.isIntersecting ) {
 							hasEntered = true;
-							handleScrollEnter(
+							handleSlotEnter(
 								el,
-								trigger,
-								enterType,
-								enterDirection,
+								entry,
+								hasExit,
 								playOnce,
 								observer
 							);
-						} else if ( hasEntered || trigger === 'exit' ) {
-							// Only fire exit after the element has entered
-							// at least once (or for exit-only mode where
-							// the element starts visible).
-							if ( trigger === 'exit' ) {
+						} else {
+							// Forward-leave guard for Exit-only blocks:
+							// IO can't tell us whether the element left
+							// out the top (forward) or out the bottom
+							// (backward / initial-state). Only fire the
+							// exit animation when the element is fully
+							// above the shrunken viewport — never when
+							// it's below.
+							//
+							// Bug history: an earlier check compared
+							// `rect.bottom > rb.top`, which is true at
+							// the exact moment IO fires not-intersecting
+							// from a forward leave (the threshold drop
+							// happens with a few pixels of overlap still
+							// present), so the guard ate every
+							// legitimate exit. The `rect.top >= rb.bottom`
+							// form correctly only matches the "fully
+							// below viewport" case.
+							if ( ! hasEntered && ! hasExit ) {
+								return;
+							}
+							if ( ! hasEntered ) {
+								// Exit-only block, initial callback:
+								// only count as exited when the element
+								// has truly cleared the top edge. Else
+								// the page-load "below the fold" state
+								// would stamp every block as exited.
+								var rb = ioEntry.rootBounds;
+								if (
+									rb &&
+									ioEntry.boundingClientRect.top >= rb.bottom
+								) {
+									return;
+								}
 								hasEntered = true;
 							}
-							handleScrollExit(
+							handleSlotExit(
 								el,
-								trigger,
-								exitType,
-								exitDirection,
-								exitMode,
+								exit,
+								hasEntry,
 								playOnce,
 								observer
 							);
@@ -580,70 +795,129 @@
 	}
 
 	/**
-	 * Handle entering the viewport.
+	 * Read a slot's config from the element's data attributes. Returns
+	 * an object even when the slot is empty (type === '').
 	 */
-	function handleScrollEnter(
-		el,
-		trigger,
-		enterType,
-		enterDirection,
-		playOnce,
-		observer
-	) {
-		if ( trigger === 'exit' ) {
-			// Exit-only: re-entering viewport — remove exit state.
+	function readSlotConfig( el, slot ) {
+		var prefix = slot === 'entry' ? 'mbEntry' : 'mbExit';
+		return {
+			slot: slot,
+			type: el.dataset[ prefix + 'Type' ] || '',
+			direction: el.dataset[ prefix + 'Direction' ] || '',
+			duration: el.dataset[ prefix + 'Duration' ],
+			delay: el.dataset[ prefix + 'Delay' ],
+			acceleration: el.dataset[ prefix + 'Acceleration' ],
+			blurAmount: el.dataset[ prefix + 'BlurAmount' ],
+			rotateAngle: el.dataset[ prefix + 'RotateAngle' ],
+		};
+	}
+
+	/**
+	 * Apply the slot's per-property CSS custom properties to the
+	 * element. Sets shared `--mb-duration` / `--mb-delay` /
+	 * `--mb-timing` / `--mb-blur-amount` / `--mb-rotate-angle` so the
+	 * existing CSS animation rules (which read these names) consume
+	 * the right values for the current phase.
+	 */
+	function applySlotVars( el, slotConfig ) {
+		if ( slotConfig.duration ) {
+			el.style.setProperty(
+				'--mb-duration',
+				slotConfig.duration + 's'
+			);
+		}
+		if ( slotConfig.delay ) {
+			el.style.setProperty( '--mb-delay', slotConfig.delay + 's' );
+		}
+		if ( slotConfig.acceleration ) {
+			el.style.setProperty( '--mb-timing', slotConfig.acceleration );
+		}
+		if ( slotConfig.blurAmount ) {
+			el.style.setProperty(
+				'--mb-blur-amount',
+				slotConfig.blurAmount + 'px'
+			);
+		}
+		if ( slotConfig.rotateAngle ) {
+			el.style.setProperty(
+				'--mb-rotate-angle',
+				slotConfig.rotateAngle + 'deg'
+			);
+		}
+		applyDirectionProps( el, slotConfig.type, slotConfig.direction );
+	}
+
+	/**
+	 * Handle an entering-viewport event. Fires the Entry slot if
+	 * it's filled. If not, removes any lingering `mb-exit-triggered`
+	 * class so the element returns to its base visible state.
+	 */
+	function handleSlotEnter( el, entry, hasExit, playOnce, observer ) {
+		if ( entry.type === '' ) {
+			// Entry slot empty (e.g., Exit-only block re-entering
+			// viewport). Drop the exit-triggered class and clear any
+			// reverse-direction flag from a Custom exit. The element
+			// returns to its natural base state — no entry animation
+			// to play.
 			el.classList.remove( 'mb-exit-triggered' );
+			el.style.setProperty( '--mb-direction', 'normal' );
 			return;
 		}
 
-		// Re-apply enter direction props.
-		applyDirectionProps( el, enterType, enterDirection );
-		applyTimingProps( el );
+		applySlotVars( el, entry );
+		// Mirror re-entry on Custom / image-move resets the reverse
+		// flag that the prior exit set. Non-custom types use their
+		// own `mbXxxOut` keyframes on exit, so no reverse flag.
+		if ( entry.type === 'custom' || entry.type === 'image-move' ) {
+			el.style.setProperty( '--mb-direction', 'normal' );
+		}
 
-		// Swap classes atomically — remove exit and add enter in the
-		// same frame to avoid a flash of invisible content.
 		el.classList.remove( 'mb-exit-triggered' );
 		el.classList.add( 'mb-triggered' );
 
-		if ( trigger === 'enter' && playOnce ) {
+		// Play once only matters when Exit slot is empty. With both
+		// slots filled, the block is implicitly a round-trip and we
+		// keep observing so the exit phase can fire.
+		if ( ! hasExit && playOnce ) {
 			observer.unobserve( el );
 		}
 	}
 
 	/**
-	 * Handle exiting the viewport.
+	 * Handle a leaving-viewport event. Fires the Exit slot if filled,
+	 * or clears the entry state for an Entry-only block (so the
+	 * animation can replay on the next entry when playOnce is off).
 	 */
-	function handleScrollExit(
-		el,
-		trigger,
-		exitType,
-		exitDirection,
-		exitMode,
-		playOnce,
-		observer
-	) {
-		if ( trigger === 'enter' ) {
-			if ( ! playOnce ) {
-				// Re-hide so animation replays on next scroll into view.
+	function handleSlotExit( el, exit, hasEntry, playOnce, observer ) {
+		if ( exit.type === '' ) {
+			// Exit slot empty. If playOnce is off and we have an
+			// Entry slot, re-hide the element so the next intersection
+			// replays the entry animation. With playOnce on, the
+			// observer already unobserved at enter time.
+			if ( hasEntry && ! playOnce ) {
 				el.classList.remove( 'mb-triggered' );
 			}
 			return;
 		}
 
-		// Apply exit direction props.
-		applyDirectionProps( el, exitType, exitDirection );
-
-		// Apply exit timing if custom.
-		if ( exitMode === 'custom' ) {
-			applyExitTimingProps( el );
+		applySlotVars( el, exit );
+		// Custom and image-move types share a single per-block
+		// keyframe across entry and exit phases. To play it as the
+		// "exit" animation we run it in reverse via --mb-direction.
+		// Non-custom types have explicit mbXxxOut keyframes already
+		// bound by the `.mb-exit-{type}.mb-exit-triggered` rules in
+		// animations.css.
+		if ( exit.type === 'custom' || exit.type === 'image-move' ) {
+			el.style.setProperty( '--mb-direction', 'reverse' );
 		}
 
-		// Swap classes atomically — remove enter and add exit in the
-		// same frame to avoid a flash of invisible content.
 		el.classList.remove( 'mb-triggered' );
 		el.classList.add( 'mb-exit-triggered' );
 
-		if ( playOnce ) {
+		// Stop observing if playOnce is on AND there's no entry slot
+		// to replay back from. Round-trip configs (both slots) ignore
+		// playOnce; entry-only with playOnce already unsubscribed.
+		if ( ! hasEntry && playOnce ) {
 			observer.unobserve( el );
 		}
 	}

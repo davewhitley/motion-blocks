@@ -90,8 +90,19 @@ export default function PageLoadControls( {
 
 	// Image Move is parallax — only meaningful in scroll-interactive
 	// mode. Filter it out of the page-load dropdown.
+	//
+	// The `-out` preset variants (`fade-out`, `slide-out`, etc.) are
+	// also dropped here. Out variants in Page Load would mean "splash
+	// on page load" patterns — the element loads visible, then fades
+	// away. Out of scope for the slot-model redesign; the values
+	// remain registered so existing splash blocks deserialize cleanly,
+	// but they're not reachable through the new UI. The values stay
+	// available in Scroll Interactive, where scrubbed mode benefits
+	// from explicit direction.
 	const typeOptions = ANIMATION_TYPE_OPTIONS.filter(
-		( opt ) => ! SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value )
+		( opt ) =>
+			! SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value ) &&
+			! opt.value.endsWith( '-out' )
 	);
 
 	const isCustom = animationType === 'custom';
@@ -366,14 +377,15 @@ export default function PageLoadControls( {
 			</div>
 
 			{ /* Stagger lives inside Timing — semantically it's about
-			   when each child starts animating. Renders nothing on
-			   non-container block types or incompatible animation
+			   when each inner block starts animating. Renders nothing
+			   on non-parent block types or incompatible animation
 			   types. Stagger Offset and Delay are orthogonal:
-			   `child_N_delay = Delay + (N-1) * Offset`. */ }
+			   `inner_N_delay = Delay + (N-1) * Offset`. */ }
 			<StaggerControls
 				attributes={ attributes }
 				setAttributes={ setAttributes }
 				blockName={ blockName }
+				clientId={ clientId }
 			/>
 
 			<HStack spacing={ 3 }>
@@ -458,6 +470,21 @@ export default function PageLoadControls( {
 					'Animation will pause when the block is not visible for better performance.',
 					'motion-blocks'
 				) }
+				__nextHasNoMarginBottom
+			/>
+
+			<ToggleControl
+				label={ __( 'Clip overflow on parent', 'motion-blocks' ) }
+				help={ __(
+					"Hide motion that extends past the parent block's bounds. Useful when sliding an element in from off-screen.",
+					'motion-blocks'
+				) }
+				checked={ !! attributes.animationClipParentOverflow }
+				onChange={ ( value ) =>
+					setAttributes( {
+						animationClipParentOverflow: value,
+					} )
+				}
 				__nextHasNoMarginBottom
 			/>
 

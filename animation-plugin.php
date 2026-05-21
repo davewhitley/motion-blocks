@@ -116,12 +116,132 @@ add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
  * @param array  $block         Block data including attrs.
  * @return string Modified HTML.
  */
+/**
+ * Read-time migration shim for Scroll Appear blocks. Maps legacy
+ * `animationScrollTrigger` + `animationType` attributes onto the
+ * slot model (`animationEntry*` / `animationExit*`). Mirrors the JS
+ * `migrateScrollAppearAttrs` in `src/components/constants.js` so
+ * server-rendered blocks emit the same shape as editor-saved ones.
+ *
+ * Idempotent: if either `animationEntryType` or `animationExitType`
+ * is already set, returns `$attrs` unchanged.
+ *
+ * @param array $attrs Block attributes.
+ * @return array Normalized attributes.
+ */
+function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
+    if ( ! is_array( $attrs ) ) {
+        return $attrs;
+    }
+    $entry_set = isset( $attrs['animationEntryType'] )
+        && $attrs['animationEntryType'] !== '';
+    $exit_set = isset( $attrs['animationExitType'] )
+        && $attrs['animationExitType'] !== '';
+    if ( $entry_set || $exit_set ) {
+        return $attrs;
+    }
+
+    // Normalize the legacy trigger value: v1 'both' aliases to v2 'mirror'.
+    $raw_trigger = $attrs['animationScrollTrigger'] ?? 'enter';
+    $trigger = ( $raw_trigger === 'both' ) ? 'mirror' : $raw_trigger;
+
+    $raw_type = $attrs['animationType'] ?? '';
+    $base_type = preg_replace( '/-out$/', '', $raw_type );
+
+    $direction    = $attrs['animationDirection'] ?? '';
+    $duration     = $attrs['animationDuration'] ?? 0.6;
+    $delay        = $attrs['animationDelay'] ?? 0.4;
+    $acceleration = $attrs['animationAcceleration'] ?? 'ease';
+    $custom_tf    = $attrs['animationCustomTimingFunction']
+        ?? 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+    $blur         = $attrs['animationBlurAmount'] ?? 8;
+    $rotate       = $attrs['animationRotateAngle'] ?? 90;
+
+    $custom_props = array(
+        'Opacity',
+        'TranslateX',
+        'TranslateY',
+        'Scale',
+        'Rotate',
+        'RotateX',
+        'RotateY',
+        'Blur',
+        'ClipPath',
+    );
+
+    $fill = function ( $prefix, $is_exit_only ) use (
+        $attrs,
+        $base_type,
+        $direction,
+        $duration,
+        $delay,
+        $acceleration,
+        $custom_tf,
+        $blur,
+        $rotate,
+        $custom_props
+    ) {
+        $out = array(
+            "{$prefix}Type"                  => $base_type,
+            "{$prefix}Direction"             => $direction,
+            "{$prefix}Duration"              => $duration,
+            "{$prefix}Delay"                 => $is_exit_only ? 0 : $delay,
+            "{$prefix}Acceleration"          => $acceleration,
+            "{$prefix}CustomTimingFunction"  => $custom_tf,
+            "{$prefix}BlurAmount"            => $blur,
+            "{$prefix}RotateAngle"           => $rotate,
+        );
+        if ( $base_type === 'custom' ) {
+            foreach ( $custom_props as $prop ) {
+                $shared_from = "animationFrom{$prop}";
+                $shared_to   = "animationTo{$prop}";
+                $out[ "{$prefix}From{$prop}" ] = $attrs[ $shared_from ] ?? null;
+                $out[ "{$prefix}To{$prop}" ]   = $attrs[ $shared_to ] ?? null;
+            }
+        }
+        return $out;
+    };
+
+    if ( $trigger === 'enter' ) {
+        $attrs = array_merge( $attrs, $fill( 'animationEntry', false ) );
+    } elseif ( $trigger === 'exit' ) {
+        $attrs = array_merge( $attrs, $fill( 'animationExit', true ) );
+    } else {
+        // mirror — fill both slots
+        $attrs = array_merge( $attrs, $fill( 'animationEntry', false ) );
+        $attrs = array_merge( $attrs, $fill( 'animationExit', true ) );
+    }
+    return $attrs;
+}
+
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs = $block['attrs'] ?? array();
     $mode  = $attrs['animationMode'] ?? '';
-    $type  = $attrs['animationType'] ?? '';
 
-    if ( ! $mode || ! $type || empty( $block_content ) ) {
+    if ( ! $mode || empty( $block_content ) ) {
+        return $block_content;
+    }
+
+    // Scroll Appear uses the slot model (animationEntry* / animationExit*).
+    // Migrate legacy `animationScrollTrigger` + `animationType` on read so
+    // server-rendered blocks emit the new shape without rewriting saved
+    // data. Idempotent — no-op once the block has been re-saved by the
+    // editor.
+    if ( $mode === 'scroll-appear' ) {
+        $attrs = motion_blocks_migrate_scroll_appear_attrs( $attrs );
+    }
+
+    // Page Load / Scroll Interactive still use the shared animationType.
+    // Scroll Appear's "is there anything to render" check is "does either
+    // slot have a type" — different logic, handled below.
+    $type = $attrs['animationType'] ?? '';
+    $entry_type = $attrs['animationEntryType'] ?? '';
+    $exit_type  = $attrs['animationExitType'] ?? '';
+
+    if (
+        ( $mode === 'scroll-appear' && $entry_type === '' && $exit_type === '' )
+        || ( $mode !== 'scroll-appear' && ! $type )
+    ) {
         return $block_content;
     }
 
@@ -138,29 +258,22 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     // --- Classes ---
-    $classes = array( 'mb-animated', "mb-enter-{$type}", "mb-mode-{$mode}" );
+    $classes = array( 'mb-animated', "mb-mode-{$mode}" );
 
-    // Scroll-appear exit classes.
     if ( $mode === 'scroll-appear' ) {
-        $trigger   = $attrs['animationScrollTrigger'] ?? 'enter';
-        $exit_mode = $attrs['animationExitMode'] ?? 'mirror';
-
-        if ( $trigger === 'exit' || $trigger === 'both' ) {
-            if ( $exit_mode === 'custom' ) {
-                $exit_type = $attrs['animationExitType'] ?? 'fade';
-                $classes[] = "mb-exit-{$exit_type}";
-            } else {
-                $classes[] = "mb-exit-{$type}";
-            }
+        // Slot model: add `mb-enter-{type}` for filled Entry slot,
+        // `mb-exit-{type}` for filled Exit slot. `mb-has-entry` marks
+        // the block as "Entry slot non-empty" so the CSS initial-hide
+        // rule applies.
+        if ( $entry_type !== '' ) {
+            $classes[] = "mb-enter-{$entry_type}";
+            $classes[] = 'mb-has-entry';
         }
-
-        // Exit-only: swap enter class to exit class.
-        if ( $trigger === 'exit' ) {
-            $enter_key = array_search( "mb-enter-{$type}", $classes, true );
-            if ( false !== $enter_key ) {
-                $classes[ $enter_key ] = "mb-exit-{$type}";
-            }
+        if ( $exit_type !== '' ) {
+            $classes[] = "mb-exit-{$exit_type}";
         }
+    } else {
+        $classes[] = "mb-enter-{$type}";
     }
 
     foreach ( $classes as $class ) {
@@ -169,150 +282,217 @@ function motion_blocks_render_block( $block_content, $block ) {
 
     // --- Data attributes ---
     $processor->set_attribute( 'data-mb-mode', esc_attr( $mode ) );
-    $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
-    // Animation target ('img' vs 'block'). Saved so the frontend
-    // script can switch to scoped CSS that animates the first <img>
-    // descendant with `overflow: clip` on its parent.
-    // `image-move` always implies img target.
-    if ( $type === 'image-move' ) {
-        $processor->set_attribute( 'data-mb-target', 'img' );
-    } elseif ( $type === 'custom' ) {
-        $target = $attrs['animationFromToTarget'] ?? 'block';
-        if ( $target === 'img' ) {
-            $processor->set_attribute( 'data-mb-target', 'img' );
-        }
-    }
+    $custom_props = array(
+        'opacity'    => 'opacity',
+        'translateX' => 'translate-x',
+        'translateY' => 'translate-y',
+        'scale'      => 'scale',
+        'rotate'     => 'rotate',
+        'rotateX'    => 'rotate-x',
+        'rotateY'    => 'rotate-y',
+        'blur'       => 'blur',
+        'clipPath'   => 'clip-path',
+    );
 
-    // Acceleration. Resolve the `custom` sentinel to the actual CSS
-    // timing function string so the frontend doesn't need to know
-    // about the sentinel.
-    $acceleration = $attrs['animationAcceleration'] ?? 'ease';
-    if ( $acceleration === 'custom' ) {
-        $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
-        $acceleration = trim( $custom_tf ) !== '' ? $custom_tf : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
-    }
-    if ( $acceleration !== 'ease' ) {
-        $processor->set_attribute( 'data-mb-acceleration', esc_attr( $acceleration ) );
-    }
-
-    // Direction.
-    $direction = $attrs['animationDirection'] ?? '';
-    if ( $direction ) {
-        $processor->set_attribute( 'data-mb-direction', esc_attr( $direction ) );
-    }
-
-    // Blur amount.
-    if ( $type === 'blur' ) {
-        $blur_amount = $attrs['animationBlurAmount'] ?? 8;
-        if ( (int) $blur_amount !== 8 ) {
-            $processor->set_attribute( 'data-mb-blur-amount', esc_attr( (string) $blur_amount ) );
-        }
-    }
-
-    // Rotate angle.
-    if ( $type === 'rotate' ) {
-        $rotate_angle = $attrs['animationRotateAngle'] ?? 90;
-        if ( (int) $rotate_angle !== 90 ) {
-            $processor->set_attribute( 'data-mb-rotate-angle', esc_attr( (string) $rotate_angle ) );
-        }
-    }
-
-    // Custom (From/To) — emit a data attr per side per property.
-    // Mirrors addAnimationSaveProps in src/index.js. The frontend
-    // reads these and sets `--mb-from-*` / `--mb-to-*` CSS variables
-    // consumed by the shared mbCustomEnter / mbCustomExit keyframes.
-    if ( $type === 'custom' ) {
-        $custom_props = array(
-            'opacity'    => 'opacity',
-            'translateX' => 'translate-x',
-            'translateY' => 'translate-y',
-            'scale'      => 'scale',
-            'rotate'     => 'rotate',
-            // 3D rotation (Flip support).
-            'rotateX'    => 'rotate-x',
-            'rotateY'    => 'rotate-y',
-            // Filter blur.
-            'blur'       => 'blur',
-            // Clip path (Curtain / Wipe support).
-            'clipPath'   => 'clip-path',
-        );
-        foreach ( $custom_props as $prop_id => $css_name ) {
-            $from_key  = 'animationFrom' . ucfirst( $prop_id );
-            $to_key    = 'animationTo' . ucfirst( $prop_id );
-            $from_val  = $attrs[ $from_key ] ?? null;
-            $to_val    = $attrs[ $to_key ] ?? null;
-            if ( $from_val !== null && $from_val !== '' ) {
-                $processor->set_attribute(
-                    "data-mb-from-{$css_name}",
-                    esc_attr( (string) $from_val )
-                );
-            }
-            if ( $to_val !== null && $to_val !== '' ) {
-                $processor->set_attribute(
-                    "data-mb-to-{$css_name}",
-                    esc_attr( (string) $to_val )
-                );
-            }
-        }
-    }
-
-    // Page-load and scroll-appear: duration + delay.
-    if ( $mode === 'page-load' || $mode === 'scroll-appear' ) {
-        $processor->set_attribute( 'data-mb-duration', esc_attr( (string) ( $attrs['animationDuration'] ?? 0.6 ) ) );
-        $processor->set_attribute( 'data-mb-delay', esc_attr( (string) ( $attrs['animationDelay'] ?? 0.4 ) ) );
-    }
-
-    // Page-load only: repeat + pause-offscreen.
-    if ( $mode === 'page-load' ) {
-        $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
-        $pause = $attrs['animationPauseOffscreen'] ?? true;
-        $processor->set_attribute( 'data-mb-pause-offscreen', esc_attr( $pause ? 'true' : 'false' ) );
-    }
-
-    // Scroll-appear: trigger, play-once, exit config.
     if ( $mode === 'scroll-appear' ) {
-        $trigger = $attrs['animationScrollTrigger'] ?? 'enter';
-        $processor->set_attribute( 'data-mb-scroll-trigger', esc_attr( $trigger ) );
+        // Slot model: emit per-slot data attributes for the filled
+        // slot(s). The Custom From/To target is shared across slots
+        // (only meaningful when at least one slot is Custom).
+        if ( $entry_type === 'custom' || $exit_type === 'custom' ) {
+            $target = $attrs['animationFromToTarget'] ?? 'block';
+            if ( $target === 'img' ) {
+                $processor->set_attribute( 'data-mb-target', 'img' );
+            }
+        }
+
         $play_once = $attrs['animationPlayOnce'] ?? true;
-        $processor->set_attribute( 'data-mb-play-once', esc_attr( $play_once ? 'true' : 'false' ) );
+        $processor->set_attribute(
+            'data-mb-play-once',
+            esc_attr( $play_once ? 'true' : 'false' )
+        );
 
-        if ( $trigger === 'exit' || $trigger === 'both' ) {
-            $exit_mode = $attrs['animationExitMode'] ?? 'mirror';
-            $processor->set_attribute( 'data-mb-exit-mode', esc_attr( $exit_mode ) );
+        // Per-slot attribute emission. Wrapped in a helper-like
+        // structure to avoid duplicating logic across slots.
+        $slots = array(
+            array(
+                'name'   => 'entry',
+                'prefix' => 'animationEntry',
+                'data'   => 'data-mb-entry',
+                'type'   => $entry_type,
+            ),
+            array(
+                'name'   => 'exit',
+                'prefix' => 'animationExit',
+                'data'   => 'data-mb-exit',
+                'type'   => $exit_type,
+            ),
+        );
 
-            if ( $exit_mode === 'custom' ) {
-                $exit_type = $attrs['animationExitType'] ?? 'fade';
-                $processor->set_attribute( 'data-mb-exit-type', esc_attr( $exit_type ) );
+        foreach ( $slots as $slot ) {
+            if ( $slot['type'] === '' ) {
+                continue;
+            }
+            $slot_type = $slot['type'];
+            $processor->set_attribute(
+                "{$slot['data']}-type",
+                esc_attr( $slot_type )
+            );
 
-                $exit_direction = $attrs['animationExitDirection'] ?? '';
-                if ( $exit_direction ) {
-                    $processor->set_attribute( 'data-mb-exit-direction', esc_attr( $exit_direction ) );
+            $slot_dir = $attrs[ "{$slot['prefix']}Direction" ] ?? '';
+            if ( $slot_dir ) {
+                $processor->set_attribute(
+                    "{$slot['data']}-direction",
+                    esc_attr( $slot_dir )
+                );
+            }
+
+            $default_delay = ( $slot['name'] === 'entry' ) ? 0.4 : 0;
+            $processor->set_attribute(
+                "{$slot['data']}-duration",
+                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ] ?? 0.6 ) )
+            );
+            $processor->set_attribute(
+                "{$slot['data']}-delay",
+                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Delay" ] ?? $default_delay ) )
+            );
+
+            $slot_accel = $attrs[ "{$slot['prefix']}Acceleration" ] ?? 'ease';
+            if ( $slot_accel === 'custom' ) {
+                $custom_tf = $attrs[ "{$slot['prefix']}CustomTimingFunction" ] ?? '';
+                $slot_accel = trim( $custom_tf ) !== ''
+                    ? $custom_tf
+                    : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+            }
+            if ( $slot_accel !== 'ease' ) {
+                $processor->set_attribute(
+                    "{$slot['data']}-acceleration",
+                    esc_attr( $slot_accel )
+                );
+            }
+
+            if ( $slot_type === 'blur' ) {
+                $blur_amount = $attrs[ "{$slot['prefix']}BlurAmount" ] ?? 8;
+                if ( (int) $blur_amount !== 8 ) {
+                    $processor->set_attribute(
+                        "{$slot['data']}-blur-amount",
+                        esc_attr( (string) $blur_amount )
+                    );
                 }
+            }
 
-                $processor->set_attribute( 'data-mb-exit-duration', esc_attr( (string) ( $attrs['animationExitDuration'] ?? 0.6 ) ) );
-                $processor->set_attribute( 'data-mb-exit-delay', esc_attr( (string) ( $attrs['animationExitDelay'] ?? 0 ) ) );
-
-                $exit_accel = $attrs['animationExitAcceleration'] ?? 'ease';
-                if ( $exit_accel === 'custom' ) {
-                    $exit_custom_tf = $attrs['animationExitCustomTimingFunction'] ?? '';
-                    $exit_accel = trim( $exit_custom_tf ) !== '' ? $exit_custom_tf : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+            if ( $slot_type === 'rotate' ) {
+                $rotate_angle = $attrs[ "{$slot['prefix']}RotateAngle" ] ?? 90;
+                if ( (int) $rotate_angle !== 90 ) {
+                    $processor->set_attribute(
+                        "{$slot['data']}-rotate-angle",
+                        esc_attr( (string) $rotate_angle )
+                    );
                 }
-                if ( $exit_accel !== 'ease' ) {
-                    $processor->set_attribute( 'data-mb-exit-acceleration', esc_attr( $exit_accel ) );
+            }
+
+            if ( $slot_type === 'custom' ) {
+                foreach ( $custom_props as $prop_id => $css_name ) {
+                    $from_key = "{$slot['prefix']}From" . ucfirst( $prop_id );
+                    $to_key   = "{$slot['prefix']}To" . ucfirst( $prop_id );
+                    $from_val = $attrs[ $from_key ] ?? null;
+                    $to_val   = $attrs[ $to_key ] ?? null;
+                    if ( $from_val !== null && $from_val !== '' ) {
+                        $processor->set_attribute(
+                            "{$slot['data']}-from-{$css_name}",
+                            esc_attr( (string) $from_val )
+                        );
+                    }
+                    if ( $to_val !== null && $to_val !== '' ) {
+                        $processor->set_attribute(
+                            "{$slot['data']}-to-{$css_name}",
+                            esc_attr( (string) $to_val )
+                        );
+                    }
                 }
             }
         }
-    }
+    } else {
+        // Page Load + Scroll Interactive — shared attribute emission.
+        $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
-    // Scroll-interactive: range + direction.
-    if ( $mode === 'scroll-interactive' ) {
-        $processor->set_attribute( 'data-mb-range-start', esc_attr( $attrs['animationRangeStart'] ?? 'entry 0%' ) );
-        $processor->set_attribute( 'data-mb-range-end', esc_attr( $attrs['animationRangeEnd'] ?? 'exit 100%' ) );
+        if ( $type === 'image-move' ) {
+            $processor->set_attribute( 'data-mb-target', 'img' );
+        } elseif ( $type === 'custom' ) {
+            $target = $attrs['animationFromToTarget'] ?? 'block';
+            if ( $target === 'img' ) {
+                $processor->set_attribute( 'data-mb-target', 'img' );
+            }
+        }
+
+        $acceleration = $attrs['animationAcceleration'] ?? 'ease';
+        if ( $acceleration === 'custom' ) {
+            $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
+            $acceleration = trim( $custom_tf ) !== ''
+                ? $custom_tf
+                : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+        }
+        if ( $acceleration !== 'ease' ) {
+            $processor->set_attribute( 'data-mb-acceleration', esc_attr( $acceleration ) );
+        }
 
         $direction = $attrs['animationDirection'] ?? '';
         if ( $direction ) {
             $processor->set_attribute( 'data-mb-direction', esc_attr( $direction ) );
+        }
+
+        if ( $type === 'blur' ) {
+            $blur_amount = $attrs['animationBlurAmount'] ?? 8;
+            if ( (int) $blur_amount !== 8 ) {
+                $processor->set_attribute( 'data-mb-blur-amount', esc_attr( (string) $blur_amount ) );
+            }
+        }
+
+        if ( $type === 'rotate' ) {
+            $rotate_angle = $attrs['animationRotateAngle'] ?? 90;
+            if ( (int) $rotate_angle !== 90 ) {
+                $processor->set_attribute( 'data-mb-rotate-angle', esc_attr( (string) $rotate_angle ) );
+            }
+        }
+
+        if ( $type === 'custom' ) {
+            foreach ( $custom_props as $prop_id => $css_name ) {
+                $from_key = 'animationFrom' . ucfirst( $prop_id );
+                $to_key   = 'animationTo' . ucfirst( $prop_id );
+                $from_val = $attrs[ $from_key ] ?? null;
+                $to_val   = $attrs[ $to_key ] ?? null;
+                if ( $from_val !== null && $from_val !== '' ) {
+                    $processor->set_attribute(
+                        "data-mb-from-{$css_name}",
+                        esc_attr( (string) $from_val )
+                    );
+                }
+                if ( $to_val !== null && $to_val !== '' ) {
+                    $processor->set_attribute(
+                        "data-mb-to-{$css_name}",
+                        esc_attr( (string) $to_val )
+                    );
+                }
+            }
+        }
+
+        if ( $mode === 'page-load' ) {
+            $processor->set_attribute(
+                'data-mb-duration',
+                esc_attr( (string) ( $attrs['animationDuration'] ?? 0.6 ) )
+            );
+            $processor->set_attribute(
+                'data-mb-delay',
+                esc_attr( (string) ( $attrs['animationDelay'] ?? 0.4 ) )
+            );
+            $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
+            $pause = $attrs['animationPauseOffscreen'] ?? true;
+            $processor->set_attribute( 'data-mb-pause-offscreen', esc_attr( $pause ? 'true' : 'false' ) );
+        }
+
+        if ( $mode === 'scroll-interactive' ) {
+            $processor->set_attribute( 'data-mb-range-start', esc_attr( $attrs['animationRangeStart'] ?? 'entry 0%' ) );
+            $processor->set_attribute( 'data-mb-range-end', esc_attr( $attrs['animationRangeEnd'] ?? 'exit 100%' ) );
         }
     }
 
@@ -320,20 +500,33 @@ function motion_blocks_render_block( $block_content, $block ) {
     // server-rendered output matches what the editor save filter
     // produced. Whitelisted parent block types only, and skipped for
     // animation types that don't compose with the cascade.
-    $stagger_blocks   = array(
+    $stagger_parent_blocks   = array(
         'core/group',
         'core/columns',
         'core/buttons',
         'core/gallery',
         'core/list',
     );
-    $stagger_skip_types = array( 'custom', 'image-move' );
+    // Custom is now compatible — the parent block's per-block keyframe
+    // is bound to inner blocks via `--mb-stagger-anim-name` (CSS custom
+    // property, set on the parent by the frontend script). Only
+    // image-move stays out, since it's parallax-only and lives in
+    // scroll-interactive mode where the stagger cascade doesn't run.
+    $stagger_skip_types = array( 'image-move' );
     $stagger_enabled    = ! empty( $attrs['animationStaggerEnabled'] );
     $block_name         = $block['blockName'] ?? '';
+    // Stagger gating reads from whichever type drives the cascade in
+    // each mode. Scroll Appear cascades via the Entry slot's class
+    // bindings; fall back to Exit if Entry is empty so an Exit-only
+    // block still gets the stagger class (the inner blocks won't have
+    // anything to animate on enter, but their exit phase still runs).
+    $stagger_probe_type = ( $mode === 'scroll-appear' )
+        ? ( $entry_type !== '' ? $entry_type : $exit_type )
+        : $type;
     if (
         $stagger_enabled
-        && in_array( $block_name, $stagger_blocks, true )
-        && ! in_array( $type, $stagger_skip_types, true )
+        && in_array( $block_name, $stagger_parent_blocks, true )
+        && ! in_array( $stagger_probe_type, $stagger_skip_types, true )
     ) {
         $processor->add_class( 'mb-stagger-parent' );
         // Stagger step is stored in seconds (default 0.1). Pre-migration
@@ -411,16 +604,40 @@ function motion_blocks_register_meta() {
 add_action( 'init', 'motion_blocks_register_meta' );
 
 /**
- * Emit body classes that the frontend CSS uses to disable
- * animations per device bucket.
+ * Emit body classes used by the frontend CSS.
  *
- * Singular views only — meta lives on the queried post; we don't
- * try to merge values across loops on archive/home pages.
+ * Two independent groups of classes:
+ *
+ * 1. `mb-clip-page-overflow` — applied on EVERY page (not just
+ *    singular). Triggers a CSS rule that clips `<html>`'s
+ *    horizontal overflow, preventing off-screen animation
+ *    transforms (slide-in from the left, large translates, etc.)
+ *    from extending the document width and creating a horizontal
+ *    scrollbar. Intermediate containers (Group / Column / Section)
+ *    keep `overflow: visible` so animations can still visibly break
+ *    out of their local container — only the page boundary clips.
+ *
+ *    Opt-out for sites that intentionally allow document-level
+ *    horizontal scroll:
+ *        add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
+ *
+ * 2. `mb-animations-disabled-{device}` — singular views only,
+ *    sourced from per-post meta. Used by the device-disable
+ *    setting in PageSettingsPanel.
  *
  * @param array $classes Existing body classes.
  * @return array
  */
 function motion_blocks_body_class( $classes ) {
+    // Page-level overflow clip — every page, not just singular.
+    // Animations on archive / search / home / 404 pages also need
+    // this protection.
+    if ( apply_filters( 'motion_blocks_apply_overflow_clip', true ) ) {
+        $classes[] = 'mb-clip-page-overflow';
+    }
+
+    // Per-page device-disable classes are singular-only; the meta
+    // lives on the queried post.
     if ( ! is_singular() ) {
         return $classes;
     }
@@ -495,3 +712,169 @@ function motion_blocks_register_settings() {
     );
 }
 add_action( 'init', 'motion_blocks_register_settings' );
+
+/**
+ * Built-in "Spin" recipe seeded into the saved-animations library
+ * on first plugin activation.
+ *
+ * Bundles the Page Load + Custom rotate (0° → 360°) + Loop + Linear
+ * configuration that produces an infinite constant-speed spin — a
+ * common pattern that would otherwise take ~six dial adjustments to
+ * build from scratch. Lives in the user library (`mb_saved_animations`)
+ * rather than the theme library so the user can rename / edit / delete
+ * it like any animation they authored themselves.
+ *
+ * Seed strategy: one-shot. We set the companion flag
+ * `mb_saved_animations_seeded` after running, so reactivating the
+ * plugin (or activating after the user has deleted the Spin entry)
+ * does NOT restore it. Respecting an explicit delete matters more
+ * than ensuring the recipe is always present.
+ */
+function motion_blocks_seed_default_animations() {
+    if ( get_option( 'mb_saved_animations_seeded', false ) ) {
+        return;
+    }
+    $existing = get_option( 'mb_saved_animations', array() );
+    if ( ! is_array( $existing ) ) {
+        $existing = array();
+    }
+    $spin_uid = 'spin-default';
+    if ( ! isset( $existing[ $spin_uid ] ) ) {
+        $existing[ $spin_uid ] = array(
+            'name'       => __( 'Spin', 'motion-blocks' ),
+            'createdAt'  => gmdate( 'Y-m-d\TH:i:s\Z' ),
+            'attributes' => motion_blocks_spin_recipe_attributes(),
+        );
+        update_option( 'mb_saved_animations', $existing );
+    }
+    update_option( 'mb_saved_animations_seeded', true );
+}
+register_activation_hook( __FILE__, 'motion_blocks_seed_default_animations' );
+
+/**
+ * Attribute bag for the seeded "Spin" recipe.
+ *
+ * Mirrors `DEFAULT_ATTRIBUTES` from `src/components/constants.js` —
+ * every animation attribute the editor saves on a block is included
+ * here so applying the recipe cleanly resets any leftover mode-
+ * specific config (e.g. residual `animationEntryType` from Scroll
+ * Appear, residual `animationRangeStart` from Scroll Interactive).
+ *
+ * Spin-specific overrides on top of the baseline defaults:
+ *   - animationMode: 'page-load'      // fires on DOMContentLoaded
+ *   - animationType: 'custom'         // per-block rotate keyframe
+ *   - animationDuration: 2            // one full rotation / 2s
+ *   - animationRepeat: 'loop'         // infinite cycle
+ *   - animationAcceleration: 'linear' // constant angular velocity
+ *   - animationFromRotate: 0          // start at 0°
+ *   - animationToRotate: 360          // end at 360° (== 0° visually)
+ *
+ * UI-state keys (`animationFromToActiveSide`,
+ * `animationFromToPreviewSide`, `animationPreviewSlot`,
+ * `animationPreviewEnabled`, `animationPreviewPlaying`) are
+ * intentionally omitted — `stripUiState` in savedAnimations.js
+ * strips them on the JS save path too, so the seed matches what a
+ * user save would produce.
+ */
+function motion_blocks_spin_recipe_attributes() {
+    return array(
+        // --- Mode + core animation ---
+        'animationMode'                       => 'page-load',
+        'animationType'                       => 'custom',
+        'animationDirection'                  => '',
+        'animationDuration'                   => 2,
+        'animationDelay'                      => 0,
+        'animationRepeat'                     => 'loop',
+        'animationPauseOffscreen'             => true,
+        'animationPlayOnce'                   => true,
+        'animationScrollTrigger'              => 'enter',
+        'animationAcceleration'               => 'linear',
+        'animationCustomTimingFunction'       => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'animationBlurAmount'                 => 8,
+        'animationRotateAngle'                => 90,
+        'animationRangeStart'                 => 'entry 0%',
+        'animationRangeEnd'                   => 'exit 100%',
+
+        // --- Shared Custom From/To (only Rotate is set) ---
+        'animationFromOpacity'                => null,
+        'animationFromTranslateX'             => null,
+        'animationFromTranslateY'             => null,
+        'animationFromScale'                  => null,
+        'animationFromRotate'                 => 0,
+        'animationFromRotateX'                => null,
+        'animationFromRotateY'                => null,
+        'animationFromBlur'                   => null,
+        'animationFromClipPath'               => null,
+        'animationToOpacity'                  => null,
+        'animationToTranslateX'               => null,
+        'animationToTranslateY'               => null,
+        'animationToScale'                    => null,
+        'animationToRotate'                   => 360,
+        'animationToRotateX'                  => null,
+        'animationToRotateY'                  => null,
+        'animationToBlur'                     => null,
+        'animationToClipPath'                 => null,
+
+        'animationFromToTarget'               => 'block',
+        'animationStaggerEnabled'             => false,
+        'animationStaggerStep'                => 0.1,
+        'animationClipParentOverflow'         => false,
+
+        // --- Scroll Appear slot attrs (Spin is Page Load, so these
+        //     are empty/defaults — applying Spin to a block that was
+        //     previously configured for Scroll Appear should clear
+        //     its per-slot config so the modes don't bleed together) ---
+        'animationEntryType'                  => '',
+        'animationEntryDirection'             => '',
+        'animationEntryDuration'              => 0.6,
+        'animationEntryDelay'                 => 0.4,
+        'animationEntryAcceleration'          => 'ease',
+        'animationEntryCustomTimingFunction'  => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'animationEntryBlurAmount'            => 8,
+        'animationEntryRotateAngle'           => 90,
+        'animationEntryFromOpacity'           => null,
+        'animationEntryFromTranslateX'        => null,
+        'animationEntryFromTranslateY'        => null,
+        'animationEntryFromScale'             => null,
+        'animationEntryFromRotate'            => null,
+        'animationEntryFromRotateX'           => null,
+        'animationEntryFromRotateY'           => null,
+        'animationEntryFromBlur'              => null,
+        'animationEntryFromClipPath'          => null,
+        'animationEntryToOpacity'             => null,
+        'animationEntryToTranslateX'          => null,
+        'animationEntryToTranslateY'          => null,
+        'animationEntryToScale'               => null,
+        'animationEntryToRotate'              => null,
+        'animationEntryToRotateX'             => null,
+        'animationEntryToRotateY'             => null,
+        'animationEntryToBlur'                => null,
+        'animationEntryToClipPath'            => null,
+        'animationExitType'                   => '',
+        'animationExitDirection'              => '',
+        'animationExitDuration'               => 0.6,
+        'animationExitDelay'                  => 0,
+        'animationExitAcceleration'           => 'ease',
+        'animationExitCustomTimingFunction'   => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+        'animationExitBlurAmount'             => 8,
+        'animationExitRotateAngle'            => 90,
+        'animationExitFromOpacity'            => null,
+        'animationExitFromTranslateX'         => null,
+        'animationExitFromTranslateY'         => null,
+        'animationExitFromScale'              => null,
+        'animationExitFromRotate'             => null,
+        'animationExitFromRotateX'            => null,
+        'animationExitFromRotateY'            => null,
+        'animationExitFromBlur'               => null,
+        'animationExitFromClipPath'           => null,
+        'animationExitToOpacity'              => null,
+        'animationExitToTranslateX'           => null,
+        'animationExitToTranslateY'           => null,
+        'animationExitToScale'                => null,
+        'animationExitToRotate'               => null,
+        'animationExitToRotateX'              => null,
+        'animationExitToRotateY'              => null,
+        'animationExitToBlur'                 => null,
+        'animationExitToClipPath'             => null,
+    );
+}

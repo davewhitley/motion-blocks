@@ -1,0 +1,456 @@
+/**
+ * SlotControls — Per-slot configuration for the Scroll Appear panel.
+ *
+ * Renders the Effect dropdown, optional direction / blur / rotate
+ * sub-controls, and per-slot timing (Duration / Delay / Acceleration)
+ * for ONE slot: either Entry or Exit. The parent `ScrollAppearControls`
+ * mounts two of these inside its Tabs, one per slot.
+ *
+ * Data model: reads/writes `animationEntry*` attributes when
+ * `slot === 'entry'`, `animationExit*` when `slot === 'exit'`. The
+ * slot prop is used to construct attribute names on the fly via
+ * `attrName(key)` — no per-slot duplication of the control tree.
+ *
+ * Effect == '' means the slot is empty (no animation for that phase).
+ * The first dropdown entry, "None", writes empty and clears the
+ * other slot attrs so the saved data stays tidy.
+ */
+
+import {
+	BaseControl,
+	SelectControl,
+	RangeControl,
+	TextControl,
+	__experimentalToggleGroupControl as ToggleGroupControl,
+	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
+	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
+	__experimentalHStack as HStack,
+	__experimentalNumberControl as NumberControl,
+	__experimentalToolsPanel as ToolsPanel,
+	__experimentalToolsPanelItem as ToolsPanelItem,
+	ToggleControl,
+	FlexBlock,
+	Button,
+} from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
+import {
+	arrowUp,
+	arrowDown,
+	arrowLeft,
+	arrowRight,
+} from '@wordpress/icons';
+import { SVG, Path } from '@wordpress/primitives';
+
+import {
+	ENTRY_TYPE_OPTIONS,
+	EXIT_TYPE_OPTIONS,
+	DIRECTION_OPTIONS,
+	TYPES_WITH_DIRECTION,
+	DEFAULT_DIRECTION,
+	ACCELERATION_OPTIONS,
+	BLUR_SETTINGS,
+	customDefaultFromToForSlot,
+	hasAnyCustomFromToSet,
+	presetToSlotFromToAttributes,
+} from './constants';
+import FromToControls from './FromToControls';
+
+const playIcon = (
+	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+		<Path d="M8 5.14v13.72l11-6.86L8 5.14z" />
+	</SVG>
+);
+
+const DIRECTION_ICON_MAP = {
+	btt: arrowUp,
+	ttb: arrowDown,
+	ltr: arrowRight,
+	rtl: arrowLeft,
+};
+
+/**
+ * Capitalize-first helper for building attribute names like
+ * `animationEntryType` from a slot id.
+ */
+function pascal( slot ) {
+	return slot === 'entry' ? 'Entry' : 'Exit';
+}
+
+export default function SlotControls( {
+	attributes,
+	setAttributes,
+	blockName,
+	slot, // 'entry' | 'exit'
+	onPreview,
+	isPlayPending,
+} ) {
+	const P = pascal( slot );
+	const attrName = ( key ) => `animation${ P }${ key }`;
+
+	const animationType = attributes[ attrName( 'Type' ) ] || '';
+	const animationDirection = attributes[ attrName( 'Direction' ) ] || '';
+	const animationDuration = attributes[ attrName( 'Duration' ) ];
+	const animationDelay = attributes[ attrName( 'Delay' ) ];
+	const animationAcceleration =
+		attributes[ attrName( 'Acceleration' ) ] || 'ease';
+	const animationCustomTimingFunction =
+		attributes[ attrName( 'CustomTimingFunction' ) ] || '';
+	const animationBlurAmount = attributes[ attrName( 'BlurAmount' ) ];
+	const animationRotateAngle = attributes[ attrName( 'RotateAngle' ) ];
+
+	const isCustom = animationType === 'custom';
+	const isEmpty = animationType === '';
+	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
+	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+
+	// Build the dropdown options for this slot. Prepend a "None"
+	// entry so the user can clear the slot from the dropdown without
+	// hunting for a separate clear button.
+	const typeOptions = [
+		{ label: __( 'None', 'motion-blocks' ), value: '' },
+		...( slot === 'entry' ? ENTRY_TYPE_OPTIONS : EXIT_TYPE_OPTIONS ),
+	];
+
+	/**
+	 * Effect picker handler. Several side effects layered on top of
+	 * a simple value write:
+	 *
+	 *   - Setting an Effect for a directional type auto-fills the
+	 *     slot's default direction.
+	 *   - Setting Custom for the first time seeds a default From/To
+	 *     keyframe (slot-specific seed — Entry uses fade-up, Exit
+	 *     uses fade-down).
+	 */
+	const handleTypeChange = ( value ) => {
+		const newAttrs = { [ attrName( 'Type' ) ]: value };
+		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
+			newAttrs[ attrName( 'Direction' ) ] = DEFAULT_DIRECTION[ value ] || '';
+		} else {
+			newAttrs[ attrName( 'Direction' ) ] = '';
+		}
+		if (
+			value === 'custom' &&
+			! hasAnyCustomFromToSet( attributes, slot )
+		) {
+			Object.assign( newAttrs, customDefaultFromToForSlot( slot ) );
+		}
+		setAttributes( newAttrs );
+	};
+
+	/**
+	 * "Edit" — convert the current preset into Custom mode with its
+	 * From/To values pre-filled. Slot-aware (writes the slot's
+	 * keyframe attrs, not the shared ones).
+	 */
+	const handleEditPreset = () => {
+		const seed = presetToSlotFromToAttributes(
+			animationType,
+			animationDirection,
+			{
+				rotateAngle: animationRotateAngle,
+				blurAmount: animationBlurAmount,
+			},
+			slot
+		);
+		if ( ! seed ) {
+			return;
+		}
+		setAttributes( {
+			[ attrName( 'Type' ) ]: 'custom',
+			[ attrName( 'Direction' ) ]: '',
+			...seed,
+		} );
+	};
+
+	const canEditPreset =
+		!! animationType &&
+		animationType !== 'custom' &&
+		!! presetToSlotFromToAttributes(
+			animationType,
+			animationDirection,
+			{
+				rotateAngle: animationRotateAngle,
+				blurAmount: animationBlurAmount,
+			},
+			slot
+		);
+
+	// If the slot is empty, render only the Effect dropdown. Nothing
+	// else makes sense without a chosen type.
+	if ( isEmpty ) {
+		return (
+			<div className="mb-slot-controls mb-slot-controls--empty">
+				<SelectControl
+					label={ __( 'Effect', 'motion-blocks' ) }
+					value={ animationType }
+					options={ typeOptions }
+					onChange={ handleTypeChange }
+					help={
+						slot === 'entry'
+							? __(
+									'Pick an effect to animate the element into view.',
+									'motion-blocks'
+							  )
+							: __(
+									'Pick an effect to animate the element out of view.',
+									'motion-blocks'
+							  )
+					}
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			</div>
+		);
+	}
+
+	return (
+		<div className="mb-slot-controls">
+			<HStack alignment="bottom" spacing={ 3 }>
+				<FlexBlock>
+					<div className="mb-effect-field">
+						<HStack
+							className="mb-effect-field__label-row"
+							justify="flex-start"
+							spacing={ 2 }
+						>
+							<BaseControl.VisualLabel>
+								{ __( 'Effect', 'motion-blocks' ) }
+							</BaseControl.VisualLabel>
+							{ canEditPreset && (
+								<Button
+									variant="link"
+									size="small"
+									onClick={ handleEditPreset }
+								>
+									{ __( 'Edit', 'motion-blocks' ) }
+								</Button>
+							) }
+						</HStack>
+						<SelectControl
+							label={ __( 'Effect', 'motion-blocks' ) }
+							hideLabelFromVision
+							value={ animationType }
+							options={ typeOptions }
+							onChange={ handleTypeChange }
+							__next40pxDefaultSize
+							__nextHasNoMarginBottom
+						/>
+					</div>
+				</FlexBlock>
+				{ /* Each slot has its own Preview button — clicking it
+				   tells AnimationPanel (via the slot arg) which side
+				   to fire. The HOC reads `animationPreviewSlot` to
+				   decide whether to apply `mb-triggered` (Entry phase,
+				   uses mb-enter-{type} classes) or `mb-exit-triggered`
+				   (Exit phase, uses mb-exit-{type} classes). */ }
+				<Button
+					icon={ playIcon }
+					label={ __( 'Preview animation', 'motion-blocks' ) }
+					variant="secondary"
+					onClick={ () => onPreview && onPreview( slot ) }
+					disabled={ isPlayPending }
+					__next40pxDefaultSize
+				/>
+			</HStack>
+
+			{ isCustom && (
+				<FromToControls
+					attributes={ attributes }
+					setAttributes={ setAttributes }
+					blockName={ blockName }
+					slot={ slot }
+				/>
+			) }
+
+			{ ! isCustom && animationType === 'scale' && (
+				<>
+					<ToggleControl
+						label={ __( 'Scale with direction', 'motion-blocks' ) }
+						checked={
+							animationDirection !== 'none' &&
+							animationDirection !== ''
+						}
+						onChange={ ( checked ) =>
+							setAttributes( {
+								[ attrName( 'Direction' ) ]: checked
+									? 'btt'
+									: 'none',
+							} )
+						}
+						__nextHasNoMarginBottom
+					/>
+					{ animationDirection !== 'none' &&
+						animationDirection !== '' && (
+							<ToggleGroupControl
+								label={ __( 'Direction', 'motion-blocks' ) }
+								value={ animationDirection }
+								onChange={ ( value ) =>
+									setAttributes( {
+										[ attrName( 'Direction' ) ]: value,
+									} )
+								}
+								isBlock
+								__nextHasNoMarginBottom
+							>
+								{ directionOptions.map( ( opt ) => (
+									<ToggleGroupControlOptionIcon
+										key={ opt.value }
+										value={ opt.value }
+										icon={ DIRECTION_ICON_MAP[ opt.value ] }
+										label={ opt.label }
+									/>
+								) ) }
+							</ToggleGroupControl>
+						) }
+				</>
+			) }
+
+			{ ! isCustom && hasDirection && animationType === 'curtain' && (
+				<ToggleGroupControl
+					label={ __( 'Direction', 'motion-blocks' ) }
+					value={ animationDirection }
+					onChange={ ( value ) =>
+						setAttributes( {
+							[ attrName( 'Direction' ) ]: value,
+						} )
+					}
+					isBlock
+					__nextHasNoMarginBottom
+				>
+					{ directionOptions.map( ( opt ) => (
+						<ToggleGroupControlOption
+							key={ opt.value }
+							value={ opt.value }
+							label={ opt.label }
+						/>
+					) ) }
+				</ToggleGroupControl>
+			) }
+
+			{ ! isCustom &&
+				hasDirection &&
+				animationType !== 'scale' &&
+				animationType !== 'curtain' && (
+					<ToggleGroupControl
+						label={ __( 'Direction', 'motion-blocks' ) }
+						value={ animationDirection }
+						onChange={ ( value ) =>
+							setAttributes( {
+								[ attrName( 'Direction' ) ]: value,
+							} )
+						}
+						isBlock
+						__nextHasNoMarginBottom
+					>
+						{ directionOptions.map( ( opt ) => (
+							<ToggleGroupControlOptionIcon
+								key={ opt.value }
+								value={ opt.value }
+								icon={ DIRECTION_ICON_MAP[ opt.value ] }
+								label={ opt.label }
+							/>
+						) ) }
+					</ToggleGroupControl>
+				) }
+
+			{ ! isCustom && animationType === 'blur' && (
+				<RangeControl
+					label={ __( 'Blur', 'motion-blocks' ) }
+					value={ animationBlurAmount }
+					onChange={ ( value ) =>
+						setAttributes( {
+							[ attrName( 'BlurAmount' ) ]: value,
+						} )
+					}
+					min={ BLUR_SETTINGS.min }
+					max={ BLUR_SETTINGS.max }
+					step={ BLUR_SETTINGS.step }
+					renderTooltipContent={ ( value ) => `${ value }px` }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			) }
+
+			{ ! isCustom && animationType === 'rotate' && (
+				<NumberControl
+					label={ __( 'Angle', 'motion-blocks' ) }
+					value={ animationRotateAngle ?? 90 }
+					step={ 1 }
+					spinControls="custom"
+					onChange={ ( value ) =>
+						setAttributes( {
+							[ attrName( 'RotateAngle' ) ]:
+								parseInt( value, 10 ) || 0,
+						} )
+					}
+					__next40pxDefaultSize
+				/>
+			) }
+
+			<HStack spacing={ 3 }>
+				<FlexBlock>
+					<NumberControl
+						label={ __( 'Duration', 'motion-blocks' ) }
+						value={ animationDuration }
+						min={ 0 }
+						step={ 0.1 }
+						spinControls="custom"
+						onChange={ ( value ) =>
+							setAttributes( {
+								[ attrName( 'Duration' ) ]:
+									parseFloat( value ) || 0,
+							} )
+						}
+						__next40pxDefaultSize
+					/>
+				</FlexBlock>
+				<FlexBlock>
+					<NumberControl
+						label={ __( 'Delay', 'motion-blocks' ) }
+						value={ animationDelay }
+						min={ 0 }
+						step={ 0.1 }
+						spinControls="custom"
+						onChange={ ( value ) =>
+							setAttributes( {
+								[ attrName( 'Delay' ) ]:
+									parseFloat( value ) || 0,
+							} )
+						}
+						__next40pxDefaultSize
+					/>
+				</FlexBlock>
+			</HStack>
+
+			<SelectControl
+				label={ __( 'Acceleration', 'motion-blocks' ) }
+				value={ animationAcceleration }
+				options={ ACCELERATION_OPTIONS }
+				onChange={ ( value ) =>
+					setAttributes( {
+						[ attrName( 'Acceleration' ) ]: value,
+					} )
+				}
+				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+			/>
+			{ animationAcceleration === 'custom' && (
+				<TextControl
+					label={ __( 'Custom timing function', 'motion-blocks' ) }
+					value={ animationCustomTimingFunction }
+					onChange={ ( v ) =>
+						setAttributes( {
+							[ attrName( 'CustomTimingFunction' ) ]: v,
+						} )
+					}
+					help={ __(
+						'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+						'motion-blocks'
+					) }
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+				/>
+			) }
+		</div>
+	);
+}

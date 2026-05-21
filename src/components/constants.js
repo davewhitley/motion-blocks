@@ -6,14 +6,25 @@
  * via a generic keyframe parameterized by CSS custom properties.
  */
 export const ANIMATION_TYPE_OPTIONS = [
-	{ label: 'Fade', value: 'fade' },
-	{ label: 'Slide', value: 'slide' },
+	{ label: 'Fade In', value: 'fade' },
+	{ label: 'Fade Out', value: 'fade-out' },
+	{ label: 'Slide In', value: 'slide' },
+	{ label: 'Slide Out', value: 'slide-out' },
 	{ label: 'Wipe', value: 'wipe' },
-	{ label: 'Curtain', value: 'curtain' },
+	// "Curtain Open" in Page Load and Scroll Interactive (the only
+	// directions those modes expose). Scroll Appear's Entry slot uses
+	// ENTRY_TYPE_OPTIONS which also labels it "Curtain Open"; its Exit
+	// slot uses EXIT_TYPE_OPTIONS which labels the same `'curtain'`
+	// value as "Curtain Close" because the slot's class prefix
+	// (`mb-exit-`) binds to the `mbCurtainClose` keyframe.
+	{ label: 'Curtain Open', value: 'curtain' },
 	{ label: 'Flip', value: 'flip' },
-	{ label: 'Scale', value: 'scale' },
-	{ label: 'Blur', value: 'blur' },
-	{ label: 'Rotate', value: 'rotate' },
+	{ label: 'Scale In', value: 'scale' },
+	{ label: 'Scale Out', value: 'scale-out' },
+	{ label: 'Blur In', value: 'blur' },
+	{ label: 'Blur Out', value: 'blur-out' },
+	{ label: 'Rotate In', value: 'rotate' },
+	{ label: 'Rotate Out', value: 'rotate-out' },
 	{ label: 'Image Move (parallax)', value: 'image-move' },
 	{ label: 'Custom', value: 'custom' },
 ];
@@ -57,18 +68,23 @@ export const IMAGE_TARGETABLE_BLOCKS = [
 ];
 
 /**
- * Block types that support the "Stagger children" toggle. When stagger
- * is enabled on one of these, the parent's animation config is applied
- * to each direct child with a stepped delay (computed via CSS
- * `:nth-child()` rules in animations.css / editor.scss). The parent
- * itself stops animating and becomes the cascade controller.
+ * Block types that support the "Stagger inner blocks" toggle. When
+ * stagger is enabled on one of these parent blocks, its animation
+ * config is applied to each inner block with a stepped delay
+ * (computed via CSS `:nth-child()` rules in animations.css /
+ * editor.scss). The parent block itself stops animating and becomes
+ * the cascade controller.
  *
  * Whitelisted because stagger only makes sense for blocks whose
- * meaningful content IS their direct children (lists, galleries, button
+ * meaningful content IS their inner blocks (lists, galleries, button
  * groups, etc.). For arbitrary content blocks (e.g. core/paragraph)
- * staggering "children" doesn't have a coherent meaning.
+ * staggering "inner blocks" doesn't have a coherent meaning.
+ *
+ * Terminology note: "parent block" / "inner block" matches Gutenberg's
+ * own vocabulary (block.json `parent`, the `InnerBlocks` component,
+ * `innerBlocks` attribute).
  */
-export const STAGGER_CONTAINER_BLOCKS = [
+export const STAGGER_PARENT_BLOCKS = [
 	'core/group',
 	'core/columns',
 	'core/buttons',
@@ -77,13 +93,21 @@ export const STAGGER_CONTAINER_BLOCKS = [
 ];
 
 /**
- * Animation types that don't compose with the stagger cascade in v1.
- * Custom (From/To) and image-move both use per-block @keyframes
- * injection — replicating that to N children would require N injected
- * @keyframes rules and breaks the simple `:nth-child()` model. Hide
- * the Stagger toggle (or surface a "not available" note) for these.
+ * Animation types that don't compose with the stagger cascade.
+ *
+ * `image-move` is parallax — it only exists in scroll-interactive
+ * mode, which doesn't use the `.mb-triggered` toggle that the
+ * stagger CSS depends on, so the cascade would be a no-op anyway.
+ *
+ * `custom` USED to be on this list. It now composes via a single
+ * inherited custom property: the parent block generates one
+ * `mb-custom-{uid}` keyframe and exposes its name as
+ * `--mb-stagger-anim-name`. Inner blocks read it back through
+ * `animation-name: var(--mb-stagger-anim-name)` in animations.css.
+ * One keyframe per parent block, not N — see the stagger section
+ * of animations.css for the binding rule.
  */
-export const STAGGER_INCOMPATIBLE_TYPES = [ 'custom', 'image-move' ];
+export const STAGGER_INCOMPATIBLE_TYPES = [ 'image-move' ];
 
 /**
  * Default stagger step in seconds — matches the units used by
@@ -121,14 +145,23 @@ export function staggerStepSeconds( raw ) {
 
 /**
  * Direction options per animation type.
+ *
+ * The "Out" variants of slide/scale reuse the same four direction
+ * values (btt/ttb/ltr/rtl), where the value names the DIRECTION OF
+ * MOTION — btt means "the element moves upward during the
+ * animation," whether that's "starts below, ends at rest" (slide-in)
+ * or "starts at rest, ends above" (slide-out).
  */
+const FOUR_AXIS_OPTIONS = [
+	{ label: 'Bottom to top', value: 'btt' },
+	{ label: 'Top to bottom', value: 'ttb' },
+	{ label: 'Left to right', value: 'ltr' },
+	{ label: 'Right to left', value: 'rtl' },
+];
+
 export const DIRECTION_OPTIONS = {
-	slide: [
-		{ label: 'Bottom to top', value: 'btt' },
-		{ label: 'Top to bottom', value: 'ttb' },
-		{ label: 'Left to right', value: 'ltr' },
-		{ label: 'Right to left', value: 'rtl' },
-	],
+	slide: FOUR_AXIS_OPTIONS,
+	'slide-out': FOUR_AXIS_OPTIONS,
 	wipe: [
 		{ label: 'Left to right', value: 'ltr' },
 		{ label: 'Right to left', value: 'rtl' },
@@ -145,46 +178,42 @@ export const DIRECTION_OPTIONS = {
 		{ label: 'Top to bottom', value: 'ttb' },
 		{ label: 'Bottom to top', value: 'btt' },
 	],
-	scale: [
-		{ label: 'Bottom to top', value: 'btt' },
-		{ label: 'Top to bottom', value: 'ttb' },
-		{ label: 'Left to right', value: 'ltr' },
-		{ label: 'Right to left', value: 'rtl' },
-	],
-	'image-move': [
-		{ label: 'Bottom to top', value: 'btt' },
-		{ label: 'Top to bottom', value: 'ttb' },
-		{ label: 'Left to right', value: 'ltr' },
-		{ label: 'Right to left', value: 'rtl' },
-	],
+	scale: FOUR_AXIS_OPTIONS,
+	'scale-out': FOUR_AXIS_OPTIONS,
+	'image-move': FOUR_AXIS_OPTIONS,
 };
 
 /**
  * Types that show a direction control.
  */
-export const TYPES_WITH_DIRECTION = [ 'slide', 'wipe', 'curtain', 'flip', 'scale', 'image-move' ];
-
-/**
- * Types that have exit animation variants.
- * Flip is entrance-only.
- */
-export const TYPES_WITH_EXIT = [ 'fade', 'slide', 'wipe', 'curtain', 'scale', 'blur', 'rotate' ];
+export const TYPES_WITH_DIRECTION = [ 'slide', 'slide-out', 'wipe', 'curtain', 'flip', 'scale', 'scale-out', 'image-move' ];
 
 /**
  * Default direction when a directional type is first selected.
  */
 export const DEFAULT_DIRECTION = {
 	slide: 'btt',
+	'slide-out': 'ttb',
 	wipe: 'ltr',
 	curtain: 'horizontal',
 	flip: 'ltr',
 	scale: 'none',
+	'scale-out': 'none',
 	'image-move': 'btt',
 };
 
 /**
  * CSS custom property values per type + direction.
  * Used by both editor preview and frontend to parameterize keyframes.
+ *
+ * The "Out" variants negate the In offsets so the direction value
+ * always names the motion direction, not the start position:
+ *
+ *   slide + btt  → starts at y=+50px (below), ends at y=0 → moves UP
+ *   slide-out + btt → starts at y=0, ends at y=-50px (above) → moves UP
+ *
+ * The keyframe interpolates between (0,0) and the var values; for
+ * `slide` the var is the START, for `slide-out` the var is the END.
  */
 export const DIRECTION_CSS_VARS = {
 	slide: {
@@ -192,6 +221,12 @@ export const DIRECTION_CSS_VARS = {
 		rtl: { '--mb-slide-x': '50px', '--mb-slide-y': '0' },
 		ttb: { '--mb-slide-x': '0', '--mb-slide-y': '-50px' },
 		btt: { '--mb-slide-x': '0', '--mb-slide-y': '50px' },
+	},
+	'slide-out': {
+		ltr: { '--mb-slide-x': '50px', '--mb-slide-y': '0' },
+		rtl: { '--mb-slide-x': '-50px', '--mb-slide-y': '0' },
+		ttb: { '--mb-slide-x': '0', '--mb-slide-y': '50px' },
+		btt: { '--mb-slide-x': '0', '--mb-slide-y': '-50px' },
 	},
 	wipe: {
 		ltr: { '--mb-wipe-from': 'inset(0 100% 0 0)' },
@@ -216,56 +251,238 @@ export const DIRECTION_CSS_VARS = {
 		ltr: { '--mb-scale-x': '-50px', '--mb-scale-y': '0' },
 		rtl: { '--mb-scale-x': '50px', '--mb-scale-y': '0' },
 	},
+	'scale-out': {
+		none: { '--mb-scale-x': '0', '--mb-scale-y': '0' },
+		btt: { '--mb-scale-x': '0', '--mb-scale-y': '-50px' },
+		ttb: { '--mb-scale-x': '0', '--mb-scale-y': '50px' },
+		ltr: { '--mb-scale-x': '50px', '--mb-scale-y': '0' },
+		rtl: { '--mb-scale-x': '-50px', '--mb-scale-y': '0' },
+	},
 };
 
 /**
  * Entrance keyframe name per type.
+ *
+ * The "Out" variants (currently just `fade-out`) flip the convention:
+ * the keyframe that plays when triggered is the "out" keyframe of
+ * the underlying effect, so the element animates from visible to
+ * hidden when it enters the viewport / loads.
  */
 export const ENTER_KEYFRAME_MAP = {
 	fade: 'mbFadeIn',
+	'fade-out': 'mbFadeOut',
 	slide: 'mbSlideIn',
+	'slide-out': 'mbSlideOut',
 	wipe: 'mbWipeIn',
 	curtain: 'mbCurtainReveal',
 	flip: 'mbFlipIn',
 	scale: 'mbScaleIn',
+	'scale-out': 'mbScaleOut',
 	blur: 'mbBlurIn',
+	'blur-out': 'mbBlurOut',
 	rotate: 'mbRotateIn',
+	'rotate-out': 'mbRotateOut',
 	// `custom` intentionally not mapped — its keyframe name is
 	// generated per-block (mb-custom-{clientId}) and bound inline.
 };
 
 /**
  * Exit keyframe name per type.
+ *
+ * For "In" variants, exit is the natural reverse (mbFadeIn → mbFadeOut).
+ * For "Out" variants, exit is the reverse of the Out keyframe — which
+ * is the original In keyframe. Mirror trigger uses both halves to
+ * round-trip the visual state.
  * Flip falls back to fade-out since it has no exit variant.
  */
 export const EXIT_KEYFRAME_MAP = {
 	fade: 'mbFadeOut',
+	'fade-out': 'mbFadeIn',
 	slide: 'mbSlideOut',
+	'slide-out': 'mbSlideIn',
 	wipe: 'mbWipeOut',
 	curtain: 'mbCurtainClose',
 	flip: 'mbFadeOut',
 	scale: 'mbScaleOut',
+	'scale-out': 'mbScaleIn',
 	blur: 'mbBlurOut',
+	'blur-out': 'mbBlurIn',
 	rotate: 'mbRotateOut',
+	'rotate-out': 'mbRotateIn',
 	// `custom` intentionally not mapped — see ENTER_KEYFRAME_MAP.
 };
 
 /**
  * Scroll in View trigger options.
+ *
+ * v2 collapsed the legacy "Both" + exitMode (mirror/custom) into a
+ * single "Mirror" value: a Mirror animation enters on view, then
+ * reverse-plays itself on exit. Saved blocks with the older 'both'
+ * value are aliased to 'mirror' at read-time on every consumer
+ * (panel, frontend JS, frontend CSS, PHP render). Custom exit
+ * animations are deferred to v3.
  */
 export const SCROLL_TRIGGER_OPTIONS = [
 	{ label: 'Enter viewport', value: 'enter' },
 	{ label: 'Exit viewport', value: 'exit' },
-	{ label: 'Both', value: 'both' },
+	{ label: 'Mirror', value: 'mirror' },
 ];
 
 /**
- * Exit mode options (shown when trigger is 'both').
+ * Normalize the legacy scroll-appear trigger attribute for read
+ * paths. Old saves can carry 'both' from v1; treat it as the v2
+ * 'mirror'. Only used by `migrateScrollAppearAttrs` and historical
+ * tooling — the slot model UI never reads this attribute directly.
  */
-export const EXIT_MODE_OPTIONS = [
-	{ label: 'Mirror enter animation', value: 'mirror' },
-	{ label: 'Custom exit animation', value: 'custom' },
+export function normalizeScrollTrigger( raw ) {
+	if ( raw === 'both' ) {
+		return 'mirror';
+	}
+	return raw || 'enter';
+}
+
+/**
+ * Effect dropdown options for the Scroll Appear Entry slot.
+ *
+ * Same underlying values as the Exit slot's list (both store
+ * 'fade', 'slide', etc.); the difference is the label exposed to
+ * the user. The slot's class prefix (`mb-enter-` vs `mb-exit-`) is
+ * what actually picks between the In and Out keyframe at render
+ * time, so no value-level distinction is needed.
+ *
+ * The SlotControls component prepends a `{ label: 'None', value: '' }`
+ * entry — that's UI state for "this slot is empty" and lives in
+ * the component, not the constants list.
+ */
+export const ENTRY_TYPE_OPTIONS = [
+	{ label: 'Fade In', value: 'fade' },
+	{ label: 'Slide In', value: 'slide' },
+	{ label: 'Scale In', value: 'scale' },
+	{ label: 'Blur In', value: 'blur' },
+	{ label: 'Rotate In', value: 'rotate' },
+	{ label: 'Wipe', value: 'wipe' },
+	{ label: 'Curtain Open', value: 'curtain' },
+	{ label: 'Flip', value: 'flip' },
+	{ label: 'Custom', value: 'custom' },
 ];
+
+/**
+ * Effect dropdown options for the Scroll Appear Exit slot.
+ *
+ * No Flip entry — the existing CSS falls back to mbFadeOut for
+ * Flip's exit, which would look broken next to the other Out
+ * variants. Wipe and Curtain are symmetric (no In/Out direction
+ * to distinguish via label).
+ */
+export const EXIT_TYPE_OPTIONS = [
+	{ label: 'Fade Out', value: 'fade' },
+	{ label: 'Slide Out', value: 'slide' },
+	{ label: 'Scale Out', value: 'scale' },
+	{ label: 'Blur Out', value: 'blur' },
+	{ label: 'Rotate Out', value: 'rotate' },
+	{ label: 'Wipe', value: 'wipe' },
+	{ label: 'Curtain Close', value: 'curtain' },
+	{ label: 'Custom', value: 'custom' },
+];
+
+/**
+ * Read-time migration shim. Maps legacy Scroll Appear attributes
+ * (`animationType` + `animationScrollTrigger` + `animationFrom*`/
+ * `animationTo*`) onto the slot model. Idempotent: runs in O(1) if
+ * the block has already been migrated (writes happen on the next
+ * user edit; this shim only normalizes the in-memory attrs that
+ * downstream code consumes).
+ *
+ * Returns a NEW object when migration is needed, or the same
+ * `attrs` reference unchanged when nothing applies — cheap to call
+ * on every render.
+ *
+ * @param {Object} attrs Block attributes (raw, as-saved).
+ * @return {Object} Normalized attributes.
+ */
+export function migrateScrollAppearAttrs( attrs ) {
+	if ( ! attrs || attrs.animationMode !== 'scroll-appear' ) {
+		return attrs;
+	}
+	// Already migrated — the user has interacted with the new UI and
+	// `animationEntryType` carries the canonical slot config.
+	const entrySet =
+		typeof attrs.animationEntryType === 'string' &&
+		attrs.animationEntryType !== '';
+	const exitSet =
+		typeof attrs.animationExitType === 'string' &&
+		attrs.animationExitType !== '';
+	if ( entrySet || exitSet ) {
+		return attrs;
+	}
+
+	// Block predates the slot model. Derive slot config from the
+	// legacy `animationScrollTrigger` + `animationType` pair.
+	const trigger = normalizeScrollTrigger( attrs.animationScrollTrigger );
+	const rawType = attrs.animationType || '';
+	const baseType = rawType.replace( /-out$/, '' ); // strip -out suffix; slot encodes direction now
+	const direction = attrs.animationDirection || '';
+	const duration =
+		attrs.animationDuration ?? DEFAULT_ATTRIBUTES.animationDuration;
+	const delay = attrs.animationDelay ?? DEFAULT_ATTRIBUTES.animationDelay;
+	const acceleration =
+		attrs.animationAcceleration ?? DEFAULT_ATTRIBUTES.animationAcceleration;
+	const customTiming =
+		attrs.animationCustomTimingFunction ??
+		DEFAULT_ATTRIBUTES.animationCustomTimingFunction;
+	const blur =
+		attrs.animationBlurAmount ?? DEFAULT_ATTRIBUTES.animationBlurAmount;
+	const rotate =
+		attrs.animationRotateAngle ?? DEFAULT_ATTRIBUTES.animationRotateAngle;
+
+	// Copy shared Custom From/To values onto the appropriate slot's
+	// keyframe attrs. Same property bag goes to both slots if Mirror
+	// (round-trip needs the same keyframe endpoints).
+	const customFromTo = {};
+	for ( const prop of Object.keys( FROM_ATTR ) ) {
+		const fromKey = FROM_ATTR[ prop ];
+		const toKey = TO_ATTR[ prop ];
+		customFromTo[ fromKey ] = attrs[ fromKey ] ?? null;
+		customFromTo[ toKey ] = attrs[ toKey ] ?? null;
+	}
+
+	const out = { ...attrs };
+	const fillSlot = ( prefix ) => {
+		out[ `animation${ prefix }Type` ] = baseType;
+		out[ `animation${ prefix }Direction` ] = direction;
+		out[ `animation${ prefix }Duration` ] = duration;
+		out[ `animation${ prefix }Delay` ] = prefix === 'Exit' ? 0 : delay;
+		out[ `animation${ prefix }Acceleration` ] = acceleration;
+		out[ `animation${ prefix }CustomTimingFunction` ] = customTiming;
+		out[ `animation${ prefix }BlurAmount` ] = blur;
+		out[ `animation${ prefix }RotateAngle` ] = rotate;
+		if ( baseType === 'custom' ) {
+			for ( const prop of Object.keys( FROM_ATTR ) ) {
+				const fromKey = FROM_ATTR[ prop ];
+				const toKey = TO_ATTR[ prop ];
+				const slotFromKey = `animation${ prefix }From${
+					fromKey.replace( /^animationFrom/, '' )
+				}`;
+				const slotToKey = `animation${ prefix }To${
+					toKey.replace( /^animationTo/, '' )
+				}`;
+				out[ slotFromKey ] = customFromTo[ fromKey ];
+				out[ slotToKey ] = customFromTo[ toKey ];
+			}
+		}
+	};
+
+	if ( trigger === 'enter' ) {
+		fillSlot( 'Entry' );
+	} else if ( trigger === 'exit' ) {
+		fillSlot( 'Exit' );
+	} else {
+		// mirror — fill both slots with the same config
+		fillSlot( 'Entry' );
+		fillSlot( 'Exit' );
+	}
+	return out;
+}
 
 /**
  * Acceleration (timing function) options.
@@ -414,8 +631,14 @@ export const PROPERTY_DEFINITIONS = [
 		id: 'rotate',
 		label: 'Rotate',
 		kind: 'number',
-		min: -180,
-		max: 180,
+		// Widened from ±180° to ±360° so spin animations are
+		// expressible end-to-end on the slider without typing.
+		// Two full rotations is enough range for any natural
+		// spin pattern; the precision loss (~0.36° per pixel of
+		// drag at typical sidebar width) is acceptable for an
+		// effect that doesn't need sub-degree accuracy.
+		min: -360,
+		max: 360,
 		step: 1,
 		identity: 0,
 		unitSuffix: 'deg',
@@ -540,17 +763,95 @@ const ALL_CUSTOM_FROM_TO_KEYS = [
  * decide whether picking "Custom" should seed defaults — if all
  * From/To attrs are null, seed; if anything is set, preserve.
  *
+ * Pass `slot` to check the slot-prefixed attribute names instead
+ * of the shared ones. Leave undefined for Page Load / Scroll
+ * Interactive (which still use the shared attrs).
+ *
  * @param {Object} attributes Block attributes.
+ * @param {?('entry'|'exit')} slot
  * @return {boolean}
  */
-export function hasAnyCustomFromToSet( attributes ) {
+export function hasAnyCustomFromToSet( attributes, slot ) {
 	if ( ! attributes ) {
 		return false;
 	}
-	return ALL_CUSTOM_FROM_TO_KEYS.some( ( key ) => {
+	const keys = slot
+		? customFromToKeysForSlot( slot )
+		: ALL_CUSTOM_FROM_TO_KEYS;
+	return keys.some( ( key ) => {
 		const v = attributes[ key ];
 		return v !== null && v !== undefined;
 	} );
+}
+
+/**
+ * Translate the shared `CUSTOM_DEFAULT_FROM_TO` seed (used by the
+ * legacy single-side path) into the slot-prefixed attribute names.
+ * Returns an object ready to spread into `setAttributes` so the
+ * Entry/Exit slot's Custom mode opens with the same four-row
+ * default that the shared path has always seeded.
+ *
+ * Entry seed mirrors the existing default (fade-up).
+ * Exit seed is the natural inverse (fade-down / fade-out) so an
+ * Exit Custom slot opens with values that make visual sense for
+ * "element animating out."
+ *
+ * @param {'entry'|'exit'} slot
+ * @return {Object}
+ */
+export function customDefaultFromToForSlot( slot ) {
+	const prefix = slot === 'entry' ? 'animationEntry' : 'animationExit';
+	const seed = slot === 'entry'
+		? {
+				// Same as shared CUSTOM_DEFAULT_FROM_TO: opacity 0→1,
+				// translateY 50px→0 (slide up + fade in).
+				FromOpacity: 0,
+				ToOpacity: 1,
+				FromScale: 1,
+				ToScale: 1,
+				FromTranslateX: '0px',
+				ToTranslateX: '0px',
+				FromTranslateY: '50px',
+				ToTranslateY: '0px',
+		  }
+		: {
+				// Inverse: opacity 1→0, translateY 0→50px (slide down
+				// + fade out). Makes a sensible default for "Exit
+				// Custom" without forcing the user to flip every value.
+				FromOpacity: 1,
+				ToOpacity: 0,
+				FromScale: 1,
+				ToScale: 1,
+				FromTranslateX: '0px',
+				ToTranslateX: '0px',
+				FromTranslateY: '0px',
+				ToTranslateY: '50px',
+		  };
+	const out = {};
+	for ( const [ k, v ] of Object.entries( seed ) ) {
+		out[ `${ prefix }${ k }` ] = v;
+	}
+	return out;
+}
+
+/**
+ * Enumerate the per-slot Custom From/To attribute names. Used by
+ * `hasAnyCustomFromToSet( attrs, slot )` to decide whether the
+ * slot is empty before seeding defaults on the first Custom pick.
+ *
+ * @param {'entry'|'exit'} slot
+ * @return {string[]}
+ */
+function customFromToKeysForSlot( slot ) {
+	const prefix = slot === 'entry' ? 'animationEntry' : 'animationExit';
+	const out = [];
+	for ( const fromKey of Object.values( FROM_ATTR ) ) {
+		out.push( fromKey.replace( /^animationFrom/, `${ prefix }From` ) );
+	}
+	for ( const toKey of Object.values( TO_ATTR ) ) {
+		out.push( toKey.replace( /^animationTo/, `${ prefix }To` ) );
+	}
+	return out;
 }
 
 /**
@@ -595,6 +896,12 @@ export function getPresetFromTo( type, direction, options = {} ) {
 				to: { opacity: 1 },
 			};
 
+		case 'fade-out':
+			return {
+				from: { opacity: 1 },
+				to: { opacity: 0 },
+			};
+
 		case 'slide': {
 			const offsets = {
 				btt: { x: '0px', y: '50px' },
@@ -610,6 +917,27 @@ export function getPresetFromTo( type, direction, options = {} ) {
 					translateY: off.y,
 				},
 				to: { opacity: 1 },
+			};
+		}
+
+		case 'slide-out': {
+			// End-side offsets — element moves AWAY from rest in the
+			// direction of motion. Negated relative to `slide` so btt
+			// still means "upward motion."
+			const offsets = {
+				btt: { x: '0px', y: '-50px' },
+				ttb: { x: '0px', y: '50px' },
+				ltr: { x: '50px', y: '0px' },
+				rtl: { x: '-50px', y: '0px' },
+			};
+			const off = offsets[ direction ] || offsets.ttb;
+			return {
+				from: { opacity: 1 },
+				to: {
+					opacity: 0,
+					translateX: off.x,
+					translateY: off.y,
+				},
 			};
 		}
 
@@ -635,6 +963,30 @@ export function getPresetFromTo( type, direction, options = {} ) {
 			};
 		}
 
+		case 'scale-out': {
+			// End-side offsets — element moves AWAY in the direction
+			// of motion (negated from `scale`).
+			const offsets = {
+				none: { x: '0px', y: '0px' },
+				btt: { x: '0px', y: '-50px' },
+				ttb: { x: '0px', y: '50px' },
+				ltr: { x: '50px', y: '0px' },
+				rtl: { x: '-50px', y: '0px' },
+			};
+			const off = offsets[ direction ] || offsets.none;
+			const toBag = { opacity: 0, scale: 0.75 };
+			if ( off.x !== '0px' ) {
+				toBag.translateX = off.x;
+			}
+			if ( off.y !== '0px' ) {
+				toBag.translateY = off.y;
+			}
+			return {
+				from: { opacity: 1 },
+				to: toBag,
+			};
+		}
+
 		case 'rotate': {
 			const angle = options.rotateAngle ?? 90;
 			return {
@@ -643,11 +995,27 @@ export function getPresetFromTo( type, direction, options = {} ) {
 			};
 		}
 
+		case 'rotate-out': {
+			const angle = options.rotateAngle ?? 90;
+			return {
+				from: { opacity: 1 },
+				to: { opacity: 0, rotate: angle },
+			};
+		}
+
 		case 'blur': {
 			const amount = options.blurAmount ?? 8;
 			return {
 				from: { opacity: 0, blur: amount },
 				to: { opacity: 1 },
+			};
+		}
+
+		case 'blur-out': {
+			const amount = options.blurAmount ?? 8;
+			return {
+				from: { opacity: 1 },
+				to: { opacity: 0, blur: amount },
 			};
 		}
 
@@ -772,6 +1140,66 @@ export function presetToFromToAttributes( type, direction, options = {} ) {
 		if ( attr ) {
 			out[ attr ] = val;
 		}
+	}
+	return out;
+}
+
+/**
+ * Slot-prefixed variant of `presetToFromToAttributes`. Returns an
+ * attribute payload keyed by `animationEntryFrom*` /
+ * `animationEntryTo*` (or `animationExit*`) instead of the shared
+ * `animationFrom*` / `animationTo*`. Used by SlotControls when the
+ * user clicks Edit on a preset inside an Entry/Exit slot.
+ *
+ * For Exit slot: also swaps From↔To values, so the Custom keyframe
+ * runs visually like the original preset's reverse (the way the
+ * Exit slot's `mb-exit-{type}` class binds to mbXxxOut today).
+ * Example: Slide In btt → from { y: 50px, opacity: 0 } to
+ * { y: 0, opacity: 1 }. Slide Out btt should run the opposite:
+ * from { y: 0, opacity: 1 } to { y: -50px, opacity: 0 }. We can't
+ * compute the "out direction" inversion generically here, so we
+ * simply swap From/To — same visual as playing the preset's In
+ * keyframe in reverse.
+ *
+ * @param {string} type      Animation type.
+ * @param {string} direction Direction value.
+ * @param {Object} options   { rotateAngle?, blurAmount? }
+ * @param {'entry'|'exit'} slot
+ * @return {Object|null}
+ */
+export function presetToSlotFromToAttributes( type, direction, options, slot ) {
+	const flat = presetToFromToAttributes( type, direction, options );
+	if ( ! flat ) {
+		return null;
+	}
+	const prefix = slot === 'entry' ? 'animationEntry' : 'animationExit';
+	const out = {};
+	for ( const [ key, val ] of Object.entries( flat ) ) {
+		const slotted = key
+			.replace( /^animationFrom/, `${ prefix }From` )
+			.replace( /^animationTo/, `${ prefix }To` );
+		out[ slotted ] = val;
+	}
+	if ( slot === 'exit' ) {
+		// Swap From↔To so the slot's "forward" plays the visual
+		// reverse of the In preset.
+		const swapped = {};
+		for ( const [ key, val ] of Object.entries( out ) ) {
+			if ( key.startsWith( `${ prefix }From` ) ) {
+				const twin = key.replace(
+					new RegExp( `^${ prefix }From` ),
+					`${ prefix }To`
+				);
+				swapped[ twin ] = val;
+			} else if ( key.startsWith( `${ prefix }To` ) ) {
+				const twin = key.replace(
+					new RegExp( `^${ prefix }To` ),
+					`${ prefix }From`
+				);
+				swapped[ twin ] = val;
+			}
+		}
+		return swapped;
 	}
 	return out;
 }
@@ -961,20 +1389,81 @@ export const DEFAULT_ATTRIBUTES = {
 	animationRepeat: 'once',
 	animationPauseOffscreen: true,
 	animationPlayOnce: true,
+	// Legacy trigger attribute. The Scroll Appear panel no longer
+	// reads or writes this — it's been replaced by the slot model
+	// (animationEntry* / animationExit*). Kept registered so old
+	// saves continue to deserialize cleanly; migrated on read by
+	// migrateScrollAppearAttrs().
 	animationScrollTrigger: 'enter',
-	animationExitMode: 'mirror',
-	animationExitType: 'fade',
-	animationExitDirection: '',
-	animationExitDuration: 0.6,
 	animationAcceleration: 'ease',
 	animationCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
-	animationExitDelay: 0,
-	animationExitAcceleration: 'ease',
-	animationExitCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
 	animationBlurAmount: 8,
 	animationRotateAngle: 90,
 	animationRangeStart: 'entry 0%',
 	animationRangeEnd: 'exit 100%',
+	// --- Slot model: Scroll Appear's Entry / Exit slots ---
+	// Each slot mirrors the shared animation attrs but scoped to a
+	// single direction. '' = slot is empty (no animation for that
+	// phase). Both slots filled = round-trip (replaces the old
+	// "Mirror" trigger). Only Entry filled = "enter trigger." Only
+	// Exit filled = "exit trigger." See constants.js → migration
+	// shim for how legacy blocks map onto this.
+	animationEntryType: '',
+	animationEntryDirection: '',
+	animationEntryDuration: 0.6,
+	animationEntryDelay: 0.4,
+	animationEntryAcceleration: 'ease',
+	animationEntryCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
+	animationEntryBlurAmount: 8,
+	animationEntryRotateAngle: 90,
+	animationExitType: '',
+	animationExitDirection: '',
+	animationExitDuration: 0.6,
+	animationExitDelay: 0,
+	animationExitAcceleration: 'ease',
+	animationExitCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
+	animationExitBlurAmount: 8,
+	animationExitRotateAngle: 90,
+	// Per-slot Custom From/To values (only relevant when the slot's
+	// type is 'custom'). The shared animationFrom* / animationTo*
+	// attributes below are still used by Page Load and Scroll
+	// Interactive modes.
+	animationEntryFromOpacity: null,
+	animationEntryFromTranslateX: null,
+	animationEntryFromTranslateY: null,
+	animationEntryFromScale: null,
+	animationEntryFromRotate: null,
+	animationEntryFromRotateX: null,
+	animationEntryFromRotateY: null,
+	animationEntryFromBlur: null,
+	animationEntryFromClipPath: null,
+	animationEntryToOpacity: null,
+	animationEntryToTranslateX: null,
+	animationEntryToTranslateY: null,
+	animationEntryToScale: null,
+	animationEntryToRotate: null,
+	animationEntryToRotateX: null,
+	animationEntryToRotateY: null,
+	animationEntryToBlur: null,
+	animationEntryToClipPath: null,
+	animationExitFromOpacity: null,
+	animationExitFromTranslateX: null,
+	animationExitFromTranslateY: null,
+	animationExitFromScale: null,
+	animationExitFromRotate: null,
+	animationExitFromRotateX: null,
+	animationExitFromRotateY: null,
+	animationExitFromBlur: null,
+	animationExitFromClipPath: null,
+	animationExitToOpacity: null,
+	animationExitToTranslateX: null,
+	animationExitToTranslateY: null,
+	animationExitToScale: null,
+	animationExitToRotate: null,
+	animationExitToRotateX: null,
+	animationExitToRotateY: null,
+	animationExitToBlur: null,
+	animationExitToClipPath: null,
 	// Custom (Start / End) — null = "user has not added this property
 	// to this side". Adding a property writes its identity (or a
 	// preset's value); removing a property writes null. The CSS
@@ -1014,10 +1503,10 @@ export const DEFAULT_ATTRIBUTES = {
 	// for blocks listed in IMAGE_TARGETABLE_BLOCKS.
 	animationFromToTarget: 'block',
 	// Stagger cascade — only meaningful when the block is a
-	// STAGGER_CONTAINER_BLOCKS member. When true, the parent stops
-	// animating itself and becomes the cascade controller for its
-	// direct children. Step is the delay added per child (in seconds
-	// — see staggerStepSeconds for the legacy-ms heuristic).
+	// STAGGER_PARENT_BLOCKS member. When true, the parent block
+	// stops animating itself and becomes the cascade controller for
+	// its inner blocks. Step is the delay added per inner block (in
+	// seconds — see staggerStepSeconds for the legacy-ms heuristic).
 	animationStaggerEnabled: false,
 	animationStaggerStep: DEFAULT_STAGGER_STEP_SECONDS,
 	// Clip parent overflow on the x-axis when this block animates off
@@ -1085,6 +1574,11 @@ export function switchModeAttributes( attributes, newMode ) {
 	const out = {
 		animationMode: newMode,
 		animationPreviewPlaying: false,
+	// Which slot is currently being previewed in the editor — only
+	// consulted for Scroll Appear blocks. 'entry' or 'exit'. Lets
+	// the preview HOC know whether to fire `mb-triggered` (Entry) or
+	// `mb-exit-triggered` (Exit) and which slot's attrs to source.
+	animationPreviewSlot: 'entry',
 	};
 
 	// Type coercion: image-move only works in scroll-interactive.
@@ -1105,14 +1599,6 @@ export function switchModeAttributes( attributes, newMode ) {
 	}
 	if ( oldMode === 'scroll-appear' ) {
 		out.animationScrollTrigger = DEFAULT_ATTRIBUTES.animationScrollTrigger;
-		out.animationExitMode = DEFAULT_ATTRIBUTES.animationExitMode;
-		out.animationExitType = DEFAULT_ATTRIBUTES.animationExitType;
-		out.animationExitDirection = DEFAULT_ATTRIBUTES.animationExitDirection;
-		out.animationExitDuration = DEFAULT_ATTRIBUTES.animationExitDuration;
-		out.animationExitDelay = DEFAULT_ATTRIBUTES.animationExitDelay;
-		out.animationExitAcceleration = DEFAULT_ATTRIBUTES.animationExitAcceleration;
-		out.animationExitCustomTimingFunction =
-			DEFAULT_ATTRIBUTES.animationExitCustomTimingFunction;
 	}
 	if ( oldMode === 'scroll-interactive' ) {
 		out.animationRangeStart = DEFAULT_ATTRIBUTES.animationRangeStart;

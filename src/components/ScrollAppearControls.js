@@ -1,231 +1,76 @@
 /**
- * ScrollAppearControls — "Scroll in view" animation sub-panel.
+ * ScrollAppearControls — "Appear on scroll" animation sub-panel.
  *
- * Supports three trigger modes:
- *   - Enter viewport: entrance animation only
- *   - Exit viewport: exit animation only
- *   - Both: entrance + exit (mirror or custom)
+ * Slot model (v3): the panel has independent **Entry** and **Exit**
+ * slots. Each slot holds an effect + timing + (optional) Custom
+ * From/To keyframe. Slot filled = "the animation plays at that
+ * phase." Slot empty = "no animation for that phase."
+ *
+ * - Filling only Entry      → element animates in on view (old "Enter trigger")
+ * - Filling only Exit       → element animates out on view exit (old "Exit trigger")
+ * - Filling both            → round-trip enter then exit (old "Mirror trigger")
+ *
+ * The legacy `animationScrollTrigger` attribute is migrated to slot
+ * config at read-time by `migrateScrollAppearAttrs()` in
+ * constants.js. The migration is idempotent and runs every render;
+ * the next user edit writes the canonical slot attrs back to storage.
+ *
+ * Cross-cutting controls (Stagger, Play once, Clip overflow, Remove)
+ * render below the slot tabs, always visible regardless of which
+ * tab is active.
  */
 
+import { useState } from '@wordpress/element';
 import {
-	BaseControl,
-	SelectControl,
-	RangeControl,
+	TabPanel,
 	ToggleControl,
-	TextControl,
-	__experimentalToggleGroupControl as ToggleGroupControl,
-	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
-	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
-	__experimentalHStack as HStack,
-	__experimentalNumberControl as NumberControl,
-	FlexBlock,
 	Button,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import {
-	arrowUp,
-	arrowDown,
-	arrowLeft,
-	arrowRight,
-} from '@wordpress/icons';
-import { SVG, Path } from '@wordpress/primitives';
 
 import {
-	ANIMATION_TYPE_OPTIONS,
-	DIRECTION_OPTIONS,
-	TYPES_WITH_DIRECTION,
-	TYPES_WITH_EXIT,
-	SCROLL_INTERACTIVE_ONLY_TYPES,
-	DEFAULT_DIRECTION,
-	EXIT_MODE_OPTIONS,
-	ACCELERATION_OPTIONS,
-	BLUR_SETTINGS,
-	CUSTOM_DEFAULT_FROM_TO,
+	migrateScrollAppearAttrs,
 	STAGGER_INCOMPATIBLE_TYPES,
-	hasAnyCustomFromToSet,
-	presetToFromToAttributes,
 } from './constants';
-import FromToControls from './FromToControls';
+import SlotControls from './SlotControls';
 import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';
 
-const playIcon = (
-	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-		<Path d="M8 5.14v13.72l11-6.86L8 5.14z" />
-	</SVG>
-);
-
-const DIRECTION_ICON_MAP = {
-	btt: arrowUp,
-	ttb: arrowDown,
-	ltr: arrowRight,
-	rtl: arrowLeft,
-};
-
-/**
- * Filter animation type options to only those with exit variants.
- */
-const EXIT_TYPE_OPTIONS = ANIMATION_TYPE_OPTIONS.filter( ( opt ) =>
-	TYPES_WITH_EXIT.includes( opt.value )
-);
-
-export default function ScrollAppearControls( {
-	attributes,
-	setAttributes,
-	blockName,
-	clientId,
-	onRemove,
-	onPreview,
-	isPlayPending,
-	onPaste,
-	onReset,
-} ) {
+export default function ScrollAppearControls( props ) {
 	const {
-		animationType,
-		animationDirection,
-		animationDuration,
-		animationDelay,
-		animationPlayOnce,
-		animationScrollTrigger,
-		animationExitMode,
-		animationExitType,
-		animationExitDirection,
-		animationAcceleration,
-		animationCustomTimingFunction,
-		animationBlurAmount,
-		animationRotateAngle,
-		animationExitDuration,
-		animationExitDelay,
-		animationExitAcceleration,
-		animationExitCustomTimingFunction,
-	} = attributes;
+		setAttributes,
+		blockName,
+		clientId,
+		onRemove,
+		onPreview,
+		isPlayPending,
+		onPaste,
+		onReset,
+	} = props;
 
-	// Image Move is parallax — only meaningful in scroll-interactive
-	// mode. Filter it out of the scroll-appear dropdown too.
-	const typeOptions = ANIMATION_TYPE_OPTIONS.filter(
-		( opt ) => ! SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value )
+	// Normalize legacy `animationScrollTrigger` + `animationType` into
+	// the slot model on read. Idempotent — no-op when the block already
+	// has Entry/Exit slot attrs set.
+	const attributes = migrateScrollAppearAttrs( props.attributes );
+
+	const entryType = attributes.animationEntryType || '';
+	const exitType = attributes.animationExitType || '';
+	const hasEntry = entryType !== '';
+
+	// Active slot lives in component state, not in saved attributes.
+	// Default to whichever slot is filled (Exit-only blocks open on
+	// the Exit tab so the user lands on the relevant config).
+	const [ activeSlot, setActiveSlot ] = useState(
+		hasEntry || ! exitType ? 'entry' : 'exit'
 	);
-	const exitTypeOptions = EXIT_TYPE_OPTIONS;
 
-	const isCustom = animationType === 'custom';
-
-	const trigger = animationScrollTrigger || 'enter';
-	const exitMode = animationExitMode || 'mirror';
-	const showEnterConfig = trigger === 'enter' || trigger === 'both';
-	const showExitConfig = trigger === 'exit' || trigger === 'both';
-	const showCustomExit =
-		showExitConfig && ( trigger === 'exit' || exitMode === 'custom' );
-
-	// For enter config: all types available.
-	const enterHasDirection = TYPES_WITH_DIRECTION.includes( animationType );
-	const enterDirectionOptions = DIRECTION_OPTIONS[ animationType ] || [];
-
-	// For exit config: only types with exit variants.
-	const exitType = animationExitType || 'fade';
-	const exitHasDirection = TYPES_WITH_DIRECTION.includes( exitType );
-	const exitDirectionOptions = DIRECTION_OPTIONS[ exitType ] || [];
-
-	/**
-	 * When enter animation type changes, auto-set direction.
-	 */
-	const handleEnterTypeChange = ( value ) => {
-		const newAttrs = { animationType: value };
-		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
-			newAttrs.animationDirection = DEFAULT_DIRECTION[ value ] || '';
-		} else {
-			newAttrs.animationDirection = '';
-		}
-		// Seed the four default From/To rows when picking Custom for
-		// the first time. Preserves any existing custom config.
-		if ( value === 'custom' && ! hasAnyCustomFromToSet( attributes ) ) {
-			Object.assign( newAttrs, CUSTOM_DEFAULT_FROM_TO );
-		}
-		// Stagger isn't supported on custom / image-move — clear the
-		// flag on the way in so it doesn't silently persist and then
-		// re-activate when the user switches back to a preset. See
-		// PageLoadControls.handleTypeChange for the full rationale.
-		if (
-			STAGGER_INCOMPATIBLE_TYPES.includes( value ) &&
-			attributes.animationStaggerEnabled
-		) {
-			newAttrs.animationStaggerEnabled = false;
-		}
-		setAttributes( newAttrs );
-	};
-
-	/**
-	 * "Edit" — convert the current enter preset into Custom mode with
-	 * its From/To values pre-filled. Only wired on the enter dropdown
-	 * — exit effects keep the preset-only flow for v1.
-	 */
-	const handleEditPreset = () => {
-		const seed = presetToFromToAttributes(
-			animationType,
-			animationDirection,
-			{
-				rotateAngle: animationRotateAngle,
-				blurAmount: animationBlurAmount,
-			}
-		);
-		if ( ! seed ) {
-			return;
-		}
-		const newAttrs = {
-			animationType: 'custom',
-			animationDirection: '',
-			...seed,
-		};
-		if ( attributes.animationStaggerEnabled ) {
-			newAttrs.animationStaggerEnabled = false;
-		}
-		setAttributes( newAttrs );
-	};
-
-	const canEditPreset =
-		!! animationType &&
-		animationType !== 'custom' &&
-		animationType !== 'image-move' &&
-		!! presetToFromToAttributes(
-			animationType,
-			animationDirection,
-			{
-				rotateAngle: animationRotateAngle,
-				blurAmount: animationBlurAmount,
-			}
-		);
-
-	/**
-	 * When exit animation type changes, auto-set exit direction.
-	 */
-	const handleExitTypeChange = ( value ) => {
-		const newAttrs = { animationExitType: value };
-		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
-			newAttrs.animationExitDirection = DEFAULT_DIRECTION[ value ] || '';
-		} else {
-			newAttrs.animationExitDirection = '';
-		}
-		setAttributes( newAttrs );
-	};
-
-	/**
-	 * When trigger changes to exit-only, use the exit type options.
-	 * When trigger changes to enter or both, ensure enter type is set.
-	 */
-	const handleTriggerChange = ( value ) => {
-		const newAttrs = { animationScrollTrigger: value };
-
-		// If switching to exit-only and current enter type has no exit
-		// variant (e.g., flip), switch to fade.
-		if (
-			value === 'exit' &&
-			! TYPES_WITH_EXIT.includes( animationType )
-		) {
-			newAttrs.animationType = 'fade';
-			newAttrs.animationDirection = '';
-		}
-
-		setAttributes( newAttrs );
-	};
+	// Stagger should be hidden whenever EITHER slot uses an
+	// incompatible type (currently 'image-move'). Stagger's CSS rules
+	// apply to the parent's class set; if any slot can't compose with
+	// the cascade, the whole stagger feature should be off.
+	const staggerIncompatible =
+		STAGGER_INCOMPATIBLE_TYPES.includes( entryType ) ||
+		STAGGER_INCOMPATIBLE_TYPES.includes( exitType );
 
 	return (
 		<div className="mb-sub-panel">
@@ -244,770 +89,91 @@ export default function ScrollAppearControls( {
 				) }
 			/>
 
-			{ /* Trigger selector */ }
-			<ToggleGroupControl
-				label={ __( 'Trigger', 'motion-blocks' ) }
-				value={ trigger }
-				onChange={ handleTriggerChange }
-				isBlock
+			{ /* Entry / Exit slot tabs. The selected tab drives which
+			   SlotControls renders below. Cross-cutting controls (Play
+			   once, Stagger, Clip overflow, Remove) sit outside the
+			   tabs so they're always visible. */ }
+			<TabPanel
+				className="mb-slot-tabs"
+				initialTabName={ activeSlot }
+				onSelect={ ( name ) => name && setActiveSlot( name ) }
+				tabs={ [
+					{
+						name: 'entry',
+						title: __( 'Entry', 'motion-blocks' ),
+					},
+					{
+						name: 'exit',
+						title: __( 'Exit', 'motion-blocks' ),
+					},
+				] }
+			>
+				{ ( tab ) => (
+					<SlotControls
+						attributes={ attributes }
+						setAttributes={ setAttributes }
+						blockName={ blockName }
+						slot={ tab.name }
+						onPreview={ onPreview }
+						isPlayPending={ isPlayPending }
+					/>
+				) }
+			</TabPanel>
+
+			{ /* Stagger — gated on parent block types + animation type.
+			   Reads from the Entry slot's type since Stagger's CSS
+			   bindings key on `mb-enter-{type}`. If only the Exit slot
+			   is filled, stagger doesn't apply (the inner blocks have
+			   no enter animation to cascade). */ }
+			{ ! staggerIncompatible && (
+				<StaggerControls
+					attributes={ {
+						...attributes,
+						animationType: entryType || exitType,
+					} }
+					setAttributes={ setAttributes }
+					blockName={ blockName }
+					clientId={ clientId }
+				/>
+			) }
+
+			{ /* Play once — only meaningful when the Entry slot is
+			   filled (semantic: "fire the entry animation once and
+			   stop observing"). With Entry empty, this toggle is
+			   disabled because the natural Exit-only semantic is
+			   "always observable" — Play once would leave the
+			   element stuck in its faded-out state forever. */ }
+			<ToggleControl
+				label={ __( 'Play once', 'motion-blocks' ) }
+				checked={ !! attributes.animationPlayOnce }
+				disabled={ ! hasEntry }
+				onChange={ ( value ) =>
+					setAttributes( { animationPlayOnce: value } )
+				}
 				help={
-					trigger === 'exit'
+					hasEntry
 						? __(
-								'Animation plays when the element scrolls out of view.',
-								'motion-blocks'
-						  )
-						: trigger === 'both'
-						? __(
-								'Animation plays when the element enters the viewport, then plays again on exit.',
+								'Animate the element only once when scrolling for the first time.',
 								'motion-blocks'
 						  )
 						: __(
-								'Animation plays when the element scrolls into view.',
+								'Add an Entry effect to enable Play once.',
 								'motion-blocks'
 						  )
 				}
 				__nextHasNoMarginBottom
-			>
-				<ToggleGroupControlOption
-					value="enter"
-					label={ __( 'Enter', 'motion-blocks' ) }
-				/>
-				<ToggleGroupControlOption
-					value="exit"
-					label={ __( 'Exit', 'motion-blocks' ) }
-				/>
-				<ToggleGroupControlOption
-					value="both"
-					label={ __( 'Both', 'motion-blocks' ) }
-				/>
-			</ToggleGroupControl>
-
-			{ /* ---- Enter animation config ---- */ }
-			{ showEnterConfig && (
-				<>
-					<HStack alignment="bottom" spacing={ 3 }>
-						<FlexBlock>
-							<div className="mb-effect-field">
-								<HStack
-									className="mb-effect-field__label-row"
-									justify="flex-start"
-									spacing={ 2 }
-								>
-									<BaseControl.VisualLabel>
-										{ trigger === 'both'
-											? __( 'Enter effect', 'motion-blocks' )
-											: __( 'Effect', 'motion-blocks' ) }
-									</BaseControl.VisualLabel>
-									{ canEditPreset && (
-										<Button
-											variant="link"
-											size="small"
-											onClick={ handleEditPreset }
-										>
-											{ __( 'Edit', 'motion-blocks' ) }
-										</Button>
-									) }
-								</HStack>
-								<SelectControl
-									label={
-										trigger === 'both'
-											? __( 'Enter effect', 'motion-blocks' )
-											: __( 'Effect', 'motion-blocks' )
-									}
-									hideLabelFromVision
-									value={ animationType }
-									options={
-										trigger === 'enter'
-											? typeOptions
-											: exitTypeOptions
-									}
-									onChange={ handleEnterTypeChange }
-									__next40pxDefaultSize
-									__nextHasNoMarginBottom
-								/>
-							</div>
-						</FlexBlock>
-						<Button
-							icon={ playIcon }
-							label={ __(
-								'Preview animation',
-								'motion-blocks'
-							) }
-							variant="secondary"
-							onClick={ onPreview }
-							disabled={ isPlayPending }
-							__next40pxDefaultSize
-						/>
-					</HStack>
-
-					{ isCustom && (
-						<FromToControls
-							attributes={ attributes }
-							setAttributes={ setAttributes }
-							blockName={ blockName }
-						/>
-					) }
-
-					{ ! isCustom && animationType === 'scale' && (
-						<>
-							<ToggleControl
-								label={ __( 'Scale with direction', 'motion-blocks' ) }
-								checked={ animationDirection !== 'none' && animationDirection !== '' }
-								onChange={ ( checked ) =>
-									setAttributes( {
-										animationDirection: checked ? 'btt' : 'none',
-									} )
-								}
-								__nextHasNoMarginBottom
-							/>
-							{ animationDirection !== 'none' && animationDirection !== '' && (
-								<ToggleGroupControl
-									label={ __( 'Direction', 'motion-blocks' ) }
-									value={ animationDirection }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationDirection: value,
-										} )
-									}
-									isBlock
-									__nextHasNoMarginBottom
-								>
-									{ enterDirectionOptions.map( ( opt ) => (
-										<ToggleGroupControlOptionIcon
-											key={ opt.value }
-											value={ opt.value }
-											icon={ DIRECTION_ICON_MAP[ opt.value ] }
-											label={ opt.label }
-										/>
-									) ) }
-								</ToggleGroupControl>
-							) }
-						</>
-					) }
-
-					{ ! isCustom && enterHasDirection && animationType === 'curtain' && (
-						<ToggleGroupControl
-							label={ __( 'Direction', 'motion-blocks' ) }
-							value={ animationDirection }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationDirection: value,
-								} )
-							}
-							isBlock
-							__nextHasNoMarginBottom
-						>
-							{ enterDirectionOptions.map( ( opt ) => (
-								<ToggleGroupControlOption
-									key={ opt.value }
-									value={ opt.value }
-									label={ opt.label }
-								/>
-							) ) }
-						</ToggleGroupControl>
-					) }
-
-					{ ! isCustom && enterHasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
-						<ToggleGroupControl
-							label={ __( 'Direction', 'motion-blocks' ) }
-							value={ animationDirection }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationDirection: value,
-								} )
-							}
-							isBlock
-							__nextHasNoMarginBottom
-						>
-							{ enterDirectionOptions.map( ( opt ) => (
-								<ToggleGroupControlOptionIcon
-									key={ opt.value }
-									value={ opt.value }
-									icon={ DIRECTION_ICON_MAP[ opt.value ] }
-									label={ opt.label }
-								/>
-							) ) }
-						</ToggleGroupControl>
-					) }
-
-					{ ! isCustom && animationType === 'blur' && (
-						<RangeControl
-							label={ __( 'Blur', 'motion-blocks' ) }
-							value={ animationBlurAmount }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationBlurAmount: value,
-								} )
-							}
-							min={ BLUR_SETTINGS.min }
-							max={ BLUR_SETTINGS.max }
-							step={ BLUR_SETTINGS.step }
-							renderTooltipContent={ ( value ) =>
-								`${ value }px`
-							}
-							__next40pxDefaultSize
-							__nextHasNoMarginBottom
-						/>
-					) }
-
-					{ ! isCustom && animationType === 'rotate' && (
-						<NumberControl
-							label={ __( 'Angle', 'motion-blocks' ) }
-							value={ animationRotateAngle ?? 90 }
-							step={ 1 }
-							spinControls="custom"
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationRotateAngle:
-										parseInt( value, 10 ) || 0,
-								} )
-							}
-							__next40pxDefaultSize
-						/>
-					) }
-
-					<div className="mb-section-heading">
-						{ __( 'Timing', 'motion-blocks' ) }
-					</div>
-
-					{ /* Stagger inside Timing — same as PageLoad. */ }
-					<StaggerControls
-						attributes={ attributes }
-						setAttributes={ setAttributes }
-						blockName={ blockName }
-					/>
-
-					<HStack spacing={ 3 }>
-						<FlexBlock>
-							<NumberControl
-								label={ __( 'Duration', 'motion-blocks' ) }
-								value={ animationDuration }
-								min={ 0 }
-								step={ 0.1 }
-								spinControls="custom"
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationDuration:
-											parseFloat( value ) || 0,
-									} )
-								}
-								__next40pxDefaultSize
-							/>
-						</FlexBlock>
-						<FlexBlock>
-							<NumberControl
-								label={ __( 'Delay', 'motion-blocks' ) }
-								value={ animationDelay }
-								min={ 0 }
-								step={ 0.1 }
-								spinControls="custom"
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationDelay:
-											parseFloat( value ) || 0,
-									} )
-								}
-								__next40pxDefaultSize
-							/>
-						</FlexBlock>
-					</HStack>
-
-					<SelectControl
-						label={ __( 'Acceleration', 'motion-blocks' ) }
-						value={ animationAcceleration }
-						options={ ACCELERATION_OPTIONS }
-						onChange={ ( value ) =>
-							setAttributes( {
-								animationAcceleration: value,
-							} )
-						}
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
-					{ animationAcceleration === 'custom' && (
-						<TextControl
-							label={ __(
-								'Custom timing function',
-								'motion-blocks'
-							) }
-							value={ animationCustomTimingFunction }
-							onChange={ ( v ) =>
-								setAttributes( {
-									animationCustomTimingFunction: v,
-								} )
-							}
-							help={ __(
-								'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
-								'motion-blocks'
-							) }
-							__nextHasNoMarginBottom
-							__next40pxDefaultSize
-						/>
-					) }
-				</>
-			) }
-
-			{ /* ---- Exit mode selector (only when trigger is 'both') ---- */ }
-			{ trigger === 'both' && (
-				<SelectControl
-					label={ __( 'Exit animation', 'motion-blocks' ) }
-					value={ exitMode }
-					options={ EXIT_MODE_OPTIONS }
-					onChange={ ( value ) =>
-						setAttributes( { animationExitMode: value } )
-					}
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				/>
-			) }
-
-			{ /* ---- Exit-only or custom exit config ---- */ }
-			{ showCustomExit && (
-				<>
-					{ trigger === 'exit' && (
-						<HStack alignment="bottom" spacing={ 3 }>
-							<FlexBlock>
-								<SelectControl
-									label={ __( 'Effect', 'motion-blocks' ) }
-									value={ animationType }
-									options={ exitTypeOptions }
-									onChange={ handleEnterTypeChange }
-									__next40pxDefaultSize
-									__nextHasNoMarginBottom
-								/>
-							</FlexBlock>
-							<Button
-								icon={ playIcon }
-								label={ __(
-									'Preview animation',
-									'motion-blocks'
-								) }
-								variant="secondary"
-								onClick={ onPreview }
-								disabled={ isPlayPending }
-								__next40pxDefaultSize
-							/>
-						</HStack>
-					) }
-
-					{ trigger === 'exit' && animationType === 'scale' && (
-						<>
-							<ToggleControl
-								label={ __( 'Scale with direction', 'motion-blocks' ) }
-								checked={ animationDirection !== 'none' && animationDirection !== '' }
-								onChange={ ( checked ) =>
-									setAttributes( {
-										animationDirection: checked ? 'btt' : 'none',
-									} )
-								}
-								__nextHasNoMarginBottom
-							/>
-							{ animationDirection !== 'none' && animationDirection !== '' && (
-								<ToggleGroupControl
-									label={ __( 'Direction', 'motion-blocks' ) }
-									value={ animationDirection }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationDirection: value,
-										} )
-									}
-									isBlock
-									__nextHasNoMarginBottom
-								>
-									{ enterDirectionOptions.map( ( opt ) => (
-										<ToggleGroupControlOptionIcon
-											key={ opt.value }
-											value={ opt.value }
-											icon={ DIRECTION_ICON_MAP[ opt.value ] }
-											label={ opt.label }
-										/>
-									) ) }
-								</ToggleGroupControl>
-							) }
-						</>
-					) }
-
-					{ trigger === 'exit' && enterHasDirection && animationType === 'curtain' && (
-						<ToggleGroupControl
-							label={ __( 'Direction', 'motion-blocks' ) }
-							value={ animationDirection }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationDirection: value,
-								} )
-							}
-							isBlock
-							__nextHasNoMarginBottom
-						>
-							{ enterDirectionOptions.map( ( opt ) => (
-								<ToggleGroupControlOption
-									key={ opt.value }
-									value={ opt.value }
-									label={ opt.label }
-								/>
-							) ) }
-						</ToggleGroupControl>
-					) }
-
-					{ trigger === 'exit' && enterHasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
-						<ToggleGroupControl
-							label={ __( 'Direction', 'motion-blocks' ) }
-							value={ animationDirection }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationDirection: value,
-								} )
-							}
-							isBlock
-							__nextHasNoMarginBottom
-						>
-							{ enterDirectionOptions.map( ( opt ) => (
-								<ToggleGroupControlOptionIcon
-									key={ opt.value }
-									value={ opt.value }
-									icon={ DIRECTION_ICON_MAP[ opt.value ] }
-									label={ opt.label }
-								/>
-							) ) }
-						</ToggleGroupControl>
-					) }
-
-					{ trigger === 'exit' && animationType === 'blur' && (
-						<RangeControl
-							label={ __( 'Blur', 'motion-blocks' ) }
-							value={ animationBlurAmount }
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationBlurAmount: value,
-								} )
-							}
-							min={ BLUR_SETTINGS.min }
-							max={ BLUR_SETTINGS.max }
-							step={ BLUR_SETTINGS.step }
-							renderTooltipContent={ ( value ) =>
-								`${ value }px`
-							}
-							__next40pxDefaultSize
-							__nextHasNoMarginBottom
-						/>
-					) }
-
-					{ trigger === 'exit' && animationType === 'rotate' && (
-						<NumberControl
-							label={ __( 'Angle', 'motion-blocks' ) }
-							value={ animationRotateAngle ?? 90 }
-							step={ 1 }
-							spinControls="custom"
-							onChange={ ( value ) =>
-								setAttributes( {
-									animationRotateAngle:
-										parseInt( value, 10 ) || 0,
-								} )
-							}
-							__next40pxDefaultSize
-						/>
-					) }
-
-					{ trigger === 'exit' && (
-						<>
-							<div className="mb-section-heading">
-								{ __( 'Timing', 'motion-blocks' ) }
-							</div>
-
-							<HStack spacing={ 3 }>
-								<FlexBlock>
-									<NumberControl
-										label={ __( 'Duration', 'motion-blocks' ) }
-										value={ animationDuration }
-										min={ 0 }
-										step={ 0.1 }
-										spinControls="custom"
-										onChange={ ( value ) =>
-											setAttributes( {
-												animationDuration:
-													parseFloat( value ) || 0,
-											} )
-										}
-										__next40pxDefaultSize
-									/>
-								</FlexBlock>
-								<FlexBlock>
-									<NumberControl
-										label={ __( 'Delay', 'motion-blocks' ) }
-										value={ animationDelay }
-										min={ 0 }
-										step={ 0.1 }
-										spinControls="custom"
-										onChange={ ( value ) =>
-											setAttributes( {
-												animationDelay:
-													parseFloat( value ) || 0,
-											} )
-										}
-										__next40pxDefaultSize
-									/>
-								</FlexBlock>
-							</HStack>
-
-							<SelectControl
-								label={ __(
-									'Acceleration',
-									'motion-blocks'
-								) }
-								value={ animationAcceleration }
-								options={ ACCELERATION_OPTIONS }
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationAcceleration: value,
-									} )
-								}
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
-							{ animationAcceleration === 'custom' && (
-								<TextControl
-									label={ __(
-										'Custom timing function',
-										'motion-blocks'
-									) }
-									value={
-										animationCustomTimingFunction
-									}
-									onChange={ ( v ) =>
-										setAttributes( {
-											animationCustomTimingFunction: v,
-										} )
-									}
-									help={ __(
-										'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
-										'motion-blocks'
-									) }
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
-							) }
-						</>
-					) }
-
-					{ /* Custom exit controls (when trigger is 'both' + custom) */ }
-					{ trigger === 'both' && exitMode === 'custom' && (
-						<>
-							<SelectControl
-								label={ __(
-									'Exit type',
-									'motion-blocks'
-								) }
-								value={ exitType }
-								options={ exitTypeOptions }
-								onChange={ handleExitTypeChange }
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
-
-							{ exitType === 'scale' && (
-								<>
-									<ToggleControl
-										label={ __( 'Scale with direction', 'motion-blocks' ) }
-										checked={ animationExitDirection !== 'none' && animationExitDirection !== '' }
-										onChange={ ( checked ) =>
-											setAttributes( {
-												animationExitDirection: checked ? 'btt' : 'none',
-											} )
-										}
-										__nextHasNoMarginBottom
-									/>
-									{ animationExitDirection !== 'none' && animationExitDirection !== '' && (
-										<ToggleGroupControl
-											label={ __(
-												'Exit direction',
-												'motion-blocks'
-											) }
-											value={ animationExitDirection }
-											onChange={ ( value ) =>
-												setAttributes( {
-													animationExitDirection: value,
-												} )
-											}
-											isBlock
-											__nextHasNoMarginBottom
-										>
-											{ exitDirectionOptions.map( ( opt ) => (
-												<ToggleGroupControlOptionIcon
-													key={ opt.value }
-													value={ opt.value }
-													icon={ DIRECTION_ICON_MAP[ opt.value ] }
-													label={ opt.label }
-												/>
-											) ) }
-										</ToggleGroupControl>
-									) }
-								</>
-							) }
-
-							{ exitHasDirection && exitType === 'curtain' && (
-								<ToggleGroupControl
-									label={ __(
-										'Exit direction',
-										'motion-blocks'
-									) }
-									value={ animationExitDirection }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationExitDirection: value,
-										} )
-									}
-									isBlock
-									__nextHasNoMarginBottom
-								>
-									{ exitDirectionOptions.map( ( opt ) => (
-										<ToggleGroupControlOption
-											key={ opt.value }
-											value={ opt.value }
-											label={ opt.label }
-										/>
-									) ) }
-								</ToggleGroupControl>
-							) }
-
-							{ exitHasDirection && exitType !== 'scale' && exitType !== 'curtain' && (
-								<ToggleGroupControl
-									label={ __(
-										'Exit direction',
-										'motion-blocks'
-									) }
-									value={ animationExitDirection }
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationExitDirection: value,
-										} )
-									}
-									isBlock
-									__nextHasNoMarginBottom
-								>
-									{ exitDirectionOptions.map( ( opt ) => (
-										<ToggleGroupControlOptionIcon
-											key={ opt.value }
-											value={ opt.value }
-											icon={ DIRECTION_ICON_MAP[ opt.value ] }
-											label={ opt.label }
-										/>
-									) ) }
-								</ToggleGroupControl>
-							) }
-
-							{ exitType === 'rotate' && (
-								<NumberControl
-									label={ __( 'Angle', 'motion-blocks' ) }
-									value={ animationRotateAngle ?? 90 }
-									step={ 1 }
-									spinControls="custom"
-									onChange={ ( value ) =>
-										setAttributes( {
-											animationRotateAngle:
-												parseInt( value, 10 ) || 0,
-										} )
-									}
-									__next40pxDefaultSize
-								/>
-							) }
-
-							<div className="mb-section-heading">
-								{ __( 'Exit timing', 'motion-blocks' ) }
-							</div>
-
-							<HStack spacing={ 3 }>
-								<FlexBlock>
-									<NumberControl
-										label={ __(
-											'Exit duration',
-											'motion-blocks'
-										) }
-										value={ animationExitDuration }
-										min={ 0 }
-										step={ 0.1 }
-										spinControls="custom"
-										onChange={ ( value ) =>
-											setAttributes( {
-												animationExitDuration:
-													parseFloat( value ) || 0,
-											} )
-										}
-										__next40pxDefaultSize
-									/>
-								</FlexBlock>
-								<FlexBlock>
-									<NumberControl
-										label={ __(
-											'Exit delay',
-											'motion-blocks'
-										) }
-										value={ animationExitDelay }
-										min={ 0 }
-										step={ 0.1 }
-										spinControls="custom"
-										onChange={ ( value ) =>
-											setAttributes( {
-												animationExitDelay:
-													parseFloat( value ) || 0,
-											} )
-										}
-										__next40pxDefaultSize
-									/>
-								</FlexBlock>
-							</HStack>
-
-							<SelectControl
-								label={ __(
-									'Exit acceleration',
-									'motion-blocks'
-								) }
-								value={ animationExitAcceleration }
-								options={ ACCELERATION_OPTIONS }
-								onChange={ ( value ) =>
-									setAttributes( {
-										animationExitAcceleration: value,
-									} )
-								}
-								__next40pxDefaultSize
-								__nextHasNoMarginBottom
-							/>
-							{ animationExitAcceleration === 'custom' && (
-								<TextControl
-									label={ __(
-										'Custom timing function',
-										'motion-blocks'
-									) }
-									value={
-										animationExitCustomTimingFunction
-									}
-									onChange={ ( v ) =>
-										setAttributes( {
-											animationExitCustomTimingFunction: v,
-										} )
-									}
-									help={ __(
-										'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
-										'motion-blocks'
-									) }
-									__nextHasNoMarginBottom
-									__next40pxDefaultSize
-								/>
-							) }
-						</>
-					) }
-				</>
-			) }
+			/>
 
 			<ToggleControl
-				label={ __( 'Play once', 'motion-blocks' ) }
-				checked={ animationPlayOnce }
-				onChange={ ( value ) =>
-					setAttributes( { animationPlayOnce: value } )
-				}
+				label={ __( 'Clip overflow on parent', 'motion-blocks' ) }
 				help={ __(
-					'Animate the element only once when scrolling for the first time.',
+					"Hide motion that extends past the parent block's bounds. Useful when sliding an element in from off-screen.",
 					'motion-blocks'
 				) }
+				checked={ !! attributes.animationClipParentOverflow }
+				onChange={ ( value ) =>
+					setAttributes( { animationClipParentOverflow: value } )
+				}
 				__nextHasNoMarginBottom
 			/>
 

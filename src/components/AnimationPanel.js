@@ -47,9 +47,9 @@ export default function AnimationPanel( {
 	multiSelectCount = 0,
 } ) {
 	// Detect whether any ancestor of this block has an animation set.
-	// If so, the user is editing a child of an animated container —
-	// the empty mode-selector below would be confusing without a hint
-	// pointing them at the ancestor that owns the animation.
+	// If so, the user is editing an inner block of an animated parent
+	// block — the empty mode-selector below would be confusing without
+	// a hint pointing them at the ancestor that owns the animation.
 	const animatedAncestor = useSelect(
 		( select ) => {
 			if ( ! clientId ) {
@@ -86,8 +86,11 @@ export default function AnimationPanel( {
 	} = attributes;
 	const savedType = useRef( '' );
 
+	// Looping is a Page Load concept (`animationRepeat` Loop /
+	// Alternate). Scroll Appear and Scroll Interactive never use it.
 	const isLoopingMode =
-		animationRepeat === 'loop' || animationRepeat === 'alternate';
+		animationMode === 'page-load' &&
+		( animationRepeat === 'loop' || animationRepeat === 'alternate' );
 
 	// Pending state for one-shot previews. The button uses this to
 	// disable itself while the animation is in flight — without it,
@@ -132,84 +135,128 @@ export default function AnimationPanel( {
 	 *   so the HOC re-attaches the className, restarting the CSS
 	 *   animation.
 	 */
-	const replayPreview = useCallback( () => {
-		const current = animationType;
-		if ( ! current ) {
-			return;
-		}
-		// Defensive — the button should be disabled, but bail anyway
-		// if a previous play is still in flight.
-		if ( isPlayPending ) {
-			return;
-		}
-		// If the user is currently previewing a Start/End state via
-		// the eye icon, that preview branch in the HOC takes
-		// precedence over the animated branch (it returns early). Play
-		// would visually do nothing. Turn the eye preview off so Play
-		// wins. The eye toggle itself is fine to leave alone for
-		// future clicks — we're only nullifying the active override.
-		const baseAttrs =
-			animationFromToPreviewSide &&
-			animationFromToPreviewSide !== 'off'
-				? { animationFromToPreviewSide: 'off' }
-				: {};
-		if ( isLoopingMode ) {
+	const replayPreview = useCallback(
+		( slotArg ) => {
+			// Slot-model Scroll Appear blocks store the effect, duration
+			// and delay on per-slot attribute pairs. The Preview button
+			// in SlotControls passes the active slot name; for other
+			// modes we fall back to the shared attrs as before.
+			const slot = slotArg === 'exit' ? 'exit' : 'entry';
+			const isSlotMode = animationMode === 'scroll-appear';
+			const slotPrefix = slot === 'entry' ? 'Entry' : 'Exit';
+			const current = isSlotMode
+				? attributes[ `animation${ slotPrefix }Type` ] || ''
+				: animationType;
+			if ( ! current ) {
+				return;
+			}
+			// Defensive — the button should be disabled, but bail anyway
+			// if a previous play is still in flight.
+			if ( isPlayPending ) {
+				return;
+			}
+			// If the user is currently previewing a Start/End state via
+			// the eye icon, that preview branch in the HOC takes
+			// precedence over the animated branch (it returns early). Play
+			// would visually do nothing. Turn the eye preview off so Play
+			// wins. The eye toggle itself is fine to leave alone for
+			// future clicks — we're only nullifying the active override.
+			const baseAttrs =
+				animationFromToPreviewSide &&
+				animationFromToPreviewSide !== 'off'
+					? { animationFromToPreviewSide: 'off' }
+					: {};
+			// Tell the HOC which slot is being previewed so it can
+			// apply the right class set (mb-triggered for entry,
+			// mb-exit-triggered for exit) and source from the right
+			// slot's per-slot attrs.
+			if ( isSlotMode ) {
+				baseAttrs.animationPreviewSlot = slot;
+			}
+			if ( isLoopingMode ) {
+				setAttributes( {
+					...baseAttrs,
+					animationPreviewPlaying: true,
+				} );
+				return;
+			}
+
+			// Compute the total runtime for the disable-button window.
+			// Used by both custom and preset paths so we cover the entire
+			// animation duration regardless of preview mechanism.
+			const sharedDuration = parseFloat( animationDuration ) || 0.6;
+			const sharedDelay = parseFloat( animationDelay ) || 0;
+			const duration = isSlotMode
+				? parseFloat(
+						attributes[ `animation${ slotPrefix }Duration` ]
+				  ) || 0.6
+				: sharedDuration;
+			const delay = isSlotMode
+				? parseFloat(
+						attributes[ `animation${ slotPrefix }Delay` ]
+				  ) || 0
+				: sharedDelay;
+			const totalMs = ( duration + delay ) * 1000;
+
+			setIsPlayPending( true );
+			clearPlayTimers();
+
+			if ( current === 'custom' ) {
+				setAttributes( {
+					...baseAttrs,
+					animationPreviewPlaying: true,
+				} );
+				playTimeoutRef.current = setTimeout( () => {
+					setAttributes( { animationPreviewPlaying: false } );
+					setIsPlayPending( false );
+					playTimeoutRef.current = null;
+				}, totalMs + 100 );
+				return;
+			}
+
+			// Preset path: clear+restore the type so the HOC re-attaches
+			// the className, retriggering the CSS animation. For slot-
+			// mode we clear+restore the slot's type instead of the
+			// shared `animationType`.
+			const typeKey = isSlotMode
+				? `animation${ slotPrefix }Type`
+				: 'animationType';
+			savedType.current = current;
 			setAttributes( {
 				...baseAttrs,
+				[ typeKey ]: '',
+				// Animated previews use the same flag — without it the
+				// HOC's "Custom at rest" guard might inadvertently fire
+				// for non-Custom slot presets too. Setting it true here
+				// is a no-op for non-Custom CSS bindings but signals
+				// the HOC that a preview is in progress.
 				animationPreviewPlaying: true,
 			} );
-			return;
-		}
-
-		// Compute the total runtime for the disable-button window.
-		// Used by both custom and preset paths so we cover the entire
-		// animation duration regardless of preview mechanism.
-		const duration = parseFloat( animationDuration ) || 0.6;
-		const delay = parseFloat( animationDelay ) || 0;
-		const totalMs = ( duration + delay ) * 1000;
-
-		setIsPlayPending( true );
-		clearPlayTimers();
-
-		if ( current === 'custom' ) {
-			setAttributes( {
-				...baseAttrs,
-				animationPreviewPlaying: true,
+			playFrameRef.current = requestAnimationFrame( () => {
+				setAttributes( {
+					[ typeKey ]: savedType.current,
+				} );
+				playFrameRef.current = null;
+				playTimeoutRef.current = setTimeout( () => {
+					setAttributes( { animationPreviewPlaying: false } );
+					setIsPlayPending( false );
+					playTimeoutRef.current = null;
+				}, totalMs + 100 );
 			} );
-			playTimeoutRef.current = setTimeout( () => {
-				setAttributes( { animationPreviewPlaying: false } );
-				setIsPlayPending( false );
-				playTimeoutRef.current = null;
-			}, totalMs + 100 );
-			return;
-		}
-
-		// Preset path: clear+restore type to retrigger the CSS
-		// animation, then release the pending flag after the
-		// animation completes.
-		savedType.current = current;
-		setAttributes( {
-			...baseAttrs,
-			animationType: '',
-		} );
-		playFrameRef.current = requestAnimationFrame( () => {
-			setAttributes( { animationType: savedType.current } );
-			playFrameRef.current = null;
-			playTimeoutRef.current = setTimeout( () => {
-				setIsPlayPending( false );
-				playTimeoutRef.current = null;
-			}, totalMs + 100 );
-		} );
-	}, [
-		animationType,
-		animationFromToPreviewSide,
-		setAttributes,
-		isLoopingMode,
-		isPlayPending,
-		animationDuration,
-		animationDelay,
-		clearPlayTimers,
-	] );
+		},
+		[
+			attributes,
+			animationMode,
+			animationType,
+			animationFromToPreviewSide,
+			setAttributes,
+			isLoopingMode,
+			isPlayPending,
+			animationDuration,
+			animationDelay,
+			clearPlayTimers,
+		]
+	);
 
 	/**
 	 * Stop a looping preview.
@@ -229,14 +276,8 @@ export default function AnimationPanel( {
 			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
 			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
 			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationExitMode: DEFAULT_ATTRIBUTES.animationExitMode,
-			animationExitType: DEFAULT_ATTRIBUTES.animationExitType,
-			animationExitDirection: DEFAULT_ATTRIBUTES.animationExitDirection,
 			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
 			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
-			animationExitDuration: DEFAULT_ATTRIBUTES.animationExitDuration,
-			animationExitDelay: DEFAULT_ATTRIBUTES.animationExitDelay,
-			animationExitAcceleration: DEFAULT_ATTRIBUTES.animationExitAcceleration,
 			...customFromToDefaults(),
 		} );
 	};
@@ -264,14 +305,8 @@ export default function AnimationPanel( {
 			animationPauseOffscreen: DEFAULT_ATTRIBUTES.animationPauseOffscreen,
 			animationPlayOnce: DEFAULT_ATTRIBUTES.animationPlayOnce,
 			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationExitMode: DEFAULT_ATTRIBUTES.animationExitMode,
-			animationExitType: DEFAULT_ATTRIBUTES.animationExitType,
-			animationExitDirection: DEFAULT_ATTRIBUTES.animationExitDirection,
 			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
 			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
-			animationExitDuration: DEFAULT_ATTRIBUTES.animationExitDuration,
-			animationExitDelay: DEFAULT_ATTRIBUTES.animationExitDelay,
-			animationExitAcceleration: DEFAULT_ATTRIBUTES.animationExitAcceleration,
 			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
 			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
 			animationPreviewPlaying: false,
@@ -292,12 +327,6 @@ export default function AnimationPanel( {
 			animationPauseOffscreen: DEFAULT_ATTRIBUTES.animationPauseOffscreen,
 			animationPlayOnce: DEFAULT_ATTRIBUTES.animationPlayOnce,
 			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationExitMode: DEFAULT_ATTRIBUTES.animationExitMode,
-			animationExitType: DEFAULT_ATTRIBUTES.animationExitType,
-			animationExitDirection: DEFAULT_ATTRIBUTES.animationExitDirection,
-			animationExitDuration: DEFAULT_ATTRIBUTES.animationExitDuration,
-			animationExitDelay: DEFAULT_ATTRIBUTES.animationExitDelay,
-			animationExitAcceleration: DEFAULT_ATTRIBUTES.animationExitAcceleration,
 			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
 			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
 			animationPreviewPlaying: false,
@@ -347,10 +376,9 @@ export default function AnimationPanel( {
 						isDismissible={ false }
 						actions={ [
 							{
-								label: sprintf(
-									/* translators: %s: ancestor block-type label */
-									__( 'Select parent %s', 'motion-blocks' ),
-									animatedAncestor.title
+								label: __(
+									'Select parent block',
+									'motion-blocks'
 								),
 								onClick: () =>
 									selectBlock( animatedAncestor.clientId ),
@@ -359,9 +387,9 @@ export default function AnimationPanel( {
 						] }
 					>
 						{ sprintf(
-							/* translators: %s: ancestor block-type label, e.g. "Group" */
+							/* translators: %s: ancestor block-type label, e.g. "Columns" */
 							__(
-								'A parent %s already has an animation. The whole container — including this block — animates as one.',
+								'A parent block (%s) already has an animation. The animation includes this inner block.',
 								'motion-blocks'
 							),
 							animatedAncestor.title

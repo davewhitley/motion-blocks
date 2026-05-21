@@ -26,7 +26,7 @@ import {
 	FROM_ATTR,
 	TO_ATTR,
 	PROPERTY_CSS_VAR,
-	STAGGER_CONTAINER_BLOCKS,
+	STAGGER_PARENT_BLOCKS,
 	STAGGER_INCOMPATIBLE_TYPES,
 	staggerStepSeconds,
 	attrsToBag,
@@ -34,6 +34,7 @@ import {
 	buildCustomKeyframe,
 	getPresetFromTo,
 	isPropertyAdded,
+	migrateScrollAppearAttrs,
 	resolveTimingFunction,
 } from './components/constants';
 
@@ -219,15 +220,21 @@ function buildImgTargetCSS( uid, keyframe, animationMode ) {
 				`animation-direction: var(--mb-direction, normal)`,
 		  ];
 
+	// `overflow: clip` on the img's immediate parent provides a
+	// static clipping rectangle that the transformed img child
+	// renders against. Putting clip-path on the img instead does
+	// NOT achieve the same effect: clip-path follows the img's
+	// transform, so a scaled img's clip moves with the image
+	// rather than acting as a fixed frame at the natural border.
+	// Captioned Image blocks: the figcaption is a separate sibling
+	// of the img inside the figure, so clipping at the parent does
+	// pull the caption into the clipped area — that's a known
+	// limitation; the caption case needs a separate wrapper around
+	// just the img.
 	return [
 		keyframe.rule,
-		// Parent of the img becomes the clipping frame.
 		`${ parentSelector } { overflow: clip; }`,
-		// `overflow: hidden` fallback for browsers without `clip`
-		// support (~3% as of 2026). `@supports not` keeps it out of
-		// the way of the modern path.
 		`@supports not (overflow: clip) { ${ parentSelector } { overflow: hidden; } }`,
-		// Bind the keyframe to the img.
 		`${ imgSelector } { ${ animationProps.join( '; ' ) }; }`,
 	].join( '\n' );
 }
@@ -280,22 +287,6 @@ function addAnimationAttributes( settings ) {
 				type: 'string',
 				default: 'enter',
 			},
-			animationExitMode: {
-				type: 'string',
-				default: 'mirror',
-			},
-			animationExitType: {
-				type: 'string',
-				default: 'fade',
-			},
-			animationExitDirection: {
-				type: 'string',
-				default: '',
-			},
-			animationExitDuration: {
-				type: 'number',
-				default: 0.6,
-			},
 			animationAcceleration: {
 				type: 'string',
 				default: 'ease',
@@ -304,18 +295,6 @@ function addAnimationAttributes( settings ) {
 			// is set to 'custom'. Free-form so users can enter any valid
 			// CSS value (cubic-bezier, steps, linear() with stops, etc.).
 			animationCustomTimingFunction: {
-				type: 'string',
-				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
-			},
-			animationExitDelay: {
-				type: 'number',
-				default: 0,
-			},
-			animationExitAcceleration: {
-				type: 'string',
-				default: 'ease',
-			},
-			animationExitCustomTimingFunction: {
 				type: 'string',
 				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
 			},
@@ -342,6 +321,10 @@ function addAnimationAttributes( settings ) {
 			animationPreviewPlaying: {
 				type: 'boolean',
 				default: false,
+			},
+			animationPreviewSlot: {
+				type: 'string',
+				default: 'entry',
 			},
 			// Custom (Start / End) state — only consulted when
 			// animationType === 'custom'. `null` = property not added
@@ -444,10 +427,11 @@ function addAnimationAttributes( settings ) {
 				type: 'string',
 				default: 'block',
 			},
-			// Stagger cascade — only meaningful on STAGGER_CONTAINER_BLOCKS.
-			// When `animationStaggerEnabled` is true, the parent stops
-			// animating itself and becomes the cascade controller for its
-			// direct children (step in ms applied via CSS :nth-child).
+			// Stagger cascade — only meaningful on STAGGER_PARENT_BLOCKS.
+			// When `animationStaggerEnabled` is true, the parent block
+			// stops animating itself and becomes the cascade controller
+			// for its inner blocks (step in seconds applied via CSS
+			// :nth-child).
 			animationStaggerEnabled: {
 				type: 'boolean',
 				default: false,
@@ -466,6 +450,71 @@ function addAnimationAttributes( settings ) {
 				type: 'boolean',
 				default: false,
 			},
+			// --- Slot model: per-slot attribute pairs (Scroll Appear) ---
+			// Each Scroll Appear block stores its Entry and Exit slot
+			// configs independently. Empty string for type = "slot is
+			// empty, no animation for that phase." See constants.js →
+			// migrateScrollAppearAttrs for how legacy blocks map onto
+			// these.
+			animationEntryType: { type: 'string', default: '' },
+			animationEntryDirection: { type: 'string', default: '' },
+			animationEntryDuration: { type: 'number', default: 0.6 },
+			animationEntryDelay: { type: 'number', default: 0.4 },
+			animationEntryAcceleration: { type: 'string', default: 'ease' },
+			animationEntryCustomTimingFunction: {
+				type: 'string',
+				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+			},
+			animationEntryBlurAmount: { type: 'number', default: 8 },
+			animationEntryRotateAngle: { type: 'number', default: 90 },
+			animationExitType: { type: 'string', default: '' },
+			animationExitDirection: { type: 'string', default: '' },
+			animationExitDuration: { type: 'number', default: 0.6 },
+			animationExitDelay: { type: 'number', default: 0 },
+			animationExitAcceleration: { type: 'string', default: 'ease' },
+			animationExitCustomTimingFunction: {
+				type: 'string',
+				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+			},
+			animationExitBlurAmount: { type: 'number', default: 8 },
+			animationExitRotateAngle: { type: 'number', default: 90 },
+			// Per-slot Custom From/To values.
+			animationEntryFromOpacity: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromTranslateX: { type: [ 'string', 'null' ], default: null },
+			animationEntryFromTranslateY: { type: [ 'string', 'null' ], default: null },
+			animationEntryFromScale: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromRotate: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromRotateX: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromRotateY: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromBlur: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromClipPath: { type: [ 'string', 'null' ], default: null },
+			animationEntryToOpacity: { type: [ 'number', 'null' ], default: null },
+			animationEntryToTranslateX: { type: [ 'string', 'null' ], default: null },
+			animationEntryToTranslateY: { type: [ 'string', 'null' ], default: null },
+			animationEntryToScale: { type: [ 'number', 'null' ], default: null },
+			animationEntryToRotate: { type: [ 'number', 'null' ], default: null },
+			animationEntryToRotateX: { type: [ 'number', 'null' ], default: null },
+			animationEntryToRotateY: { type: [ 'number', 'null' ], default: null },
+			animationEntryToBlur: { type: [ 'number', 'null' ], default: null },
+			animationEntryToClipPath: { type: [ 'string', 'null' ], default: null },
+			animationExitFromOpacity: { type: [ 'number', 'null' ], default: null },
+			animationExitFromTranslateX: { type: [ 'string', 'null' ], default: null },
+			animationExitFromTranslateY: { type: [ 'string', 'null' ], default: null },
+			animationExitFromScale: { type: [ 'number', 'null' ], default: null },
+			animationExitFromRotate: { type: [ 'number', 'null' ], default: null },
+			animationExitFromRotateX: { type: [ 'number', 'null' ], default: null },
+			animationExitFromRotateY: { type: [ 'number', 'null' ], default: null },
+			animationExitFromBlur: { type: [ 'number', 'null' ], default: null },
+			animationExitFromClipPath: { type: [ 'string', 'null' ], default: null },
+			animationExitToOpacity: { type: [ 'number', 'null' ], default: null },
+			animationExitToTranslateX: { type: [ 'string', 'null' ], default: null },
+			animationExitToTranslateY: { type: [ 'string', 'null' ], default: null },
+			animationExitToScale: { type: [ 'number', 'null' ], default: null },
+			animationExitToRotate: { type: [ 'number', 'null' ], default: null },
+			animationExitToRotateX: { type: [ 'number', 'null' ], default: null },
+			animationExitToRotateY: { type: [ 'number', 'null' ], default: null },
+			animationExitToBlur: { type: [ 'number', 'null' ], default: null },
+			animationExitToClipPath: { type: [ 'string', 'null' ], default: null },
 		},
 	};
 }
@@ -613,6 +662,85 @@ addFilter(
 );
 
 /**
+ * For Scroll Appear blocks, map the active slot's per-slot attrs
+ * onto the shared `animationType` / `animationDuration` / etc.
+ * names the preview HOC reads. Lets the rest of the HOC stay
+ * mode-agnostic.
+ *
+ * Slot selection: when `animationPreviewPlaying` is true the HOC
+ * uses `animationPreviewSlot` (set by ScrollAppearControls' Play
+ * button) to pick Entry or Exit. At rest the HOC defaults to the
+ * Entry slot — that's the slot whose initial-state is most
+ * relevant for the editor-at-rest visual (Exit slot's initial
+ * state IS the natural "visible" state of the element).
+ *
+ * Also copies the chosen slot's Custom From/To values onto the
+ * shared `animationFrom*` / `animationTo*` keys so the custom
+ * keyframe builder (which still reads the shared keys) can pick
+ * them up unchanged.
+ *
+ * Returns the same `attrs` reference unchanged when the chosen
+ * slot is empty — the preview branch will see `animationType === ''`
+ * and skip animating.
+ */
+function aliasSlotForPreview( attrs ) {
+	const previewSlot =
+		attrs?.animationPreviewPlaying && attrs?.animationPreviewSlot === 'exit'
+			? 'exit'
+			: 'entry';
+	const slotPrefix = previewSlot === 'exit' ? 'Exit' : 'Entry';
+	const slotType = attrs?.[ `animation${ slotPrefix }Type` ] || '';
+	if ( ! slotType ) {
+		// Chosen slot is empty — preview shows nothing. Keep the
+		// wrapper attrs as-is so the HOC's "no animationType" guard
+		// fires. Also tag the preview slot so downstream code knows
+		// which set of classes to emit even when there's no animation.
+		return { ...attrs, animationType: '', __mbPreviewSlot: previewSlot };
+	}
+	const aliased = {
+		...attrs,
+		animationType: slotType,
+		animationDirection: attrs[ `animation${ slotPrefix }Direction` ] || '',
+		animationDuration:
+			attrs[ `animation${ slotPrefix }Duration` ] ?? attrs.animationDuration,
+		animationDelay:
+			attrs[ `animation${ slotPrefix }Delay` ] ?? attrs.animationDelay,
+		animationAcceleration:
+			attrs[ `animation${ slotPrefix }Acceleration` ] ||
+			attrs.animationAcceleration,
+		animationCustomTimingFunction:
+			attrs[ `animation${ slotPrefix }CustomTimingFunction` ] ||
+			attrs.animationCustomTimingFunction,
+		animationBlurAmount:
+			attrs[ `animation${ slotPrefix }BlurAmount` ] ??
+			attrs.animationBlurAmount,
+		animationRotateAngle:
+			attrs[ `animation${ slotPrefix }RotateAngle` ] ??
+			attrs.animationRotateAngle,
+		__mbPreviewSlot: previewSlot,
+	};
+	if ( slotType === 'custom' ) {
+		// Copy the active slot's Custom From/To values onto the
+		// shared keys that getCustomKeyframe / attrsToBag read.
+		for ( const prop of Object.keys( FROM_ATTR ) ) {
+			const sharedFrom = FROM_ATTR[ prop ];
+			const sharedTo = TO_ATTR[ prop ];
+			const slotFrom = sharedFrom.replace(
+				/^animationFrom/,
+				`animation${ slotPrefix }From`
+			);
+			const slotTo = sharedTo.replace(
+				/^animationTo/,
+				`animation${ slotPrefix }To`
+			);
+			aliased[ sharedFrom ] = attrs[ slotFrom ] ?? null;
+			aliased[ sharedTo ] = attrs[ slotTo ] ?? null;
+		}
+	}
+	return aliased;
+}
+
+/**
  * Apply animation preview via BlockListBlock className.
  *
  * The toolbar lives in the parent document while blocks render inside
@@ -622,7 +750,18 @@ addFilter(
 const withAnimationPreview = createHigherOrderComponent(
 	( BlockListBlock ) => {
 		return ( props ) => {
-			const { attributes, wrapperProps = {} } = props;
+			const { wrapperProps = {} } = props;
+			// For Scroll Appear, normalize legacy attrs into slot form
+			// then alias the Entry slot's per-slot attrs onto the shared
+			// `animationType` / `animationDuration` / etc. names that
+			// the rest of this HOC reads. The preview only ever shows
+			// the Entry phase — exit previewing is out of scope today.
+			const attributes =
+				props.attributes?.animationMode === 'scroll-appear'
+					? aliasSlotForPreview(
+							migrateScrollAppearAttrs( props.attributes )
+					  )
+					: props.attributes;
 			const {
 				animationMode,
 				animationType,
@@ -942,11 +1081,30 @@ const withAnimationPreview = createHigherOrderComponent(
 					// .mb-triggered) { opacity: 0 }`) before the
 					// user clicks Play, blanking the block while
 					// they're editing.
+					//
+					// For Scroll Appear's Exit slot preview we swap
+					// `mb-enter-{type}` / `mb-triggered` for
+					// `mb-exit-{type}` / `mb-exit-triggered` so the
+					// matching exit keyframe binding (mbXxxOut, or
+					// `var(--mb-exit-anim-name)` for Custom) fires
+					// instead of the entry one.
+					const previewSlot =
+						attributes.__mbPreviewSlot === 'exit'
+							? 'exit'
+							: 'entry';
+					const enterCls =
+						previewSlot === 'exit'
+							? `mb-exit-${ animationType }`
+							: `mb-enter-${ animationType }`;
+					const triggeredCls =
+						previewSlot === 'exit'
+							? 'mb-exit-triggered'
+							: 'mb-triggered';
 					computedClassName = [
 						props.className || '',
 						'mb-animated',
-						`mb-enter-${ animationType }`,
-						'mb-triggered',
+						enterCls,
+						triggeredCls,
 					]
 						.filter( Boolean )
 						.join( ' ' );
@@ -1021,7 +1179,7 @@ const withAnimationPreview = createHigherOrderComponent(
 			// editor.scss + animations.css do the rest via :nth-child.
 			if (
 				attributes.animationStaggerEnabled &&
-				STAGGER_CONTAINER_BLOCKS.includes( props.name ) &&
+				STAGGER_PARENT_BLOCKS.includes( props.name ) &&
 				! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
 			) {
 				const step = staggerStepSeconds(
@@ -1033,12 +1191,25 @@ const withAnimationPreview = createHigherOrderComponent(
 				]
 					.filter( Boolean )
 					.join( ' ' );
+				const staggerStyle = {
+					...( computedWrapperProps.style || {} ),
+					'--mb-stagger-step': `${ step }s`,
+				};
+				// Custom-type stagger: inner blocks need to bind to the
+				// parent's per-block keyframe via the inherited custom
+				// property. Block-target only — img-target's scoped
+				// CSS isn't wired for the stagger cascade in v1.
+				if (
+					animationType === 'custom' &&
+					customKeyframe &&
+					! targetIsImg
+				) {
+					staggerStyle[ '--mb-stagger-anim-name' ] =
+						customKeyframe.name;
+				}
 				computedWrapperProps = {
 					...computedWrapperProps,
-					style: {
-						...( computedWrapperProps.style || {} ),
-						'--mb-stagger-step': `${ step }s`,
-					},
+					style: staggerStyle,
 				};
 			}
 
@@ -1107,13 +1278,35 @@ addFilter(
 
 /**
  * Add animation classes and data attributes to saved block content.
+ *
+ * Scroll Appear mode uses the slot model: `animationEntry*` /
+ * `animationExit*` attribute pairs describe what plays on each
+ * phase. Page Load and Scroll Interactive modes still use the
+ * shared `animationType` / `animationDuration` / etc. attrs.
  */
-function addAnimationSaveProps( props, blockType, attributes ) {
-	const { animationMode, animationType } = attributes;
+function addAnimationSaveProps( props, blockType, attributesRaw ) {
+	const mode = attributesRaw?.animationMode;
+	if ( ! mode ) {
+		return props;
+	}
 
-	const mode = animationMode;
+	// Apply read-time migration for Scroll Appear so legacy blocks
+	// (saved before the slot model) emit slot-shaped data attributes
+	// without forcing a write to the post on every render.
+	const attributes =
+		mode === 'scroll-appear'
+			? migrateScrollAppearAttrs( attributesRaw )
+			: attributesRaw;
 
-	if ( ! mode || ! animationType ) {
+	// Scroll Appear branches off into its own emission path below.
+	// Page Load + Scroll Interactive continue to use the shared
+	// `animationType` attribute.
+	if ( mode === 'scroll-appear' ) {
+		return saveScrollAppearProps( props, blockType, attributes );
+	}
+
+	const { animationType } = attributes;
+	if ( ! animationType ) {
 		return props;
 	}
 
@@ -1205,89 +1398,21 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 		}
 	}
 
-	// Page-load and scroll-appear: duration + delay.
-	if ( mode === 'page-load' || mode === 'scroll-appear' ) {
+	// Page-load: duration + delay.
+	if ( mode === 'page-load' ) {
 		dataAttrs[ 'data-mb-duration' ] = String(
 			attributes.animationDuration ?? DEFAULT_ATTRIBUTES.animationDuration
 		);
 		dataAttrs[ 'data-mb-delay' ] = String(
 			attributes.animationDelay ?? DEFAULT_ATTRIBUTES.animationDelay
 		);
-	}
-
-	// Page-load only: repeat + pause-offscreen.
-	if ( mode === 'page-load' ) {
+		// Page-load only: repeat + pause-offscreen.
 		dataAttrs[ 'data-mb-repeat' ] =
 			attributes.animationRepeat || DEFAULT_ATTRIBUTES.animationRepeat;
 		dataAttrs[ 'data-mb-pause-offscreen' ] = String(
 			attributes.animationPauseOffscreen ??
 				DEFAULT_ATTRIBUTES.animationPauseOffscreen
 		);
-	}
-
-	// Scroll-appear: trigger, exit, play-once.
-	if ( mode === 'scroll-appear' ) {
-		const trigger =
-			attributes.animationScrollTrigger ||
-			DEFAULT_ATTRIBUTES.animationScrollTrigger;
-		dataAttrs[ 'data-mb-scroll-trigger' ] = trigger;
-		dataAttrs[ 'data-mb-play-once' ] = String(
-			attributes.animationPlayOnce ??
-				DEFAULT_ATTRIBUTES.animationPlayOnce
-		);
-
-		// Determine exit type for class and data attrs.
-		if ( trigger === 'exit' || trigger === 'both' ) {
-			const exitMode =
-				attributes.animationExitMode ||
-				DEFAULT_ATTRIBUTES.animationExitMode;
-			dataAttrs[ 'data-mb-exit-mode' ] = exitMode;
-
-			if ( exitMode === 'custom' ) {
-				const exitType =
-					attributes.animationExitType ||
-					DEFAULT_ATTRIBUTES.animationExitType;
-				classNames.push( `mb-exit-${ exitType }` );
-				dataAttrs[ 'data-mb-exit-type' ] = exitType;
-				if ( attributes.animationExitDirection ) {
-					dataAttrs[ 'data-mb-exit-direction' ] =
-						attributes.animationExitDirection;
-				}
-				dataAttrs[ 'data-mb-exit-duration' ] = String(
-					attributes.animationExitDuration ??
-						DEFAULT_ATTRIBUTES.animationExitDuration
-				);
-				dataAttrs[ 'data-mb-exit-delay' ] = String(
-					attributes.animationExitDelay ??
-						DEFAULT_ATTRIBUTES.animationExitDelay
-				);
-				const exitAccel = resolveTimingFunction(
-					attributes.animationExitAcceleration ||
-						DEFAULT_ATTRIBUTES.animationExitAcceleration,
-					attributes.animationExitCustomTimingFunction ||
-						DEFAULT_ATTRIBUTES.animationExitCustomTimingFunction
-				);
-				if ( exitAccel !== 'ease' ) {
-					dataAttrs[ 'data-mb-exit-acceleration' ] = exitAccel;
-				}
-			} else {
-				// Mirror: exit class derived from enter type.
-				classNames.push( `mb-exit-${ animationType }` );
-			}
-		}
-
-		// Exit-only: the enter class is still on the element for the
-		// enter type, but we also need the exit class.
-		if ( trigger === 'exit' ) {
-			// For exit-only, the "enter type" is actually the exit animation.
-			// Re-map: remove the enter class, add exit class instead.
-			const exitIdx = classNames.indexOf(
-				`mb-enter-${ animationType }`
-			);
-			if ( exitIdx !== -1 ) {
-				classNames[ exitIdx ] = `mb-exit-${ animationType }`;
-			}
-		}
 	}
 
 	// Scroll-interactive: range.
@@ -1305,12 +1430,14 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 
 	// Stagger cascade — emit `mb-stagger-parent` class + the step as
 	// a CSS var. The CSS rules in animations.css / editor.scss handle
-	// the cascade via `:nth-child()`. Gated on a whitelist of container
-	// block types and incompatible animation types (custom, image-move).
+	// the cascade via `:nth-child()`. Gated on a whitelist of parent
+	// block types and incompatible animation types (only image-move
+	// now — custom composes via `--mb-stagger-anim-name`, which the
+	// frontend script sets at runtime in applyCustomKeyframe).
 	let staggerStyle = null;
 	if (
 		attributes.animationStaggerEnabled &&
-		STAGGER_CONTAINER_BLOCKS.includes( blockType.name ) &&
+		STAGGER_PARENT_BLOCKS.includes( blockType.name ) &&
 		! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
 	) {
 		classNames.push( 'mb-stagger-parent' );
@@ -1321,6 +1448,220 @@ function addAnimationSaveProps( props, blockType, attributes ) {
 
 	// Clip parent overflow opt-in. Marker class for the `:has()` rule
 	// in animations.css that applies `overflow-x: clip` to the parent.
+	if ( attributes.animationClipParentOverflow ) {
+		classNames.push( 'mb-clip-parent-overflow' );
+	}
+
+	const out = {
+		...props,
+		className: classNames.filter( Boolean ).join( ' ' ).trim(),
+		...dataAttrs,
+	};
+	if ( staggerStyle ) {
+		out.style = { ...( props.style || {} ), ...staggerStyle };
+	}
+	return out;
+}
+
+/**
+ * Save-props emission for Scroll Appear blocks (slot model).
+ *
+ * Emits separate class/data-attr sets for each filled slot:
+ *
+ *   - `mb-enter-{entryType}` + `mb-has-entry` + `data-mb-entry-*`
+ *     for the Entry slot
+ *   - `mb-exit-{exitType}` + `data-mb-exit-*` for the Exit slot
+ *
+ * Custom From/To values emit `data-mb-entry-from-{prop}` /
+ * `data-mb-entry-to-{prop}` (and same for exit), so the frontend
+ * can synthesize per-slot keyframes independently.
+ *
+ * `attributes` should already be migrated (post-migrateScrollAppearAttrs).
+ */
+function saveScrollAppearProps( props, blockType, attributes ) {
+	const entryType = attributes.animationEntryType || '';
+	const exitType = attributes.animationExitType || '';
+	const hasEntry = entryType !== '';
+	const hasExit = exitType !== '';
+
+	if ( ! hasEntry && ! hasExit ) {
+		// Both slots empty — no animation to emit.
+		return props;
+	}
+
+	const classNames = [ props.className || '', 'mb-animated', 'mb-mode-scroll-appear' ];
+	const dataAttrs = {
+		'data-mb-mode': 'scroll-appear',
+		'data-mb-play-once': String(
+			attributes.animationPlayOnce ??
+				DEFAULT_ATTRIBUTES.animationPlayOnce
+		),
+	};
+
+	// img target — only triggered by Custom-target=img on either slot,
+	// or by image-move (which doesn't apply to Scroll Appear in the
+	// new model). The Custom From/To target is shared across slots.
+	if ( entryType === 'custom' || exitType === 'custom' ) {
+		const target = attributes.animationFromToTarget || 'block';
+		if ( target === 'img' ) {
+			dataAttrs[ 'data-mb-target' ] = 'img';
+		}
+	}
+
+	// --- Entry slot ---
+	if ( hasEntry ) {
+		classNames.push( `mb-enter-${ entryType }`, 'mb-has-entry' );
+		dataAttrs[ 'data-mb-entry-type' ] = entryType;
+
+		const entryDirection = attributes.animationEntryDirection || '';
+		if ( entryDirection ) {
+			dataAttrs[ 'data-mb-entry-direction' ] = entryDirection;
+		}
+
+		dataAttrs[ 'data-mb-entry-duration' ] = String(
+			attributes.animationEntryDuration ??
+				DEFAULT_ATTRIBUTES.animationEntryDuration
+		);
+		dataAttrs[ 'data-mb-entry-delay' ] = String(
+			attributes.animationEntryDelay ??
+				DEFAULT_ATTRIBUTES.animationEntryDelay
+		);
+
+		const entryAccel = resolveTimingFunction(
+			attributes.animationEntryAcceleration ||
+				DEFAULT_ATTRIBUTES.animationEntryAcceleration,
+			attributes.animationEntryCustomTimingFunction ||
+				DEFAULT_ATTRIBUTES.animationEntryCustomTimingFunction
+		);
+		if ( entryAccel !== 'ease' ) {
+			dataAttrs[ 'data-mb-entry-acceleration' ] = entryAccel;
+		}
+
+		if ( entryType === 'blur' ) {
+			const v =
+				attributes.animationEntryBlurAmount ??
+				DEFAULT_ATTRIBUTES.animationEntryBlurAmount;
+			if ( v !== DEFAULT_ATTRIBUTES.animationEntryBlurAmount ) {
+				dataAttrs[ 'data-mb-entry-blur-amount' ] = String( v );
+			}
+		}
+		if ( entryType === 'rotate' ) {
+			const v =
+				attributes.animationEntryRotateAngle ??
+				DEFAULT_ATTRIBUTES.animationEntryRotateAngle;
+			if ( v !== DEFAULT_ATTRIBUTES.animationEntryRotateAngle ) {
+				dataAttrs[ 'data-mb-entry-rotate-angle' ] = String( v );
+			}
+		}
+
+		if ( entryType === 'custom' ) {
+			for ( const def of PROPERTY_DEFINITIONS ) {
+				const cssName = PROPERTY_CSS_VAR[ def.id ];
+				const fromKey = FROM_ATTR[ def.id ].replace(
+					/^animationFrom/,
+					'animationEntryFrom'
+				);
+				const toKey = TO_ATTR[ def.id ].replace(
+					/^animationTo/,
+					'animationEntryTo'
+				);
+				const fromVal = attributes[ fromKey ];
+				const toVal = attributes[ toKey ];
+				if ( fromVal !== undefined && fromVal !== null && fromVal !== '' ) {
+					dataAttrs[ `data-mb-entry-from-${ cssName }` ] = String( fromVal );
+				}
+				if ( toVal !== undefined && toVal !== null && toVal !== '' ) {
+					dataAttrs[ `data-mb-entry-to-${ cssName }` ] = String( toVal );
+				}
+			}
+		}
+	}
+
+	// --- Exit slot ---
+	if ( hasExit ) {
+		classNames.push( `mb-exit-${ exitType }` );
+		dataAttrs[ 'data-mb-exit-type' ] = exitType;
+
+		const exitDirection = attributes.animationExitDirection || '';
+		if ( exitDirection ) {
+			dataAttrs[ 'data-mb-exit-direction' ] = exitDirection;
+		}
+
+		dataAttrs[ 'data-mb-exit-duration' ] = String(
+			attributes.animationExitDuration ??
+				DEFAULT_ATTRIBUTES.animationExitDuration
+		);
+		dataAttrs[ 'data-mb-exit-delay' ] = String(
+			attributes.animationExitDelay ??
+				DEFAULT_ATTRIBUTES.animationExitDelay
+		);
+
+		const exitAccel = resolveTimingFunction(
+			attributes.animationExitAcceleration ||
+				DEFAULT_ATTRIBUTES.animationExitAcceleration,
+			attributes.animationExitCustomTimingFunction ||
+				DEFAULT_ATTRIBUTES.animationExitCustomTimingFunction
+		);
+		if ( exitAccel !== 'ease' ) {
+			dataAttrs[ 'data-mb-exit-acceleration' ] = exitAccel;
+		}
+
+		if ( exitType === 'blur' ) {
+			const v =
+				attributes.animationExitBlurAmount ??
+				DEFAULT_ATTRIBUTES.animationExitBlurAmount;
+			if ( v !== DEFAULT_ATTRIBUTES.animationExitBlurAmount ) {
+				dataAttrs[ 'data-mb-exit-blur-amount' ] = String( v );
+			}
+		}
+		if ( exitType === 'rotate' ) {
+			const v =
+				attributes.animationExitRotateAngle ??
+				DEFAULT_ATTRIBUTES.animationExitRotateAngle;
+			if ( v !== DEFAULT_ATTRIBUTES.animationExitRotateAngle ) {
+				dataAttrs[ 'data-mb-exit-rotate-angle' ] = String( v );
+			}
+		}
+
+		if ( exitType === 'custom' ) {
+			for ( const def of PROPERTY_DEFINITIONS ) {
+				const cssName = PROPERTY_CSS_VAR[ def.id ];
+				const fromKey = FROM_ATTR[ def.id ].replace(
+					/^animationFrom/,
+					'animationExitFrom'
+				);
+				const toKey = TO_ATTR[ def.id ].replace(
+					/^animationTo/,
+					'animationExitTo'
+				);
+				const fromVal = attributes[ fromKey ];
+				const toVal = attributes[ toKey ];
+				if ( fromVal !== undefined && fromVal !== null && fromVal !== '' ) {
+					dataAttrs[ `data-mb-exit-from-${ cssName }` ] = String( fromVal );
+				}
+				if ( toVal !== undefined && toVal !== null && toVal !== '' ) {
+					dataAttrs[ `data-mb-exit-to-${ cssName }` ] = String( toVal );
+				}
+			}
+		}
+	}
+
+	// Stagger cascade — gated on parent block type + slot compatibility.
+	// Reads the Entry slot's type for stagger compatibility (the CSS
+	// bindings key on `mb-enter-{type}`); if only Exit is filled, the
+	// inner blocks have no enter animation to cascade.
+	let staggerStyle = null;
+	const staggerProbeType = entryType || exitType;
+	if (
+		attributes.animationStaggerEnabled &&
+		STAGGER_PARENT_BLOCKS.includes( blockType.name ) &&
+		! STAGGER_INCOMPATIBLE_TYPES.includes( staggerProbeType )
+	) {
+		classNames.push( 'mb-stagger-parent' );
+		const step = staggerStepSeconds( attributes.animationStaggerStep );
+		staggerStyle = { '--mb-stagger-step': `${ step }s` };
+	}
+
 	if ( attributes.animationClipParentOverflow ) {
 		classNames.push( 'mb-clip-parent-overflow' );
 	}

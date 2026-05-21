@@ -15,9 +15,8 @@
  * constants.js. The migration is idempotent and runs every render;
  * the next user edit writes the canonical slot attrs back to storage.
  *
- * Cross-cutting controls (Stagger, Play once, Clip overflow, Remove)
- * render below the slot tabs, always visible regardless of which
- * tab is active.
+ * Cross-cutting controls (Stagger, Play once, Remove) render below
+ * the slot tabs, always visible regardless of which tab is active.
  */
 
 import { useState } from '@wordpress/element';
@@ -91,8 +90,8 @@ export default function ScrollAppearControls( props ) {
 
 			{ /* Entry / Exit slot tabs. The selected tab drives which
 			   SlotControls renders below. Cross-cutting controls (Play
-			   once, Stagger, Clip overflow, Remove) sit outside the
-			   tabs so they're always visible. */ }
+			   once, Stagger, Remove) sit outside the tabs so they're
+			   always visible. */ }
 			<TabPanel
 				className="mb-slot-tabs"
 				initialTabName={ activeSlot }
@@ -160,19 +159,6 @@ export default function ScrollAppearControls( props ) {
 								'Add an Entry effect to enable Play once.',
 								'motion-blocks'
 						  )
-				}
-				__nextHasNoMarginBottom
-			/>
-
-			<ToggleControl
-				label={ __( 'Clip overflow on parent', 'motion-blocks' ) }
-				help={ __(
-					"Hide motion that extends past the parent block's bounds. Useful when sliding an element in from off-screen.",
-					'motion-blocks'
-				) }
-				checked={ !! attributes.animationClipParentOverflow }
-				onChange={ ( value ) =>
-					setAttributes( { animationClipParentOverflow: value } )
 				}
 				__nextHasNoMarginBottom
 			/>

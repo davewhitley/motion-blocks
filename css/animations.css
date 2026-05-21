@@ -679,35 +679,3 @@ html:has(body.mb-clip-page-overflow) {
     }
 }
 
-/* ----------------------------------------------------------------
- * Clip parent overflow (opt-in per block)
- *
- * When an animated block is configured with a large horizontal
- * translate (e.g. `translateX: 1000px` to slide in from off-screen),
- * the block's painted bounds extend far past its layout box and the
- * browser grows the scrollable area to match — horizontal scrollbar
- * appears.
- *
- * The block's panel exposes a "Clip overflow on parent" toggle. When
- * on, the block's wrapper carries the `mb-clip-parent-overflow`
- * class, and the `:has()` rule below selects whatever direct parent
- * contains it and clips horizontal overflow.
- *
- * Mirrors the structural idea in `buildImgTargetCSS()` in
- * src/index.js, which uses `:has(> img)` to clip image parents for
- * image-target animations. This is the wrapper-target analogue.
- * -------------------------------------------------------------- */
-:has(> .mb-clip-parent-overflow) {
-    overflow-x: clip;
-}
-
-/* Fallback for browsers without `overflow: clip` (Chrome <90,
- * Firefox <81, Safari <16). `overflow-x: hidden` is less ideal
- * (creates a scroll container, can interfere with sticky inside the
- * parent) but prevents the scrollbar, which is the visible bug. */
-@supports not (overflow-x: clip) {
-    :has(> .mb-clip-parent-overflow) {
-        overflow-x: hidden;
-    }
-}
-

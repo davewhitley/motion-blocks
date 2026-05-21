@@ -440,16 +440,6 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: 100,
 			},
-			// Clip the parent's horizontal overflow when the block
-			// animates off its natural bounds (e.g. translateX: 1000px
-			// to slide in from off-screen). Mirrors what the existing
-			// image-target path does for transformed images: emits a
-			// marker class so a `:has()` rule in animations.css clips
-			// the parent without the user having to touch theme CSS.
-			animationClipParentOverflow: {
-				type: 'boolean',
-				default: false,
-			},
 			// --- Slot model: per-slot attribute pairs (Scroll Appear) ---
 			// Each Scroll Appear block stores its Entry and Exit slot
 			// configs independently. Empty string for type = "slot is
@@ -780,19 +770,6 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationFromToPreviewSide,
 			} = attributes;
 
-			// Clip-parent-overflow class snippet shared across every
-			// HOC return branch. The class needs to apply in both the
-			// animated-preview path AND the eye-icon static-preview
-			// path — in the latter the off-screen transform is applied
-			// inline via wrapperProps.style, so without the class the
-			// parent doesn't clip and the editor canvas grows a
-			// horizontal scrollbar. The "Custom at rest" branch
-			// (no animation visible) doesn't paint off-screen, so the
-			// class is harmless there even though unnecessary.
-			const clipExtraClass = attributes.animationClipParentOverflow
-				? ' mb-clip-parent-overflow'
-				: '';
-
 			// Static state preview — eye icon in the From/To panel.
 			// When 'start' or 'end' is chosen, freeze the editor block
 			// at that side's values (no animation, no triggered class
@@ -847,10 +824,6 @@ const withAnimationPreview = createHigherOrderComponent(
 						<>
 							<BlockListBlock
 								{ ...props }
-								className={
-									( props.className || '' ) +
-									clipExtraClass
-								}
 								wrapperProps={ {
 									...wrapperProps,
 									'data-mb-uid': safeId,
@@ -871,9 +844,6 @@ const withAnimationPreview = createHigherOrderComponent(
 					<>
 						<BlockListBlock
 							{ ...props }
-							className={
-								( props.className || '' ) + clipExtraClass
-							}
 							wrapperProps={ {
 								...wrapperProps,
 								style: {
@@ -1213,22 +1183,6 @@ const withAnimationPreview = createHigherOrderComponent(
 				};
 			}
 
-			// Clip the parent's horizontal overflow when the block
-			// animates off-screen. The class is the trigger; the
-			// `:has(> .mb-clip-parent-overflow)` rule in animations.css
-			// applies `overflow-x: clip` to the parent. Emitted on
-			// every animation type — Custom is where the bug shows up,
-			// but the user might also hit it with custom Slide
-			// direction values, so don't gate by type.
-			if ( attributes.animationClipParentOverflow ) {
-				computedClassName = [
-					computedClassName,
-					'mb-clip-parent-overflow',
-				]
-					.filter( Boolean )
-					.join( ' ' );
-			}
-
 			// Single return — BlockListBlock is always at the same
 			// position in the React tree (index 0 inside the Fragment),
 			// so it never remounts when switching animation states.
@@ -1446,12 +1400,6 @@ function addAnimationSaveProps( props, blockType, attributesRaw ) {
 		staggerStyle = { '--mb-stagger-step': `${ step }s` };
 	}
 
-	// Clip parent overflow opt-in. Marker class for the `:has()` rule
-	// in animations.css that applies `overflow-x: clip` to the parent.
-	if ( attributes.animationClipParentOverflow ) {
-		classNames.push( 'mb-clip-parent-overflow' );
-	}
-
 	const out = {
 		...props,
 		className: classNames.filter( Boolean ).join( ' ' ).trim(),
@@ -1660,10 +1608,6 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 		classNames.push( 'mb-stagger-parent' );
 		const step = staggerStepSeconds( attributes.animationStaggerStep );
 		staggerStyle = { '--mb-stagger-step': `${ step }s` };
-	}
-
-	if ( attributes.animationClipParentOverflow ) {
-		classNames.push( 'mb-clip-parent-overflow' );
 	}
 
 	const out = {

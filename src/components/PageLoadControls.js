@@ -473,21 +473,6 @@ export default function PageLoadControls( {
 				__nextHasNoMarginBottom
 			/>
 
-			<ToggleControl
-				label={ __( 'Clip overflow on parent', 'motion-blocks' ) }
-				help={ __(
-					"Hide motion that extends past the parent block's bounds. Useful when sliding an element in from off-screen.",
-					'motion-blocks'
-				) }
-				checked={ !! attributes.animationClipParentOverflow }
-				onChange={ ( value ) =>
-					setAttributes( {
-						animationClipParentOverflow: value,
-					} )
-				}
-				__nextHasNoMarginBottom
-			/>
-
 			<Button
 				variant="secondary"
 				isDestructive

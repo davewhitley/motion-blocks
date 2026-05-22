@@ -1146,11 +1146,16 @@ const withAnimationPreview = createHigherOrderComponent(
 						previewStyles[ '--mb-rotate-angle' ] =
 							( animationRotateAngle ?? 90 ) + 'deg';
 					}
-					// Custom-type: bind animation-name to the per-block
-					// keyframe via inline style. Inline style wins over
-					// the class-based binding so the unique keyframe
-					// runs instead of any shared one.
-					if ( animationType === 'custom' ) {
+					// Custom-like types (custom, image-move, image-zoom)
+					// bind animation-name to the per-block keyframe via
+					// inline style (or scoped CSS for img-target). Inline
+					// style wins over the class-based binding so the
+					// unique keyframe runs instead of any shared one.
+					const isCustomLikePreview =
+						animationType === 'custom' ||
+						animationType === 'image-move' ||
+						animationType === 'image-zoom';
+					if ( isCustomLikePreview ) {
 						if ( targetIsImg ) {
 							// Wrapper doesn't animate; the scoped CSS
 							// drives the img. The CSS reads timing

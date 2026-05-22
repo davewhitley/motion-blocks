@@ -513,17 +513,31 @@
 			}
 		}
 
-		// Exit slot
+		// Exit slot. Same three flavors as the Entry slot. Image
+		// effects play the same keyframe but on the exit phase — the
+		// image zooms / parallaxes as the element scrolls out of view.
+		var exitFrom = null;
+		var exitTo = null;
 		if ( exitType === 'custom' ) {
-			var exitFrom = buildSideBody( el, null, 'mbExitFrom' );
-			var exitTo = buildSideBody( el, null, 'mbExitTo' );
-			if ( exitFrom || exitTo ) {
-				customKeyframeCounter += 1;
-				exitName = 'mb-custom-runtime-' + customKeyframeCounter;
-				appendKeyframeRule( exitName, exitFrom, exitTo );
-				if ( ! imgTarget ) {
-					el.style.setProperty( '--mb-exit-anim-name', exitName );
-				}
+			exitFrom = buildSideBody( el, null, 'mbExitFrom' );
+			exitTo = buildSideBody( el, null, 'mbExitTo' );
+		} else if ( exitType === 'image-move' ) {
+			var moveSidesExit = buildImageMoveSides(
+				el.dataset.mbExitDirection || 'btt'
+			);
+			exitFrom = moveSidesExit.fromBody;
+			exitTo = moveSidesExit.toBody;
+		} else if ( exitType === 'image-zoom' ) {
+			var zoomSidesExit = buildImageZoomSides();
+			exitFrom = zoomSidesExit.fromBody;
+			exitTo = zoomSidesExit.toBody;
+		}
+		if ( exitFrom || exitTo ) {
+			customKeyframeCounter += 1;
+			exitName = 'mb-custom-runtime-' + customKeyframeCounter;
+			appendKeyframeRule( exitName, exitFrom, exitTo );
+			if ( ! imgTarget ) {
+				el.style.setProperty( '--mb-exit-anim-name', exitName );
 			}
 		}
 

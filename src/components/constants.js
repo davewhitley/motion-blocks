@@ -405,6 +405,8 @@ export const EXIT_TYPE_OPTIONS = [
 	{ label: 'Rotate Out', value: 'rotate' },
 	{ label: 'Wipe', value: 'wipe' },
 	{ label: 'Curtain Close', value: 'curtain' },
+	{ label: 'Image Move (Beta)', value: 'image-move' },
+	{ label: 'Image Zoom (Beta)', value: 'image-zoom' },
 	{ label: 'Custom', value: 'custom' },
 ];
 

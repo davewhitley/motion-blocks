@@ -1496,7 +1496,12 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 			dataAttrs[ 'data-mb-target' ] = 'img';
 		}
 	}
-	if ( entryType === 'image-move' || entryType === 'image-zoom' ) {
+	if (
+		entryType === 'image-move' ||
+		entryType === 'image-zoom' ||
+		exitType === 'image-move' ||
+		exitType === 'image-zoom'
+	) {
 		dataAttrs[ 'data-mb-target' ] = 'img';
 	}
 

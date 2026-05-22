@@ -264,7 +264,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         $block_name_for_wrap = $block['blockName'] ?? '';
         if (
             $block_name_for_wrap === 'core/image' &&
-            motion_blocks_uses_image_effect( $mode, $type, $entry_type )
+            motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type )
         ) {
             return motion_blocks_wrap_image_for_effect( $block_content );
         }
@@ -320,7 +320,10 @@ function motion_blocks_render_block( $block_content, $block ) {
                 $processor->set_attribute( 'data-mb-target', 'img' );
             }
         }
-        if ( $entry_type === 'image-move' || $entry_type === 'image-zoom' ) {
+        if (
+            $entry_type === 'image-move' || $entry_type === 'image-zoom' ||
+            $exit_type === 'image-move' || $exit_type === 'image-zoom'
+        ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
         }
 
@@ -582,7 +585,7 @@ function motion_blocks_render_block( $block_content, $block ) {
     $block_name_for_wrap = $block['blockName'] ?? '';
     if (
         $block_name_for_wrap === 'core/image' &&
-        motion_blocks_uses_image_effect( $mode, $type, $entry_type )
+        motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type )
     ) {
         $html = motion_blocks_wrap_image_for_effect( $html );
     }
@@ -593,15 +596,16 @@ function motion_blocks_render_block( $block_content, $block ) {
 /**
  * Detect whether the current block's resolved animation type is one
  * of the image-bound effects (image-move / image-zoom). For Scroll
- * Appear that means the Entry slot type; for Page Load and Scroll
- * Interactive it's the shared animationType. Image effects always
- * imply `data-mb-target="img"` and need the wrapper for proper
- * caption isolation.
+ * Appear that means the Entry OR Exit slot type; for Page Load and
+ * Scroll Interactive it's the shared animationType. Image effects
+ * always imply `data-mb-target="img"` and need the wrapper for
+ * proper caption isolation.
  */
-function motion_blocks_uses_image_effect( $mode, $type, $entry_type ) {
+function motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type = '' ) {
     $image_effects = array( 'image-move', 'image-zoom' );
     if ( $mode === 'scroll-appear' ) {
-        return in_array( $entry_type, $image_effects, true );
+        return in_array( $entry_type, $image_effects, true )
+            || in_array( $exit_type, $image_effects, true );
     }
     return in_array( $type, $image_effects, true );
 }

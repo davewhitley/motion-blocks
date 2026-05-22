@@ -150,6 +150,31 @@ function getImageMoveKeyframe( clientId, direction ) {
 }
 
 /**
+ * Build the scale-in keyframe for the `image-zoom` preset.
+ * No direction needed — pure scale(1) → scale(1.2). Companion to
+ * getImageMoveKeyframe(); shares the same synthesis pattern.
+ *
+ * @param {string} clientId
+ * @return {{ name: string, rule: string }|null}
+ */
+function getImageZoomKeyframe( clientId ) {
+	if ( ! clientId ) {
+		return null;
+	}
+	const preset = getPresetFromTo( 'image-zoom' );
+	if ( ! preset ) {
+		return null;
+	}
+	const safeId = String( clientId ).replace( /[^a-z0-9]/gi, '' );
+	const name = `mb-imagezoom-${ safeId }`;
+	const rule = buildCustomKeyframe( name, preset.from, preset.to );
+	if ( ! rule ) {
+		return null;
+	}
+	return { name, rule };
+}
+
+/**
  * For target='img' mode, build a scoped CSS string that:
  *
  *   1. Defines the per-block @keyframes (same as block target).
@@ -903,8 +928,9 @@ const withAnimationPreview = createHigherOrderComponent(
 			// Resolve the keyframe once — used by both branches.
 			// `image-move` is a parallax preset that synthesizes its
 			// keyframe from the direction (the user only picks an
-			// axis, no manual from/to). It's effectively "custom
-			// with img target" with the parallax math baked in.
+			// axis, no manual from/to). `image-zoom` is the same idea
+			// but pure scale (no direction). Both are effectively
+			// "custom with img target" with the math baked in.
 			let customKeyframe = null;
 			if ( animationType === 'custom' ) {
 				customKeyframe = getCustomKeyframe(
@@ -916,19 +942,26 @@ const withAnimationPreview = createHigherOrderComponent(
 					props.clientId,
 					animationDirection
 				);
+			} else if ( animationType === 'image-zoom' ) {
+				customKeyframe = getImageZoomKeyframe( props.clientId );
 			}
 
 			// `target = 'img'` reroutes the keyframe binding to a
 			// scoped CSS rule that animates the first <img> descendant
 			// instead of the block wrapper, with `overflow: clip` on
 			// the img's parent so the surrounding markup acts as a
-			// clipping frame. `image-move` always uses img target.
+			// clipping frame. Image effects (image-move, image-zoom)
+			// always use img target.
 			const target = attributes.animationFromToTarget || 'block';
 			const targetIsImg =
 				animationType === 'image-move' ||
+				animationType === 'image-zoom' ||
 				( animationType === 'custom' && target === 'img' );
 			const customUid = customKeyframe
-				? customKeyframe.name.replace( /^mb-(custom|imagemove)-/, '' )
+				? customKeyframe.name.replace(
+						/^mb-(custom|imagemove|imagezoom)-/,
+						''
+				  )
 				: null;
 			const imgTargetCSS = targetIsImg
 				? buildImgTargetCSS(
@@ -959,12 +992,13 @@ const withAnimationPreview = createHigherOrderComponent(
 				// For custom: use the per-block keyframe name; if no
 				// properties are added, animation-name is empty and
 				// the block won't animate (which is the right call).
-				// For target='img' (and image-move, which is always
-				// img-target): don't animate the wrapper at all —
-				// the scoped CSS targets the inner img.
+				// For target='img' (and image-move / image-zoom, which
+				// are always img-target): don't animate the wrapper at
+				// all — the scoped CSS targets the inner img.
 				const isCustomLike =
 					animationType === 'custom' ||
-					animationType === 'image-move';
+					animationType === 'image-move' ||
+					animationType === 'image-zoom';
 				const resolvedAnimationName = targetIsImg
 					? 'none'
 					: isCustomLike
@@ -1282,9 +1316,11 @@ function addAnimationSaveProps( props, blockType, attributesRaw ) {
 	// `overflow: clip` on its parent. The saved HTML only needs to
 	// signal the intent — the uid is a runtime detail.
 	//
-	// `image-move` always implies img target (it's a parallax preset
-	// scoped to a child img, not the wrapper).
-	if ( animationType === 'image-move' ) {
+	// Image effects (image-move, image-zoom) always imply img target.
+	if (
+		animationType === 'image-move' ||
+		animationType === 'image-zoom'
+	) {
 		dataAttrs[ 'data-mb-target' ] = 'img';
 	} else if ( animationType === 'custom' ) {
 		const target = attributes.animationFromToTarget || 'block';
@@ -1446,14 +1482,17 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 		),
 	};
 
-	// img target — only triggered by Custom-target=img on either slot,
-	// or by image-move (which doesn't apply to Scroll Appear in the
-	// new model). The Custom From/To target is shared across slots.
+	// img target — triggered by Custom-target=img on either slot, OR
+	// by an image effect (image-move / image-zoom) in the Entry slot.
+	// Image effects always imply img-target.
 	if ( entryType === 'custom' || exitType === 'custom' ) {
 		const target = attributes.animationFromToTarget || 'block';
 		if ( target === 'img' ) {
 			dataAttrs[ 'data-mb-target' ] = 'img';
 		}
+	}
+	if ( entryType === 'image-move' || entryType === 'image-zoom' ) {
+		dataAttrs[ 'data-mb-target' ] = 'img';
 	}
 
 	// --- Entry slot ---

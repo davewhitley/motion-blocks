@@ -49,6 +49,8 @@ import {
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
+	IMAGE_EFFECT_TYPES,
+	IMAGE_EFFECT_BLOCKS,
 	customDefaultFromToForSlot,
 	hasAnyCustomFromToSet,
 	presetToSlotFromToAttributes,
@@ -106,9 +108,24 @@ export default function SlotControls( {
 	// Build the dropdown options for this slot. Prepend a "None"
 	// entry so the user can clear the slot from the dropdown without
 	// hunting for a separate clear button.
+	//
+	// Image effects (image-move, image-zoom) only appear in the Entry
+	// slot AND only on blocks that support them. They don't have an
+	// inverse, so they're absent from EXIT_TYPE_OPTIONS by design.
+	const slotOptions =
+		slot === 'entry' ? ENTRY_TYPE_OPTIONS : EXIT_TYPE_OPTIONS;
+	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
 	const typeOptions = [
 		{ label: __( 'None', 'motion-blocks' ), value: '' },
-		...( slot === 'entry' ? ENTRY_TYPE_OPTIONS : EXIT_TYPE_OPTIONS ),
+		...slotOptions.filter( ( opt ) => {
+			if (
+				! supportsImageEffects &&
+				IMAGE_EFFECT_TYPES.includes( opt.value )
+			) {
+				return false;
+			}
+			return true;
+		} ),
 	];
 
 	/**

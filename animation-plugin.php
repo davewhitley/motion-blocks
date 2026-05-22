@@ -252,8 +252,22 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     // Check if classes are already present (static blocks saved with JS filter).
+    // For static blocks, the editor's getSaveContent filter has already
+    // added `mb-animated` and the data attributes to the saved HTML, so
+    // we don't need to do that work again. But we DO still need to
+    // run the image-effect wrap pass on the raw content — that pass
+    // injects new markup (a wrapper div), which can't be expressed via
+    // the JS save-props filter (it only adds attributes to the wrapper,
+    // not inner markup).
     $existing_class = $processor->get_attribute( 'class' ) ?? '';
     if ( str_contains( $existing_class, 'mb-animated' ) ) {
+        $block_name_for_wrap = $block['blockName'] ?? '';
+        if (
+            $block_name_for_wrap === 'core/image' &&
+            motion_blocks_uses_image_effect( $mode, $type, $entry_type )
+        ) {
+            return motion_blocks_wrap_image_for_effect( $block_content );
+        }
         return $block_content;
     }
 
@@ -298,12 +312,16 @@ function motion_blocks_render_block( $block_content, $block ) {
     if ( $mode === 'scroll-appear' ) {
         // Slot model: emit per-slot data attributes for the filled
         // slot(s). The Custom From/To target is shared across slots
-        // (only meaningful when at least one slot is Custom).
+        // (only meaningful when at least one slot is Custom). Image
+        // effects (image-move, image-zoom) always imply img-target.
         if ( $entry_type === 'custom' || $exit_type === 'custom' ) {
             $target = $attrs['animationFromToTarget'] ?? 'block';
             if ( $target === 'img' ) {
                 $processor->set_attribute( 'data-mb-target', 'img' );
             }
+        }
+        if ( $entry_type === 'image-move' || $entry_type === 'image-zoom' ) {
+            $processor->set_attribute( 'data-mb-target', 'img' );
         }
 
         $play_once = $attrs['animationPlayOnce'] ?? true;
@@ -416,7 +434,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Page Load + Scroll Interactive — shared attribute emission.
         $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
-        if ( $type === 'image-move' ) {
+        if ( $type === 'image-move' || $type === 'image-zoom' ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
         } elseif ( $type === 'custom' ) {
             $target = $attrs['animationFromToTarget'] ?? 'block';
@@ -509,10 +527,10 @@ function motion_blocks_render_block( $block_content, $block ) {
     );
     // Custom is now compatible — the parent block's per-block keyframe
     // is bound to inner blocks via `--mb-stagger-anim-name` (CSS custom
-    // property, set on the parent by the frontend script). Only
-    // image-move stays out, since it's parallax-only and lives in
-    // scroll-interactive mode where the stagger cascade doesn't run.
-    $stagger_skip_types = array( 'image-move' );
+    // property, set on the parent by the frontend script). Image
+    // effects (image-move, image-zoom) stay out since they scope the
+    // animation to the first img descendant, which doesn't cascade.
+    $stagger_skip_types = array( 'image-move', 'image-zoom' );
     $stagger_enabled    = ! empty( $attrs['animationStaggerEnabled'] );
     $block_name         = $block['blockName'] ?? '';
     // Stagger gating reads from whichever type drives the cascade in
@@ -551,7 +569,63 @@ function motion_blocks_render_block( $block_content, $block ) {
         $processor->set_attribute( 'style', $existing_style );
     }
 
-    return $processor->get_updated_html();
+    $html = $processor->get_updated_html();
+
+    // Wrap the first <img> inside core/image figures in a
+    // .mb-img-frame div when an image effect is active. The wrapper
+    // is what carries `overflow: clip` (via the existing :has(> img)
+    // selector in animations.css), so the figcaption — which sits
+    // outside the wrapper as a sibling — isn't pulled into the clip
+    // region. Cover blocks are intentionally skipped (no figcaption,
+    // and the background img is absolutely-positioned; wrapping
+    // would require mirroring those positioning rules).
+    $block_name_for_wrap = $block['blockName'] ?? '';
+    if (
+        $block_name_for_wrap === 'core/image' &&
+        motion_blocks_uses_image_effect( $mode, $type, $entry_type )
+    ) {
+        $html = motion_blocks_wrap_image_for_effect( $html );
+    }
+
+    return $html;
+}
+
+/**
+ * Detect whether the current block's resolved animation type is one
+ * of the image-bound effects (image-move / image-zoom). For Scroll
+ * Appear that means the Entry slot type; for Page Load and Scroll
+ * Interactive it's the shared animationType. Image effects always
+ * imply `data-mb-target="img"` and need the wrapper for proper
+ * caption isolation.
+ */
+function motion_blocks_uses_image_effect( $mode, $type, $entry_type ) {
+    $image_effects = array( 'image-move', 'image-zoom' );
+    if ( $mode === 'scroll-appear' ) {
+        return in_array( $entry_type, $image_effects, true );
+    }
+    return in_array( $type, $image_effects, true );
+}
+
+/**
+ * Wrap the first `<img>` element in `$html` with
+ * `<div class="mb-img-frame">…</div>`. The wrapper goes around just
+ * the img tag, so siblings (figcaption, additional content) stay
+ * outside the clipped region. Handles self-closing (`<img />`) and
+ * non-self-closing (`<img>`) forms.
+ *
+ * The wrap is opt-in per render (caller decides when to invoke), so
+ * it doesn't need to inspect surrounding markup beyond locating the
+ * first img.
+ */
+function motion_blocks_wrap_image_for_effect( $html ) {
+    // Match the first <img …> tag (self-closing or not). Non-greedy
+    // attribute match stops at the first unescaped `>`.
+    return preg_replace(
+        '/(<img\b[^>]*\/?>)/i',
+        '<div class="mb-img-frame">$1</div>',
+        $html,
+        1
+    );
 }
 add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );
 

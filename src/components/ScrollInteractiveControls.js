@@ -39,6 +39,8 @@ import {
 	BLUR_SETTINGS,
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
+	IMAGE_EFFECT_TYPES,
+	IMAGE_EFFECT_BLOCKS,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
@@ -80,7 +82,15 @@ export default function ScrollInteractiveControls( {
 		animationPreviewEnabled,
 	} = attributes;
 
-	const typeOptions = ANIMATION_TYPE_OPTIONS;
+	// Image effects (image-move, image-zoom) are only meaningful on
+	// blocks that have a primary <img>. Filter them out for other
+	// block types so the dropdown isn't a foot-gun.
+	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	const typeOptions = supportsImageEffects
+		? ANIMATION_TYPE_OPTIONS
+		: ANIMATION_TYPE_OPTIONS.filter(
+				( opt ) => ! IMAGE_EFFECT_TYPES.includes( opt.value )
+		  );
 
 	const previewOn = animationPreviewEnabled !== false;
 	const isCustom = animationType === 'custom';

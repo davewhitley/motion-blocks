@@ -359,6 +359,17 @@
 	}
 
 	/**
+	 * For `image-zoom` mode: pure scale 1 → 1.2. No direction, no
+	 * translate. Mirrors getPresetFromTo('image-zoom') in constants.js.
+	 */
+	function buildImageZoomSides() {
+		return {
+			fromBody: 'transform: scale(1);',
+			toBody: 'transform: scale(1.2);',
+		};
+	}
+
+	/**
 	 * For a custom-type element: build its @keyframes rule, append
 	 * it to the shared style element, set animation-name inline.
 	 * No-op if neither side has any added properties.
@@ -383,17 +394,25 @@
 		}
 
 		var type = el.dataset.mbType;
-		if ( type !== 'custom' && type !== 'image-move' ) {
+		if (
+			type !== 'custom' &&
+			type !== 'image-move' &&
+			type !== 'image-zoom'
+		) {
 			return;
 		}
 		var fromBody;
 		var toBody;
 		if ( type === 'image-move' ) {
-			var sides = buildImageMoveSides(
+			var moveSides = buildImageMoveSides(
 				el.dataset.mbDirection || 'btt'
 			);
-			fromBody = sides.fromBody;
-			toBody = sides.toBody;
+			fromBody = moveSides.fromBody;
+			toBody = moveSides.toBody;
+		} else if ( type === 'image-zoom' ) {
+			var zoomSides = buildImageZoomSides();
+			fromBody = zoomSides.fromBody;
+			toBody = zoomSides.toBody;
 		} else {
 			fromBody = buildSideBody( el, 'from' );
 			toBody = buildSideBody( el, 'to' );
@@ -457,26 +476,40 @@
 		var entryName = null;
 		var exitName = null;
 
-		// Entry slot
+		// Entry slot. Three flavors share the same synthesis path:
+		//   - `custom`        — keyframe built from the user's From/To attrs
+		//   - `image-move`    — keyframe built from direction (scale + translate)
+		//   - `image-zoom`    — keyframe built from scale 1 → 1.2 (no direction)
+		// Image effects always imply imgTarget (the save-props layer
+		// forces `data-mb-target="img"` for them).
+		var entryFrom = null;
+		var entryTo = null;
 		if ( entryType === 'custom' ) {
-			var entryFrom = buildSideBody( el, null, 'mbEntryFrom' );
-			var entryTo = buildSideBody( el, null, 'mbEntryTo' );
-			if ( entryFrom || entryTo ) {
-				customKeyframeCounter += 1;
-				entryName = 'mb-custom-runtime-' + customKeyframeCounter;
-				appendKeyframeRule( entryName, entryFrom, entryTo );
-				if ( ! imgTarget ) {
-					el.style.setProperty(
-						'--mb-entry-anim-name',
-						entryName
-					);
-					// Stagger cascade for the entry phase — inner
-					// blocks inherit this var via the cascade.
-					el.style.setProperty(
-						'--mb-stagger-anim-name',
-						entryName
-					);
-				}
+			entryFrom = buildSideBody( el, null, 'mbEntryFrom' );
+			entryTo = buildSideBody( el, null, 'mbEntryTo' );
+		} else if ( entryType === 'image-move' ) {
+			var moveSides = buildImageMoveSides(
+				el.dataset.mbEntryDirection || 'btt'
+			);
+			entryFrom = moveSides.fromBody;
+			entryTo = moveSides.toBody;
+		} else if ( entryType === 'image-zoom' ) {
+			var zoomSides = buildImageZoomSides();
+			entryFrom = zoomSides.fromBody;
+			entryTo = zoomSides.toBody;
+		}
+		if ( entryFrom || entryTo ) {
+			customKeyframeCounter += 1;
+			entryName = 'mb-custom-runtime-' + customKeyframeCounter;
+			appendKeyframeRule( entryName, entryFrom, entryTo );
+			if ( ! imgTarget ) {
+				el.style.setProperty( '--mb-entry-anim-name', entryName );
+				// Stagger cascade for the entry phase — inner blocks
+				// inherit this var via the cascade.
+				el.style.setProperty(
+					'--mb-stagger-anim-name',
+					entryName
+				);
 			}
 		}
 

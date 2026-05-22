@@ -36,6 +36,8 @@ import {
 	REPEAT_OPTIONS,
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
+	IMAGE_EFFECT_TYPES,
+	IMAGE_EFFECT_BLOCKS,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
@@ -88,22 +90,34 @@ export default function PageLoadControls( {
 		animationPauseOffscreen,
 	} = attributes;
 
-	// Image Move is parallax — only meaningful in scroll-interactive
-	// mode. Filter it out of the page-load dropdown.
-	//
-	// The `-out` preset variants (`fade-out`, `slide-out`, etc.) are
-	// also dropped here. Out variants in Page Load would mean "splash
-	// on page load" patterns — the element loads visible, then fades
-	// away. Out of scope for the slot-model redesign; the values
-	// remain registered so existing splash blocks deserialize cleanly,
-	// but they're not reachable through the new UI. The values stay
-	// available in Scroll Interactive, where scrubbed mode benefits
-	// from explicit direction.
-	const typeOptions = ANIMATION_TYPE_OPTIONS.filter(
-		( opt ) =>
-			! SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value ) &&
-			! opt.value.endsWith( '-out' )
-	);
+	// Filter dropdown options:
+	// - `-out` preset variants (`fade-out`, `slide-out`, etc.) are
+	//   dropped here. Out variants in Page Load would mean "splash on
+	//   page load" patterns — the element loads visible, then fades
+	//   away. Out of scope for the slot-model redesign; the values
+	//   remain registered so existing splash blocks deserialize cleanly,
+	//   but they're not reachable through the new UI.
+	// - Image effects (image-move, image-zoom) are only meaningful on
+	//   blocks with a primary <img>. Hide them for other block types
+	//   so the dropdown isn't a foot-gun.
+	// - SCROLL_INTERACTIVE_ONLY_TYPES is currently empty (image-move
+	//   used to live there) but the filter is kept for future presets.
+	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	const typeOptions = ANIMATION_TYPE_OPTIONS.filter( ( opt ) => {
+		if ( SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value ) ) {
+			return false;
+		}
+		if ( opt.value.endsWith( '-out' ) ) {
+			return false;
+		}
+		if (
+			! supportsImageEffects &&
+			IMAGE_EFFECT_TYPES.includes( opt.value )
+		) {
+			return false;
+		}
+		return true;
+	} );
 
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );

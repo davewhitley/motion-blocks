@@ -25,18 +25,38 @@ export const ANIMATION_TYPE_OPTIONS = [
 	{ label: 'Blur Out', value: 'blur-out' },
 	{ label: 'Rotate In', value: 'rotate' },
 	{ label: 'Rotate Out', value: 'rotate-out' },
-	{ label: 'Image Move (parallax)', value: 'image-move' },
+	{ label: 'Image Move (Beta)', value: 'image-move' },
+	{ label: 'Image Zoom (Beta)', value: 'image-zoom' },
 	{ label: 'Custom', value: 'custom' },
 ];
+
+/**
+ * Image-bound effects that always animate the first `<img>` descendant
+ * (via `data-mb-target="img"`) instead of the block wrapper. Available
+ * only on blocks listed in IMAGE_EFFECT_BLOCKS, and surfaced across
+ * all three modes (Page Load, Scroll Appear Entry slot, Scroll
+ * Interactive). Currently Beta — labels carry a "(Beta)" suffix.
+ */
+export const IMAGE_EFFECT_TYPES = [ 'image-move', 'image-zoom' ];
+
+/**
+ * Blocks where IMAGE_EFFECT_TYPES are exposed in the Effect dropdown.
+ * Intentionally narrower than IMAGE_TARGETABLE_BLOCKS — Featured Image
+ * / Avatar / Site Logo / Media&Text have more markup variants and
+ * are deferred to a follow-up.
+ */
+export const IMAGE_EFFECT_BLOCKS = [ 'core/image', 'core/cover' ];
 
 /**
  * Animation types that only make sense in scroll-interactive mode.
  * The PageLoad and ScrollAppear panels filter these out of their
  * effect dropdown; only ScrollInteractive offers them.
  *
- * Currently just `image-move` (parallax requires scroll progress).
+ * Currently empty — `image-move` used to live here but is now exposed
+ * across all three modes (in non-SI modes it animates the translate
+ * over the configured duration instead of binding to scroll progress).
  */
-export const SCROLL_INTERACTIVE_ONLY_TYPES = [ 'image-move' ];
+export const SCROLL_INTERACTIVE_ONLY_TYPES = [];
 
 /**
  * Block types where the From/To "Target = Image only" toggle is
@@ -95,9 +115,10 @@ export const STAGGER_PARENT_BLOCKS = [
 /**
  * Animation types that don't compose with the stagger cascade.
  *
- * `image-move` is parallax — it only exists in scroll-interactive
- * mode, which doesn't use the `.mb-triggered` toggle that the
- * stagger CSS depends on, so the cascade would be a no-op anyway.
+ * `image-move` and `image-zoom` are img-target effects that scope
+ * the animation to the first `<img>` descendant of the parent block.
+ * Stagger needs to cascade an animation across multiple inner blocks,
+ * which doesn't compose meaningfully with a per-img scoped keyframe.
  *
  * `custom` USED to be on this list. It now composes via a single
  * inherited custom property: the parent block generates one
@@ -107,7 +128,7 @@ export const STAGGER_PARENT_BLOCKS = [
  * One keyframe per parent block, not N — see the stagger section
  * of animations.css for the binding rule.
  */
-export const STAGGER_INCOMPATIBLE_TYPES = [ 'image-move' ];
+export const STAGGER_INCOMPATIBLE_TYPES = [ 'image-move', 'image-zoom' ];
 
 /**
  * Default stagger step in seconds — matches the units used by
@@ -363,6 +384,8 @@ export const ENTRY_TYPE_OPTIONS = [
 	{ label: 'Wipe', value: 'wipe' },
 	{ label: 'Curtain Open', value: 'curtain' },
 	{ label: 'Flip', value: 'flip' },
+	{ label: 'Image Move (Beta)', value: 'image-move' },
+	{ label: 'Image Zoom (Beta)', value: 'image-zoom' },
 	{ label: 'Custom', value: 'custom' },
 ];
 
@@ -1093,6 +1116,16 @@ export function getPresetFromTo( type, direction, options = {} ) {
 			return { from: fromBag, to: toBag };
 		}
 
+		case 'image-zoom': {
+			// Slow scale-in: 1 → 1.2. No translate, no direction.
+			// The wrapper's overflow:clip frames the scaled image
+			// to its natural border-box so the zoom feels contained.
+			return {
+				from: { scale: 1 },
+				to: { scale: 1.2 },
+			};
+		}
+
 		default:
 			return null;
 	}
@@ -1553,10 +1586,9 @@ export const MODE_ORDER = [ 'page-load', 'scroll-appear', 'scroll-interactive' ]
  * for the OLD mode get reset to defaults so they don't linger
  * on a block that no longer supports them.
  *
- * Type coercion: `image-move` is in SCROLL_INTERACTIVE_ONLY_TYPES,
- * so switching out of scroll-interactive while that type is set
- * silently demotes to `slide` (the closest non-image-move effect)
- * with the default `btt` direction.
+ * Image effects (`image-move`, `image-zoom`) used to be coerced to
+ * `slide` when leaving scroll-interactive mode, but they're now
+ * exposed across all three modes — no coercion needed.
  *
  * Also resets `animationPreviewPlaying` so a preview running on
  * the old mode's branch doesn't auto-resume on the new mode.
@@ -1577,15 +1609,6 @@ export function switchModeAttributes( attributes, newMode ) {
 	// `mb-exit-triggered` (Exit) and which slot's attrs to source.
 	animationPreviewSlot: 'entry',
 	};
-
-	// Type coercion: image-move only works in scroll-interactive.
-	if (
-		attributes?.animationType === 'image-move' &&
-		newMode !== 'scroll-interactive'
-	) {
-		out.animationType = 'slide';
-		out.animationDirection = 'btt';
-	}
 
 	// Reset attributes that belonged to the OLD mode and don't
 	// apply to the new one. Each block only fires when the user

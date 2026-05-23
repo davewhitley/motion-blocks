@@ -1,0 +1,33 @@
+{
+	"_comment": "Single source of truth for constants that exist on both the JS and PHP sides. Imported via JSON in src/components/constants.js (webpack handles JSON natively) and read via motion_blocks_shared_constants() in animation-plugin.php. Adding a new shared constant: add it here, then expose it through both consumer paths.",
+
+	"staggerParentBlocks": [
+		"core/group",
+		"core/columns",
+		"core/buttons",
+		"core/gallery",
+		"core/list"
+	],
+
+	"staggerIncompatibleTypes": [
+		"image-move",
+		"image-zoom"
+	],
+
+	"imageEffectTypes": [
+		"image-move",
+		"image-zoom"
+	],
+
+	"propertyCssVar": {
+		"opacity": "opacity",
+		"translateX": "translate-x",
+		"translateY": "translate-y",
+		"scale": "scale",
+		"rotate": "rotate",
+		"rotateX": "rotate-x",
+		"rotateY": "rotate-y",
+		"blur": "blur",
+		"clipPath": "clip-path"
+	}
+}

@@ -17,6 +17,33 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'MOTION_BLOCKS_VERSION', '0.1.0' );
 
 /**
+ * Load the shared-constants JSON file (single source of truth that
+ * the JS side also imports via webpack). Cached per request — the
+ * file is tiny and OPcache doesn't help here since it's not PHP.
+ *
+ * Returns an associative array keyed by the JSON property names
+ * (e.g. `staggerParentBlocks`, `propertyCssVar`,
+ * `staggerIncompatibleTypes`, `imageEffectTypes`). Falsy default
+ * values if the file is missing or unreadable, so the plugin
+ * degrades gracefully rather than fatal-erroring.
+ */
+function motion_blocks_shared_constants() {
+    static $cache = null;
+    if ( $cache !== null ) {
+        return $cache;
+    }
+    $path = plugin_dir_path( __FILE__ ) . 'shared-constants.json';
+    if ( ! file_exists( $path ) ) {
+        $cache = array();
+        return $cache;
+    }
+    $raw = file_get_contents( $path );
+    $decoded = json_decode( $raw, true );
+    $cache = is_array( $decoded ) ? $decoded : array();
+    return $cache;
+}
+
+/**
  * Enqueue editor scripts and styles for block controls.
  *
  * JS + panel-only CSS go on enqueue_block_editor_assets (parent frame).
@@ -297,17 +324,10 @@ function motion_blocks_render_block( $block_content, $block ) {
     // --- Data attributes ---
     $processor->set_attribute( 'data-mb-mode', esc_attr( $mode ) );
 
-    $custom_props = array(
-        'opacity'    => 'opacity',
-        'translateX' => 'translate-x',
-        'translateY' => 'translate-y',
-        'scale'      => 'scale',
-        'rotate'     => 'rotate',
-        'rotateX'    => 'rotate-x',
-        'rotateY'    => 'rotate-y',
-        'blur'       => 'blur',
-        'clipPath'   => 'clip-path',
-    );
+    // Mirrors PROPERTY_CSS_VAR in src/components/constants.js —
+    // loaded from shared-constants.json so the lists can't drift.
+    $shared       = motion_blocks_shared_constants();
+    $custom_props = $shared['propertyCssVar'] ?? array();
 
     if ( $mode === 'scroll-appear' ) {
         // Slot model: emit per-slot data attributes for the filled
@@ -519,17 +539,11 @@ function motion_blocks_render_block( $block_content, $block ) {
 
     // Stagger cascade — mirrors the JS `addAnimationSaveProps` so the
     // server-rendered output matches what the editor save filter
-    // produced. Whitelisted parent block types only, and skipped for
-    // animation types that don't compose with the cascade.
-    $stagger_parent_blocks   = array(
-        'core/group',
-        'core/columns',
-        'core/buttons',
-        'core/gallery',
-        'core/list',
-    );
-    $stagger_enabled = ! empty( $attrs['animationStaggerEnabled'] );
-    $block_name      = $block['blockName'] ?? '';
+    // produced. Whitelisted parent block types come from
+    // shared-constants.json (same source as JS STAGGER_PARENT_BLOCKS).
+    $stagger_parent_blocks = motion_blocks_shared_constants()['staggerParentBlocks'] ?? array();
+    $stagger_enabled       = ! empty( $attrs['animationStaggerEnabled'] );
+    $block_name            = $block['blockName'] ?? '';
     if (
         $stagger_enabled
         && in_array( $block_name, $stagger_parent_blocks, true )
@@ -590,7 +604,8 @@ function motion_blocks_render_block( $block_content, $block ) {
  * the round trip and stagger is suppressed.
  */
 function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type, $exit_type = '' ) {
-    $incompatible = array( 'image-move', 'image-zoom' );
+    // Mirrors STAGGER_INCOMPATIBLE_TYPES in constants.js (same JSON).
+    $incompatible = motion_blocks_shared_constants()['staggerIncompatibleTypes'] ?? array();
     if ( $mode === 'scroll-appear' ) {
         if ( $entry_type !== '' && in_array( $entry_type, $incompatible, true ) ) {
             return false;
@@ -612,7 +627,8 @@ function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type,
  * proper caption isolation.
  */
 function motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type = '' ) {
-    $image_effects = array( 'image-move', 'image-zoom' );
+    // Mirrors IMAGE_EFFECT_TYPES in constants.js (same JSON).
+    $image_effects = motion_blocks_shared_constants()['imageEffectTypes'] ?? array();
     if ( $mode === 'scroll-appear' ) {
         return in_array( $entry_type, $image_effects, true )
             || in_array( $exit_type, $image_effects, true );

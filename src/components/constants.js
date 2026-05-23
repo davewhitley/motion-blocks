@@ -1,4 +1,12 @@
 /**
+ * Constants shared with PHP via shared-constants.json. Both this
+ * file and animation-plugin.php read from the same source so the
+ * lists can't drift silently. To add a new shared constant, add it
+ * to shared-constants.json and re-export it below.
+ */
+import SHARED from '../../shared-constants.json';
+
+/**
  * Animation type options for the type dropdown.
  *
  * `custom` is a special type that exposes the From/To state editor.
@@ -37,7 +45,7 @@ export const ANIMATION_TYPE_OPTIONS = [
  * all three modes (Page Load, Scroll Appear Entry slot, Scroll
  * Interactive). Currently Beta — labels carry a "(Beta)" suffix.
  */
-export const IMAGE_EFFECT_TYPES = [ 'image-move', 'image-zoom' ];
+export const IMAGE_EFFECT_TYPES = SHARED.imageEffectTypes;
 
 /**
  * Blocks where IMAGE_EFFECT_TYPES are exposed in the Effect dropdown.
@@ -94,13 +102,7 @@ export const IMAGE_TARGETABLE_BLOCKS = [
  * own vocabulary (block.json `parent`, the `InnerBlocks` component,
  * `innerBlocks` attribute).
  */
-export const STAGGER_PARENT_BLOCKS = [
-	'core/group',
-	'core/columns',
-	'core/buttons',
-	'core/gallery',
-	'core/list',
-];
+export const STAGGER_PARENT_BLOCKS = SHARED.staggerParentBlocks;
 
 /**
  * Animation types that don't compose with the stagger cascade.
@@ -118,7 +120,7 @@ export const STAGGER_PARENT_BLOCKS = [
  * One keyframe per parent block, not N — see the stagger section
  * of animations.css for the binding rule.
  */
-export const STAGGER_INCOMPATIBLE_TYPES = [ 'image-move', 'image-zoom' ];
+export const STAGGER_INCOMPATIBLE_TYPES = SHARED.staggerIncompatibleTypes;
 
 /**
  * Whether stagger can cascade for a block's current animation config.
@@ -885,17 +887,7 @@ function customFromToKeysForSlot( slot ) {
  * `data-mb-from-{cssVar}` / `data-mb-to-{cssVar}` data attributes
  * the frontend reads.
  */
-export const PROPERTY_CSS_VAR = {
-	opacity: 'opacity',
-	translateX: 'translate-x',
-	translateY: 'translate-y',
-	scale: 'scale',
-	rotate: 'rotate',
-	rotateX: 'rotate-x',
-	rotateY: 'rotate-y',
-	blur: 'blur',
-	clipPath: 'clip-path',
-};
+export const PROPERTY_CSS_VAR = SHARED.propertyCssVar;
 
 /**
  * Compute the equivalent From/To property bag for an existing preset.

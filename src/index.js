@@ -282,7 +282,11 @@ function addAnimationAttributes( settings ) {
 			},
 			animationType: {
 				type: 'string',
-				default: '',
+				// Matches DEFAULT_ATTRIBUTES.animationType in constants.js.
+				// A block with no animation has animationMode = '' which
+				// short-circuits all save-props / render paths, so the
+				// non-empty default only surfaces once a mode is picked.
+				default: 'fade',
 			},
 			animationDirection: {
 				type: 'string',
@@ -463,7 +467,12 @@ function addAnimationAttributes( settings ) {
 			},
 			animationStaggerStep: {
 				type: 'number',
-				default: 100,
+				// Seconds, matching DEFAULT_ATTRIBUTES.animationStaggerStep.
+				// Legacy ms values (e.g. 100) deserialize via the
+				// `staggerStepSeconds()` heuristic in constants.js, which
+				// folds anything > 5 down by /1000. New saves should
+				// always be in seconds.
+				default: 0.1,
 			},
 			// --- Slot model: per-slot attribute pairs (Scroll Appear) ---
 			// Each Scroll Appear block stores its Entry and Exit slot

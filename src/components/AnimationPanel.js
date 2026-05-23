@@ -267,9 +267,18 @@ export default function AnimationPanel( {
 
 	/**
 	 * Set animation mode and initialize defaults.
+	 *
+	 * For Scroll Appear, also seed the Entry slot's type so the slot
+	 * dropdown opens pre-populated instead of empty. Without this,
+	 * the user picks "Appear on scroll" from the mode card and then
+	 * lands on a panel whose Effect dropdown reads "None" — the
+	 * shared `animationType` is set but the slot model doesn't read
+	 * that key, only `animationEntryType` / `animationExitType`. The
+	 * `migrateScrollAppearAttrs` shim only kicks in for legacy blocks
+	 * carrying `animationScrollTrigger`, not freshly-created ones.
 	 */
 	const selectMode = ( mode ) => {
-		setAttributes( {
+		const next = {
 			animationMode: mode,
 			animationType: DEFAULT_ATTRIBUTES.animationType,
 			animationDirection: DEFAULT_ATTRIBUTES.animationDirection,
@@ -279,7 +288,15 @@ export default function AnimationPanel( {
 			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
 			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
 			...customFromToDefaults(),
-		} );
+		};
+		if ( mode === 'scroll-appear' ) {
+			next.animationEntryType = DEFAULT_ATTRIBUTES.animationType;
+			next.animationEntryDirection = '';
+			next.animationEntryDuration = DEFAULT_ATTRIBUTES.animationDuration;
+			next.animationEntryDelay = DEFAULT_ATTRIBUTES.animationDelay;
+			next.animationExitType = '';
+		}
+		setAttributes( next );
 	};
 
 	/**

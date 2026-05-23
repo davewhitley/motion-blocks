@@ -764,6 +764,16 @@ function motion_blocks_register_settings() {
             'type'         => 'object',
             'description'  => __( 'Motion Blocks saved animation library.', 'motion-blocks' ),
             'default'      => array(),
+            // Editors with `edit_theme_options` (admins by default,
+            // optionally Editors via membership plugins) can read and
+            // write the library through the REST options endpoint.
+            // Without this gate, any logged-in user with
+            // `manage_options` access — including custom roles that
+            // shouldn't have been granted that — could PUT arbitrary
+            // recipe payloads via /wp/v2/settings.
+            'auth_callback' => function () {
+                return current_user_can( 'edit_theme_options' );
+            },
             'show_in_rest' => array(
                 'schema' => array(
                     'type'                 => 'object',

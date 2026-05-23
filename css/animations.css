@@ -573,11 +573,18 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 /* Triggered state — children inherit the parent's animation timing
-   variables and animation-name (bound per enter type below). */
+   variables and animation-name (bound per enter type below).
+   `--mb-iteration-count` and `--mb-direction` come from the parent
+   block's Repeat = Loop / Back-and-forth setting; the parent emits
+   them as CSS custom properties (frontend.js sets `--mb-iteration-
+   count: infinite` on loop / alternate). These inherit down the
+   cascade so staggered inner blocks loop in sync with the parent. */
 .mb-stagger-parent.mb-triggered > * {
     animation-duration: var(--mb-duration);
-    animation-fill-mode: both;
+    animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-timing);
+    animation-iteration-count: var(--mb-iteration-count, 1);
+    animation-direction: var(--mb-direction, normal);
 }
 
 /* Bind animation-name per enter type. Inner blocks use the same

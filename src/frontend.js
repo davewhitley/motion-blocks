@@ -229,20 +229,27 @@
 		if ( bag.scale !== undefined ) {
 			tx.push( 'scale(' + bag.scale + ')' );
 		}
+		// Note: rotate / blur / translate values come from data
+		// attributes that already include their CSS unit suffix
+		// (e.g. `"-10deg"`, `"8px"`, `"40px"`). Don't append another
+		// suffix here — doing so produces `rotate(-10degdeg)`, which
+		// is invalid; CSS rejects the whole `transform` declaration
+		// when any component in the list is invalid, dropping the
+		// translate / scale / etc. along with it.
 		if ( bag.rotate !== undefined ) {
-			tx.push( 'rotate(' + bag.rotate + 'deg)' );
+			tx.push( 'rotate(' + bag.rotate + ')' );
 		}
 		if ( bag.rotateX !== undefined ) {
-			tx.push( 'rotateX(' + bag.rotateX + 'deg)' );
+			tx.push( 'rotateX(' + bag.rotateX + ')' );
 		}
 		if ( bag.rotateY !== undefined ) {
-			tx.push( 'rotateY(' + bag.rotateY + 'deg)' );
+			tx.push( 'rotateY(' + bag.rotateY + ')' );
 		}
 		if ( tx.length > 0 ) {
 			decls.push( 'transform: ' + tx.join( ' ' ) );
 		}
 		if ( bag.blur !== undefined ) {
-			decls.push( 'filter: blur(' + bag.blur + 'px)' );
+			decls.push( 'filter: blur(' + bag.blur + ')' );
 		}
 		if ( bag.clipPath !== undefined ) {
 			decls.push( 'clip-path: ' + bag.clipPath );
@@ -680,16 +687,22 @@
 			applyRotateProps( el );
 			applyCustomKeyframe( el );
 
-			// Handle repeat mode.
+			// Handle repeat mode. Set CSS custom properties instead
+			// of inline `animation-*` shorthand — the custom props
+			// inherit through the cascade, so a staggered parent's
+			// loop / alternate settings propagate to its inner blocks
+			// via the `.mb-stagger-parent.mb-triggered > *` rule in
+			// animations.css. Inline `animationIterationCount` on the
+			// parent would NOT cascade.
 			var repeat = el.dataset.mbRepeat || 'once';
 
 			if ( repeat === 'loop' ) {
-				el.style.animationIterationCount = 'infinite';
-				el.style.animationFillMode = 'none';
+				el.style.setProperty( '--mb-iteration-count', 'infinite' );
+				el.style.setProperty( '--mb-fill-mode', 'none' );
 			} else if ( repeat === 'alternate' ) {
-				el.style.animationIterationCount = 'infinite';
-				el.style.animationDirection = 'alternate';
-				el.style.animationFillMode = 'none';
+				el.style.setProperty( '--mb-iteration-count', 'infinite' );
+				el.style.setProperty( '--mb-direction', 'alternate' );
+				el.style.setProperty( '--mb-fill-mode', 'none' );
 			}
 
 			// Trigger the animation.

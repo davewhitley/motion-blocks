@@ -363,8 +363,17 @@
 	 *
 	 * For type='image-move', synthesize a parallax keyframe from the
 	 * direction and treat as img-target.
+	 *
+	 * Idempotent — stamps the element with `data-mb-keyframe-applied`
+	 * on first run so a second call (e.g. from a theme block-template
+	 * re-render or a future SPA-nav handler) doesn't append duplicate
+	 * keyframe rules to the shared `<style data-mb-custom>` element.
 	 */
 	function applyCustomKeyframe( el ) {
+		if ( el.dataset.mbKeyframeApplied ) {
+			return;
+		}
+		el.dataset.mbKeyframeApplied = 'true';
 		// Scroll Appear blocks read per-slot data attributes
 		// (`data-mb-entry-*` / `data-mb-exit-*`) instead of the shared
 		// `data-mb-type` / `data-mb-from-*` / `data-mb-to-*`. Up to

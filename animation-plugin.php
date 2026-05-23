@@ -627,11 +627,26 @@ function motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type 
  * outside the clipped region. Handles self-closing (`<img />`) and
  * non-self-closing (`<img>`) forms.
  *
- * The wrap is opt-in per render (caller decides when to invoke), so
- * it doesn't need to inspect surrounding markup beyond locating the
- * first img.
+ * Uses `WP_HTML_Tag_Processor` to verify that the input actually
+ * contains an img before invoking the wrap regex — matches the
+ * rest of the file's HTML-handling approach, and lets us short-
+ * circuit silently when an image-effect block is somehow rendered
+ * without an img (caller bug or unexpected markup variation).
+ *
+ * The actual wrap is still done via `preg_replace` because
+ * `WP_HTML_Tag_Processor` doesn't support structural changes —
+ * it's an attribute-modification API. The regex is fine for
+ * rendered block HTML where attribute values are quoted properly
+ * by WP's own emitters.
  */
 function motion_blocks_wrap_image_for_effect( $html ) {
+    $probe = new WP_HTML_Tag_Processor( $html );
+    if ( ! $probe->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
+        // No img to wrap — return unchanged. The caller already
+        // validated that the block uses an image effect; if there's
+        // no img here it's an unexpected markup shape.
+        return $html;
+    }
     // Match the first <img …> tag (self-closing or not). Non-greedy
     // attribute match stops at the first unescaped `>`.
     return preg_replace(

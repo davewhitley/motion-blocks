@@ -1013,12 +1013,20 @@
 				el.style.setProperty( '--mb-timing', acceleration );
 			}
 
-			// Apply scroll-driven animation to container.
+			// Apply scroll-driven animation to container. Set both
+			// inline animation props (so the figure itself animates)
+			// AND CSS custom properties (so img-target blocks can
+			// read the custom range via inheritance — the img's
+			// scoped CSS rule consumes `var(--mb-range-start)`,
+			// which doesn't propagate from inline `animation-range-*`
+			// declarations on the parent).
 			var rangeStart = el.dataset.mbRangeStart || 'entry 0%';
 			var rangeEnd = el.dataset.mbRangeEnd || 'exit 100%';
 			el.style.animationTimeline = 'view()';
 			el.style.animationRangeStart = rangeStart;
 			el.style.animationRangeEnd = rangeEnd;
+			el.style.setProperty( '--mb-range-start', rangeStart );
+			el.style.setProperty( '--mb-range-end', rangeEnd );
 
 		} );
 	}

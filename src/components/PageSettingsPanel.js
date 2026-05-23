@@ -43,17 +43,17 @@ import AutoAnimateModal from './AutoAnimate';
 
 const DEVICE_OPTIONS = [
 	{
-		key: 'mb_animations_disabled_desktop',
+		key: 'mb_disabled_desktop',
 		label: __( 'Disable on Desktop', 'motion-blocks' ),
 		icon: desktop,
 	},
 	{
-		key: 'mb_animations_disabled_tablet',
+		key: 'mb_disabled_tablet',
 		label: __( 'Disable on Tablet', 'motion-blocks' ),
 		icon: tablet,
 	},
 	{
-		key: 'mb_animations_disabled_mobile',
+		key: 'mb_disabled_mobile',
 		label: __( 'Disable on Mobile', 'motion-blocks' ),
 		icon: mobile,
 	},

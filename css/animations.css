@@ -472,9 +472,9 @@ html:has(body.mb-clip-page-overflow) {
 /* ----------------------------------------------------------------
  * Per-device disable (post meta → body class → media query)
  *
- *   .mb-animations-disabled-desktop  →  ≥ 1024px
- *   .mb-animations-disabled-tablet   →  768px – 1023px
- *   .mb-animations-disabled-mobile   →  ≤ 767px
+ *   .mb-disabled-desktop  →  ≥ 1024px
+ *   .mb-disabled-tablet   →  768px – 1023px
+ *   .mb-disabled-mobile   →  ≤ 767px
  *
  * Three non-overlapping ranges so a viewport falls into exactly
  * one bucket. Disabling all three is "off everywhere".
@@ -484,10 +484,10 @@ html:has(body.mb-clip-page-overflow) {
  * frame.
  * -------------------------------------------------------------- */
 @media (min-width: 1024px) {
-    body.mb-animations-disabled-desktop .mb-animated,
-    body.mb-animations-disabled-desktop .mb-animated.mb-triggered,
-    body.mb-animations-disabled-desktop .mb-animated.mb-exit-triggered,
-    body.mb-animations-disabled-desktop .mb-mode-scroll-interactive {
+    body.mb-disabled-desktop .mb-animated,
+    body.mb-disabled-desktop .mb-animated.mb-triggered,
+    body.mb-disabled-desktop .mb-animated.mb-exit-triggered,
+    body.mb-disabled-desktop .mb-mode-scroll-interactive {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
@@ -498,10 +498,10 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-    body.mb-animations-disabled-tablet .mb-animated,
-    body.mb-animations-disabled-tablet .mb-animated.mb-triggered,
-    body.mb-animations-disabled-tablet .mb-animated.mb-exit-triggered,
-    body.mb-animations-disabled-tablet .mb-mode-scroll-interactive {
+    body.mb-disabled-tablet .mb-animated,
+    body.mb-disabled-tablet .mb-animated.mb-triggered,
+    body.mb-disabled-tablet .mb-animated.mb-exit-triggered,
+    body.mb-disabled-tablet .mb-mode-scroll-interactive {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
@@ -512,10 +512,10 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 @media (max-width: 767px) {
-    body.mb-animations-disabled-mobile .mb-animated,
-    body.mb-animations-disabled-mobile .mb-animated.mb-triggered,
-    body.mb-animations-disabled-mobile .mb-animated.mb-exit-triggered,
-    body.mb-animations-disabled-mobile .mb-mode-scroll-interactive {
+    body.mb-disabled-mobile .mb-animated,
+    body.mb-disabled-mobile .mb-animated.mb-triggered,
+    body.mb-disabled-mobile .mb-animated.mb-exit-triggered,
+    body.mb-disabled-mobile .mb-mode-scroll-interactive {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;

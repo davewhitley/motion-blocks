@@ -682,9 +682,9 @@ add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );
  * symmetric and avoids a fourth "all" key whose state would have
  * to stay in sync with the others.
  *
- *   mb_animations_disabled_desktop  → ≥ 1024px viewports
- *   mb_animations_disabled_tablet   → 768px – 1023px viewports
- *   mb_animations_disabled_mobile   → ≤ 767px viewports
+ *   mb_disabled_desktop  → ≥ 1024px viewports
+ *   mb_disabled_tablet   → 768px – 1023px viewports
+ *   mb_disabled_mobile   → ≤ 767px viewports
  *
  * Exposed in REST so the editor's `useEntityProp` can read/write
  * them. Registered on every public post type that supports the
@@ -692,9 +692,9 @@ add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );
  */
 function motion_blocks_register_meta() {
     $keys = array(
-        'mb_animations_disabled_desktop',
-        'mb_animations_disabled_tablet',
-        'mb_animations_disabled_mobile',
+        'mb_disabled_desktop',
+        'mb_disabled_tablet',
+        'mb_disabled_mobile',
     );
     $post_types = get_post_types( array( 'public' => true ), 'names' );
     foreach ( $post_types as $post_type ) {
@@ -734,9 +734,9 @@ add_action( 'init', 'motion_blocks_register_meta' );
  *    horizontal scroll:
  *        add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
  *
- * 2. `mb-animations-disabled-{device}` — singular views only,
- *    sourced from per-post meta. Used by the device-disable
- *    setting in PageSettingsPanel.
+ * 2. `mb-disabled-{device}` — singular views only, sourced from
+ *    per-post meta. Used by the device-disable setting in
+ *    PageSettingsPanel.
  *
  * @param array $classes Existing body classes.
  * @return array
@@ -759,9 +759,9 @@ function motion_blocks_body_class( $classes ) {
         return $classes;
     }
     $map = array(
-        'mb_animations_disabled_desktop' => 'mb-animations-disabled-desktop',
-        'mb_animations_disabled_tablet'  => 'mb-animations-disabled-tablet',
-        'mb_animations_disabled_mobile'  => 'mb-animations-disabled-mobile',
+        'mb_disabled_desktop' => 'mb-disabled-desktop',
+        'mb_disabled_tablet'  => 'mb-disabled-tablet',
+        'mb_disabled_mobile'  => 'mb-disabled-mobile',
     );
     foreach ( $map as $meta_key => $class_name ) {
         if ( get_post_meta( $post_id, $meta_key, true ) ) {

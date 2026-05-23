@@ -29,7 +29,7 @@ import { __ } from '@wordpress/i18n';
 
 import {
 	migrateScrollAppearAttrs,
-	STAGGER_INCOMPATIBLE_TYPES,
+	isStaggerCompatible,
 } from './constants';
 import SlotControls from './SlotControls';
 import StaggerControls from './StaggerControls';
@@ -64,12 +64,12 @@ export default function ScrollAppearControls( props ) {
 	);
 
 	// Stagger should be hidden whenever EITHER slot uses an
-	// incompatible type (currently 'image-move'). Stagger's CSS rules
-	// apply to the parent's class set; if any slot can't compose with
-	// the cascade, the whole stagger feature should be off.
-	const staggerIncompatible =
-		STAGGER_INCOMPATIBLE_TYPES.includes( entryType ) ||
-		STAGGER_INCOMPATIBLE_TYPES.includes( exitType );
+	// incompatible type (currently 'image-move' / 'image-zoom').
+	// Stagger's CSS rules apply to the parent's class set; if any
+	// slot can't compose with the cascade, the whole stagger feature
+	// should be off. `isStaggerCompatible` checks both slots — see
+	// constants.js for the canonical predicate.
+	const staggerIncompatible = ! isStaggerCompatible( attributes );
 
 	return (
 		<div className="mb-sub-panel">

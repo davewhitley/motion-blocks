@@ -528,26 +528,12 @@ function motion_blocks_render_block( $block_content, $block ) {
         'core/gallery',
         'core/list',
     );
-    // Custom is now compatible — the parent block's per-block keyframe
-    // is bound to inner blocks via `--mb-stagger-anim-name` (CSS custom
-    // property, set on the parent by the frontend script). Image
-    // effects (image-move, image-zoom) stay out since they scope the
-    // animation to the first img descendant, which doesn't cascade.
-    $stagger_skip_types = array( 'image-move', 'image-zoom' );
-    $stagger_enabled    = ! empty( $attrs['animationStaggerEnabled'] );
-    $block_name         = $block['blockName'] ?? '';
-    // Stagger gating reads from whichever type drives the cascade in
-    // each mode. Scroll Appear cascades via the Entry slot's class
-    // bindings; fall back to Exit if Entry is empty so an Exit-only
-    // block still gets the stagger class (the inner blocks won't have
-    // anything to animate on enter, but their exit phase still runs).
-    $stagger_probe_type = ( $mode === 'scroll-appear' )
-        ? ( $entry_type !== '' ? $entry_type : $exit_type )
-        : $type;
+    $stagger_enabled = ! empty( $attrs['animationStaggerEnabled'] );
+    $block_name      = $block['blockName'] ?? '';
     if (
         $stagger_enabled
         && in_array( $block_name, $stagger_parent_blocks, true )
-        && ! in_array( $stagger_probe_type, $stagger_skip_types, true )
+        && motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type, $exit_type )
     ) {
         $processor->add_class( 'mb-stagger-parent' );
         // Stagger step is stored in seconds (default 0.1). Pre-migration
@@ -591,6 +577,30 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     return $html;
+}
+
+/**
+ * Whether stagger can cascade for a block's current animation config.
+ *
+ * Mirrors `isStaggerCompatible()` in src/components/constants.js so
+ * server-rendered output matches the editor's stagger decisions.
+ * For Page Load / Scroll Interactive: checks the shared
+ * `animationType`. For Scroll Appear: checks both slots — if EITHER
+ * slot is incompatible, the cascade can't apply meaningfully across
+ * the round trip and stagger is suppressed.
+ */
+function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type, $exit_type = '' ) {
+    $incompatible = array( 'image-move', 'image-zoom' );
+    if ( $mode === 'scroll-appear' ) {
+        if ( $entry_type !== '' && in_array( $entry_type, $incompatible, true ) ) {
+            return false;
+        }
+        if ( $exit_type !== '' && in_array( $exit_type, $incompatible, true ) ) {
+            return false;
+        }
+        return true;
+    }
+    return ! in_array( $type, $incompatible, true );
 }
 
 /**

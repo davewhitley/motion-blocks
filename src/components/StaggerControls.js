@@ -29,7 +29,7 @@ import { __ } from '@wordpress/i18n';
 
 import {
 	STAGGER_PARENT_BLOCKS,
-	STAGGER_INCOMPATIBLE_TYPES,
+	isStaggerCompatible,
 	staggerStepSeconds,
 } from './constants';
 
@@ -60,10 +60,12 @@ export default function StaggerControls( {
 		return null;
 	}
 
-	// Custom (From/To) and image-move use per-block @keyframes which
-	// don't compose with the simple :nth-child cascade. Hide instead
-	// of disabling — keeps the panel clean.
-	if ( STAGGER_INCOMPATIBLE_TYPES.includes( attributes.animationType ) ) {
+	// Image effects (image-move / image-zoom) use per-img @keyframes
+	// which don't compose with the :nth-child cascade. For Scroll
+	// Appear the predicate also checks the Exit slot — see
+	// isStaggerCompatible() in constants.js. Hide instead of
+	// disabling — keeps the panel clean.
+	if ( ! isStaggerCompatible( attributes ) ) {
 		return null;
 	}
 

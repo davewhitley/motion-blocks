@@ -29,7 +29,6 @@ import {
 	ANIMATION_TYPE_OPTIONS,
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
-	SCROLL_INTERACTIVE_ONLY_TYPES,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
@@ -100,13 +99,8 @@ export default function PageLoadControls( {
 	// - Image effects (image-move, image-zoom) are only meaningful on
 	//   blocks with a primary <img>. Hide them for other block types
 	//   so the dropdown isn't a foot-gun.
-	// - SCROLL_INTERACTIVE_ONLY_TYPES is currently empty (image-move
-	//   used to live there) but the filter is kept for future presets.
 	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
 	const typeOptions = ANIMATION_TYPE_OPTIONS.filter( ( opt ) => {
-		if ( SCROLL_INTERACTIVE_ONLY_TYPES.includes( opt.value ) ) {
-			return false;
-		}
 		if ( opt.value.endsWith( '-out' ) ) {
 			return false;
 		}

@@ -47,16 +47,6 @@ export const IMAGE_EFFECT_TYPES = [ 'image-move', 'image-zoom' ];
  */
 export const IMAGE_EFFECT_BLOCKS = [ 'core/image', 'core/cover' ];
 
-/**
- * Animation types that only make sense in scroll-interactive mode.
- * The PageLoad and ScrollAppear panels filter these out of their
- * effect dropdown; only ScrollInteractive offers them.
- *
- * Currently empty — `image-move` used to live here but is now exposed
- * across all three modes (in non-SI modes it animates the translate
- * over the configured duration instead of binding to scroll progress).
- */
-export const SCROLL_INTERACTIVE_ONLY_TYPES = [];
 
 /**
  * Block types where the From/To "Target = Image only" toggle is
@@ -129,6 +119,43 @@ export const STAGGER_PARENT_BLOCKS = [
  * of animations.css for the binding rule.
  */
 export const STAGGER_INCOMPATIBLE_TYPES = [ 'image-move', 'image-zoom' ];
+
+/**
+ * Whether stagger can cascade for a block's current animation config.
+ *
+ * Centralized to avoid the four-way drift that existed before — the
+ * HOC, save-props, ScrollAppearControls panel, and StaggerControls
+ * panel each spelled this out differently (one read `animationType`,
+ * one OR'd both slots, one used `entryType || exitType`, the PHP
+ * mirror picked yet another order). Now everything routes through
+ * the same predicate.
+ *
+ * For Page Load and Scroll Interactive: checks the shared
+ * `animationType`. For Scroll Appear: checks both slots — if EITHER
+ * slot is incompatible, the cascade can't apply across the round
+ * trip, so stagger is hidden.
+ *
+ * @param {Object} attrs Block attributes.
+ * @return {boolean}
+ */
+export function isStaggerCompatible( attrs ) {
+	if ( ! attrs ) {
+		return true;
+	}
+	if ( attrs.animationMode === 'scroll-appear' ) {
+		const entryType = attrs.animationEntryType || '';
+		const exitType = attrs.animationExitType || '';
+		if ( entryType && STAGGER_INCOMPATIBLE_TYPES.includes( entryType ) ) {
+			return false;
+		}
+		if ( exitType && STAGGER_INCOMPATIBLE_TYPES.includes( exitType ) ) {
+			return false;
+		}
+		return true;
+	}
+	const type = attrs.animationType || '';
+	return ! STAGGER_INCOMPATIBLE_TYPES.includes( type );
+}
 
 /**
  * Default stagger step in seconds — matches the units used by
@@ -305,32 +332,6 @@ export const ENTER_KEYFRAME_MAP = {
 	'rotate-out': 'mbRotateOut',
 	// `custom` intentionally not mapped — its keyframe name is
 	// generated per-block (mb-custom-{clientId}) and bound inline.
-};
-
-/**
- * Exit keyframe name per type.
- *
- * For "In" variants, exit is the natural reverse (mbFadeIn → mbFadeOut).
- * For "Out" variants, exit is the reverse of the Out keyframe — which
- * is the original In keyframe. Mirror trigger uses both halves to
- * round-trip the visual state.
- * Flip falls back to fade-out since it has no exit variant.
- */
-export const EXIT_KEYFRAME_MAP = {
-	fade: 'mbFadeOut',
-	'fade-out': 'mbFadeIn',
-	slide: 'mbSlideOut',
-	'slide-out': 'mbSlideIn',
-	wipe: 'mbWipeOut',
-	curtain: 'mbCurtainClose',
-	flip: 'mbFadeOut',
-	scale: 'mbScaleOut',
-	'scale-out': 'mbScaleIn',
-	blur: 'mbBlurOut',
-	'blur-out': 'mbBlurIn',
-	rotate: 'mbRotateOut',
-	'rotate-out': 'mbRotateIn',
-	// `custom` intentionally not mapped — see ENTER_KEYFRAME_MAP.
 };
 
 /**

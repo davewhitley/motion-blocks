@@ -18,7 +18,6 @@ import AnimationPanel from './components/AnimationPanel';
 import {
 	DEFAULT_ATTRIBUTES,
 	ENTER_KEYFRAME_MAP,
-	EXIT_KEYFRAME_MAP,
 	DIRECTION_CSS_VARS,
 	TYPES_WITH_DIRECTION,
 	DEFAULT_DIRECTION,
@@ -28,6 +27,7 @@ import {
 	PROPERTY_CSS_VAR,
 	STAGGER_PARENT_BLOCKS,
 	STAGGER_INCOMPATIBLE_TYPES,
+	isStaggerCompatible,
 	staggerStepSeconds,
 	attrsToBag,
 	bagToReactStyles,
@@ -75,13 +75,6 @@ if ( typeof document !== 'undefined' ) {
  */
 function getEnterKeyframe( type ) {
 	return ENTER_KEYFRAME_MAP[ type ] || '';
-}
-
-/**
- * Get the exit keyframe name for a given animation type.
- */
-function getExitKeyframe( type ) {
-	return EXIT_KEYFRAME_MAP[ type ] || '';
 }
 
 /**
@@ -1198,7 +1191,7 @@ const withAnimationPreview = createHigherOrderComponent(
 			if (
 				attributes.animationStaggerEnabled &&
 				STAGGER_PARENT_BLOCKS.includes( props.name ) &&
-				! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
+				isStaggerCompatible( attributes )
 			) {
 				const step = staggerStepSeconds(
 					attributes.animationStaggerStep
@@ -1442,7 +1435,7 @@ function addAnimationSaveProps( props, blockType, attributesRaw ) {
 	if (
 		attributes.animationStaggerEnabled &&
 		STAGGER_PARENT_BLOCKS.includes( blockType.name ) &&
-		! STAGGER_INCOMPATIBLE_TYPES.includes( animationType )
+		isStaggerCompatible( attributes )
 	) {
 		classNames.push( 'mb-stagger-parent' );
 		const step = staggerStepSeconds( attributes.animationStaggerStep );
@@ -1657,11 +1650,10 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 	// bindings key on `mb-enter-{type}`); if only Exit is filled, the
 	// inner blocks have no enter animation to cascade.
 	let staggerStyle = null;
-	const staggerProbeType = entryType || exitType;
 	if (
 		attributes.animationStaggerEnabled &&
 		STAGGER_PARENT_BLOCKS.includes( blockType.name ) &&
-		! STAGGER_INCOMPATIBLE_TYPES.includes( staggerProbeType )
+		isStaggerCompatible( attributes )
 	) {
 		classNames.push( 'mb-stagger-parent' );
 		const step = staggerStepSeconds( attributes.animationStaggerStep );

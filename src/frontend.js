@@ -72,30 +72,6 @@
 		},
 	};
 
-	/* Exit keyframe map — mirrors EXIT_KEYFRAME_MAP from constants.js */
-	var EXIT_KEYFRAME_FOR = {
-		fade: 'mbFadeOut',
-		slide: 'mbSlideOut',
-		wipe: 'mbWipeOut',
-		curtain: 'mbCurtainClose',
-		flip: 'mbFadeOut',
-		scale: 'mbScaleOut',
-		blur: 'mbBlurOut',
-		rotate: 'mbRotateOut',
-	};
-
-	/* Exit class map — derives from enter type */
-	var EXIT_CLASS_FOR = {
-		fade: 'mb-exit-fade',
-		slide: 'mb-exit-slide',
-		wipe: 'mb-exit-wipe',
-		curtain: 'mb-exit-curtain',
-		flip: 'mb-exit-fade',
-		scale: 'mb-exit-scale',
-		blur: 'mb-exit-blur',
-		rotate: 'mb-exit-rotate',
-	};
-
 	/* ---------------------------------------------------------------
 	 * Helpers
 	 * ------------------------------------------------------------- */

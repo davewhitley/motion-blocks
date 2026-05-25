@@ -429,7 +429,17 @@ export const EXIT_TYPE_OPTIONS = [
  * @return {Object} Normalized attributes.
  */
 export function migrateScrollAppearAttrs( attrs ) {
-	if ( ! attrs || attrs.animationMode !== 'scroll-appear' ) {
+	if ( ! attrs ) {
+		return attrs;
+	}
+	// Storage-format migration runs for every mode (a Page Load /
+	// Scroll Interactive block can also carry legacy bare-number
+	// rotate / blur values). Coerces `45` → `"45deg"` etc. so all
+	// downstream consumers (HOC preview, save-props, frontend init)
+	// see the canonical shape.
+	attrs = normalizeCustomFromToAttrs( attrs );
+
+	if ( attrs.animationMode !== 'scroll-appear' ) {
 		return attrs;
 	}
 	// Already migrated — the user has interacted with the new UI and
@@ -668,7 +678,13 @@ export const PROPERTY_DEFINITIONS = [
 		min: -360,
 		max: 360,
 		step: 1,
-		identity: 0,
+		// Identity stored as the unit-bearing CSS string. All values
+		// for properties with `unitSuffix` are stored as strings
+		// (`"45deg"`, `"8px"`) — see coerceWithUnit / PROPERTY_DEFINITIONS
+		// notes. This keeps the storage shape consistent with translate
+		// (which has always been `"40px"`) and makes theme.json recipes
+		// look CSS-native.
+		identity: '0deg',
 		unitSuffix: 'deg',
 		withSlider: true,
 	},
@@ -680,7 +696,7 @@ export const PROPERTY_DEFINITIONS = [
 		label: '3D Rotate X',
 		kind: 'number',
 		step: 1,
-		identity: 0,
+		identity: '0deg',
 		unitSuffix: 'deg',
 		halfWidth: true,
 	},
@@ -689,7 +705,7 @@ export const PROPERTY_DEFINITIONS = [
 		label: '3D Rotate Y',
 		kind: 'number',
 		step: 1,
-		identity: 0,
+		identity: '0deg',
 		unitSuffix: 'deg',
 		halfWidth: true,
 	},
@@ -699,7 +715,7 @@ export const PROPERTY_DEFINITIONS = [
 		kind: 'number',
 		min: 0,
 		step: 1,
-		identity: 0,
+		identity: '0px',
 		unitSuffix: 'px',
 	},
 	// Free-form CSS clip-path string. Use raw CSS values like
@@ -1264,6 +1280,8 @@ export function buildKeyframeSide( bag ) {
 	// Compose `transform` from translate/scale/rotate(z)/rotateX/Y.
 	// Adds `perspective()` only when a 3D rotation is present so 2D
 	// transforms aren't paid for the cost of a stacking context.
+	// Unit-bearing values (translate*, rotate*, blur) arrive
+	// pre-qualified from `attrsToBag` — no unit appending here.
 	const transform = [];
 	const has3D =
 		isPropertyAdded( bag.rotateX ) || isPropertyAdded( bag.rotateY );
@@ -1281,20 +1299,20 @@ export function buildKeyframeSide( bag ) {
 		transform.push( `scale(${ bag.scale })` );
 	}
 	if ( isPropertyAdded( bag.rotate ) ) {
-		transform.push( `rotate(${ bag.rotate }deg)` );
+		transform.push( `rotate(${ bag.rotate })` );
 	}
 	if ( isPropertyAdded( bag.rotateX ) ) {
-		transform.push( `rotateX(${ bag.rotateX }deg)` );
+		transform.push( `rotateX(${ bag.rotateX })` );
 	}
 	if ( isPropertyAdded( bag.rotateY ) ) {
-		transform.push( `rotateY(${ bag.rotateY }deg)` );
+		transform.push( `rotateY(${ bag.rotateY })` );
 	}
 	if ( transform.length > 0 ) {
 		decls.push( `transform: ${ transform.join( ' ' ) }` );
 	}
 
 	if ( isPropertyAdded( bag.blur ) ) {
-		decls.push( `filter: blur(${ bag.blur }px)` );
+		decls.push( `filter: blur(${ bag.blur })` );
 	}
 	if ( isPropertyAdded( bag.clipPath ) ) {
 		decls.push( `clip-path: ${ bag.clipPath }` );
@@ -1363,21 +1381,23 @@ export function bagToReactStyles( bag ) {
 	if ( isPropertyAdded( bag.scale ) ) {
 		transform.push( `scale(${ bag.scale })` );
 	}
+	// Unit-bearing values arrive pre-qualified from `attrsToBag`
+	// (which routes through `coerceWithUnit`). No unit appending here.
 	if ( isPropertyAdded( bag.rotate ) ) {
-		transform.push( `rotate(${ bag.rotate }deg)` );
+		transform.push( `rotate(${ bag.rotate })` );
 	}
 	if ( isPropertyAdded( bag.rotateX ) ) {
-		transform.push( `rotateX(${ bag.rotateX }deg)` );
+		transform.push( `rotateX(${ bag.rotateX })` );
 	}
 	if ( isPropertyAdded( bag.rotateY ) ) {
-		transform.push( `rotateY(${ bag.rotateY }deg)` );
+		transform.push( `rotateY(${ bag.rotateY })` );
 	}
 	if ( transform.length > 0 ) {
 		styles.transform = transform.join( ' ' );
 	}
 
 	if ( isPropertyAdded( bag.blur ) ) {
-		styles.filter = `blur(${ bag.blur }px)`;
+		styles.filter = `blur(${ bag.blur })`;
 	}
 	if ( isPropertyAdded( bag.clipPath ) ) {
 		styles.clipPath = bag.clipPath;
@@ -1387,7 +1407,84 @@ export function bagToReactStyles( bag ) {
 }
 
 /**
+ * Append the CSS unit suffix to a value when it's missing one.
+ *
+ * Storage invariant: Custom From/To values for properties with a
+ * fixed unit (`rotate*`, `blur`) are stored as unit-bearing strings
+ * — `"45deg"`, `"-10deg"`, `"8px"`. Legacy data from before the
+ * normalization landed may carry bare numbers (`45`, `-10`, `8`)
+ * or numeric strings (`"45"`); this helper coerces those to the
+ * canonical shape so downstream consumers (`buildKeyframeSide`,
+ * `bagToReactStyles`, frontend.js `buildSideBody`) can use values
+ * as-is without per-call defensive logic.
+ *
+ * Values that already carry a non-numeric suffix (any letter or
+ * `%`) pass through unchanged.
+ *
+ * @param {*}      value Raw value from attribute storage.
+ * @param {string} unit  Canonical unit (`'deg'`, `'px'`).
+ * @return {string|*} Value with unit appended, or the input untouched.
+ */
+export function coerceWithUnit( value, unit ) {
+	if ( value === null || value === undefined ) {
+		return value;
+	}
+	const str = String( value ).trim();
+	if ( /^-?\d+(\.\d+)?$/.test( str ) ) {
+		return str + unit;
+	}
+	return value;
+}
+
+/**
+ * Normalize a flat attributes object so all CSS-dimensional From/To
+ * values carry their unit. Used when ingesting attributes from an
+ * external source whose shape we can't fully trust:
+ *   - Paste-from-clipboard (`AnimationPanel.pasteAnimation`).
+ *   - Saved-animation library + theme.json recipe application
+ *     (`AnimationOptionsMenu`).
+ *   - Read-time migration of pre-existing posts in
+ *     `migrateScrollAppearAttrs`.
+ *
+ * Returns a new object — does not mutate. No-op for keys that
+ * already carry their unit; safe to call multiple times.
+ */
+export function normalizeCustomFromToAttrs( attrs ) {
+	if ( ! attrs || typeof attrs !== 'object' ) {
+		return attrs;
+	}
+	const out = { ...attrs };
+	const writeNormalized = ( attrName, unit ) => {
+		if ( out[ attrName ] === undefined || out[ attrName ] === null ) {
+			return;
+		}
+		out[ attrName ] = coerceWithUnit( out[ attrName ], unit );
+	};
+	for ( const def of PROPERTY_DEFINITIONS ) {
+		if ( ! def.unitSuffix ) {
+			continue;
+		}
+		// Shared (Page Load / Scroll Interactive).
+		writeNormalized( FROM_ATTR[ def.id ], def.unitSuffix );
+		writeNormalized( TO_ATTR[ def.id ], def.unitSuffix );
+		// Per-slot (Scroll Appear).
+		const Cap = def.id.charAt( 0 ).toUpperCase() + def.id.slice( 1 );
+		writeNormalized( 'animationEntryFrom' + Cap, def.unitSuffix );
+		writeNormalized( 'animationEntryTo' + Cap, def.unitSuffix );
+		writeNormalized( 'animationExitFrom' + Cap, def.unitSuffix );
+		writeNormalized( 'animationExitTo' + Cap, def.unitSuffix );
+	}
+	return out;
+}
+
+/**
  * Extract a Start/End bag from a flat attributes object.
+ *
+ * Values for unit-bearing properties are coerced through
+ * `coerceWithUnit` so legacy bare-number storage (`animationFromRotate:
+ * 45`) deserializes as `"45deg"` regardless of how the post was
+ * originally saved. Downstream `buildKeyframeSide` / `bagToReactStyles`
+ * can then use the bag values directly without any unit logic.
  *
  * @param {Object} attributes Block attributes.
  * @param {Object} attrMap    FROM_ATTR or TO_ATTR.
@@ -1398,7 +1495,9 @@ export function attrsToBag( attributes, attrMap ) {
 	for ( const def of PROPERTY_DEFINITIONS ) {
 		const val = attributes[ attrMap[ def.id ] ];
 		if ( isPropertyAdded( val ) ) {
-			bag[ def.id ] = val;
+			bag[ def.id ] = def.unitSuffix
+				? coerceWithUnit( val, def.unitSuffix )
+				: val;
 		}
 	}
 	return bag;

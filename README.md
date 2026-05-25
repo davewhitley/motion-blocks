@@ -38,6 +38,57 @@ Image Move and Image Zoom are block-gated to `core/image` and `core/cover` only 
 - **Reduced motion support** — All animations are disabled when `prefers-reduced-motion: reduce` is set at the OS level.
 - **Page-level overflow protection** — A single `html { overflow-x: clip }` rule (gated on `body.mb-clip-page-overflow`) keeps horizontal scrollbars from appearing when animations transform elements off-screen. Filterable via `motion_blocks_apply_overflow_clip`.
 
+## Theme-shipped animation recipes (`theme.json`)
+
+Themes can ship animation recipes at `settings.custom.motionBlocks.savedAnimations`. The editor surfaces them in the Motion panel's kebab menu under "Theme animations" alongside the user library.
+
+```json
+{
+  "version": 3,
+  "settings": {
+    "custom": {
+      "motionBlocks": {
+        "savedAnimations": {
+          "spin-loop": {
+            "name": "Spin (continuous)",
+            "attributes": {
+              "animationMode": "page-load",
+              "animationType": "custom",
+              "animationDuration": 2,
+              "animationAcceleration": "linear",
+              "animationRepeat": "loop",
+              "animationFromRotate": "0deg",
+              "animationToRotate": "360deg"
+            }
+          },
+          "fade-up-on-scroll": {
+            "name": "Fade Up on Scroll",
+            "attributes": {
+              "animationMode": "scroll-appear",
+              "animationEntryType": "custom",
+              "animationEntryDuration": 0.6,
+              "animationEntryFromOpacity": 0,
+              "animationEntryToOpacity": 1,
+              "animationEntryFromTranslateY": "40px",
+              "animationEntryToTranslateY": "0px"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Storage format for Custom From/To values:**
+- `opacity`, `scale` — bare numbers (`0`, `1`, `0.5`, `1.2`).
+- `translateX`, `translateY` — strings with unit (`"40px"`, `"50%"`, `"2vw"`).
+- `rotate`, `rotateX`, `rotateY` — strings with `deg` (`"45deg"`, `"-10deg"`, `"360deg"`).
+- `blur` — string with `px` (`"8px"`).
+- `clipPath` — raw CSS string (`"inset(0 50% 0 50%)"`).
+
+Recipe `attributes` are copied verbatim into the block, so the format above is exactly what the editor stores after a user configures the same animation through the panel.
+
 ## Architecture (brief)
 
 The plugin extends existing blocks via three filters — it doesn't register any new block types.

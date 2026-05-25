@@ -154,10 +154,27 @@ function PropertyInput( { def, value, onChange } ) {
 	}
 
 	if ( def.unitSuffix ) {
-		const stringValue =
-			value === null || value === undefined
-				? ''
-				: `${ value }${ def.unitSuffix }`;
+		// Storage shape is the unit-bearing CSS string (`"45deg"`,
+		// `"8px"`). Display: if the stored value already has the
+		// unit (canonical), pass it through; if it's still a bare
+		// number from legacy data, format it for display. onChange:
+		// strip the unit, re-append it from `def.unitSuffix` so the
+		// stored value is always normalized to the canonical unit
+		// (even if someone typed `45rad` somehow — UnitControl's
+		// `units` list locks it to one option).
+		const stringValue = ( () => {
+			if ( value === null || value === undefined ) {
+				return '';
+			}
+			const s = String( value );
+			// Already unit-bearing (canonical or any other unit) —
+			// use as-is. UnitControl handles parsing.
+			if ( /[a-z%]/i.test( s ) ) {
+				return s;
+			}
+			// Bare number (legacy) — format for display.
+			return `${ s }${ def.unitSuffix }`;
+		} )();
 		return (
 			<UnitControl
 				label={ __( def.label, 'motion-blocks' ) }
@@ -168,7 +185,16 @@ function PropertyInput( { def, value, onChange } ) {
 						return;
 					}
 					const match = String( v ).match( /^(-?\d*\.?\d+)/ );
-					onChange( match ? parseFloat( match[ 1 ] ) : def.identity );
+					if ( ! match ) {
+						onChange( def.identity );
+						return;
+					}
+					const n = parseFloat( match[ 1 ] );
+					onChange(
+						Number.isFinite( n )
+							? `${ n }${ def.unitSuffix }`
+							: def.identity
+					);
 				} }
 				units={ [
 					{
@@ -223,10 +249,29 @@ function PropertyRow( { def, value, onChange } ) {
 		);
 	}
 
-	const numericValue =
-		value === null || value === undefined
-			? def.identity
-			: value;
+	// RangeControl needs a plain number. For unit-bearing properties
+	// (rotate, blur — both can have withSlider) the stored value is
+	// a string like `"45deg"`; parse it back to a number for display
+	// and re-append the unit on dispatch so storage stays canonical.
+	const stripUnit = ( v ) => {
+		if ( v === null || v === undefined ) {
+			return null;
+		}
+		const m = String( v ).match( /^(-?\d*\.?\d+)/ );
+		return m ? parseFloat( m[ 1 ] ) : null;
+	};
+	const numericValue = def.unitSuffix
+		? stripUnit( value ) ?? stripUnit( def.identity ) ?? 0
+		: value === null || value === undefined
+		? def.identity
+		: value;
+	const handleSliderChange = ( v ) => {
+		if ( v === undefined ) {
+			onChange( def.identity );
+			return;
+		}
+		onChange( def.unitSuffix ? `${ v }${ def.unitSuffix }` : v );
+	};
 
 	return (
 		<HStack alignment="bottom" spacing={ 3 }>
@@ -242,9 +287,7 @@ function PropertyRow( { def, value, onChange } ) {
 					label={ __( def.label, 'motion-blocks' ) }
 					hideLabelFromVision
 					value={ numericValue }
-					onChange={ ( v ) =>
-						onChange( v === undefined ? def.identity : v )
-					}
+					onChange={ handleSliderChange }
 					min={ def.sliderMin ?? def.min }
 					max={ def.sliderMax ?? def.max }
 					step={ def.step }

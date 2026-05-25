@@ -368,8 +368,13 @@ function addAnimationAttributes( settings ) {
 				type: [ 'number', 'null' ],
 				default: null,
 			},
+			// Rotate / blur are stored as unit-bearing strings
+			// (`"45deg"`, `"8px"`) — same convention as translate
+			// (which has always been a string). Old saves carrying
+			// a bare number deserialize fine and are normalized at
+			// read time via `coerceWithUnit` in constants.js.
 			animationFromRotate: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			animationToOpacity: {
@@ -389,33 +394,33 @@ function addAnimationAttributes( settings ) {
 				default: null,
 			},
 			animationToRotate: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			// 3D rotations (Flip support).
 			animationFromRotateX: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			animationFromRotateY: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			animationToRotateX: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			animationToRotateY: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			// Filter blur.
 			animationFromBlur: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			animationToBlur: {
-				type: [ 'number', 'null' ],
+				type: [ 'string', 'number', 'null' ],
 				default: null,
 			},
 			// Clip-path (Curtain / Wipe support). Stored as the
@@ -500,37 +505,37 @@ function addAnimationAttributes( settings ) {
 			animationEntryFromTranslateX: { type: [ 'string', 'null' ], default: null },
 			animationEntryFromTranslateY: { type: [ 'string', 'null' ], default: null },
 			animationEntryFromScale: { type: [ 'number', 'null' ], default: null },
-			animationEntryFromRotate: { type: [ 'number', 'null' ], default: null },
-			animationEntryFromRotateX: { type: [ 'number', 'null' ], default: null },
-			animationEntryFromRotateY: { type: [ 'number', 'null' ], default: null },
-			animationEntryFromBlur: { type: [ 'number', 'null' ], default: null },
+			animationEntryFromRotate: { type: [ 'string', 'number', 'null' ], default: null },
+			animationEntryFromRotateX: { type: [ 'string', 'number', 'null' ], default: null },
+			animationEntryFromRotateY: { type: [ 'string', 'number', 'null' ], default: null },
+			animationEntryFromBlur: { type: [ 'string', 'number', 'null' ], default: null },
 			animationEntryFromClipPath: { type: [ 'string', 'null' ], default: null },
 			animationEntryToOpacity: { type: [ 'number', 'null' ], default: null },
 			animationEntryToTranslateX: { type: [ 'string', 'null' ], default: null },
 			animationEntryToTranslateY: { type: [ 'string', 'null' ], default: null },
 			animationEntryToScale: { type: [ 'number', 'null' ], default: null },
-			animationEntryToRotate: { type: [ 'number', 'null' ], default: null },
-			animationEntryToRotateX: { type: [ 'number', 'null' ], default: null },
-			animationEntryToRotateY: { type: [ 'number', 'null' ], default: null },
-			animationEntryToBlur: { type: [ 'number', 'null' ], default: null },
+			animationEntryToRotate: { type: [ 'string', 'number', 'null' ], default: null },
+			animationEntryToRotateX: { type: [ 'string', 'number', 'null' ], default: null },
+			animationEntryToRotateY: { type: [ 'string', 'number', 'null' ], default: null },
+			animationEntryToBlur: { type: [ 'string', 'number', 'null' ], default: null },
 			animationEntryToClipPath: { type: [ 'string', 'null' ], default: null },
 			animationExitFromOpacity: { type: [ 'number', 'null' ], default: null },
 			animationExitFromTranslateX: { type: [ 'string', 'null' ], default: null },
 			animationExitFromTranslateY: { type: [ 'string', 'null' ], default: null },
 			animationExitFromScale: { type: [ 'number', 'null' ], default: null },
-			animationExitFromRotate: { type: [ 'number', 'null' ], default: null },
-			animationExitFromRotateX: { type: [ 'number', 'null' ], default: null },
-			animationExitFromRotateY: { type: [ 'number', 'null' ], default: null },
-			animationExitFromBlur: { type: [ 'number', 'null' ], default: null },
+			animationExitFromRotate: { type: [ 'string', 'number', 'null' ], default: null },
+			animationExitFromRotateX: { type: [ 'string', 'number', 'null' ], default: null },
+			animationExitFromRotateY: { type: [ 'string', 'number', 'null' ], default: null },
+			animationExitFromBlur: { type: [ 'string', 'number', 'null' ], default: null },
 			animationExitFromClipPath: { type: [ 'string', 'null' ], default: null },
 			animationExitToOpacity: { type: [ 'number', 'null' ], default: null },
 			animationExitToTranslateX: { type: [ 'string', 'null' ], default: null },
 			animationExitToTranslateY: { type: [ 'string', 'null' ], default: null },
 			animationExitToScale: { type: [ 'number', 'null' ], default: null },
-			animationExitToRotate: { type: [ 'number', 'null' ], default: null },
-			animationExitToRotateX: { type: [ 'number', 'null' ], default: null },
-			animationExitToRotateY: { type: [ 'number', 'null' ], default: null },
-			animationExitToBlur: { type: [ 'number', 'null' ], default: null },
+			animationExitToRotate: { type: [ 'string', 'number', 'null' ], default: null },
+			animationExitToRotateX: { type: [ 'string', 'number', 'null' ], default: null },
+			animationExitToRotateY: { type: [ 'string', 'number', 'null' ], default: null },
+			animationExitToBlur: { type: [ 'string', 'number', 'null' ], default: null },
 			animationExitToClipPath: { type: [ 'string', 'null' ], default: null },
 		},
 	};
@@ -773,12 +778,16 @@ const withAnimationPreview = createHigherOrderComponent(
 			// `animationType` / `animationDuration` / etc. names that
 			// the rest of this HOC reads. The preview only ever shows
 			// the Entry phase — exit previewing is out of scope today.
+			// `migrateScrollAppearAttrs` runs for every mode now —
+			// in addition to the slot-model migration, it normalizes
+			// Custom From/To unit-bearing values (rotate / blur from
+			// bare numbers to canonical strings).
 			const attributes =
 				props.attributes?.animationMode === 'scroll-appear'
 					? aliasSlotForPreview(
 							migrateScrollAppearAttrs( props.attributes )
 					  )
-					: props.attributes;
+					: migrateScrollAppearAttrs( props.attributes );
 			const {
 				animationMode,
 				animationType,
@@ -1285,13 +1294,12 @@ function addAnimationSaveProps( props, blockType, attributesRaw ) {
 		return props;
 	}
 
-	// Apply read-time migration for Scroll Appear so legacy blocks
-	// (saved before the slot model) emit slot-shaped data attributes
-	// without forcing a write to the post on every render.
-	const attributes =
-		mode === 'scroll-appear'
-			? migrateScrollAppearAttrs( attributesRaw )
-			: attributesRaw;
+	// Apply read-time migration so legacy attrs (pre-slot-model
+	// Scroll Appear blocks; pre-unit-bearing Custom From/To values)
+	// emit canonical-shape data attributes without forcing a write
+	// to the post on every render. `migrateScrollAppearAttrs` no-ops
+	// on attrs that are already in the new shape.
+	const attributes = migrateScrollAppearAttrs( attributesRaw );
 
 	// Scroll Appear branches off into its own emission path below.
 	// Page Load + Scroll Interactive continue to use the shared

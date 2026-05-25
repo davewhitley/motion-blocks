@@ -889,8 +889,8 @@ register_activation_hook( __FILE__, 'motion_blocks_seed_default_animations' );
  *   - animationDuration: 2            // one full rotation / 2s
  *   - animationRepeat: 'loop'         // infinite cycle
  *   - animationAcceleration: 'linear' // constant angular velocity
- *   - animationFromRotate: 0          // start at 0°
- *   - animationToRotate: 360          // end at 360° (== 0° visually)
+ *   - animationFromRotate: '0deg'     // start at 0°
+ *   - animationToRotate: '360deg'     // end at 360° (== 0° visually)
  *
  * UI-state keys (`animationFromToActiveSide`,
  * `animationFromToPreviewSide`, `animationPreviewSlot`,
@@ -923,7 +923,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationFromTranslateX'             => null,
         'animationFromTranslateY'             => null,
         'animationFromScale'                  => null,
-        'animationFromRotate'                 => 0,
+        'animationFromRotate'                 => '0deg',
         'animationFromRotateX'                => null,
         'animationFromRotateY'                => null,
         'animationFromBlur'                   => null,
@@ -932,7 +932,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationToTranslateX'               => null,
         'animationToTranslateY'               => null,
         'animationToScale'                    => null,
-        'animationToRotate'                   => 360,
+        'animationToRotate'                   => '360deg',
         'animationToRotateX'                  => null,
         'animationToRotateY'                  => null,
         'animationToBlur'                     => null,

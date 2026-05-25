@@ -23,6 +23,7 @@ import {
 	PROPERTY_DEFINITIONS,
 	FROM_ATTR,
 	TO_ATTR,
+	normalizeCustomFromToAttrs,
 } from './constants';
 
 /**
@@ -301,10 +302,14 @@ export default function AnimationPanel( {
 
 	/**
 	 * Paste animation — apply copied attributes to the current block.
+	 *
+	 * Routes through `normalizeCustomFromToAttrs` so pasted blobs that
+	 * predate the unit-bearing storage convention (e.g. an old saved
+	 * recipe or a copy from a stale clipboard) are upgraded on apply.
 	 */
 	const pasteAnimation = useCallback(
 		( data ) => {
-			setAttributes( data );
+			setAttributes( normalizeCustomFromToAttrs( data ) );
 		},
 		[ setAttributes ]
 	);

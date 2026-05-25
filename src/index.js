@@ -1061,6 +1061,22 @@ const withAnimationPreview = createHigherOrderComponent(
 				} else if ( customKeyframe ) {
 					injectedKeyframeRule = customKeyframe.rule;
 				}
+				// For img-target preset effects (fade, slide, scale,
+				// etc.), the editor needs `mb-mode-scroll-interactive`
+				// + `mb-enter-{type}` classes on the wrapper so the
+				// global CSS in animations.css can route the keyframe
+				// + scroll-timeline props onto `img:first-of-type`.
+				// (Custom / image-move / image-zoom drive the img via
+				// scoped data-mb-uid CSS instead — no class needed.)
+				if ( targetIsImg && ! isCustomLike ) {
+					computedClassName = [
+						props.className || '',
+						'mb-mode-scroll-interactive',
+						`mb-enter-${ animationType }`,
+					]
+						.filter( Boolean )
+						.join( ' ' );
+				}
 				computedWrapperProps = {
 					...wrapperProps,
 					style: scrollInteractiveStyles,

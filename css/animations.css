@@ -478,16 +478,28 @@ html:has(body.mb-clip-page-overflow) {
     animation-name: none;
 }
 
-/* Re-apply timing on the inner img. Animation-name comes from the
-   per-type rules below. */
-[data-mb-target="img"].mb-animated.mb-triggered img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive img:first-of-type {
+/* Apply timed-animation props on the inner img for Page Load /
+   Scroll Appear. The CSS variables are set on the wrapper inline
+   and inherit down. Animation-name comes from the per-type rules
+   below. */
+[data-mb-target="img"].mb-animated.mb-triggered img:first-of-type {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-timing-function: var(--mb-timing);
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+}
+
+/* Apply scroll-driven props on the inner img for Scroll Interactive.
+   Wrapper holds the range vars; img reads them via inheritance. */
+[data-mb-target="img"].mb-mode-scroll-interactive img:first-of-type {
+    animation-timeline: view();
+    animation-range-start: var(--mb-range-start, entry 0%);
+    animation-range-end: var(--mb-range-end, exit 100%);
+    animation-duration: 1ms;
+    animation-fill-mode: both;
+    animation-timing-function: var(--mb-timing, linear);
 }
 
 /* Per-type animation-name on the img descendant. Mirrors the

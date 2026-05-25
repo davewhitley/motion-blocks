@@ -169,7 +169,10 @@ export default function SlotControls( {
 	/**
 	 * "Edit" — convert the current preset into Custom mode with its
 	 * From/To values pre-filled. Slot-aware (writes the slot's
-	 * keyframe attrs, not the shared ones).
+	 * keyframe attrs, not the shared ones). When converting from an
+	 * image effect (image-move / image-zoom), also set
+	 * `animationFromToTarget: 'img'` so the converted Custom keeps
+	 * targeting the inner img — matches the original visual.
 	 */
 	const handleEditPreset = () => {
 		const seed = presetToSlotFromToAttributes(
@@ -184,11 +187,18 @@ export default function SlotControls( {
 		if ( ! seed ) {
 			return;
 		}
-		setAttributes( {
+		const fromImageEffect =
+			animationType === 'image-move' ||
+			animationType === 'image-zoom';
+		const newAttrs = {
 			[ attrName( 'Type' ) ]: 'custom',
 			[ attrName( 'Direction' ) ]: '',
 			...seed,
-		} );
+		};
+		if ( fromImageEffect ) {
+			newAttrs.animationFromToTarget = 'img';
+		}
+		setAttributes( newAttrs );
 	};
 
 	const canEditPreset =

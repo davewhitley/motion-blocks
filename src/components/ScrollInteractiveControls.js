@@ -143,7 +143,8 @@ export default function ScrollInteractiveControls( {
 	/**
 	 * "Edit" — convert the current preset into Custom mode with its
 	 * From/To values pre-filled. See PageLoadControls.handleEditPreset
-	 * for the full rationale.
+	 * for the full rationale, including img-target carry-over for
+	 * image-move / image-zoom.
 	 */
 	const handleEditPreset = () => {
 		const seed = presetToFromToAttributes(
@@ -157,11 +158,17 @@ export default function ScrollInteractiveControls( {
 		if ( ! seed ) {
 			return;
 		}
+		const fromImageEffect =
+			animationType === 'image-move' ||
+			animationType === 'image-zoom';
 		const newAttrs = {
 			animationType: 'custom',
 			animationDirection: '',
 			...seed,
 		};
+		if ( fromImageEffect ) {
+			newAttrs.animationFromToTarget = 'img';
+		}
 		if ( attributes.animationStaggerEnabled ) {
 			newAttrs.animationStaggerEnabled = false;
 		}
@@ -171,7 +178,6 @@ export default function ScrollInteractiveControls( {
 	const canEditPreset =
 		!! animationType &&
 		animationType !== 'custom' &&
-		animationType !== 'image-move' &&
 		!! presetToFromToAttributes(
 			animationType,
 			animationDirection,

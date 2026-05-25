@@ -172,10 +172,14 @@ export default function PageLoadControls( {
 	 * fine-tune individual properties instead of building one from
 	 * scratch.
 	 *
-	 * Visible only when the current type is a preset that has a
-	 * From/To representation (fade/slide/scale/rotate/blur/flip/
-	 * curtain/wipe). Hidden on Custom (no-op there) and image-move
-	 * (parallax doesn't map cleanly to the per-block keyframe model).
+	 * Visible whenever the current type maps to a From/To
+	 * representation. Image effects (image-move, image-zoom) qualify —
+	 * their from/to bags are just scale + translate, which Custom
+	 * supports directly. When converting from an image effect we also
+	 * set `animationFromToTarget: 'img'` so the converted Custom keeps
+	 * targeting the inner img (matches the original visual; the user
+	 * can flip the "Animate image only" toggle off if they want to
+	 * animate the whole wrapper instead).
 	 */
 	const handleEditPreset = () => {
 		const seed = presetToFromToAttributes(
@@ -189,11 +193,17 @@ export default function PageLoadControls( {
 		if ( ! seed ) {
 			return;
 		}
+		const fromImageEffect =
+			animationType === 'image-move' ||
+			animationType === 'image-zoom';
 		const newAttrs = {
 			animationType: 'custom',
 			animationDirection: '',
 			...seed,
 		};
+		if ( fromImageEffect ) {
+			newAttrs.animationFromToTarget = 'img';
+		}
 		if ( attributes.animationStaggerEnabled ) {
 			newAttrs.animationStaggerEnabled = false;
 		}
@@ -203,7 +213,6 @@ export default function PageLoadControls( {
 	const canEditPreset =
 		!! animationType &&
 		animationType !== 'custom' &&
-		animationType !== 'image-move' &&
 		!! presetToFromToAttributes(
 			animationType,
 			animationDirection,

@@ -56,7 +56,6 @@ import {
 	FROM_ATTR,
 	TO_ATTR,
 	TRANSLATE_UNIT_OPTIONS,
-	IMAGE_TARGETABLE_BLOCKS,
 	isPropertyAdded,
 	isImageTargetUnavailable,
 } from './constants';
@@ -322,15 +321,12 @@ export default function FromToControls( {
 	const isPreviewing = previewSide !== 'off';
 	const target = attributes.animationFromToTarget || 'block';
 
-	// Show the Target toggle only on blocks where "Image only" is
-	// meaningful — single-image blocks where we know which img to
-	// animate. For other blocks ("the image inside" is ambiguous),
-	// users should drop down to the inner Image block instead.
-	const supportsImgTarget =
-		blockName && IMAGE_TARGETABLE_BLOCKS.includes( blockName );
-
 	// See constants.js → isImageTargetUnavailable. Disable Image only
-	// when the block's bg isn't rendered as an `<img>` element.
+	// when the block's bg isn't rendered as an `<img>` element. The
+	// "Animate image only" toggle itself now lives in the parent panel
+	// (PageLoadControls / SlotControls / ScrollInteractiveControls) so
+	// it covers non-Custom effects too. Here we only need the helper
+	// for the auto-coerce useEffect below.
 	const imgTargetUnavailable = isImageTargetUnavailable( blockName, attributes );
 
 	// Auto-coerce back to Entire block if the user previously
@@ -399,35 +395,10 @@ export default function FromToControls( {
 
 	return (
 		<div className="mb-from-to">
-			{ supportsImgTarget && (
-				<ToggleControl
-					label={ __( 'Animate image only', 'motion-blocks' ) }
-					checked={ target === 'img' }
-					disabled={ imgTargetUnavailable }
-					onChange={ ( on ) =>
-						setAttributes( {
-							animationFromToTarget: on ? 'img' : 'block',
-						} )
-					}
-					help={
-						imgTargetUnavailable
-							? __(
-									'Unavailable while Fixed background or Repeated background is on — see the notice above.',
-									'motion-blocks'
-							  )
-							: target === 'img'
-							? __(
-									'Animates only the image. The wrapper acts as a clipping frame so transforms stay inside its natural area.',
-									'motion-blocks'
-							  )
-							: __(
-									'Animates the whole block, including any caption or surrounding markup.',
-									'motion-blocks'
-							  )
-					}
-					__nextHasNoMarginBottom
-				/>
-			) }
+			{ /* The "Animate image only" toggle now lives in the parent
+			   panel (PageLoadControls / ScrollInteractiveControls /
+			   SlotControls), where it can apply to any effect type —
+			   not just Custom. */ }
 
 			{ /* Segmented toggle for the Start/End side picker. Earlier
 			   versions used a styled TabPanel here; in the slot model

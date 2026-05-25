@@ -1332,16 +1332,18 @@ function addAnimationSaveProps( props, blockType, attributesRaw ) {
 	// signal the intent — the uid is a runtime detail.
 	//
 	// Image effects (image-move, image-zoom) always imply img target.
+	// For any other effect, the "Animate image only" toggle decides
+	// whether the animation targets the inner <img> or the wrapper.
 	if (
 		animationType === 'image-move' ||
 		animationType === 'image-zoom'
 	) {
 		dataAttrs[ 'data-mb-target' ] = 'img';
-	} else if ( animationType === 'custom' ) {
-		const target = attributes.animationFromToTarget || 'block';
-		if ( target === 'img' ) {
-			dataAttrs[ 'data-mb-target' ] = 'img';
-		}
+	} else if (
+		animationType &&
+		( attributes.animationFromToTarget || 'block' ) === 'img'
+	) {
+		dataAttrs[ 'data-mb-target' ] = 'img';
 	}
 
 	// Acceleration (timing function). Resolve the `custom` sentinel
@@ -1497,20 +1499,19 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 		),
 	};
 
-	// img target — triggered by Custom-target=img on either slot, OR
-	// by an image effect (image-move / image-zoom) in the Entry slot.
-	// Image effects always imply img-target.
-	if ( entryType === 'custom' || exitType === 'custom' ) {
-		const target = attributes.animationFromToTarget || 'block';
-		if ( target === 'img' ) {
-			dataAttrs[ 'data-mb-target' ] = 'img';
-		}
-	}
-	if (
+	// img target — triggered by EITHER an image-effect type in any
+	// slot (those always imply img-target) OR the "Animate image only"
+	// toggle being set on any other type. The toggle is a shared attr
+	// (animationFromToTarget) — applies to both slots uniformly.
+	const slotTarget = attributes.animationFromToTarget || 'block';
+	const hasImageEffectSlot =
 		entryType === 'image-move' ||
 		entryType === 'image-zoom' ||
 		exitType === 'image-move' ||
-		exitType === 'image-zoom'
+		exitType === 'image-zoom';
+	if (
+		hasImageEffectSlot ||
+		( slotTarget === 'img' && ( entryType || exitType ) )
 	) {
 		dataAttrs[ 'data-mb-target' ] = 'img';
 	}

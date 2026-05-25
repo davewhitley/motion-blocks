@@ -319,19 +319,15 @@ function motion_blocks_render_block( $block_content, $block ) {
     $custom_props = $shared['propertyCssVar'] ?? array();
 
     if ( $mode === 'scroll-appear' ) {
-        // Slot model: emit per-slot data attributes for the filled
-        // slot(s). The Custom From/To target is shared across slots
-        // (only meaningful when at least one slot is Custom). Image
-        // effects (image-move, image-zoom) always imply img-target.
-        if ( $entry_type === 'custom' || $exit_type === 'custom' ) {
-            $target = $attrs['animationFromToTarget'] ?? 'block';
-            if ( $target === 'img' ) {
-                $processor->set_attribute( 'data-mb-target', 'img' );
-            }
-        }
+        // Slot model img-target: triggered either by an image-effect
+        // type (always implies img-target) or by the shared
+        // "Animate image only" toggle being on for any other type.
+        $slot_target  = $attrs['animationFromToTarget'] ?? 'block';
+        $has_img_effect = in_array( $entry_type, array( 'image-move', 'image-zoom' ), true )
+            || in_array( $exit_type, array( 'image-move', 'image-zoom' ), true );
         if (
-            $entry_type === 'image-move' || $entry_type === 'image-zoom' ||
-            $exit_type === 'image-move' || $exit_type === 'image-zoom'
+            $has_img_effect ||
+            ( $slot_target === 'img' && ( $entry_type !== '' || $exit_type !== '' ) )
         ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
         }
@@ -446,13 +442,11 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Page Load + Scroll Interactive — shared attribute emission.
         $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
+        $shared_target = $attrs['animationFromToTarget'] ?? 'block';
         if ( $type === 'image-move' || $type === 'image-zoom' ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
-        } elseif ( $type === 'custom' ) {
-            $target = $attrs['animationFromToTarget'] ?? 'block';
-            if ( $target === 'img' ) {
-                $processor->set_attribute( 'data-mb-target', 'img' );
-            }
+        } elseif ( $type !== '' && $shared_target === 'img' ) {
+            $processor->set_attribute( 'data-mb-target', 'img' );
         }
 
         $acceleration = $attrs['animationAcceleration'] ?? 'ease';

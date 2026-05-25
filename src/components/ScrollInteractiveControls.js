@@ -42,6 +42,7 @@ import {
 	STAGGER_INCOMPATIBLE_TYPES,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
+	IMAGE_TARGETABLE_BLOCKS,
 	isImageTargetUnavailable,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
@@ -258,6 +259,45 @@ export default function ScrollInteractiveControls( {
 							'motion-blocks'
 						) }
 					</Notice>
+				) }
+
+			{ IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
+				animationType &&
+				! IMAGE_EFFECT_TYPES.includes( animationType ) && (
+					<ToggleControl
+						label={ __( 'Animate image only', 'motion-blocks' ) }
+						checked={
+							( attributes.animationFromToTarget ||
+								'block' ) === 'img'
+						}
+						disabled={ isImageTargetUnavailable(
+							blockName,
+							attributes
+						) }
+						onChange={ ( on ) =>
+							setAttributes( {
+								animationFromToTarget: on ? 'img' : 'block',
+							} )
+						}
+						help={
+							isImageTargetUnavailable( blockName, attributes )
+								? __(
+										'Unavailable while Fixed background or Repeated background is on — see the notice above.',
+										'motion-blocks'
+								  )
+								: ( attributes.animationFromToTarget ||
+										'block' ) === 'img'
+								? __(
+										'Animates only the image. Overlay text and other inner content stay still.',
+										'motion-blocks'
+								  )
+								: __(
+										'Animates the whole block, including any overlay content.',
+										'motion-blocks'
+								  )
+						}
+						__nextHasNoMarginBottom
+					/>
 				) }
 
 			{ isCustom && (

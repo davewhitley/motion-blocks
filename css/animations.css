@@ -453,6 +453,101 @@ html:has(body.mb-clip-page-overflow) {
    set inline by frontend.js — no class binding needed. */
 
 /* ----------------------------------------------------------------
+ * Img-target redirect for preset effects
+ *
+ * When `data-mb-target="img"` is set on the block (via the "Animate
+ * image only" toggle, currently surfaced on Cover blocks only), the
+ * preset's animation should target the first `<img>` descendant
+ * instead of the block wrapper. This keeps overlay text / inner
+ * blocks static while the bg image animates.
+ *
+ * Strategy: suppress the wrapper's `animation-name`, then re-emit
+ * the same animation on `img:first-of-type`. Timing / iteration /
+ * direction CSS variables cascade automatically. Direction vars
+ * (--mb-slide-y, --mb-rotate-angle, etc.) inherit too, so the
+ * existing keyframes work unchanged.
+ *
+ * Image-effect types (image-move / image-zoom) and Custom + img
+ * target their img via separate JS-injected scoped CSS rules — those
+ * paths are unchanged.
+ * -------------------------------------------------------------- */
+
+/* Suppress wrapper animation when targeting the img. */
+[data-mb-target="img"].mb-animated.mb-triggered,
+[data-mb-target="img"].mb-mode-scroll-interactive {
+    animation-name: none;
+}
+
+/* Re-apply timing on the inner img. Animation-name comes from the
+   per-type rules below. */
+[data-mb-target="img"].mb-animated.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive img:first-of-type {
+    animation-duration: var(--mb-duration);
+    animation-delay: var(--mb-delay);
+    animation-timing-function: var(--mb-timing);
+    animation-fill-mode: var(--mb-fill-mode, both);
+    animation-iteration-count: var(--mb-iteration-count, 1);
+    animation-direction: var(--mb-direction, normal);
+}
+
+/* Per-type animation-name on the img descendant. Mirrors the
+   wrapper-target bindings higher up in this file. */
+[data-mb-target="img"].mb-enter-fade.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade img:first-of-type {
+    animation-name: mbFadeIn;
+}
+[data-mb-target="img"].mb-enter-fade-out.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out img:first-of-type {
+    animation-name: mbFadeOut;
+}
+[data-mb-target="img"].mb-enter-slide.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide img:first-of-type {
+    animation-name: mbSlideIn;
+}
+[data-mb-target="img"].mb-enter-slide-out.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out img:first-of-type {
+    animation-name: mbSlideOut;
+}
+[data-mb-target="img"].mb-enter-scale.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale img:first-of-type {
+    animation-name: mbScaleIn;
+}
+[data-mb-target="img"].mb-enter-scale-out.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out img:first-of-type {
+    animation-name: mbScaleOut;
+}
+[data-mb-target="img"].mb-enter-blur.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur img:first-of-type {
+    animation-name: mbBlurIn;
+}
+[data-mb-target="img"].mb-enter-blur-out.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out img:first-of-type {
+    animation-name: mbBlurOut;
+}
+[data-mb-target="img"].mb-enter-rotate.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate img:first-of-type {
+    animation-name: mbRotateIn;
+}
+[data-mb-target="img"].mb-enter-rotate-out.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out img:first-of-type {
+    animation-name: mbRotateOut;
+}
+[data-mb-target="img"].mb-enter-wipe.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe img:first-of-type {
+    animation-name: mbWipeIn;
+}
+[data-mb-target="img"].mb-enter-curtain.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain img:first-of-type {
+    animation-name: mbCurtainReveal;
+}
+[data-mb-target="img"].mb-enter-flip.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip img:first-of-type {
+    animation-name: mbFlipIn;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+/* ----------------------------------------------------------------
  * Accessibility: Reduced Motion
  * -------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {

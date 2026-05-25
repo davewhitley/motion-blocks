@@ -241,23 +241,6 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
     return $attrs;
 }
 
-/**
- * Mirror of isImageTargetUnavailable() in src/components/constants.js.
- *
- * Cover renders an `<img class="wp-block-cover__image-background">` by
- * default; with `hasParallax` (Fixed background) or `isRepeated`
- * (Repeated background) it switches to a `<div style="background-
- * image:…">` and no `<img>` exists for our redirect CSS to target.
- * In that mode the "Animate image only" toggle is gated to OFF so the
- * whole block animates instead of silently failing.
- */
-function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
-    if ( $block_name !== 'core/cover' ) {
-        return false;
-    }
-    return ! empty( $attrs['hasParallax'] ) || ! empty( $attrs['isRepeated'] );
-}
-
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs = $block['attrs'] ?? array();
     $mode  = $attrs['animationMode'] ?? '';
@@ -335,28 +318,14 @@ function motion_blocks_render_block( $block_content, $block ) {
     $shared       = motion_blocks_shared_constants();
     $custom_props = $shared['propertyCssVar'] ?? array();
 
-    $img_target_available = ! motion_blocks_is_image_target_unavailable(
-        $block['blockName'] ?? '',
-        $attrs
-    );
-
     if ( $mode === 'scroll-appear' ) {
-        // Slot model img-target: triggered either by an image-effect
-        // type (always implies img-target) or by the shared
-        // "Animate image only" toggle being on for any other type.
-        // Gated on availability — see motion_blocks_is_image_target_unavailable.
-        $slot_target  = $attrs['animationFromToTarget'] ?? 'block';
-        $has_img_effect = in_array( $entry_type, array( 'image-move', 'image-zoom' ), true )
-            || in_array( $exit_type, array( 'image-move', 'image-zoom' ), true );
-        if (
-            $img_target_available &&
-            (
-                $has_img_effect ||
-                ( $slot_target === 'img' && ( $entry_type !== '' || $exit_type !== '' ) )
-            )
-        ) {
-            $processor->set_attribute( 'data-mb-target', 'img' );
-        }
+        // Note: `data-mb-target="img"` is NOT emitted here. Image
+        // effects + the "Animate image only" toggle are restricted to
+        // `core/cover`, which is a static block — the JS save filter
+        // (`saveScrollAppearProps` in src/index.js) is the
+        // authoritative writer of `data-mb-target` into post_content
+        // for those cases. Dynamic blocks don't reach this code path
+        // for img-target because the feature isn't available on them.
 
         $play_once = $attrs['animationPlayOnce'] ?? true;
         $processor->set_attribute(
@@ -468,16 +437,8 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Page Load + Scroll Interactive — shared attribute emission.
         $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
-        // Gated on availability — see the scroll-appear branch above
-        // and motion_blocks_is_image_target_unavailable for the rationale.
-        $shared_target = $attrs['animationFromToTarget'] ?? 'block';
-        if ( $img_target_available ) {
-            if ( $type === 'image-move' || $type === 'image-zoom' ) {
-                $processor->set_attribute( 'data-mb-target', 'img' );
-            } elseif ( $type !== '' && $shared_target === 'img' ) {
-                $processor->set_attribute( 'data-mb-target', 'img' );
-            }
-        }
+        // Note: `data-mb-target="img"` is NOT emitted here — see the
+        // matching comment in the scroll-appear branch above.
 
         $acceleration = $attrs['animationAcceleration'] ?? 'ease';
         if ( $acceleration === 'custom' ) {

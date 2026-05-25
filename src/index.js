@@ -962,12 +962,16 @@ const withAnimationPreview = createHigherOrderComponent(
 			// instead of the block wrapper, with `overflow: clip` on
 			// the img's parent so the surrounding markup acts as a
 			// clipping frame. Image effects (image-move, image-zoom)
-			// always use img target.
+			// always use img target. Preset effects (fade, slide,
+			// scale, blur, rotate, wipe, curtain, flip — and their
+			// `-out` variants) honor the "Animate image only" toggle
+			// via the global CSS redirect rules in animations.css
+			// (keyed on `[data-mb-target="img"]` + `mb-enter-{type}`).
 			const target = attributes.animationFromToTarget || 'block';
 			const targetIsImg =
 				animationType === 'image-move' ||
 				animationType === 'image-zoom' ||
-				( animationType === 'custom' && target === 'img' );
+				( !! animationType && target === 'img' );
 			const customUid = customKeyframe
 				? customKeyframe.name.replace(
 						/^mb-(custom|imagemove|imagezoom)-/,
@@ -1230,6 +1234,23 @@ const withAnimationPreview = createHigherOrderComponent(
 				computedWrapperProps = {
 					...computedWrapperProps,
 					style: staggerStyle,
+				};
+			}
+
+			// Emit `data-mb-target="img"` on the wrapper for any
+			// img-target case so the global CSS redirect rules in
+			// animations.css fire in the editor preview. Mirrors the
+			// save-props emission (addAnimationSaveProps /
+			// saveScrollAppearProps in this file) so the editor visual
+			// matches the frontend. Without this, preset effects with
+			// "Animate image only" toggled on would animate the whole
+			// block in the editor (the CSS suppress rule wouldn't
+			// match) even though they animate the img correctly on
+			// the frontend.
+			if ( targetIsImg ) {
+				computedWrapperProps = {
+					...computedWrapperProps,
+					'data-mb-target': 'img',
 				};
 			}
 

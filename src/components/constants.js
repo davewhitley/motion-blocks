@@ -123,6 +123,32 @@ export const STAGGER_PARENT_BLOCKS = SHARED.staggerParentBlocks;
 export const STAGGER_INCOMPATIBLE_TYPES = SHARED.staggerIncompatibleTypes;
 
 /**
+ * Whether img-target animations (Image Move, Image Zoom, or
+ * Custom + Image only) can attach to a block's image element.
+ *
+ * The Cover block normally renders its background as
+ * `<img class="wp-block-cover__image-background">`. When the user
+ * enables "Fixed background" (`hasParallax`) or "Repeated background"
+ * (`isRepeated`), WP core switches to a `<div style="background-
+ * image:…">` instead — no `<img>` element exists for our scoped CSS
+ * to target. Image effects silently fail to play in that case.
+ *
+ * Used by the editor panels (FromToControls, SlotControls,
+ * PageLoadControls, ScrollInteractiveControls) to disable the
+ * "Image only" target / hide image-effect presets when this combo
+ * is active.
+ */
+export function isImageTargetUnavailable( blockName, attributes ) {
+	if ( ! attributes ) {
+		return false;
+	}
+	if ( blockName === 'core/cover' ) {
+		return !! attributes.hasParallax || !! attributes.isRepeated;
+	}
+	return false;
+}
+
+/**
  * Whether stagger can cascade for a block's current animation config.
  *
  * Centralized to avoid the four-way drift that existed before — the

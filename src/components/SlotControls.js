@@ -31,7 +31,9 @@ import {
 	ToggleControl,
 	FlexBlock,
 	Button,
+	Notice,
 } from '@wordpress/components';
+import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -51,6 +53,7 @@ import {
 	BLUR_SETTINGS,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
+	isImageTargetUnavailable,
 	customDefaultFromToForSlot,
 	hasAnyCustomFromToSet,
 	presetToSlotFromToAttributes,
@@ -112,9 +115,13 @@ export default function SlotControls( {
 	// Image effects (image-move, image-zoom) only appear in the Entry
 	// slot AND only on blocks that support them. They don't have an
 	// inverse, so they're absent from EXIT_TYPE_OPTIONS by design.
+	// Also unavailable on Cover blocks with Fixed/Repeated bg — those
+	// modes render no <img> element. See isImageTargetUnavailable.
 	const slotOptions =
 		slot === 'entry' ? ENTRY_TYPE_OPTIONS : EXIT_TYPE_OPTIONS;
-	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	const supportsImageEffects =
+		IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
+		! isImageTargetUnavailable( blockName, attributes );
 	const typeOptions = [
 		{ label: __( 'None', 'motion-blocks' ), value: '' },
 		...slotOptions.filter( ( opt ) => {
@@ -127,6 +134,18 @@ export default function SlotControls( {
 			return true;
 		} ),
 	];
+
+	// Auto-coerce an image-effect slot selection back to Fade if the
+	// user enabled Cover's Fixed/Repeated bg after the fact.
+	useEffect( () => {
+		if (
+			IMAGE_EFFECT_TYPES.includes( animationType ) &&
+			isImageTargetUnavailable( blockName, attributes )
+		) {
+			const attrName = `animation${ slot === 'exit' ? 'Exit' : 'Entry' }Type`;
+			setAttributes( { [ attrName ]: 'fade' } );
+		}
+	}, [ animationType, blockName, attributes, slot, setAttributes ] );
 
 	/**
 	 * Effect picker handler. Several side effects layered on top of
@@ -269,6 +288,20 @@ export default function SlotControls( {
 					__next40pxDefaultSize
 				/>
 			</HStack>
+
+			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
+				isImageTargetUnavailable( blockName, attributes ) && (
+					<Notice
+						status="warning"
+						isDismissible={ false }
+						className="mb-image-effect-unavailable-notice"
+					>
+						{ __(
+							'Image effects (Image Move, Image Zoom) need an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead. Turn off Fixed/Repeated under Background settings to use them.',
+							'motion-blocks'
+						) }
+					</Notice>
+				) }
 
 			{ isCustom && (
 				<FromToControls

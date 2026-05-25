@@ -15,7 +15,9 @@ import {
 	__experimentalNumberControl as NumberControl,
 	FlexBlock,
 	Button,
+	Notice,
 } from '@wordpress/components';
+import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -37,6 +39,7 @@ import {
 	STAGGER_INCOMPATIBLE_TYPES,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
+	isImageTargetUnavailable,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
@@ -98,8 +101,14 @@ export default function PageLoadControls( {
 	//   but they're not reachable through the new UI.
 	// - Image effects (image-move, image-zoom) are only meaningful on
 	//   blocks with a primary <img>. Hide them for other block types
-	//   so the dropdown isn't a foot-gun.
-	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	//   so the dropdown isn't a foot-gun. Also hide them when the
+	//   block is a Cover with Fixed/Repeated background — in those
+	//   modes WP swaps the <img> for a CSS background-image div and
+	//   the effects would silently fail (see isImageTargetUnavailable
+	//   in constants.js).
+	const supportsImageEffects =
+		IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
+		! isImageTargetUnavailable( blockName, attributes );
 	const typeOptions = ANIMATION_TYPE_OPTIONS.filter( ( opt ) => {
 		if ( opt.value.endsWith( '-out' ) ) {
 			return false;
@@ -112,6 +121,19 @@ export default function PageLoadControls( {
 		}
 		return true;
 	} );
+
+	// If the user previously selected an image effect, then enabled
+	// Cover's Fixed/Repeated bg, the option vanishes from the dropdown
+	// but the saved attribute lingers. Auto-coerce back to Fade to
+	// keep the selection coherent with what the panel offers.
+	useEffect( () => {
+		if (
+			IMAGE_EFFECT_TYPES.includes( animationType ) &&
+			isImageTargetUnavailable( blockName, attributes )
+		) {
+			setAttributes( { animationType: 'fade' } );
+		}
+	}, [ animationType, blockName, attributes, setAttributes ] );
 
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
@@ -263,6 +285,20 @@ export default function PageLoadControls( {
 					__next40pxDefaultSize
 				/>
 			</HStack>
+
+			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
+				isImageTargetUnavailable( blockName, attributes ) && (
+					<Notice
+						status="warning"
+						isDismissible={ false }
+						className="mb-image-effect-unavailable-notice"
+					>
+						{ __(
+							'Image effects (Image Move, Image Zoom) need an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead. Turn off Fixed/Repeated under Background settings to use them.',
+							'motion-blocks'
+						) }
+					</Notice>
+				) }
 
 			{ isCustom && (
 				<FromToControls

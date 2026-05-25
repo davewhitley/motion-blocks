@@ -27,6 +27,19 @@ Each block gets one mode at a time, picked from the **Motion Effects** sub-panel
 
 Image Move and Image Zoom are block-gated to `core/image` and `core/cover` only — they animate the first `<img>` descendant rather than the block wrapper. For Image blocks with a caption, a server-side `<div class="mb-img-frame">` wrapper is injected so the figcaption stays outside the clip region.
 
+### Cover block — known interactions
+
+The Cover block has a few settings that change how its background renders. Motion Blocks handles them as follows:
+
+| Cover setting | What happens with motion effects |
+|---|---|
+| **Fixed background** (`hasParallax`) | Cover switches to a CSS `background-image` div — no `<img>` element to target. Image Move / Image Zoom / Custom (Image only) are disabled in the panel with a warning notice. Animate the Entire block instead, or turn Fixed background off. |
+| **Repeated background** (`isRepeated`) | Same as above — CSS `background-image` instead of `<img>`. Same handling. |
+| **Focal point** | Unaffected — `background-position` (or `object-position` on the inner img) composes cleanly with our transforms. |
+| **Aspect ratio / dimensions** | Unaffected. Cover's `object-fit: cover` continues to fit the visible crop; transform animations apply on top. |
+
+There's one CSS-spec interaction worth knowing about: applying any `transform` animation (rotate, scale, etc.) to the Entire block creates a new containing block, which "unfixes" any descendant `position: fixed` / `background-attachment: fixed`. If you animate the whole Cover block with a transform AND have Fixed background enabled, the fixed background will scroll with the page while the animation runs. This is a CSS limitation, not specific to this plugin — pick one or the other.
+
 ## Cross-cutting features
 
 - **Stagger** — On parent blocks with multiple inner blocks (Group / Columns / Buttons / Gallery / List), the animation cascades to each child with a configurable step delay. Works with every effect including Custom (the synthesized keyframe is shared across children via a CSS custom property).

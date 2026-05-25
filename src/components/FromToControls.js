@@ -45,6 +45,7 @@ import {
 	TextControl,
 	Button,
 	ExternalLink,
+	Notice,
 } from '@wordpress/components';
 import { createInterpolateElement, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -57,6 +58,7 @@ import {
 	TRANSLATE_UNIT_OPTIONS,
 	IMAGE_TARGETABLE_BLOCKS,
 	isPropertyAdded,
+	isImageTargetUnavailable,
 } from './constants';
 
 /**
@@ -327,6 +329,20 @@ export default function FromToControls( {
 	const supportsImgTarget =
 		blockName && IMAGE_TARGETABLE_BLOCKS.includes( blockName );
 
+	// See constants.js → isImageTargetUnavailable. Disable Image only
+	// when the block's bg isn't rendered as an `<img>` element.
+	const imgTargetUnavailable = isImageTargetUnavailable( blockName, attributes );
+
+	// Auto-coerce back to Entire block if the user previously
+	// selected Image only, then toggled Fixed / Repeated bg on the
+	// Cover. Avoids landing in an inconsistent state where the saved
+	// target doesn't match what the panel offers.
+	useEffect( () => {
+		if ( imgTargetUnavailable && target === 'img' ) {
+			setAttributes( { animationFromToTarget: 'block' } );
+		}
+	}, [ imgTargetUnavailable, target, setAttributes ] );
+
 	/**
 	 * Toggle the static-state preview for the active side.
 	 * - Off → preview the current side
@@ -384,35 +400,51 @@ export default function FromToControls( {
 	return (
 		<div className="mb-from-to">
 			{ supportsImgTarget && (
-				<ToggleGroupControl
-					value={ target }
-					onChange={ ( v ) =>
-						setAttributes( { animationFromToTarget: v } )
-					}
-					isBlock
-					label={ __( 'Target', 'motion-blocks' ) }
-					help={
-						target === 'img'
-							? __(
-									'Animates only the image. The wrapper acts as a clipping frame so transforms stay inside its natural area.',
-									'motion-blocks'
-							  )
-							: __(
-									'Animates the whole block, including any caption or surrounding markup.',
-									'motion-blocks'
-							  )
-					}
-					__nextHasNoMarginBottom
-				>
-					<ToggleGroupControlOption
-						value="block"
-						label={ __( 'Entire block', 'motion-blocks' ) }
-					/>
-					<ToggleGroupControlOption
-						value="img"
-						label={ __( 'Image only', 'motion-blocks' ) }
-					/>
-				</ToggleGroupControl>
+				<>
+					<ToggleGroupControl
+						value={ target }
+						onChange={ ( v ) =>
+							setAttributes( { animationFromToTarget: v } )
+						}
+						isBlock
+						label={ __( 'Target', 'motion-blocks' ) }
+						help={
+							target === 'img'
+								? __(
+										'Animates only the image. The wrapper acts as a clipping frame so transforms stay inside its natural area.',
+										'motion-blocks'
+								  )
+								: __(
+										'Animates the whole block, including any caption or surrounding markup.',
+										'motion-blocks'
+								  )
+						}
+						__nextHasNoMarginBottom
+					>
+						<ToggleGroupControlOption
+							value="block"
+							label={ __( 'Entire block', 'motion-blocks' ) }
+						/>
+						<ToggleGroupControlOption
+							value="img"
+							label={ __( 'Image only', 'motion-blocks' ) }
+							disabled={ imgTargetUnavailable }
+							aria-disabled={ imgTargetUnavailable }
+						/>
+					</ToggleGroupControl>
+					{ imgTargetUnavailable && (
+						<Notice
+							status="warning"
+							isDismissible={ false }
+							className="mb-from-to__cover-bg-notice"
+						>
+							{ __(
+								'Image only target needs an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead, so the animation has nothing to attach to. Turn off Fixed/Repeated under the Cover block’s Background settings, or animate the Entire block.',
+								'motion-blocks'
+							) }
+						</Notice>
+					) }
+				</>
 			) }
 
 			{ /* Segmented toggle for the Start/End side picker. Earlier

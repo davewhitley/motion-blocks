@@ -19,7 +19,9 @@ import {
 	__experimentalNumberControl as NumberControl,
 	FlexBlock,
 	Button,
+	Notice,
 } from '@wordpress/components';
+import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	seen,
@@ -41,6 +43,7 @@ import {
 	STAGGER_INCOMPATIBLE_TYPES,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
+	isImageTargetUnavailable,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
@@ -83,14 +86,28 @@ export default function ScrollInteractiveControls( {
 	} = attributes;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
-	// blocks that have a primary <img>. Filter them out for other
-	// block types so the dropdown isn't a foot-gun.
-	const supportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	// blocks that have a primary <img>. Also unavailable on Cover with
+	// Fixed/Repeated bg (no <img> element). See isImageTargetUnavailable
+	// in constants.js.
+	const supportsImageEffects =
+		IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
+		! isImageTargetUnavailable( blockName, attributes );
 	const typeOptions = supportsImageEffects
 		? ANIMATION_TYPE_OPTIONS
 		: ANIMATION_TYPE_OPTIONS.filter(
 				( opt ) => ! IMAGE_EFFECT_TYPES.includes( opt.value )
 		  );
+
+	// Auto-coerce an image-effect selection back to Fade if the user
+	// enabled Cover's Fixed/Repeated bg after the fact.
+	useEffect( () => {
+		if (
+			IMAGE_EFFECT_TYPES.includes( animationType ) &&
+			isImageTargetUnavailable( blockName, attributes )
+		) {
+			setAttributes( { animationType: 'fade' } );
+		}
+	}, [ animationType, blockName, attributes, setAttributes ] );
 
 	const previewOn = animationPreviewEnabled !== false;
 	const isCustom = animationType === 'custom';
@@ -234,6 +251,20 @@ export default function ScrollInteractiveControls( {
 					__next40pxDefaultSize
 				/>
 			</HStack>
+
+			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
+				isImageTargetUnavailable( blockName, attributes ) && (
+					<Notice
+						status="warning"
+						isDismissible={ false }
+						className="mb-image-effect-unavailable-notice"
+					>
+						{ __(
+							'Image effects (Image Move, Image Zoom) need an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead. Turn off Fixed/Repeated under Background settings to use them.',
+							'motion-blocks'
+						) }
+					</Notice>
+				) }
 
 			{ isCustom && (
 				<FromToControls

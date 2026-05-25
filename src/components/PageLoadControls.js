@@ -17,7 +17,6 @@ import {
 	Button,
 	Notice,
 } from '@wordpress/components';
-import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -100,40 +99,34 @@ export default function PageLoadControls( {
 	//   remain registered so existing splash blocks deserialize cleanly,
 	//   but they're not reachable through the new UI.
 	// - Image effects (image-move, image-zoom) are only meaningful on
-	//   blocks with a primary <img>. Hide them for other block types
-	//   so the dropdown isn't a foot-gun. Also hide them when the
-	//   block is a Cover with Fixed/Repeated background — in those
-	//   modes WP swaps the <img> for a CSS background-image div and
-	//   the effects would silently fail (see isImageTargetUnavailable
-	//   in constants.js).
-	const supportsImageEffects =
-		IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
-		! isImageTargetUnavailable( blockName, attributes );
+	//   blocks with a primary <img>. Hide them entirely for block types
+	//   that don't have one. For Cover blocks with Fixed/Repeated
+	//   background (no <img> rendered), keep them in the dropdown but
+	//   disabled — discoverability + clear "you'd need to turn off X"
+	//   signal beats silently filtering them out.
+	const blockSupportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	const imageEffectsBlocked = isImageTargetUnavailable( blockName, attributes );
 	const typeOptions = ANIMATION_TYPE_OPTIONS.filter( ( opt ) => {
 		if ( opt.value.endsWith( '-out' ) ) {
 			return false;
 		}
 		if (
-			! supportsImageEffects &&
+			! blockSupportsImageEffects &&
 			IMAGE_EFFECT_TYPES.includes( opt.value )
 		) {
 			return false;
 		}
 		return true;
+	} ).map( ( opt ) => {
+		if (
+			imageEffectsBlocked &&
+			IMAGE_EFFECT_TYPES.includes( opt.value )
+		) {
+			return { ...opt, disabled: true };
+		}
+		return opt;
 	} );
 
-	// If the user previously selected an image effect, then enabled
-	// Cover's Fixed/Repeated bg, the option vanishes from the dropdown
-	// but the saved attribute lingers. Auto-coerce back to Fade to
-	// keep the selection coherent with what the panel offers.
-	useEffect( () => {
-		if (
-			IMAGE_EFFECT_TYPES.includes( animationType ) &&
-			isImageTargetUnavailable( blockName, attributes )
-		) {
-			setAttributes( { animationType: 'fade' } );
-		}
-	}, [ animationType, blockName, attributes, setAttributes ] );
 
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
@@ -294,7 +287,7 @@ export default function PageLoadControls( {
 						className="mb-image-effect-unavailable-notice"
 					>
 						{ __(
-							'Image effects (Image Move, Image Zoom) need an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead. Turn off Fixed/Repeated under Background settings to use them.',
+							'Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them.',
 							'motion-blocks'
 						) }
 					</Notice>

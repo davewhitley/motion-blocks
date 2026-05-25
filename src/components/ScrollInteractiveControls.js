@@ -21,7 +21,6 @@ import {
 	Button,
 	Notice,
 } from '@wordpress/components';
-import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	seen,
@@ -86,28 +85,23 @@ export default function ScrollInteractiveControls( {
 	} = attributes;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
-	// blocks that have a primary <img>. Also unavailable on Cover with
-	// Fixed/Repeated bg (no <img> element). See isImageTargetUnavailable
-	// in constants.js.
-	const supportsImageEffects =
-		IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
-		! isImageTargetUnavailable( blockName, attributes );
-	const typeOptions = supportsImageEffects
-		? ANIMATION_TYPE_OPTIONS
-		: ANIMATION_TYPE_OPTIONS.filter(
-				( opt ) => ! IMAGE_EFFECT_TYPES.includes( opt.value )
-		  );
-
-	// Auto-coerce an image-effect selection back to Fade if the user
-	// enabled Cover's Fixed/Repeated bg after the fact.
-	useEffect( () => {
-		if (
-			IMAGE_EFFECT_TYPES.includes( animationType ) &&
-			isImageTargetUnavailable( blockName, attributes )
-		) {
-			setAttributes( { animationType: 'fade' } );
-		}
-	}, [ animationType, blockName, attributes, setAttributes ] );
+	// blocks that have a primary <img>. Hide entirely for block types
+	// without one; on Cover blocks with Fixed/Repeated bg, keep them
+	// visible but disabled so the user sees they exist + understands
+	// why they can't pick them right now.
+	const blockSupportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	const imageEffectsBlocked = isImageTargetUnavailable( blockName, attributes );
+	const typeOptions = (
+		blockSupportsImageEffects
+			? ANIMATION_TYPE_OPTIONS
+			: ANIMATION_TYPE_OPTIONS.filter(
+					( opt ) => ! IMAGE_EFFECT_TYPES.includes( opt.value )
+			  )
+	).map( ( opt ) =>
+		imageEffectsBlocked && IMAGE_EFFECT_TYPES.includes( opt.value )
+			? { ...opt, disabled: true }
+			: opt
+	);
 
 	const previewOn = animationPreviewEnabled !== false;
 	const isCustom = animationType === 'custom';
@@ -260,7 +254,7 @@ export default function ScrollInteractiveControls( {
 						className="mb-image-effect-unavailable-notice"
 					>
 						{ __(
-							'Image effects (Image Move, Image Zoom) need an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead. Turn off Fixed/Repeated under Background settings to use them.',
+							'Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them.',
 							'motion-blocks'
 						) }
 					</Notice>

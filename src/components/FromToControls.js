@@ -43,9 +43,9 @@ import {
 	FlexBlock,
 	RangeControl,
 	TextControl,
+	ToggleControl,
 	Button,
 	ExternalLink,
-	Notice,
 } from '@wordpress/components';
 import { createInterpolateElement, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -400,51 +400,33 @@ export default function FromToControls( {
 	return (
 		<div className="mb-from-to">
 			{ supportsImgTarget && (
-				<>
-					<ToggleGroupControl
-						value={ target }
-						onChange={ ( v ) =>
-							setAttributes( { animationFromToTarget: v } )
-						}
-						isBlock
-						label={ __( 'Target', 'motion-blocks' ) }
-						help={
-							target === 'img'
-								? __(
-										'Animates only the image. The wrapper acts as a clipping frame so transforms stay inside its natural area.',
-										'motion-blocks'
-								  )
-								: __(
-										'Animates the whole block, including any caption or surrounding markup.',
-										'motion-blocks'
-								  )
-						}
-						__nextHasNoMarginBottom
-					>
-						<ToggleGroupControlOption
-							value="block"
-							label={ __( 'Entire block', 'motion-blocks' ) }
-						/>
-						<ToggleGroupControlOption
-							value="img"
-							label={ __( 'Image only', 'motion-blocks' ) }
-							disabled={ imgTargetUnavailable }
-							aria-disabled={ imgTargetUnavailable }
-						/>
-					</ToggleGroupControl>
-					{ imgTargetUnavailable && (
-						<Notice
-							status="warning"
-							isDismissible={ false }
-							className="mb-from-to__cover-bg-notice"
-						>
-							{ __(
-								'Image only target needs an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead, so the animation has nothing to attach to. Turn off Fixed/Repeated under the Cover block’s Background settings, or animate the Entire block.',
-								'motion-blocks'
-							) }
-						</Notice>
-					) }
-				</>
+				<ToggleControl
+					label={ __( 'Animate image only', 'motion-blocks' ) }
+					checked={ target === 'img' }
+					disabled={ imgTargetUnavailable }
+					onChange={ ( on ) =>
+						setAttributes( {
+							animationFromToTarget: on ? 'img' : 'block',
+						} )
+					}
+					help={
+						imgTargetUnavailable
+							? __(
+									'Unavailable while Fixed background or Repeated background is on — see the notice above.',
+									'motion-blocks'
+							  )
+							: target === 'img'
+							? __(
+									'Animates only the image. The wrapper acts as a clipping frame so transforms stay inside its natural area.',
+									'motion-blocks'
+							  )
+							: __(
+									'Animates the whole block, including any caption or surrounding markup.',
+									'motion-blocks'
+							  )
+					}
+					__nextHasNoMarginBottom
+				/>
 			) }
 
 			{ /* Segmented toggle for the Start/End side picker. Earlier

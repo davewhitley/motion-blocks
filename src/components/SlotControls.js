@@ -33,7 +33,6 @@ import {
 	Button,
 	Notice,
 } from '@wordpress/components';
-import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -112,40 +111,33 @@ export default function SlotControls( {
 	// entry so the user can clear the slot from the dropdown without
 	// hunting for a separate clear button.
 	//
-	// Image effects (image-move, image-zoom) only appear in the Entry
-	// slot AND only on blocks that support them. They don't have an
-	// inverse, so they're absent from EXIT_TYPE_OPTIONS by design.
-	// Also unavailable on Cover blocks with Fixed/Repeated bg — those
-	// modes render no <img> element. See isImageTargetUnavailable.
+	// Image effects appear in the slot dropdown only on supported
+	// block types. On Cover with Fixed/Repeated bg, keep them visible
+	// but disabled so the user understands the constraint instead of
+	// wondering why an option disappeared.
 	const slotOptions =
 		slot === 'entry' ? ENTRY_TYPE_OPTIONS : EXIT_TYPE_OPTIONS;
-	const supportsImageEffects =
-		IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
-		! isImageTargetUnavailable( blockName, attributes );
+	const blockSupportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
+	const imageEffectsBlocked = isImageTargetUnavailable( blockName, attributes );
 	const typeOptions = [
 		{ label: __( 'None', 'motion-blocks' ), value: '' },
-		...slotOptions.filter( ( opt ) => {
-			if (
-				! supportsImageEffects &&
+		...slotOptions
+			.filter( ( opt ) => {
+				if (
+					! blockSupportsImageEffects &&
+					IMAGE_EFFECT_TYPES.includes( opt.value )
+				) {
+					return false;
+				}
+				return true;
+			} )
+			.map( ( opt ) =>
+				imageEffectsBlocked &&
 				IMAGE_EFFECT_TYPES.includes( opt.value )
-			) {
-				return false;
-			}
-			return true;
-		} ),
+					? { ...opt, disabled: true }
+					: opt
+			),
 	];
-
-	// Auto-coerce an image-effect slot selection back to Fade if the
-	// user enabled Cover's Fixed/Repeated bg after the fact.
-	useEffect( () => {
-		if (
-			IMAGE_EFFECT_TYPES.includes( animationType ) &&
-			isImageTargetUnavailable( blockName, attributes )
-		) {
-			const attrName = `animation${ slot === 'exit' ? 'Exit' : 'Entry' }Type`;
-			setAttributes( { [ attrName ]: 'fade' } );
-		}
-	}, [ animationType, blockName, attributes, slot, setAttributes ] );
 
 	/**
 	 * Effect picker handler. Several side effects layered on top of
@@ -297,7 +289,7 @@ export default function SlotControls( {
 						className="mb-image-effect-unavailable-notice"
 					>
 						{ __(
-							'Image effects (Image Move, Image Zoom) need an <img> element. Cover’s Fixed background and Repeated background render as a CSS background-image instead. Turn off Fixed/Repeated under Background settings to use them.',
+							'Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them.',
 							'motion-blocks'
 						) }
 					</Notice>

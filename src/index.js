@@ -34,6 +34,7 @@ import {
 	buildCustomKeyframe,
 	getPresetFromTo,
 	isPropertyAdded,
+	isImageTargetUnavailable,
 	migrateScrollAppearAttrs,
 	resolveTimingFunction,
 } from './components/constants';
@@ -968,10 +969,16 @@ const withAnimationPreview = createHigherOrderComponent(
 			// via the global CSS redirect rules in animations.css
 			// (keyed on `[data-mb-target="img"]` + `mb-enter-{type}`).
 			const target = attributes.animationFromToTarget || 'block';
+			// Gate img-target on availability: Cover blocks with
+			// Fixed/Repeated bg render a `<div>` background instead of
+			// `<img>`, so there's nothing to redirect onto. Treat the
+			// stored target as 'block' in that case — matches the
+			// save-props gating so editor preview === frontend render.
 			const targetIsImg =
-				animationType === 'image-move' ||
-				animationType === 'image-zoom' ||
-				( !! animationType && target === 'img' );
+				! isImageTargetUnavailable( props.name, attributes ) &&
+				( animationType === 'image-move' ||
+					animationType === 'image-zoom' ||
+					( !! animationType && target === 'img' ) );
 			const customUid = customKeyframe
 				? customKeyframe.name.replace(
 						/^mb-(custom|imagemove|imagezoom)-/,
@@ -1371,16 +1378,29 @@ function addAnimationSaveProps( props, blockType, attributesRaw ) {
 	// Image effects (image-move, image-zoom) always imply img target.
 	// For any other effect, the "Animate image only" toggle decides
 	// whether the animation targets the inner <img> or the wrapper.
-	if (
-		animationType === 'image-move' ||
-		animationType === 'image-zoom'
-	) {
-		dataAttrs[ 'data-mb-target' ] = 'img';
-	} else if (
-		animationType &&
-		( attributes.animationFromToTarget || 'block' ) === 'img'
-	) {
-		dataAttrs[ 'data-mb-target' ] = 'img';
+	//
+	// Gating: if img-target is unavailable for this block (Cover with
+	// Fixed/Repeated bg renders a `<div>` background — no `<img>`
+	// element to target), treat the stored target as 'block'. Avoids
+	// emitting `data-mb-target="img"` on a wrapper that will then
+	// suppress its animation but find no img to redirect to, ending
+	// up with nothing animating.
+	const imgTargetAvailable = ! isImageTargetUnavailable(
+		blockType.name,
+		attributes
+	);
+	if ( imgTargetAvailable ) {
+		if (
+			animationType === 'image-move' ||
+			animationType === 'image-zoom'
+		) {
+			dataAttrs[ 'data-mb-target' ] = 'img';
+		} else if (
+			animationType &&
+			( attributes.animationFromToTarget || 'block' ) === 'img'
+		) {
+			dataAttrs[ 'data-mb-target' ] = 'img';
+		}
 	}
 
 	// Acceleration (timing function). Resolve the `custom` sentinel
@@ -1540,15 +1560,24 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 	// slot (those always imply img-target) OR the "Animate image only"
 	// toggle being set on any other type. The toggle is a shared attr
 	// (animationFromToTarget) — applies to both slots uniformly.
+	//
+	// Gating: skip emission when img-target is unavailable for the
+	// block (Cover with Fixed/Repeated bg has no `<img>` element).
+	// See addAnimationSaveProps for the matching rationale.
 	const slotTarget = attributes.animationFromToTarget || 'block';
 	const hasImageEffectSlot =
 		entryType === 'image-move' ||
 		entryType === 'image-zoom' ||
 		exitType === 'image-move' ||
 		exitType === 'image-zoom';
+	const imgTargetAvailable = ! isImageTargetUnavailable(
+		blockType.name,
+		attributes
+	);
 	if (
-		hasImageEffectSlot ||
-		( slotTarget === 'img' && ( entryType || exitType ) )
+		imgTargetAvailable &&
+		( hasImageEffectSlot ||
+			( slotTarget === 'img' && ( entryType || exitType ) ) )
 	) {
 		dataAttrs[ 'data-mb-target' ] = 'img';
 	}

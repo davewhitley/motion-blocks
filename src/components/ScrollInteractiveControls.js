@@ -285,14 +285,8 @@ export default function ScrollInteractiveControls( {
 										'Unavailable while Fixed background or Repeated background is on — see the notice above.',
 										'motion-blocks'
 								  )
-								: ( attributes.animationFromToTarget ||
-										'block' ) === 'img'
-								? __(
-										'Animates only the image. Overlay text and other inner content stay still.',
-										'motion-blocks'
-								  )
 								: __(
-										'Animates the whole block, including any overlay content.',
+										'Animate the background only. Text and other inner blocks are excluded.',
 										'motion-blocks'
 								  )
 						}

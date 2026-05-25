@@ -241,6 +241,23 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
     return $attrs;
 }
 
+/**
+ * Mirror of isImageTargetUnavailable() in src/components/constants.js.
+ *
+ * Cover renders an `<img class="wp-block-cover__image-background">` by
+ * default; with `hasParallax` (Fixed background) or `isRepeated`
+ * (Repeated background) it switches to a `<div style="background-
+ * image:…">` and no `<img>` exists for our redirect CSS to target.
+ * In that mode the "Animate image only" toggle is gated to OFF so the
+ * whole block animates instead of silently failing.
+ */
+function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
+    if ( $block_name !== 'core/cover' ) {
+        return false;
+    }
+    return ! empty( $attrs['hasParallax'] ) || ! empty( $attrs['isRepeated'] );
+}
+
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs = $block['attrs'] ?? array();
     $mode  = $attrs['animationMode'] ?? '';
@@ -318,16 +335,25 @@ function motion_blocks_render_block( $block_content, $block ) {
     $shared       = motion_blocks_shared_constants();
     $custom_props = $shared['propertyCssVar'] ?? array();
 
+    $img_target_available = ! motion_blocks_is_image_target_unavailable(
+        $block['blockName'] ?? '',
+        $attrs
+    );
+
     if ( $mode === 'scroll-appear' ) {
         // Slot model img-target: triggered either by an image-effect
         // type (always implies img-target) or by the shared
         // "Animate image only" toggle being on for any other type.
+        // Gated on availability — see motion_blocks_is_image_target_unavailable.
         $slot_target  = $attrs['animationFromToTarget'] ?? 'block';
         $has_img_effect = in_array( $entry_type, array( 'image-move', 'image-zoom' ), true )
             || in_array( $exit_type, array( 'image-move', 'image-zoom' ), true );
         if (
-            $has_img_effect ||
-            ( $slot_target === 'img' && ( $entry_type !== '' || $exit_type !== '' ) )
+            $img_target_available &&
+            (
+                $has_img_effect ||
+                ( $slot_target === 'img' && ( $entry_type !== '' || $exit_type !== '' ) )
+            )
         ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
         }
@@ -442,11 +468,15 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Page Load + Scroll Interactive — shared attribute emission.
         $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
+        // Gated on availability — see the scroll-appear branch above
+        // and motion_blocks_is_image_target_unavailable for the rationale.
         $shared_target = $attrs['animationFromToTarget'] ?? 'block';
-        if ( $type === 'image-move' || $type === 'image-zoom' ) {
-            $processor->set_attribute( 'data-mb-target', 'img' );
-        } elseif ( $type !== '' && $shared_target === 'img' ) {
-            $processor->set_attribute( 'data-mb-target', 'img' );
+        if ( $img_target_available ) {
+            if ( $type === 'image-move' || $type === 'image-zoom' ) {
+                $processor->set_attribute( 'data-mb-target', 'img' );
+            } elseif ( $type !== '' && $shared_target === 'img' ) {
+                $processor->set_attribute( 'data-mb-target', 'img' );
+            }
         }
 
         $acceleration = $attrs['animationAcceleration'] ?? 'ease';

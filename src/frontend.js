@@ -410,6 +410,20 @@
 		) {
 			return;
 		}
+		// Image effects are v1-scoped to `core/cover` (see
+		// IMAGE_EFFECT_BLOCKS in constants.js). If a legacy block was
+		// saved before the restriction landed and still has image-move
+		// / image-zoom set on a non-Cover block, no-op rather than
+		// animating into a clip-frame-less figure (would visually
+		// "explode" past the figure bounds onto surrounding content).
+		// The editor's dropdown no longer offers these on non-Cover
+		// blocks, so users can pick a different effect on next edit.
+		if (
+			( type === 'image-move' || type === 'image-zoom' ) &&
+			! el.classList.contains( 'wp-block-cover' )
+		) {
+			return;
+		}
 		var fromBody;
 		var toBody;
 		if ( type === 'image-move' ) {
@@ -484,6 +498,20 @@
 		var imgTarget = el.dataset.mbTarget === 'img';
 		var entryName = null;
 		var exitName = null;
+
+		// Image effects are v1-scoped to Cover blocks. Strip orphaned
+		// legacy selections on non-Cover blocks so they don't render
+		// without a clip frame. See the non-slot path above for the
+		// same gate + rationale.
+		var isCover = el.classList.contains( 'wp-block-cover' );
+		if ( ! isCover ) {
+			if ( entryType === 'image-move' || entryType === 'image-zoom' ) {
+				entryType = '';
+			}
+			if ( exitType === 'image-move' || exitType === 'image-zoom' ) {
+				exitType = '';
+			}
+		}
 
 		// Entry slot. Three flavors share the same synthesis path:
 		//   - `custom`        — keyframe built from the user's From/To attrs

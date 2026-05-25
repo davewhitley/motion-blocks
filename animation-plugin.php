@@ -281,20 +281,9 @@ function motion_blocks_render_block( $block_content, $block ) {
     // Check if classes are already present (static blocks saved with JS filter).
     // For static blocks, the editor's getSaveContent filter has already
     // added `mb-animated` and the data attributes to the saved HTML, so
-    // we don't need to do that work again. But we DO still need to
-    // run the image-effect wrap pass on the raw content — that pass
-    // injects new markup (a wrapper div), which can't be expressed via
-    // the JS save-props filter (it only adds attributes to the wrapper,
-    // not inner markup).
+    // we don't need to do that work again.
     $existing_class = $processor->get_attribute( 'class' ) ?? '';
     if ( str_contains( $existing_class, 'mb-animated' ) ) {
-        $block_name_for_wrap = $block['blockName'] ?? '';
-        if (
-            $block_name_for_wrap === 'core/image' &&
-            motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type )
-        ) {
-            return motion_blocks_wrap_image_for_effect( $block_content );
-        }
         return $block_content;
     }
 
@@ -572,25 +561,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         $processor->set_attribute( 'style', $existing_style );
     }
 
-    $html = $processor->get_updated_html();
-
-    // Wrap the first <img> inside core/image figures in a
-    // .mb-img-frame div when an image effect is active. The wrapper
-    // is what carries `overflow: clip` (via the existing :has(> img)
-    // selector in animations.css), so the figcaption — which sits
-    // outside the wrapper as a sibling — isn't pulled into the clip
-    // region. Cover blocks are intentionally skipped (no figcaption,
-    // and the background img is absolutely-positioned; wrapping
-    // would require mirroring those positioning rules).
-    $block_name_for_wrap = $block['blockName'] ?? '';
-    if (
-        $block_name_for_wrap === 'core/image' &&
-        motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type )
-    ) {
-        $html = motion_blocks_wrap_image_for_effect( $html );
-    }
-
-    return $html;
+    return $processor->get_updated_html();
 }
 
 /**
@@ -618,60 +589,6 @@ function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type,
     return ! in_array( $type, $incompatible, true );
 }
 
-/**
- * Detect whether the current block's resolved animation type is one
- * of the image-bound effects (image-move / image-zoom). For Scroll
- * Appear that means the Entry OR Exit slot type; for Page Load and
- * Scroll Interactive it's the shared animationType. Image effects
- * always imply `data-mb-target="img"` and need the wrapper for
- * proper caption isolation.
- */
-function motion_blocks_uses_image_effect( $mode, $type, $entry_type, $exit_type = '' ) {
-    // Mirrors IMAGE_EFFECT_TYPES in constants.js (same JSON).
-    $image_effects = motion_blocks_shared_constants()['imageEffectTypes'] ?? array();
-    if ( $mode === 'scroll-appear' ) {
-        return in_array( $entry_type, $image_effects, true )
-            || in_array( $exit_type, $image_effects, true );
-    }
-    return in_array( $type, $image_effects, true );
-}
-
-/**
- * Wrap the first `<img>` element in `$html` with
- * `<div class="mb-img-frame">…</div>`. The wrapper goes around just
- * the img tag, so siblings (figcaption, additional content) stay
- * outside the clipped region. Handles self-closing (`<img />`) and
- * non-self-closing (`<img>`) forms.
- *
- * Uses `WP_HTML_Tag_Processor` to verify that the input actually
- * contains an img before invoking the wrap regex — matches the
- * rest of the file's HTML-handling approach, and lets us short-
- * circuit silently when an image-effect block is somehow rendered
- * without an img (caller bug or unexpected markup variation).
- *
- * The actual wrap is still done via `preg_replace` because
- * `WP_HTML_Tag_Processor` doesn't support structural changes —
- * it's an attribute-modification API. The regex is fine for
- * rendered block HTML where attribute values are quoted properly
- * by WP's own emitters.
- */
-function motion_blocks_wrap_image_for_effect( $html ) {
-    $probe = new WP_HTML_Tag_Processor( $html );
-    if ( ! $probe->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
-        // No img to wrap — return unchanged. The caller already
-        // validated that the block uses an image effect; if there's
-        // no img here it's an unexpected markup shape.
-        return $html;
-    }
-    // Match the first <img …> tag (self-closing or not). Non-greedy
-    // attribute match stops at the first unescaped `>`.
-    return preg_replace(
-        '/(<img\b[^>]*\/?>)/i',
-        '<div class="mb-img-frame">$1</div>',
-        $html,
-        1
-    );
-}
 add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );
 
 /**

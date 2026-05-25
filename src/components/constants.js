@@ -49,41 +49,37 @@ export const IMAGE_EFFECT_TYPES = SHARED.imageEffectTypes;
 
 /**
  * Blocks where IMAGE_EFFECT_TYPES are exposed in the Effect dropdown.
- * Intentionally narrower than IMAGE_TARGETABLE_BLOCKS — Featured Image
- * / Avatar / Site Logo / Media&Text have more markup variants and
- * are deferred to a follow-up.
+ *
+ * v1 scope: Cover only. The Cover block has a stable single-img
+ * markup contract (the `wp-block-cover__image-background` img),
+ * doesn't expose figcaption or link wrappers, and `object-fit: cover`
+ * on the inner img composes cleanly with our scoped transform CSS.
+ *
+ * Image blocks are deferred: their figcaption + link variants create
+ * editor-preview clipping issues that require a more invasive wrap
+ * mechanism (see git history for the explored approaches). Frontend
+ * already worked via PHP wrap injection, but the editor preview
+ * didn't, leading to confusing "broken" UX during configuration.
+ * Re-introducing Image block support is a candidate for a follow-up
+ * once the wrap mechanism is unified across editor and frontend.
+ *
+ * Other img-bearing blocks (Featured Image / Avatar / Site Logo /
+ * Media&Text) also have markup variants that need dedicated handling.
  */
-export const IMAGE_EFFECT_BLOCKS = [ 'core/image', 'core/cover' ];
+export const IMAGE_EFFECT_BLOCKS = [ 'core/cover' ];
 
 
 /**
- * Block types where the From/To "Target = Image only" toggle is
- * meaningful. These all have a single primary `<img>` as their main
- * subject, and animating that img specifically gives a cleaner result
- * than animating the whole block wrapper.
- *
- * Other blocks (Group, Columns, Gallery, Query Loop) are intentionally
- * omitted: for those, the right pattern is to apply the animation to
- * the inner Image block itself, not to the container.
+ * Block types where the From/To "Animate image only" toggle is
+ * meaningful. Same v1 scope as IMAGE_EFFECT_BLOCKS — Cover only.
+ * "Image only" is the same mechanism as Image Move / Image Zoom (it
+ * animates the first img descendant); restricting it to Cover keeps
+ * the v1 contract consistent.
  *
  * Theme/plugin authors can extend the list via the `motion-blocks/
  * image-targetable-blocks` JS filter (see src/index.js).
  */
-export const IMAGE_TARGETABLE_BLOCKS = [
-	'core/image',
-	'core/post-featured-image',
-	'core/site-logo',
-	'core/cover',
-	'core/avatar',
-	'core/media-text',
-	// Renders an author avatar <img> alongside name/bio text. The
-	// avatar is part of the block's output, not a selectable inner
-	// block, so users can't animate it via per-block targeting.
-	'core/post-author',
-	// Single <img> for a commenter's avatar inside the comment
-	// template. No inner block to pick.
-	'core/comment-author-avatar',
-];
+export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
 
 /**
  * Block types that support the "Stagger inner blocks" toggle. When

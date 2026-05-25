@@ -21,11 +21,11 @@ Each block gets one mode at a time, picked from the **Motion Effects** sub-panel
 | Rotate In / Out (±360°) | ✓ | ✓ | ✓ | ✓ |
 | Wipe / Curtain | ✓ | ✓ | ✓ | ✓ |
 | Flip | ✓ | ✓ | — | ✓ |
-| **Image Move (Beta)** | ✓ | ✓ | ✓ | ✓ |
-| **Image Zoom (Beta)** | ✓ | ✓ | ✓ | ✓ |
+| **Image Move (Beta)** *(Cover only)* | ✓ | ✓ | ✓ | ✓ |
+| **Image Zoom (Beta)** *(Cover only)* | ✓ | ✓ | ✓ | ✓ |
 | **Custom** (From / To) | ✓ | ✓ | ✓ | ✓ |
 
-Image Move and Image Zoom are block-gated to `core/image` and `core/cover` only — they animate the first `<img>` descendant rather than the block wrapper. For Image blocks with a caption, a server-side `<div class="mb-img-frame">` wrapper is injected so the figcaption stays outside the clip region.
+**Image Move, Image Zoom, and Custom "Animate image only" target are v1-scoped to `core/cover` blocks.** Cover has a clean single-img markup contract (the `wp-block-cover__image-background` img) without figcaption or link variants, so the image-effect machinery composes reliably with the editor preview and frontend render path. Image blocks get the rest of the catalog (fade / slide / scale / blur / rotate / wipe / curtain / flip / Custom on the entire figure) but can't currently use img-targeted effects. Re-introducing Image block support is on the roadmap once the wrap mechanism is unified across editor and frontend.
 
 ### Cover block — known interactions
 

@@ -1167,12 +1167,22 @@ export function presetToFromToAttributes( type, direction, options = {} ) {
 	if ( ! preset ) {
 		return null;
 	}
-	// Start from identity for the four standard rows so the panel
+	// First, null EVERY From/To attribute. Without this, switching
+	// from one preset to another via Edit silently inherits stale
+	// From/To values from whatever Custom animation was configured
+	// previously — e.g. user makes a rotate Custom, switches Effect
+	// to Image Move, clicks Edit, and sees rotate rows from the
+	// previous animation populated in the panel.
+	const out = {};
+	for ( const key of ALL_CUSTOM_FROM_TO_KEYS ) {
+		out[ key ] = null;
+	}
+	// Overlay identity for the four standard rows so the panel
 	// always shows Opacity/Scale/Move X/Move Y. The preset's actual
 	// values (which may also include blur/rotate/clipPath/etc.) are
 	// applied on top — any extra rows appear because their attribute
 	// is now non-null, which `isPropertyAdded` reads as "added".
-	const out = { ...CUSTOM_STANDARD_IDENTITY_FROM_TO };
+	Object.assign( out, CUSTOM_STANDARD_IDENTITY_FROM_TO );
 	for ( const [ propId, val ] of Object.entries( preset.from || {} ) ) {
 		const attr = FROM_ATTR[ propId ];
 		if ( attr ) {

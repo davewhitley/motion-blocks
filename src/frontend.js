@@ -161,6 +161,30 @@
 	 * is the shared `mbFromX` / `mbToX` used by Page Load and Scroll
 	 * Interactive.
 	 */
+	/**
+	 * Append `unit` to `value` only when `value` looks purely
+	 * numeric. Custom From/To values are stored in BOTH formats
+	 * depending on which input control wrote them:
+	 *   - some flows store `"-10deg"` / `"8px"` (unit included)
+	 *   - others store `"0"` / `"360"` / `"40"` (bare number)
+	 *
+	 * The frontend has to handle both. If we always appended the
+	 * unit we'd produce `rotate(-10degdeg)` for the first format
+	 * (invalid CSS, invalidates the whole transform); if we never
+	 * appended it we'd produce `rotate(0)` for the second format
+	 * (also invalid — rotate() requires an angle unit). The regex
+	 * matches an optionally-signed integer or decimal — anything
+	 * with a trailing letter or `%` or `vw` etc. passes through.
+	 */
+	function withUnit( value, unit ) {
+		if ( value === undefined || value === null ) {
+			return value;
+		}
+		return /^-?\d+(\.\d+)?$/.test( String( value ).trim() )
+			? value + unit
+			: value;
+	}
+
 	function buildSideBody( el, sideKey, attrPrefix ) {
 		var bag = {};
 		CUSTOM_PROPS.forEach( function ( p ) {
@@ -196,36 +220,29 @@
 		if ( hasTx || hasTy ) {
 			tx.push(
 				'translate(' +
-					( hasTx ? bag.translateX : '0px' ) +
+					( hasTx ? withUnit( bag.translateX, 'px' ) : '0px' ) +
 					', ' +
-					( hasTy ? bag.translateY : '0px' ) +
+					( hasTy ? withUnit( bag.translateY, 'px' ) : '0px' ) +
 					')'
 			);
 		}
 		if ( bag.scale !== undefined ) {
 			tx.push( 'scale(' + bag.scale + ')' );
 		}
-		// Note: rotate / blur / translate values come from data
-		// attributes that already include their CSS unit suffix
-		// (e.g. `"-10deg"`, `"8px"`, `"40px"`). Don't append another
-		// suffix here — doing so produces `rotate(-10degdeg)`, which
-		// is invalid; CSS rejects the whole `transform` declaration
-		// when any component in the list is invalid, dropping the
-		// translate / scale / etc. along with it.
 		if ( bag.rotate !== undefined ) {
-			tx.push( 'rotate(' + bag.rotate + ')' );
+			tx.push( 'rotate(' + withUnit( bag.rotate, 'deg' ) + ')' );
 		}
 		if ( bag.rotateX !== undefined ) {
-			tx.push( 'rotateX(' + bag.rotateX + ')' );
+			tx.push( 'rotateX(' + withUnit( bag.rotateX, 'deg' ) + ')' );
 		}
 		if ( bag.rotateY !== undefined ) {
-			tx.push( 'rotateY(' + bag.rotateY + ')' );
+			tx.push( 'rotateY(' + withUnit( bag.rotateY, 'deg' ) + ')' );
 		}
 		if ( tx.length > 0 ) {
 			decls.push( 'transform: ' + tx.join( ' ' ) );
 		}
 		if ( bag.blur !== undefined ) {
-			decls.push( 'filter: blur(' + bag.blur + ')' );
+			decls.push( 'filter: blur(' + withUnit( bag.blur, 'px' ) + ')' );
 		}
 		if ( bag.clipPath !== undefined ) {
 			decls.push( 'clip-path: ' + bag.clipPath );

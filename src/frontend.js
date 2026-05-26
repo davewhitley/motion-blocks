@@ -938,29 +938,44 @@
 	}
 
 	/**
+	 * Restart a CSS animation by toggling the class that binds it.
+	 * Reading `offsetWidth` between remove and add forces a layout
+	 * flush so the browser treats the next class application as a
+	 * brand-new animation cycle rather than a continuation. Painting
+	 * happens at the next frame boundary, so the brief class-less
+	 * intermediate state doesn't flash visually.
+	 */
+	function restartAnimation( el, className ) {
+		el.classList.remove( className );
+		void el.offsetWidth;
+		el.classList.add( className );
+	}
+
+	/**
 	 * Handle an entering-viewport event. Fires the Entry slot if
-	 * it's filled. If not, removes any lingering `mb-exit-triggered`
-	 * class so the element returns to its base visible state.
+	 * it's filled. For Exit-only blocks re-entering after a prior
+	 * forward exit, reverse-plays the exit keyframe so the element
+	 * glides back to its natural state instead of snap-cutting.
 	 */
 	function handleSlotEnter( el, entry, hasExit, playOnce, observer ) {
 		if ( entry.type === '' ) {
-			// Entry slot empty (e.g., Exit-only block re-entering
-			// viewport). Drop the exit-triggered class and clear any
-			// reverse-direction flag from a Custom exit. The element
-			// returns to its natural base state — no entry animation
-			// to play.
-			el.classList.remove( 'mb-exit-triggered' );
-			el.style.setProperty( '--mb-direction', 'normal' );
+			// Entry slot empty (Exit-only block). If a prior exit has
+			// fired, reverse-play it as the implicit entry: the exit
+			// keyframe's "from" end is the natural state, so playing
+			// to→from runs the animation backwards into rest. When
+			// no exit has fired yet (e.g., scrolling up to a block
+			// for the first time), there's nothing to reverse.
+			if ( el.classList.contains( 'mb-exit-triggered' ) ) {
+				el.style.setProperty( '--mb-direction', 'reverse' );
+				restartAnimation( el, 'mb-exit-triggered' );
+			}
 			return;
 		}
 
 		applySlotVars( el, entry );
-		// Mirror re-entry on Custom / image-move resets the reverse
-		// flag that the prior exit set. Non-custom types use their
-		// own `mbXxxOut` keyframes on exit, so no reverse flag.
-		if ( entry.type === 'custom' || entry.type === 'image-move' ) {
-			el.style.setProperty( '--mb-direction', 'normal' );
-		}
+		// Reset direction in case a prior round-trip exit (Custom /
+		// image-move legacy path) left it on reverse.
+		el.style.setProperty( '--mb-direction', 'normal' );
 
 		el.classList.remove( 'mb-exit-triggered' );
 		el.classList.add( 'mb-triggered' );
@@ -991,18 +1006,15 @@
 		}
 
 		applySlotVars( el, exit );
-		// Custom and image-move types share a single per-block
-		// keyframe across entry and exit phases. To play it as the
-		// "exit" animation we run it in reverse via --mb-direction.
-		// Non-custom types have explicit mbXxxOut keyframes already
-		// bound by the `.mb-exit-{type}.mb-exit-triggered` rules in
-		// animations.css.
-		if ( exit.type === 'custom' || exit.type === 'image-move' ) {
-			el.style.setProperty( '--mb-direction', 'reverse' );
-		}
-
+		// Forward exit always plays the exit slot's own keyframe in
+		// the forward direction. Reset --mb-direction in case the
+		// previous transition was an Exit-only re-enter (which sets
+		// reverse). Restart the animation via class toggle so a
+		// second forward exit after a re-enter actually replays
+		// rather than no-op'ing on the already-present class.
+		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-triggered' );
-		el.classList.add( 'mb-exit-triggered' );
+		restartAnimation( el, 'mb-exit-triggered' );
 
 		// Stop observing if playOnce is on AND there's no entry slot
 		// to replay back from. Round-trip configs (both slots) ignore

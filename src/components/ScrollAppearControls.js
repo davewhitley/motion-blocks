@@ -138,13 +138,13 @@ export default function ScrollAppearControls( props ) {
 
 			{ /* Play once — only meaningful when the Entry slot is
 			   filled (semantic: "fire the entry animation once and
-			   stop observing"). With Entry empty, this toggle is
-			   disabled because the natural Exit-only semantic is
-			   "always observable" — Play once would leave the
-			   element stuck in its faded-out state forever. */ }
+			   stop observing"). With Entry empty the toggle is
+			   disabled: Exit-only blocks naturally round-trip —
+			   forward exit on scroll-down, reverse-played exit on
+			   scroll-up — so "Play once" doesn't apply. */ }
 			<ToggleControl
 				label={ __( 'Play once', 'motion-blocks' ) }
-				checked={ !! attributes.animationPlayOnce }
+				checked={ hasEntry && !! attributes.animationPlayOnce }
 				disabled={ ! hasEntry }
 				onChange={ ( value ) =>
 					setAttributes( { animationPlayOnce: value } )
@@ -156,7 +156,7 @@ export default function ScrollAppearControls( props ) {
 								'motion-blocks'
 						  )
 						: __(
-								'Add an Entry effect to enable Play once.',
+								'Exit animations reverse-play when you scroll back up.',
 								'motion-blocks'
 						  )
 				}

@@ -894,13 +894,26 @@
 			var vh = window.innerHeight;
 			// Match the previous IO config (`-15% 0px -15% 0px`
 			// rootMargin + threshold 0.1). Trigger zone is the middle
-			// 70% of the viewport; an element is "in zone" when its
-			// layout box overlaps that range.
+			// 70% of the viewport; an element is "in zone" when
+			// 10%+ of its area is in that range — same as IO.
+			//
+			// CRITICAL: using "any overlap" instead of the 10%
+			// threshold here breaks the IO + cached-bounds hybrid.
+			// IO fires intersecting=false at exactly the 10% boundary;
+			// if cached-bounds disagrees and still reports inZone at
+			// that moment, tick no-ops and the exit handler never
+			// fires — then IO stops firing because its intersection
+			// state has settled at false, leaving the element stuck.
 			var triggerTop = currentScrollY + vh * 0.15;
 			var triggerBottom = currentScrollY + vh * 0.85;
-			var inZone =
-				state.pageBottom > triggerTop &&
-				state.pageTop < triggerBottom;
+			var overlap = Math.max(
+				0,
+				Math.min( state.pageBottom, triggerBottom ) -
+					Math.max( state.pageTop, triggerTop )
+			);
+			var ratio =
+				state.pageHeight > 0 ? overlap / state.pageHeight : 0;
+			var inZone = ratio >= 0.1;
 			if ( inZone === state.inZone ) {
 				// No flip. Bbox-bounce IO callbacks land here and
 				// silently no-op.

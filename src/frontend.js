@@ -1054,6 +1054,39 @@
 				} );
 			}, 100 );
 		} );
+
+		// Scroll listener safety net.
+		//
+		// IO is the efficient primary wake-up, but it has a known
+		// failure mode with animated elements: when a bbox-changing
+		// animation (rotate, scale) runs, the transformed AABB can
+		// leave IO settled in the "wrong" intersection state by the
+		// time the animation completes. If the user then scrolls back
+		// without crossing IO's threshold from the settled state's
+		// perspective, no IO callback fires and tick() never runs —
+		// onEnterBack (reverse-play of the exit) never dispatches.
+		//
+		// The scroll listener catches these missed wake-ups. It's
+		// rAF-throttled (one tick per frame max) so the cost is
+		// bounded even on long pages with many animated blocks. The
+		// tick() function's `inZone === state.inZone` short-circuit
+		// makes redundant calls (when IO already fired for this same
+		// frame) cheap no-ops.
+		var scrollScheduled = false;
+		window.addEventListener(
+			'scroll',
+			function () {
+				if ( scrollScheduled ) {
+					return;
+				}
+				scrollScheduled = true;
+				requestAnimationFrame( function () {
+					scrollScheduled = false;
+					states.forEach( tick );
+				} );
+			},
+			{ passive: true }
+		);
 	}
 
 	/**

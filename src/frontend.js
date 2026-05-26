@@ -790,41 +790,43 @@
 			return;
 		}
 
-		// Architecture: scroll-event listener + cached page-relative
-		// bounds (rather than IntersectionObserver).
+		// Architecture: IntersectionObserver as a "something changed
+		// near the trigger zone" wake-up signal + cached page-relative
+		// LAYOUT bounds (offsetTop / offsetHeight) as the source of
+		// truth for trigger decisions. Mirrors how ScrollMagic v3
+		// uses IO + cached geometry (and how GSAP ScrollTrigger uses
+		// scroll events + refreshed bounds).
 		//
-		// Why we don't use IO here: IO recomputes intersection from
-		// the element's CURRENT geometry, which includes CSS transforms.
-		// Animations that change the bounding box (rotate's AABB
-		// expansion through 45°, slide translates, scale grows /
-		// shrinks the box) feed back into IO and produce a flicker
-		// loop where the trigger detection is driven by the animation
-		// itself rather than by the user's scroll. We tried multiple
-		// downstream guards (idempotency in 2e9d8ce, dir==='same' in
-		// 641c8d5, animation-in-progress flag in 915a127) — each
-		// reduced the damage but couldn't eliminate the class of bug,
-		// because trackpad scrolling introduces sub-pixel jitter that
+		// Why not trust IO directly: IO's intersection result uses
+		// the element's CURRENT rendered geometry, which includes CSS
+		// transforms. Animations that change the bbox (rotate's AABB
+		// expansion, slide translates, scale grows/shrinks the box)
+		// feed back into IO and produce a flicker loop where trigger
+		// detection is driven by the animation itself rather than by
+		// the user's scroll. Earlier downstream guards (2e9d8ce,
+		// 641c8d5, 915a127) each reduced the damage but couldn't
+		// eliminate the class of bug — trackpad sub-pixel jitter
 		// defeats scroll-delta heuristics.
 		//
-		// GSAP ScrollTrigger, ScrollMagic v3, and AOS all solve this
-		// the same way: cache the element's LAYOUT bounds (via
-		// offsetTop/offsetHeight — transform-immune) at refresh time,
-		// then check page-relative positions against the current
-		// scroll viewport on each scroll tick. Animations on the
-		// element don't change its layout bounds, so the trigger
-		// detection is stable regardless of what the animation is
-		// doing visually.
+		// The fix: keep IO for the wake-up (efficient, compositor-
+		// thread, fires only when geometry approaches the threshold)
+		// but ignore its `isIntersecting` value. Instead, on each IO
+		// callback, run `tick(state)` which compares cached layout
+		// bounds against the current scroll viewport. Cached bounds
+		// are transform-immune (offsetTop ignores transforms), so the
+		// trigger decision is stable regardless of what the animation
+		// is doing visually. If the cached inZone doesn't flip, tick
+		// is a no-op — bbox-bounce IO callbacks become silent.
 		//
 		// Direction-aware dispatch (GSAP toggleActions analog) is
-		// preserved from the previous IO implementation:
+		// preserved:
 		//   in zone   + dir=down/same → onEnter     (fire Entry)
 		//   in zone   + dir=up        → onEnterBack (reverse-play exit)
-		//   out zone  + dir=down      → onLeave     (fire Exit forward)
+		//   out zone  + dir=down/same → onLeave     (fire Exit forward)
 		//   out zone  + dir=up        → onLeaveBack (no-op)
 
 		var states = [];
 		var prevScrollY = window.scrollY;
-		var tickScheduled = false;
 
 		/**
 		 * Compute the element's page-relative top via the offsetParent
@@ -835,8 +837,8 @@
 		 *
 		 * Edge case: a `position: fixed` ancestor breaks the offsetParent
 		 * chain. For Scroll Appear blocks inside fixed containers the
-		 * bounds will be off; that's a corner case we accept for v1
-		 * (the simpler implementation is worth more than the marginal
+		 * bounds will be off; that's a corner case we accept (the
+		 * simpler implementation is worth more than the marginal
 		 * accuracy gain).
 		 */
 		function refreshBounds( state ) {
@@ -853,15 +855,106 @@
 
 		/**
 		 * Pseudo-observer interface for the handlers (which expect to
-		 * call `observer.unobserve(el)` on play-once). We flip a flag
-		 * that the tick loop checks at the top.
+		 * call `observer.unobserve(el)` on play-once). Flips an
+		 * internal flag that the tick loop checks AND calls
+		 * `state.io.unobserve` to stop the wake-up signal too — saves
+		 * the per-element IO callback cost once the element is
+		 * permanently "done."
 		 */
 		function makeObserver( state ) {
 			return {
 				unobserve: function () {
 					state.unobserved = true;
+					if ( state.io ) {
+						state.io.unobserve( state.el );
+					}
 				},
 			};
+		}
+
+		/**
+		 * The truth function. Reads cached bounds against the current
+		 * scroll viewport, computes inZone, fires a handler only on
+		 * inZone state flips. Called from IO callbacks and from
+		 * ResizeObserver / window resize.
+		 */
+		function tick( state ) {
+			if ( state.unobserved ) {
+				return;
+			}
+			var currentScrollY = window.scrollY;
+			var dir =
+				currentScrollY > prevScrollY
+					? 'down'
+					: currentScrollY < prevScrollY
+					? 'up'
+					: 'same';
+			prevScrollY = currentScrollY;
+
+			var vh = window.innerHeight;
+			// Match the previous IO config (`-15% 0px -15% 0px`
+			// rootMargin + threshold 0.1). Trigger zone is the middle
+			// 70% of the viewport; an element is "in zone" when its
+			// layout box overlaps that range.
+			var triggerTop = currentScrollY + vh * 0.15;
+			var triggerBottom = currentScrollY + vh * 0.85;
+			var inZone =
+				state.pageBottom > triggerTop &&
+				state.pageTop < triggerBottom;
+			if ( inZone === state.inZone ) {
+				// No flip. Bbox-bounce IO callbacks land here and
+				// silently no-op.
+				return;
+			}
+			state.inZone = inZone;
+
+			if ( inZone ) {
+				state.hasEntered = true;
+				if ( dir === 'up' ) {
+					handleSlotReverseEnter( state.el );
+				} else {
+					handleSlotEnter(
+						state.el,
+						state.entry,
+						state.hasExit,
+						state.playOnce,
+						makeObserver( state )
+					);
+				}
+			} else {
+				// Forward-leave guard: skip if the element has
+				// never been in-zone AND has no exit slot. Below-
+				// the-fold blocks at page load shouldn't fire
+				// exits. (Cached bounds make this guard simpler
+				// than the IO version — no rootBounds inference.)
+				if ( ! state.hasEntered && ! state.hasExit ) {
+					return;
+				}
+				if ( ! state.hasEntered ) {
+					// Exit-only block, never entered: only count
+					// as having exited if the element is truly
+					// above the trigger zone (page-relative). Below
+					// the zone means we're still at page-load
+					// initial state.
+					if ( state.pageTop >= triggerBottom ) {
+						return;
+					}
+					state.hasEntered = true;
+				}
+				if ( dir === 'up' ) {
+					// onLeaveBack: no-op. Element fell off the
+					// bottom of the trigger zone while user
+					// scrolled up. Last-seen state stays.
+					return;
+				}
+				handleSlotExit(
+					state.el,
+					state.exit,
+					state.hasEntry,
+					state.playOnce,
+					makeObserver( state )
+				);
+			}
 		}
 
 		elements.forEach( function ( el ) {
@@ -894,135 +987,60 @@
 				pageTop: 0,
 				pageBottom: 0,
 				pageHeight: 0,
+				io: null,
 			};
 			refreshBounds( state );
 
-			// Re-measure when the element's layout actually changes
-			// (image / font loads that change height, theme reflow,
-			// etc.). Transforms don't trigger ResizeObserver since
-			// they don't affect layout, so this is animation-safe.
+			// Per-element ResizeObserver to catch layout changes
+			// (image / font load, theme reflow). Transforms don't
+			// trigger ResizeObserver since they don't affect layout,
+			// so this is animation-safe.
 			if ( typeof ResizeObserver !== 'undefined' ) {
 				var ro = new ResizeObserver( function () {
 					refreshBounds( state );
+					tick( state );
 				} );
 				ro.observe( el );
 			}
 
+			// IO as the wake-up signal. Same threshold + rootMargin
+			// the previous implementation used so the wake-up fires
+			// at the right moments. The callback delegates to tick(),
+			// which makes the actual trigger decision against cached
+			// bounds. IO will also fire spuriously from bbox-bounce
+			// during animations — tick() silently no-ops those.
+			var io = new IntersectionObserver(
+				function () {
+					tick( state );
+				},
+				{
+					threshold: 0.1,
+					rootMargin: '-15% 0px -15% 0px',
+				}
+			);
+			state.io = io;
+			io.observe( el );
+
 			states.push( state );
 		} );
 
-		function tick() {
-			var currentScrollY = window.scrollY;
-			var dir =
-				currentScrollY > prevScrollY
-					? 'down'
-					: currentScrollY < prevScrollY
-					? 'up'
-					: 'same';
-			prevScrollY = currentScrollY;
-
-			var vh = window.innerHeight;
-			// Match the previous IO config (`-15% 0px -15% 0px`
-			// rootMargin + threshold 0.1). Trigger zone is the middle
-			// 70% of the viewport; an element is "in zone" when its
-			// layout box overlaps that range.
-			var triggerTop = currentScrollY + vh * 0.15;
-			var triggerBottom = currentScrollY + vh * 0.85;
-
-			states.forEach( function ( state ) {
-				if ( state.unobserved ) {
-					return;
-				}
-				var inZone =
-					state.pageBottom > triggerTop &&
-					state.pageTop < triggerBottom;
-				if ( inZone === state.inZone ) {
-					return;
-				}
-				state.inZone = inZone;
-
-				if ( inZone ) {
-					state.hasEntered = true;
-					if ( dir === 'up' ) {
-						handleSlotReverseEnter( state.el );
-					} else {
-						handleSlotEnter(
-							state.el,
-							state.entry,
-							state.hasExit,
-							state.playOnce,
-							makeObserver( state )
-						);
-					}
-				} else {
-					// Forward-leave guard: skip if the element has
-					// never been in-zone AND has no exit slot. Below-
-					// the-fold blocks at page load shouldn't fire
-					// exits. (Cached bounds make this guard simpler
-					// than the IO version — no rootBounds inference.)
-					if ( ! state.hasEntered && ! state.hasExit ) {
-						return;
-					}
-					if ( ! state.hasEntered ) {
-						// Exit-only block, never entered: only count
-						// as having exited if the element is truly
-						// above the trigger zone (page-relative). Below
-						// the zone means we're still at page-load
-						// initial state.
-						if ( state.pageTop >= triggerBottom ) {
-							return;
-						}
-						state.hasEntered = true;
-					}
-					if ( dir === 'up' ) {
-						// onLeaveBack: no-op. Element fell off the
-						// bottom of the trigger zone while user
-						// scrolled up. Last-seen state stays.
-						return;
-					}
-					handleSlotExit(
-						state.el,
-						state.exit,
-						state.hasEntry,
-						state.playOnce,
-						makeObserver( state )
-					);
-				}
-			} );
-		}
-
-		// Throttle scroll handler to one tick per animation frame.
-		// At 60Hz that's ~16ms; trackpad / wheel scrolls produce
-		// dozens of scroll events per second otherwise.
-		function onScroll() {
-			if ( tickScheduled ) {
-				return;
-			}
-			tickScheduled = true;
-			requestAnimationFrame( function () {
-				tickScheduled = false;
-				tick();
-			} );
-		}
-
-		// Re-measure on resize after a short debounce (resize fires
-		// rapidly during window drag).
+		// Window resize: viewport-height change affects the trigger
+		// zone calculation, so re-evaluate all states. Per-element
+		// ResizeObserver above catches element-level changes; this
+		// catches viewport-level changes. Debounced because resize
+		// fires rapidly during window drag.
 		var resizeTimer = null;
-		function onResize() {
+		window.addEventListener( 'resize', function () {
 			if ( resizeTimer ) {
 				clearTimeout( resizeTimer );
 			}
 			resizeTimer = setTimeout( function () {
-				states.forEach( refreshBounds );
-				tick();
+				states.forEach( function ( state ) {
+					refreshBounds( state );
+					tick( state );
+				} );
 			}, 100 );
-		}
-
-		// Initial pass — handle elements already in viewport at load.
-		tick();
-
-		window.addEventListener( 'scroll', onScroll, { passive: true } );
-		window.addEventListener( 'resize', onResize );
+		} );
 	}
 
 	/**

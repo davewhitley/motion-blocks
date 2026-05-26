@@ -790,27 +790,79 @@
 			return;
 		}
 
-		// Module-level scroll direction tracking. Shared across all
-		// Scroll Appear blocks so a single scroll event maps onto
-		// every IO callback in the same tick. Initialized to the
-		// current scroll position so the first IO callback resolves
-		// to direction === 'same' (treated as forward) for
-		// anchor-link / direct-load scenarios.
+		// Architecture: scroll-event listener + cached page-relative
+		// bounds (rather than IntersectionObserver).
 		//
-		// Direction-aware IO dispatch (GSAP toggleActions analog):
-		//   isIntersecting=true  + dir=down/same → onEnter     (fire Entry slot)
-		//   isIntersecting=true  + dir=up        → onEnterBack (reverse-play exit if present)
-		//   isIntersecting=false + dir=down/same → onLeave     (fire Exit slot forward)
-		//   isIntersecting=false + dir=up        → onLeaveBack (no-op)
+		// Why we don't use IO here: IO recomputes intersection from
+		// the element's CURRENT geometry, which includes CSS transforms.
+		// Animations that change the bounding box (rotate's AABB
+		// expansion through 45°, slide translates, scale grows /
+		// shrinks the box) feed back into IO and produce a flicker
+		// loop where the trigger detection is driven by the animation
+		// itself rather than by the user's scroll. We tried multiple
+		// downstream guards (idempotency in 2e9d8ce, dir==='same' in
+		// 641c8d5, animation-in-progress flag in 915a127) — each
+		// reduced the damage but couldn't eliminate the class of bug,
+		// because trackpad scrolling introduces sub-pixel jitter that
+		// defeats scroll-delta heuristics.
 		//
-		// Rationale: re-firing the Entry animation on scroll-up
-		// re-enter (the user's reported "weird" UX) collapses two
-		// distinct intents into one. GSAP ScrollTrigger and
-		// ScrollMagic v3 both distinguish these four positions.
-		// raw scrollY delta is the simplest direction signal —
-		// IO progress would be more elegant but isn't monotonic
-		// when bbox-changing animations are mid-play.
+		// GSAP ScrollTrigger, ScrollMagic v3, and AOS all solve this
+		// the same way: cache the element's LAYOUT bounds (via
+		// offsetTop/offsetHeight — transform-immune) at refresh time,
+		// then check page-relative positions against the current
+		// scroll viewport on each scroll tick. Animations on the
+		// element don't change its layout bounds, so the trigger
+		// detection is stable regardless of what the animation is
+		// doing visually.
+		//
+		// Direction-aware dispatch (GSAP toggleActions analog) is
+		// preserved from the previous IO implementation:
+		//   in zone   + dir=down/same → onEnter     (fire Entry)
+		//   in zone   + dir=up        → onEnterBack (reverse-play exit)
+		//   out zone  + dir=down      → onLeave     (fire Exit forward)
+		//   out zone  + dir=up        → onLeaveBack (no-op)
+
+		var states = [];
 		var prevScrollY = window.scrollY;
+		var tickScheduled = false;
+
+		/**
+		 * Compute the element's page-relative top via the offsetParent
+		 * chain. Unlike `getBoundingClientRect()`, `offsetTop` is the
+		 * layout box position — CSS transforms (rotate, scale, translate)
+		 * don't affect it. That's the property we need: animation-stable
+		 * trigger geometry.
+		 *
+		 * Edge case: a `position: fixed` ancestor breaks the offsetParent
+		 * chain. For Scroll Appear blocks inside fixed containers the
+		 * bounds will be off; that's a corner case we accept for v1
+		 * (the simpler implementation is worth more than the marginal
+		 * accuracy gain).
+		 */
+		function refreshBounds( state ) {
+			var top = 0;
+			var n = state.el;
+			while ( n && n.offsetParent !== null ) {
+				top += n.offsetTop;
+				n = n.offsetParent;
+			}
+			state.pageTop = top;
+			state.pageHeight = state.el.offsetHeight;
+			state.pageBottom = top + state.pageHeight;
+		}
+
+		/**
+		 * Pseudo-observer interface for the handlers (which expect to
+		 * call `observer.unobserve(el)` on play-once). We flip a flag
+		 * that the tick loop checks at the top.
+		 */
+		function makeObserver( state ) {
+			return {
+				unobserve: function () {
+					state.unobserved = true;
+				},
+			};
+		}
 
 		elements.forEach( function ( el ) {
 			var entry = readSlotConfig( el, 'entry' );
@@ -820,194 +872,157 @@
 			if ( ! hasEntry && ! hasExit ) {
 				return;
 			}
-			// Play once is meaningful only when the Entry slot is
-			// filled (semantic: "fire the entry animation exactly
-			// once, then unobserve"). When only Exit is filled, the
-			// block is observable indefinitely so the user can scroll
-			// back to it and see the fade-out replay.
 			var playOnce =
 				hasEntry && el.dataset.mbPlayOnce !== 'false';
-			// Track whether the element has been seen at least once,
-			// so the IO's initial "not intersecting" callback doesn't
-			// fire the exit animation before any enter has happened.
-			var hasEntered = false;
-
-			// Animation-in-progress flag — set by animationstart, reset
-			// by animationend / animationcancel. Combined with a small
-			// scroll-delta threshold below, this catches the bbox-
-			// feedback loop where a rotate-out's expanding AABB makes
-			// IO oscillate between intersecting=true and false within
-			// a few frames, flipping handleSlotEnter and handleSlotExit
-			// in a tight loop while the user isn't actively scrolling.
-			// `lastFireScrollY` tracks the scroll position at which we
-			// last dispatched a handler — used to distinguish bbox-
-			// driven IO from user-driven IO.
-			var animating = false;
-			var lastFireScrollY = window.scrollY;
-			el.addEventListener( 'animationstart', function () {
-				animating = true;
-			} );
-			el.addEventListener( 'animationend', function () {
-				animating = false;
-			} );
-			el.addEventListener( 'animationcancel', function () {
-				animating = false;
-			} );
 
 			// Apply baseline direction / blur / rotate / custom-keyframe
-			// setup. Per-slot timing is applied on each transition below.
+			// setup. Per-slot timing is applied on each transition.
 			applyCustomKeyframe( el );
 			applyBlurProps( el );
 			applyRotateProps( el );
 
-			var observer = new IntersectionObserver(
-				function ( entries ) {
-					// Compute direction once per IO tick (entries may
-					// contain multiple elements but they all share the
-					// same scroll-position snapshot).
-					var currentScrollY = window.scrollY;
-					var dir =
-						currentScrollY > prevScrollY
-							? 'down'
-							: currentScrollY < prevScrollY
-							? 'up'
-							: 'same';
-					prevScrollY = currentScrollY;
+			var state = {
+				el: el,
+				entry: entry,
+				exit: exit,
+				hasEntry: hasEntry,
+				hasExit: hasExit,
+				playOnce: playOnce,
+				inZone: false,
+				hasEntered: false,
+				unobserved: false,
+				pageTop: 0,
+				pageBottom: 0,
+				pageHeight: 0,
+			};
+			refreshBounds( state );
 
-					entries.forEach( function ( ioEntry ) {
-						// Geometry-bounce guard.
-						//
-						// When an animation that changes the element's
-						// bounding box is in progress (rotate's AABB
-						// growing through 45°, slide translating, scale
-						// growing/shrinking), the IntersectionObserver
-						// can oscillate between intersecting=true and
-						// intersecting=false within a few frames —
-						// flipping handleSlotEnter and handleSlotExit
-						// in a tight loop and producing visible class-
-						// toggle flicker, even while the user isn't
-						// scrolling.
-						//
-						// The per-handler idempotency guards from
-						// 2e9d8ce catch SAME-handler re-fires (rapid
-						// duplicate exits, etc.) but not the CROSS-
-						// handler loop where each fire passes the
-						// guard because the OPPOSITE class is present.
-						//
-						// Distinguish "real scroll across threshold"
-						// from "bbox bounced across threshold" by
-						// requiring BOTH (a) no animation in flight
-						// OR (b) the user actually moved a meaningful
-						// number of scroll pixels since we last fired
-						// a handler. Pure pauses (case a true) and
-						// pure scroll-past-during-animation (case b
-						// true) both pass; the loop case (a false +
-						// b false) is blocked.
-						//
-						// The `hasEntered` gate preserves first-tick
-						// initial-state behavior: at observer init the
-						// scroll delta is zero and animating is false,
-						// so the first IO callback fires normally.
-						var scrollDelta = Math.abs(
-							currentScrollY - lastFireScrollY
+			// Re-measure when the element's layout actually changes
+			// (image / font loads that change height, theme reflow,
+			// etc.). Transforms don't trigger ResizeObserver since
+			// they don't affect layout, so this is animation-safe.
+			if ( typeof ResizeObserver !== 'undefined' ) {
+				var ro = new ResizeObserver( function () {
+					refreshBounds( state );
+				} );
+				ro.observe( el );
+			}
+
+			states.push( state );
+		} );
+
+		function tick() {
+			var currentScrollY = window.scrollY;
+			var dir =
+				currentScrollY > prevScrollY
+					? 'down'
+					: currentScrollY < prevScrollY
+					? 'up'
+					: 'same';
+			prevScrollY = currentScrollY;
+
+			var vh = window.innerHeight;
+			// Match the previous IO config (`-15% 0px -15% 0px`
+			// rootMargin + threshold 0.1). Trigger zone is the middle
+			// 70% of the viewport; an element is "in zone" when its
+			// layout box overlaps that range.
+			var triggerTop = currentScrollY + vh * 0.15;
+			var triggerBottom = currentScrollY + vh * 0.85;
+
+			states.forEach( function ( state ) {
+				if ( state.unobserved ) {
+					return;
+				}
+				var inZone =
+					state.pageBottom > triggerTop &&
+					state.pageTop < triggerBottom;
+				if ( inZone === state.inZone ) {
+					return;
+				}
+				state.inZone = inZone;
+
+				if ( inZone ) {
+					state.hasEntered = true;
+					if ( dir === 'up' ) {
+						handleSlotReverseEnter( state.el );
+					} else {
+						handleSlotEnter(
+							state.el,
+							state.entry,
+							state.hasExit,
+							state.playOnce,
+							makeObserver( state )
 						);
-						var SCROLL_DELTA_PX = 5;
-						if (
-							animating &&
-							scrollDelta < SCROLL_DELTA_PX &&
-							hasEntered
-						) {
+					}
+				} else {
+					// Forward-leave guard: skip if the element has
+					// never been in-zone AND has no exit slot. Below-
+					// the-fold blocks at page load shouldn't fire
+					// exits. (Cached bounds make this guard simpler
+					// than the IO version — no rootBounds inference.)
+					if ( ! state.hasEntered && ! state.hasExit ) {
+						return;
+					}
+					if ( ! state.hasEntered ) {
+						// Exit-only block, never entered: only count
+						// as having exited if the element is truly
+						// above the trigger zone (page-relative). Below
+						// the zone means we're still at page-load
+						// initial state.
+						if ( state.pageTop >= triggerBottom ) {
 							return;
 						}
-						lastFireScrollY = currentScrollY;
-
-						if ( ioEntry.isIntersecting ) {
-							hasEntered = true;
-							if ( dir === 'up' ) {
-								// onEnterBack: re-entering from above
-								// while scrolling up. Reverse-play
-								// the prior exit if there was one.
-								// Entry slot is NOT re-fired regardless
-								// of playOnce — re-firing on scroll-up
-								// is the UX the user explicitly wants
-								// to avoid.
-								handleSlotReverseEnter( el );
-							} else {
-								// onEnter: scrolling down (or
-								// page-load / anchor first-visible).
-								// Fire the Entry slot via the normal
-								// path.
-								handleSlotEnter(
-									el,
-									entry,
-									hasExit,
-									playOnce,
-									observer
-								);
-							}
-						} else {
-							// Forward-leave guard for Exit-only blocks:
-							// IO can't tell us whether the element left
-							// out the top (forward) or out the bottom
-							// (backward / initial-state). Only fire the
-							// exit animation when the element is fully
-							// above the shrunken viewport — never when
-							// it's below.
-							//
-							// Bug history: an earlier check compared
-							// `rect.bottom > rb.top`, which is true at
-							// the exact moment IO fires not-intersecting
-							// from a forward leave (the threshold drop
-							// happens with a few pixels of overlap still
-							// present), so the guard ate every
-							// legitimate exit. The `rect.top >= rb.bottom`
-							// form correctly only matches the "fully
-							// below viewport" case.
-							if ( ! hasEntered && ! hasExit ) {
-								return;
-							}
-							if ( ! hasEntered ) {
-								// Exit-only block, initial callback:
-								// only count as exited when the element
-								// has truly cleared the top edge. Else
-								// the page-load "below the fold" state
-								// would stamp every block as exited.
-								var rb = ioEntry.rootBounds;
-								if (
-									rb &&
-									ioEntry.boundingClientRect.top >= rb.bottom
-								) {
-									return;
-								}
-								hasEntered = true;
-							}
-							if ( dir === 'up' ) {
-								// onLeaveBack: scrolling up and the
-								// element fell off the bottom edge of
-								// the trigger zone. Intentional no-op
-								// — the element was last seen in its
-								// entered state and that's where it
-								// stays. No reset, no exit fire.
-								return;
-							}
-							handleSlotExit(
-								el,
-								exit,
-								hasEntry,
-								playOnce,
-								observer
-							);
-						}
-					} );
-				},
-				{
-					threshold: 0.1,
-					rootMargin: '-15% 0px -15% 0px',
+						state.hasEntered = true;
+					}
+					if ( dir === 'up' ) {
+						// onLeaveBack: no-op. Element fell off the
+						// bottom of the trigger zone while user
+						// scrolled up. Last-seen state stays.
+						return;
+					}
+					handleSlotExit(
+						state.el,
+						state.exit,
+						state.hasEntry,
+						state.playOnce,
+						makeObserver( state )
+					);
 				}
-			);
+			} );
+		}
 
-			observer.observe( el );
-		} );
+		// Throttle scroll handler to one tick per animation frame.
+		// At 60Hz that's ~16ms; trackpad / wheel scrolls produce
+		// dozens of scroll events per second otherwise.
+		function onScroll() {
+			if ( tickScheduled ) {
+				return;
+			}
+			tickScheduled = true;
+			requestAnimationFrame( function () {
+				tickScheduled = false;
+				tick();
+			} );
+		}
+
+		// Re-measure on resize after a short debounce (resize fires
+		// rapidly during window drag).
+		var resizeTimer = null;
+		function onResize() {
+			if ( resizeTimer ) {
+				clearTimeout( resizeTimer );
+			}
+			resizeTimer = setTimeout( function () {
+				states.forEach( refreshBounds );
+				tick();
+			}, 100 );
+		}
+
+		// Initial pass — handle elements already in viewport at load.
+		tick();
+
+		window.addEventListener( 'scroll', onScroll, { passive: true } );
+		window.addEventListener( 'resize', onResize );
 	}
 
 	/**

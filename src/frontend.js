@@ -892,6 +892,45 @@
 			prevScrollY = currentScrollY;
 
 			var vh = window.innerHeight;
+			var viewportTop = currentScrollY;
+			var viewportBottom = currentScrollY + vh;
+
+			// Off-screen reset.
+			//
+			// When the element fully exits the viewport at the BOTTOM
+			// (user scrolled UP past it), reset trigger classes so the
+			// next forward enter plays from the initial-hide state.
+			// Without this, an element that has been
+			// entered → exited → reverse-played settles with
+			// `mb-exit-triggered` + `--mb-direction: reverse` held by
+			// `animation-fill-mode: both` at the keyframe's "from"
+			// (natural / opacity 1). When the next forward enter
+			// swaps `mb-exit-triggered` → `mb-triggered`, the new
+			// keyframe binding (mbFadeIn etc.) snaps to opacity 0
+			// via its `from` state, producing a visible flash before
+			// the entry animation runs.
+			//
+			// Doing the reset only when fully off-screen ensures the
+			// snap-to-opacity-0 is invisible to the user. Top-exit
+			// (scroll-down past) is left alone so the forward exit
+			// animation keeps its held state — that one's needed for
+			// the round-trip onEnterBack reverse-play.
+			var inViewport =
+				state.pageBottom > viewportTop &&
+				state.pageTop < viewportBottom;
+			if ( state.inViewport && ! inViewport ) {
+				var exitedAtBottom = state.pageTop >= viewportBottom;
+				if ( exitedAtBottom ) {
+					state.el.classList.remove( 'mb-triggered' );
+					state.el.classList.remove( 'mb-exit-triggered' );
+					state.el.style.removeProperty( '--mb-direction' );
+					// Reset inZone tracking so the next forward enter
+					// is detected as a flip rather than a no-op.
+					state.inZone = false;
+				}
+			}
+			state.inViewport = inViewport;
+
 			// Match the previous IO config (`-15% 0px -15% 0px`
 			// rootMargin + threshold 0.1). Trigger zone is the middle
 			// 70% of the viewport; an element is "in zone" when
@@ -995,6 +1034,7 @@
 				hasExit: hasExit,
 				playOnce: playOnce,
 				inZone: false,
+				inViewport: false,
 				hasEntered: false,
 				unobserved: false,
 				pageTop: 0,

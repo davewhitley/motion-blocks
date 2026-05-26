@@ -12,7 +12,7 @@ import {
 } from '@wordpress/block-editor';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { addFilter } from '@wordpress/hooks';
-import { useEffect, useCallback } from '@wordpress/element';
+import { useEffect, useCallback, useRef } from '@wordpress/element';
 
 import AnimationPanel from './components/AnimationPanel';
 import {
@@ -773,7 +773,7 @@ function aliasSlotForPreview( attrs ) {
 const withAnimationPreview = createHigherOrderComponent(
 	( BlockListBlock ) => {
 		return ( props ) => {
-			const { wrapperProps = {} } = props;
+			const { wrapperProps = {}, clientId } = props;
 			// For Scroll Appear, normalize legacy attrs into slot form
 			// then alias the Entry slot's per-slot attrs onto the shared
 			// `animationType` / `animationDuration` / etc. names that
@@ -789,6 +789,63 @@ const withAnimationPreview = createHigherOrderComponent(
 							migrateScrollAppearAttrs( props.attributes )
 					  )
 					: migrateScrollAppearAttrs( props.attributes );
+
+			// DOM-side animation restart on each Play click.
+			//
+			// The Play button in AnimationPanel toggles
+			// `animationPreviewPlaying` from false to true. Before this
+			// effect, replay was attempted via a "clear `animationType`,
+			// rAF, restore `animationType`" pattern that depended on
+			// React committing the intermediate render so the browser
+			// would observe a class change and restart the CSS
+			// animation. React 18's automatic batching across rAF —
+			// plus the editor iframe boundary slowing the dispatch /
+			// commit pipeline — frequently collapsed both setAttributes
+			// calls into one render, so the intermediate "no class"
+			// state never reached the DOM and the animation didn't
+			// restart. (User-visible symptom: "Play does nothing.")
+			//
+			// Switching to direct DOM manipulation here sidesteps the
+			// React commit-timing problem entirely. We toggle the
+			// trigger class with a forced reflow — same pattern as the
+			// frontend's `restartAnimation` helper — and the browser
+			// guarantees a fresh animation cycle.
+			const prevPlayingRef = useRef(
+				!! props.attributes?.animationPreviewPlaying
+			);
+			useEffect( () => {
+				const currentPlaying =
+					!! props.attributes?.animationPreviewPlaying;
+				const wasPlaying = prevPlayingRef.current;
+				prevPlayingRef.current = currentPlaying;
+				if ( ! currentPlaying || wasPlaying ) {
+					// Only fire on the false → true transition.
+					return;
+				}
+				const blockEl = document.querySelector(
+					`[data-block="${ clientId }"]`
+				);
+				if ( ! blockEl ) {
+					return;
+				}
+				const previewSlot =
+					props.attributes?.animationPreviewSlot === 'exit'
+						? 'exit'
+						: 'entry';
+				const triggerClass =
+					previewSlot === 'exit'
+						? 'mb-exit-triggered'
+						: 'mb-triggered';
+				if ( ! blockEl.classList.contains( triggerClass ) ) {
+					return;
+				}
+				blockEl.classList.remove( triggerClass );
+				// Reflow flush — see frontend.js restartAnimation for
+				// the matching rationale.
+				void blockEl.offsetWidth;
+				blockEl.classList.add( triggerClass );
+				// eslint-disable-next-line react-hooks/exhaustive-deps
+			}, [ props.attributes?.animationPreviewPlaying ] );
 			const {
 				animationMode,
 				animationType,

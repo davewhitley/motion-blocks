@@ -202,48 +202,30 @@ export default function AnimationPanel( {
 			setIsPlayPending( true );
 			clearPlayTimers();
 
-			if ( current === 'custom' ) {
-				setAttributes( {
-					...baseAttrs,
-					animationPreviewPlaying: true,
-				} );
-				playTimeoutRef.current = setTimeout( () => {
-					setAttributes( { animationPreviewPlaying: false } );
-					setIsPlayPending( false );
-					playTimeoutRef.current = null;
-				}, totalMs + 100 );
-				return;
-			}
-
-			// Preset path: clear+restore the type so the HOC re-attaches
-			// the className, retriggering the CSS animation. For slot-
-			// mode we clear+restore the slot's type instead of the
-			// shared `animationType`.
-			const typeKey = isSlotMode
-				? `animation${ slotPrefix }Type`
-				: 'animationType';
-			savedType.current = current;
+			// Single-path preview: toggle `animationPreviewPlaying` on,
+			// let the HOC's DOM-side restart effect (in
+			// `withAnimationPreview` in src/index.js) handle the CSS
+			// animation restart, then toggle off after the animation
+			// completes.
+			//
+			// Previously this branch used a "clear `animationType`, rAF,
+			// restore `animationType`" dance to force the HOC to drop
+			// and re-add the trigger class. React 18 batching across
+			// the rAF — plus the iframe boundary slowing dispatch /
+			// commit — frequently collapsed both setAttributes calls
+			// into a single render, so the intermediate "no class"
+			// state never reached the DOM and the animation didn't
+			// restart. Direct DOM manipulation inside the HOC is
+			// reliable regardless of React commit timing.
 			setAttributes( {
 				...baseAttrs,
-				[ typeKey ]: '',
-				// Animated previews use the same flag — without it the
-				// HOC's "Custom at rest" guard might inadvertently fire
-				// for non-Custom slot presets too. Setting it true here
-				// is a no-op for non-Custom CSS bindings but signals
-				// the HOC that a preview is in progress.
 				animationPreviewPlaying: true,
 			} );
-			playFrameRef.current = requestAnimationFrame( () => {
-				setAttributes( {
-					[ typeKey ]: savedType.current,
-				} );
-				playFrameRef.current = null;
-				playTimeoutRef.current = setTimeout( () => {
-					setAttributes( { animationPreviewPlaying: false } );
-					setIsPlayPending( false );
-					playTimeoutRef.current = null;
-				}, totalMs + 100 );
-			} );
+			playTimeoutRef.current = setTimeout( () => {
+				setAttributes( { animationPreviewPlaying: false } );
+				setIsPlayPending( false );
+				playTimeoutRef.current = null;
+			}, totalMs + 100 );
 		},
 		[
 			attributes,

@@ -832,6 +832,28 @@
 			// fire the exit animation before any enter has happened.
 			var hasEntered = false;
 
+			// Animation-in-progress flag — set by animationstart, reset
+			// by animationend / animationcancel. Combined with a small
+			// scroll-delta threshold below, this catches the bbox-
+			// feedback loop where a rotate-out's expanding AABB makes
+			// IO oscillate between intersecting=true and false within
+			// a few frames, flipping handleSlotEnter and handleSlotExit
+			// in a tight loop while the user isn't actively scrolling.
+			// `lastFireScrollY` tracks the scroll position at which we
+			// last dispatched a handler — used to distinguish bbox-
+			// driven IO from user-driven IO.
+			var animating = false;
+			var lastFireScrollY = window.scrollY;
+			el.addEventListener( 'animationstart', function () {
+				animating = true;
+			} );
+			el.addEventListener( 'animationend', function () {
+				animating = false;
+			} );
+			el.addEventListener( 'animationcancel', function () {
+				animating = false;
+			} );
+
 			// Apply baseline direction / blur / rotate / custom-keyframe
 			// setup. Per-slot timing is applied on each transition below.
 			applyCustomKeyframe( el );
@@ -853,36 +875,51 @@
 					prevScrollY = currentScrollY;
 
 					entries.forEach( function ( ioEntry ) {
-						// Skip IO callbacks where scroll didn't move
-						// since the previous tick. The trigger is then
-						// the element's own bbox shifting mid-animation
-						// (rotate AABB expansion, slide translate, scale
-						// growing/shrinking the box) rather than the
-						// user's scroll crossing the IO threshold.
+						// Geometry-bounce guard.
 						//
-						// Without this guard, IO can oscillate between
-						// intersecting=true and intersecting=false
-						// indefinitely while the user pauses over an
-						// animating element — handleSlotEnter and
-						// handleSlotExit ping-pong, swapping
-						// mb-triggered ↔ mb-exit-triggered every few
-						// ms. The 2e9d8ce per-handler idempotency
-						// guards only catch same-state re-fires; they
-						// can't see the cross-handler loop. This
-						// scroll-position guard catches it at the
-						// dispatch layer.
+						// When an animation that changes the element's
+						// bounding box is in progress (rotate's AABB
+						// growing through 45°, slide translating, scale
+						// growing/shrinking), the IntersectionObserver
+						// can oscillate between intersecting=true and
+						// intersecting=false within a few frames —
+						// flipping handleSlotEnter and handleSlotExit
+						// in a tight loop and producing visible class-
+						// toggle flicker, even while the user isn't
+						// scrolling.
 						//
-						// The `hasEntered` gate preserves the
-						// initial-state first-callback behavior:
-						// `prevScrollY` is seeded to current scroll at
-						// observer init, so dir is 'same' on the very
-						// first IO tick — we still want that one to
-						// fire the entry/exit handler. After that, any
-						// dir='same' callback is a geometry-driven
-						// bounce and should be ignored.
-						if ( dir === 'same' && hasEntered ) {
+						// The per-handler idempotency guards from
+						// 2e9d8ce catch SAME-handler re-fires (rapid
+						// duplicate exits, etc.) but not the CROSS-
+						// handler loop where each fire passes the
+						// guard because the OPPOSITE class is present.
+						//
+						// Distinguish "real scroll across threshold"
+						// from "bbox bounced across threshold" by
+						// requiring BOTH (a) no animation in flight
+						// OR (b) the user actually moved a meaningful
+						// number of scroll pixels since we last fired
+						// a handler. Pure pauses (case a true) and
+						// pure scroll-past-during-animation (case b
+						// true) both pass; the loop case (a false +
+						// b false) is blocked.
+						//
+						// The `hasEntered` gate preserves first-tick
+						// initial-state behavior: at observer init the
+						// scroll delta is zero and animating is false,
+						// so the first IO callback fires normally.
+						var scrollDelta = Math.abs(
+							currentScrollY - lastFireScrollY
+						);
+						var SCROLL_DELTA_PX = 5;
+						if (
+							animating &&
+							scrollDelta < SCROLL_DELTA_PX &&
+							hasEntered
+						) {
 							return;
 						}
+						lastFireScrollY = currentScrollY;
 
 						if ( ioEntry.isIntersecting ) {
 							hasEntered = true;

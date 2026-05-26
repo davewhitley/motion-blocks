@@ -810,6 +810,13 @@ const withAnimationPreview = createHigherOrderComponent(
 			// trigger class with a forced reflow — same pattern as the
 			// frontend's `restartAnimation` helper — and the browser
 			// guarantees a fresh animation cycle.
+			//
+			// Document context note: modern Gutenberg (WP 6.x+) renders
+			// the block canvas inside an `iframe[name="editor-canvas"]`,
+			// while the HOC's React tree runs in the parent document.
+			// `document.querySelector` from here searches the parent
+			// doc, which doesn't contain the block. We fall through to
+			// the editor iframe's document if the parent search misses.
 			const prevPlayingRef = useRef(
 				!! props.attributes?.animationPreviewPlaying
 			);
@@ -822,9 +829,24 @@ const withAnimationPreview = createHigherOrderComponent(
 					// Only fire on the false → true transition.
 					return;
 				}
-				const blockEl = document.querySelector(
-					`[data-block="${ clientId }"]`
-				);
+				const selector = `[data-block="${ clientId }"]`;
+				let blockEl = document.querySelector( selector );
+				if ( ! blockEl ) {
+					const iframes = document.querySelectorAll(
+						'iframe[name="editor-canvas"]'
+					);
+					for ( const iframe of iframes ) {
+						try {
+							const doc = iframe.contentDocument;
+							if ( doc ) {
+								blockEl = doc.querySelector( selector );
+								if ( blockEl ) break;
+							}
+						} catch ( e ) {
+							// Cross-origin / detached iframe — skip.
+						}
+					}
+				}
 				if ( ! blockEl ) {
 					return;
 				}

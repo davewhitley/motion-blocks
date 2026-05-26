@@ -853,6 +853,37 @@
 					prevScrollY = currentScrollY;
 
 					entries.forEach( function ( ioEntry ) {
+						// Skip IO callbacks where scroll didn't move
+						// since the previous tick. The trigger is then
+						// the element's own bbox shifting mid-animation
+						// (rotate AABB expansion, slide translate, scale
+						// growing/shrinking the box) rather than the
+						// user's scroll crossing the IO threshold.
+						//
+						// Without this guard, IO can oscillate between
+						// intersecting=true and intersecting=false
+						// indefinitely while the user pauses over an
+						// animating element — handleSlotEnter and
+						// handleSlotExit ping-pong, swapping
+						// mb-triggered ↔ mb-exit-triggered every few
+						// ms. The 2e9d8ce per-handler idempotency
+						// guards only catch same-state re-fires; they
+						// can't see the cross-handler loop. This
+						// scroll-position guard catches it at the
+						// dispatch layer.
+						//
+						// The `hasEntered` gate preserves the
+						// initial-state first-callback behavior:
+						// `prevScrollY` is seeded to current scroll at
+						// observer init, so dir is 'same' on the very
+						// first IO tick — we still want that one to
+						// fire the entry/exit handler. After that, any
+						// dir='same' callback is a geometry-driven
+						// bounce and should be ignored.
+						if ( dir === 'same' && hasEntered ) {
+							return;
+						}
+
 						if ( ioEntry.isIntersecting ) {
 							hasEntered = true;
 							if ( dir === 'up' ) {

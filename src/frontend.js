@@ -956,27 +956,39 @@
 	 * it's filled. For Exit-only blocks re-entering after a prior
 	 * forward exit, reverse-plays the exit keyframe so the element
 	 * glides back to its natural state instead of snap-cutting.
+	 *
+	 * Idempotent: if the element is already in the desired terminal
+	 * state, do nothing. Geometry-changing animations (rotate, scale,
+	 * slide) can shift the element's bounding box mid-animation,
+	 * which causes IntersectionObserver to fire repeat events. Without
+	 * a guard the entry animation would restart on every such event,
+	 * producing visible flicker.
 	 */
 	function handleSlotEnter( el, entry, hasExit, playOnce, observer ) {
+		var inExited = el.classList.contains( 'mb-exit-triggered' );
+		var inTriggered = el.classList.contains( 'mb-triggered' );
+		var alreadyReversed =
+			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
+
 		if ( entry.type === '' ) {
-			// Entry slot empty (Exit-only block). If a prior exit has
-			// fired, reverse-play it as the implicit entry: the exit
-			// keyframe's "from" end is the natural state, so playing
-			// to→from runs the animation backwards into rest. When
-			// no exit has fired yet (e.g., scrolling up to a block
-			// for the first time), there's nothing to reverse.
-			if ( el.classList.contains( 'mb-exit-triggered' ) ) {
+			// Exit-only re-enter: reverse-play the prior exit. Skip
+			// if there's nothing to reverse, or if reverse is already
+			// the current direction (redundant IO event).
+			if ( inExited && ! alreadyReversed ) {
 				el.style.setProperty( '--mb-direction', 'reverse' );
 				restartAnimation( el, 'mb-exit-triggered' );
 			}
 			return;
 		}
 
-		applySlotVars( el, entry );
-		// Reset direction in case a prior round-trip exit (Custom /
-		// image-move legacy path) left it on reverse.
-		el.style.setProperty( '--mb-direction', 'normal' );
+		// Already in entry-triggered state (mb-triggered present,
+		// mb-exit-triggered not). Skip — redundant IO event.
+		if ( inTriggered && ! inExited ) {
+			return;
+		}
 
+		applySlotVars( el, entry );
+		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-exit-triggered' );
 		el.classList.add( 'mb-triggered' );
 
@@ -992,6 +1004,10 @@
 	 * Handle a leaving-viewport event. Fires the Exit slot if filled,
 	 * or clears the entry state for an Entry-only block (so the
 	 * animation can replay on the next entry when playOnce is off).
+	 *
+	 * Idempotent in the same way as handleSlotEnter: redundant IO
+	 * events caused by bounding-box shifts during the exit animation
+	 * (e.g. rotate's expanding AABB) are no-ops.
 	 */
 	function handleSlotExit( el, exit, hasEntry, playOnce, observer ) {
 		if ( exit.type === '' ) {
@@ -1005,20 +1021,30 @@
 			return;
 		}
 
+		var inExited = el.classList.contains( 'mb-exit-triggered' );
+		var wasReversed =
+			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
+
+		// Already in forward-played exit state. Skip.
+		if ( inExited && ! wasReversed ) {
+			return;
+		}
+
 		applySlotVars( el, exit );
-		// Forward exit always plays the exit slot's own keyframe in
-		// the forward direction. Reset --mb-direction in case the
-		// previous transition was an Exit-only re-enter (which sets
-		// reverse). Restart the animation via class toggle so a
-		// second forward exit after a re-enter actually replays
-		// rather than no-op'ing on the already-present class.
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-triggered' );
-		restartAnimation( el, 'mb-exit-triggered' );
 
-		// Stop observing if playOnce is on AND there's no entry slot
-		// to replay back from. Round-trip configs (both slots) ignore
-		// playOnce; entry-only with playOnce already unsubscribed.
+		if ( inExited ) {
+			// Coming from a reverse-played re-enter (Exit-only round
+			// trip going forward again). Force restart so the keyframe
+			// replays forward — the class is already there, so a plain
+			// add() wouldn't re-trigger the animation.
+			restartAnimation( el, 'mb-exit-triggered' );
+		} else {
+			// First forward exit since most recent entry. Plain add.
+			el.classList.add( 'mb-exit-triggered' );
+		}
+
 		if ( ! hasEntry && playOnce ) {
 			observer.unobserve( el );
 		}

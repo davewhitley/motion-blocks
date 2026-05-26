@@ -18,6 +18,7 @@ import {
 	MenuGroup,
 	MenuItem,
 	Icon,
+	Button,
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
 import { useSelect, useDispatch } from '@wordpress/data';
@@ -403,10 +404,11 @@ export default function AnimationOptionsMenu( {
 										>
 											{ saved.name || uid }
 										</MenuItem>
-										<button
-											type="button"
+										<Button
 											className="mb-saved-animation-row__delete"
-											aria-label={ sprintf(
+											icon={ trash }
+											iconSize={ 16 }
+											label={ sprintf(
 												/* translators: %s: saved animation name */
 												__(
 													'Delete %s',
@@ -421,9 +423,7 @@ export default function AnimationOptionsMenu( {
 												} );
 												onClose();
 											} }
-										>
-											<Icon icon={ trash } size={ 16 } />
-										</button>
+										/>
 									</div>
 								) ) }
 							</MenuGroup>

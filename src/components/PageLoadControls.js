@@ -455,9 +455,9 @@ export default function PageLoadControls( {
 				/>
 			) }
 
-			<h3 className="mb-section-heading">
+			<h2 className="mb-section-heading">
 				{ __( 'Timing', 'motion-blocks' ) }
-			</h3>
+			</h2>
 
 			{ /* Stagger lives inside Timing — semantically it's about
 			   when each inner block starts animating. Renders nothing

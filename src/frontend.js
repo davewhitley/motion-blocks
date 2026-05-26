@@ -790,6 +790,28 @@
 			return;
 		}
 
+		// Module-level scroll direction tracking. Shared across all
+		// Scroll Appear blocks so a single scroll event maps onto
+		// every IO callback in the same tick. Initialized to the
+		// current scroll position so the first IO callback resolves
+		// to direction === 'same' (treated as forward) for
+		// anchor-link / direct-load scenarios.
+		//
+		// Direction-aware IO dispatch (GSAP toggleActions analog):
+		//   isIntersecting=true  + dir=down/same → onEnter     (fire Entry slot)
+		//   isIntersecting=true  + dir=up        → onEnterBack (reverse-play exit if present)
+		//   isIntersecting=false + dir=down/same → onLeave     (fire Exit slot forward)
+		//   isIntersecting=false + dir=up        → onLeaveBack (no-op)
+		//
+		// Rationale: re-firing the Entry animation on scroll-up
+		// re-enter (the user's reported "weird" UX) collapses two
+		// distinct intents into one. GSAP ScrollTrigger and
+		// ScrollMagic v3 both distinguish these four positions.
+		// raw scrollY delta is the simplest direction signal —
+		// IO progress would be more elegant but isn't monotonic
+		// when bbox-changing animations are mid-play.
+		var prevScrollY = window.scrollY;
+
 		elements.forEach( function ( el ) {
 			var entry = readSlotConfig( el, 'entry' );
 			var exit = readSlotConfig( el, 'exit' );
@@ -818,16 +840,43 @@
 
 			var observer = new IntersectionObserver(
 				function ( entries ) {
+					// Compute direction once per IO tick (entries may
+					// contain multiple elements but they all share the
+					// same scroll-position snapshot).
+					var currentScrollY = window.scrollY;
+					var dir =
+						currentScrollY > prevScrollY
+							? 'down'
+							: currentScrollY < prevScrollY
+							? 'up'
+							: 'same';
+					prevScrollY = currentScrollY;
+
 					entries.forEach( function ( ioEntry ) {
 						if ( ioEntry.isIntersecting ) {
 							hasEntered = true;
-							handleSlotEnter(
-								el,
-								entry,
-								hasExit,
-								playOnce,
-								observer
-							);
+							if ( dir === 'up' ) {
+								// onEnterBack: re-entering from above
+								// while scrolling up. Reverse-play
+								// the prior exit if there was one.
+								// Entry slot is NOT re-fired regardless
+								// of playOnce — re-firing on scroll-up
+								// is the UX the user explicitly wants
+								// to avoid.
+								handleSlotReverseEnter( el );
+							} else {
+								// onEnter: scrolling down (or
+								// page-load / anchor first-visible).
+								// Fire the Entry slot via the normal
+								// path.
+								handleSlotEnter(
+									el,
+									entry,
+									hasExit,
+									playOnce,
+									observer
+								);
+							}
 						} else {
 							// Forward-leave guard for Exit-only blocks:
 							// IO can't tell us whether the element left
@@ -863,6 +912,15 @@
 									return;
 								}
 								hasEntered = true;
+							}
+							if ( dir === 'up' ) {
+								// onLeaveBack: scrolling up and the
+								// element fell off the bottom edge of
+								// the trigger zone. Intentional no-op
+								// — the element was last seen in its
+								// entered state and that's where it
+								// stays. No reset, no exit fire.
+								return;
 							}
 							handleSlotExit(
 								el,
@@ -952,34 +1010,36 @@
 	}
 
 	/**
-	 * Handle an entering-viewport event. Fires the Entry slot if
-	 * it's filled. For Exit-only blocks re-entering after a prior
-	 * forward exit, reverse-plays the exit keyframe so the element
-	 * glides back to its natural state instead of snap-cutting.
+	 * Handle a forward-direction enter (`onEnter`): scrolling down
+	 * brings the element into the trigger zone for the first time,
+	 * or re-enters from below after a forward leave.
 	 *
-	 * Idempotent: if the element is already in the desired terminal
-	 * state, do nothing. Geometry-changing animations (rotate, scale,
-	 * slide) can shift the element's bounding box mid-animation,
-	 * which causes IntersectionObserver to fire repeat events. Without
-	 * a guard the entry animation would restart on every such event,
-	 * producing visible flicker.
+	 * Fires the Entry slot if it's filled. For Exit-only blocks
+	 * (entry.type === ''), this branch is unreachable on a fresh
+	 * forward enter — Exit-only re-entries happen via
+	 * `handleSlotReverseEnter` on scroll-up (the only way an
+	 * Exit-only block can be in mb-exit-triggered state when
+	 * intersecting=true is after a previous forward leave; the
+	 * IO callback only routes here when direction is down/same,
+	 * which can't happen for that flow).
+	 *
+	 * Idempotent: if the element is already in the desired entry-
+	 * triggered terminal state, do nothing. Geometry-changing
+	 * animations (rotate, scale, slide) can shift the element's
+	 * bounding box mid-animation, causing IntersectionObserver to
+	 * fire repeat events; the guard prevents flicker.
 	 */
 	function handleSlotEnter( el, entry, hasExit, playOnce, observer ) {
-		var inExited = el.classList.contains( 'mb-exit-triggered' );
-		var inTriggered = el.classList.contains( 'mb-triggered' );
-		var alreadyReversed =
-			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
-
 		if ( entry.type === '' ) {
-			// Exit-only re-enter: reverse-play the prior exit. Skip
-			// if there's nothing to reverse, or if reverse is already
-			// the current direction (redundant IO event).
-			if ( inExited && ! alreadyReversed ) {
-				el.style.setProperty( '--mb-direction', 'reverse' );
-				restartAnimation( el, 'mb-exit-triggered' );
-			}
+			// Exit-only block, forward enter. Nothing to fire — the
+			// Entry slot is empty by definition. Reverse-play (if
+			// applicable) happens via handleSlotReverseEnter on
+			// scroll-up only.
 			return;
 		}
+
+		var inExited = el.classList.contains( 'mb-exit-triggered' );
+		var inTriggered = el.classList.contains( 'mb-triggered' );
 
 		// Already in entry-triggered state (mb-triggered present,
 		// mb-exit-triggered not). Skip — redundant IO event.
@@ -998,6 +1058,40 @@
 		if ( ! hasExit && playOnce ) {
 			observer.unobserve( el );
 		}
+	}
+
+	/**
+	 * Handle a backward-direction enter (`onEnterBack`): scrolling up,
+	 * the element re-enters the trigger zone from the top edge of
+	 * the viewport after a prior forward exit.
+	 *
+	 * Reverse-plays the exit keyframe so the element glides back to
+	 * natural state instead of snap-cutting. Works for both Exit-only
+	 * blocks (the originally-supported case from `3d3cfbe`) and now
+	 * also Entry+Exit blocks (which previously re-fired the Entry
+	 * animation here — the "weird" UX the user reported).
+	 *
+	 * Idempotent: skip if there's no prior exit to reverse, or if
+	 * reverse is already the current direction.
+	 */
+	function handleSlotReverseEnter( el ) {
+		var inExited = el.classList.contains( 'mb-exit-triggered' );
+		if ( ! inExited ) {
+			// No prior exit fired — nothing to reverse. Element
+			// stays in whatever state it was last in (entered or
+			// natural). Matches the user's "stay" preference for
+			// Entry-only on scroll-up.
+			return;
+		}
+		var alreadyReversed =
+			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
+		if ( alreadyReversed ) {
+			// Reverse is already in effect — redundant IO event
+			// (bbox shift during reverse-play). No-op.
+			return;
+		}
+		el.style.setProperty( '--mb-direction', 'reverse' );
+		restartAnimation( el, 'mb-exit-triggered' );
 	}
 
 	/**

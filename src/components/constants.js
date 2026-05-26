@@ -552,20 +552,37 @@ export function migrateScrollAppearAttrs( attrs ) {
  * the preset name. Lets users enter any valid CSS timing function
  * (cubic-bezier, steps, linear() with stops, etc.).
  */
+// Damped-harmonic-oscillator spring curves expressed as CSS
+// `linear()` timing functions. Generated from
+//   x(t) = 1 − e^(−ζωt)·(cos(ωd·t) + (ζ/√(1−ζ²))·sin(ωd·t))
+// sampled at curve inflection points and pinned to 1 at t=1.
+// Tuning a new one: bump ζ (damping) to soften overshoot, bump ω
+// (angular frequency, relative to a t=1 normalized duration) to
+// shorten the period. Tools like Jake Archibald's linear-easing
+// generator (https://linear-easing-generator.netlify.app/) can
+// regenerate these from arbitrary curves.
+const LINEAR_SPRING =
+	'linear(0, 0.10 5%, 0.34 10%, 0.61 15%, 0.85 20%, 1.12 30%, 1.163 36%, 1.075 50%, 1.001 60%, 0.974 73%, 0.99 90%, 1)';
+const LINEAR_SPRING_BOUNCY =
+	'linear(0, 0.38 5%, 0.78 8%, 1.05 10%, 1.27 13%, 1.37 17%, 1.30 20%, 1.06 25%, 0.89 30%, 0.87 35%, 0.95 40%, 1.03 45%, 1.05 49%, 1.03 55%, 0.99 66%, 1.01 82%, 1)';
+const LINEAR_SPRING_SNAPPY =
+	'linear(0, 0.08 5%, 0.26 10%, 0.47 15%, 0.65 20%, 0.81 25%, 0.91 30%, 0.99 35%, 1.025 40%, 1.046 50%, 1.032 60%, 1.014 70%, 1.003 80%, 1)';
+
 export const ACCELERATION_OPTIONS = [
 	{ label: 'Ease', value: 'ease' },
 	{ label: 'Linear', value: 'linear' },
 	{ label: 'Ease In', value: 'ease-in' },
 	{ label: 'Ease Out', value: 'ease-out' },
 	{ label: 'Ease In-Out', value: 'ease-in-out' },
-	// Single-bump overshoot curves (easings.net "Back" family). A
-	// true multi-bump bounce requires the CSS `linear()` function
-	// with multiple stops, which we don't ship a preset for — pick
-	// Custom and paste a linear() string for that. These three cover
-	// the common "settle past target, snap back" feel.
-	{ label: 'Bounce In', value: 'cubic-bezier(0.36, 0, 0.66, -0.56)' },
-	{ label: 'Bounce Out', value: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
-	{ label: 'Bounce In-Out', value: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)' },
+	// Spring presets built on CSS `linear()`. Each is a damped
+	// harmonic oscillator with different damping ratio (ζ) and
+	// angular frequency (ω):
+	//   Spring — ζ≈0.5, ω≈10: visible overshoot + tiny undershoot.
+	//   Bouncy — ζ≈0.3, ω≈20: 2–3 decaying oscillations.
+	//   Snappy — ζ≈0.7, ω≈9:  small overshoot, very quick settle.
+	{ label: 'Spring', value: LINEAR_SPRING },
+	{ label: 'Bouncy', value: LINEAR_SPRING_BOUNCY },
+	{ label: 'Snappy', value: LINEAR_SPRING_SNAPPY },
 	{ label: 'Custom', value: 'custom' },
 ];
 

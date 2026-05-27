@@ -869,11 +869,37 @@ const withAnimationPreview = createHigherOrderComponent(
 				if ( ! blockEl.classList.contains( triggerClass ) ) {
 					return;
 				}
-				blockEl.classList.remove( triggerClass );
+				// Belt-and-suspenders: when previewing one slot,
+				// aggressively scrub the OTHER slot's preview classes
+				// off the DOM element. React's className update should
+				// already have done this via the HOC's render, but the
+				// `getSaveContent.extraProps` save path can re-merge stale
+				// `mb-enter-*` / `mb-exit-*` classes back into
+				// `props.className` after the strip — and even one frame
+				// of overlap produces a visible "ghost of the other slot's
+				// effect" because the previous animation's `fill-mode:
+				// both` held state interacts with the new keyframe
+				// binding. Stripping at the DOM level guarantees a clean
+				// reset regardless of React's commit ordering.
+				const cls = blockEl.classList;
+				const oppositeTriggerClass =
+					previewSlot === 'exit'
+						? 'mb-triggered'
+						: 'mb-exit-triggered';
+				const oppositePrefix =
+					previewSlot === 'exit' ? 'mb-enter-' : 'mb-exit-';
+				cls.remove( oppositeTriggerClass );
+				for ( let i = cls.length - 1; i >= 0; i-- ) {
+					const name = cls[ i ];
+					if ( name && name.startsWith( oppositePrefix ) ) {
+						cls.remove( name );
+					}
+				}
+				cls.remove( triggerClass );
 				// Reflow flush — see frontend.js restartAnimation for
 				// the matching rationale.
 				void blockEl.offsetWidth;
-				blockEl.classList.add( triggerClass );
+				cls.add( triggerClass );
 				// eslint-disable-next-line react-hooks/exhaustive-deps
 			}, [ props.attributes?.animationPreviewPlaying ] );
 			const {
@@ -1211,9 +1237,27 @@ const withAnimationPreview = createHigherOrderComponent(
 				const isPageLoadOrScrollAppear =
 					animationMode === 'page-load' ||
 					animationMode === 'scroll-appear';
+				// Scroll Appear: ONLY animate on explicit Play click.
+				//
+				// Auto-playing the entry slot at editor load (the old
+				// behavior) caused cross-contamination between Entry and
+				// Exit previews — the entry animation's `fill-mode: both`
+				// held state (rotate transform, wipe clip-path, etc.)
+				// stayed visually applied while the user was switching to
+				// the Exit tab, producing a "I see both rotate and fade"
+				// effect when the user clicked Play on Exit.
+				//
+				// With the explicit-Play model, at-rest blocks show their
+				// natural state — no animation runs until the user clicks
+				// a slot's Play button. Page Load mode keeps the auto-
+				// play (it's how the user previews a page-load animation
+				// without clicking) because there's only one slot — no
+				// cross-contamination risk.
 				const shouldAnimate =
 					isPageLoadOrScrollAppear && animationType
-						? isLooping
+						? animationMode === 'scroll-appear'
+							? animationPreviewPlaying
+							: isLooping
 							? animationPreviewPlaying
 							: true
 						: false;

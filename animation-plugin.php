@@ -184,7 +184,7 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
 
     $direction    = $attrs['animationDirection'] ?? '';
     $duration     = $attrs['animationDuration'] ?? 0.6;
-    $delay        = $attrs['animationDelay'] ?? 0.4;
+    $delay        = $attrs['animationDelay'] ?? 0;
     $acceleration = $attrs['animationAcceleration'] ?? 'ease';
     $custom_tf    = $attrs['animationCustomTimingFunction']
         ?? 'cubic-bezier(0.25, 0.1, 0.25, 1)';
@@ -428,7 +428,7 @@ function motion_blocks_render_block( $block_content, $block ) {
                 );
             }
 
-            $default_delay = ( $slot['name'] === 'entry' ) ? 0.4 : 0;
+            $default_delay = 0;
             $processor->set_attribute(
                 "{$slot['data']}-duration",
                 esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ] ?? 0.6 ) )
@@ -558,7 +558,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             );
             $processor->set_attribute(
                 'data-mb-delay',
-                esc_attr( (string) ( $attrs['animationDelay'] ?? 0.4 ) )
+                esc_attr( (string) ( $attrs['animationDelay'] ?? 0 ) )
             );
             $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
             $pause = $attrs['animationPauseOffscreen'] ?? true;
@@ -911,7 +911,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationEntryType'                  => '',
         'animationEntryDirection'             => '',
         'animationEntryDuration'              => 0.6,
-        'animationEntryDelay'                 => 0.4,
+        'animationEntryDelay'                 => 0,
         'animationEntryAcceleration'          => 'ease',
         'animationEntryCustomTimingFunction'  => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationEntryBlurAmount'            => 8,

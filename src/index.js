@@ -292,7 +292,7 @@ function addAnimationAttributes( settings ) {
 			},
 			animationDelay: {
 				type: 'number',
-				default: 0.4,
+				default: 0,
 			},
 			animationRepeat: {
 				type: 'string',
@@ -482,7 +482,7 @@ function addAnimationAttributes( settings ) {
 			animationEntryType: { type: 'string', default: '' },
 			animationEntryDirection: { type: 'string', default: '' },
 			animationEntryDuration: { type: 'number', default: 0.6 },
-			animationEntryDelay: { type: 'number', default: 0.4 },
+			animationEntryDelay: { type: 'number', default: 0 },
 			animationEntryAcceleration: { type: 'string', default: 'ease' },
 			animationEntryCustomTimingFunction: {
 				type: 'string',

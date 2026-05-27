@@ -884,43 +884,27 @@ export const TO_ATTR = {
 };
 
 /**
- * Identity values for the four standard From/To rows (Opacity,
- * Scale, Move X, Move Y). Seeding all eight slots means the
- * ToolsPanel renders these four rows by default — without it the
- * panel would open empty and the user would have to add each row
- * via the kebab menu.
- *
- * Used both as the base for `CUSTOM_DEFAULT_FROM_TO` (smart-default
- * seed) and `presetToFromToAttributes()` (Edit-button conversion) so
- * the panel layout is identical no matter how the user landed in
- * Custom mode.
- */
-const CUSTOM_STANDARD_IDENTITY_FROM_TO = {
-	animationFromOpacity: 1,
-	animationToOpacity: 1,
-	animationFromScale: 1,
-	animationToScale: 1,
-	animationFromTranslateX: '0px',
-	animationToTranslateX: '0px',
-	animationFromTranslateY: '0px',
-	animationToTranslateY: '0px',
-};
-
-/**
  * Seed applied the first time the user picks "Custom" from the
- * effect dropdown. A slide-up + fade-in smart default (opacity 0→1,
- * translateY 50px→0) — useful out of the box without forcing the
- * user to type values into eight empty fields. Identity values for
- * Scale and Move X keep those rows visible for tweaking.
+ * effect dropdown. Just opacity (0 → 1) — the simplest possible
+ * Custom default. Opacity has `isShownByDefault: true` in
+ * `PROPERTY_DEFINITIONS`, so the ToolsPanel always pins it as the
+ * one always-visible row; other rows (Scale, Move X/Y, Rotate,
+ * Blur, Clip path) start hidden and the user adds them via the
+ * kebab menu when they actually want to animate them.
+ *
+ * Earlier versions seeded four "standard" rows (Opacity, Scale,
+ * Move X, Move Y at identity values) so the panel didn't open
+ * empty. With Opacity pinned via `isShownByDefault`, that prophylactic
+ * is no longer needed — the panel opens with one row (the one most
+ * Custom animations actually use) instead of four.
  *
  * Re-seeding policy: only applied when no From/To attribute is
  * currently set on the block. If the user has ANY existing custom
  * value, switching to Custom preserves their work.
  */
 export const CUSTOM_DEFAULT_FROM_TO = {
-	...CUSTOM_STANDARD_IDENTITY_FROM_TO,
 	animationFromOpacity: 0,
-	animationFromTranslateY: '50px',
+	animationToOpacity: 1,
 };
 
 const ALL_CUSTOM_FROM_TO_KEYS = [
@@ -971,32 +955,12 @@ export function hasAnyCustomFromToSet( attributes, slot ) {
  */
 export function customDefaultFromToForSlot( slot ) {
 	const prefix = slot === 'entry' ? 'animationEntry' : 'animationExit';
+	// Just opacity. Mirrors the shared `CUSTOM_DEFAULT_FROM_TO` —
+	// see its docblock for why the four-row identity seed was dropped.
+	// Entry: 0 → 1 (fade in). Exit: 1 → 0 (fade out).
 	const seed = slot === 'entry'
-		? {
-				// Same as shared CUSTOM_DEFAULT_FROM_TO: opacity 0→1,
-				// translateY 50px→0 (slide up + fade in).
-				FromOpacity: 0,
-				ToOpacity: 1,
-				FromScale: 1,
-				ToScale: 1,
-				FromTranslateX: '0px',
-				ToTranslateX: '0px',
-				FromTranslateY: '50px',
-				ToTranslateY: '0px',
-		  }
-		: {
-				// Inverse: opacity 1→0, translateY 0→50px (slide down
-				// + fade out). Makes a sensible default for "Exit
-				// Custom" without forcing the user to flip every value.
-				FromOpacity: 1,
-				ToOpacity: 0,
-				FromScale: 1,
-				ToScale: 1,
-				FromTranslateX: '0px',
-				ToTranslateX: '0px',
-				FromTranslateY: '0px',
-				ToTranslateY: '50px',
-		  };
+		? { FromOpacity: 0, ToOpacity: 1 }
+		: { FromOpacity: 1, ToOpacity: 0 };
 	const out = {};
 	for ( const [ k, v ] of Object.entries( seed ) ) {
 		out[ `${ prefix }${ k }` ] = v;
@@ -1278,9 +1242,16 @@ export function getPresetFromTo( type, direction, options = {} ) {
  * Returns null for presets that don't have a From/To representation
  * (none today, but the contract follows `getPresetFromTo`).
  *
- * The result always includes the four standard rows (Opacity, Scale,
- * Move X, Move Y) so the panel layout stays consistent. The preset's
- * own non-identity values are layered on top of those defaults.
+ * The result includes ONLY the properties the preset actually uses
+ * (e.g., Fade → Opacity only; Slide → Opacity + translate; Scale →
+ * Opacity + scale). Opacity is pinned by `isShownByDefault` on its
+ * `PROPERTY_DEFINITIONS` entry, so the kebab still shows it as the
+ * always-visible "default" row even if the preset omits it.
+ *
+ * Earlier versions overlaid identity values for Scale + Move X + Move
+ * Y on every conversion so the panel looked uniform regardless of
+ * preset — but that hid which properties the preset cared about
+ * and forced the user to manually de-select rows they didn't want.
  *
  * @param {string} type      Animation type (fade/slide/scale/...).
  * @param {string} direction Direction value if the preset has one.
@@ -1303,12 +1274,6 @@ export function presetToFromToAttributes( type, direction, options = {} ) {
 	for ( const key of ALL_CUSTOM_FROM_TO_KEYS ) {
 		out[ key ] = null;
 	}
-	// Overlay identity for the four standard rows so the panel
-	// always shows Opacity/Scale/Move X/Move Y. The preset's actual
-	// values (which may also include blur/rotate/clipPath/etc.) are
-	// applied on top — any extra rows appear because their attribute
-	// is now non-null, which `isPropertyAdded` reads as "added".
-	Object.assign( out, CUSTOM_STANDARD_IDENTITY_FROM_TO );
 	for ( const [ propId, val ] of Object.entries( preset.from || {} ) ) {
 		const attr = FROM_ATTR[ propId ];
 		if ( attr ) {

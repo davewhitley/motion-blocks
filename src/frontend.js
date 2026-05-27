@@ -966,7 +966,7 @@
 				state.hasEntered = true;
 				if ( dir === 'up' ) {
 					// onEnterBack — Exit slot owns this.
-					handleSlotReverseEnter( state );
+					handleSlotEnterBack( state );
 				} else {
 					// onEnter — Entry slot owns this.
 					handleSlotEnter( state );
@@ -1246,45 +1246,87 @@
 	}
 
 	/**
-	 * onEnterBack — Exit slot owns this edge (top, downward).
+	 * onEnterBack — element re-enters the trigger zone from the top
+	 * while user is scrolling up. Both slots can have configured
+	 * behavior here:
 	 *
-	 * Behavior depends on Exit Replay:
-	 *   - 'once': no-op (exit already played its one shot).
-	 *   - 'repeat': clear exit state — element snap-returns to natural.
-	 *   - 'reverse': reverse-play the exit keyframe (smooth round-trip).
+	 *   - When Exit slot is filled, Exit's Replay option wins (it's the
+	 *     most-recently-forward-played animation, so reversing it
+	 *     produces the smoothest visual round-trip).
+	 *   - When Exit slot is empty, Entry's Replay option drives.
 	 *
-	 * If Exit slot is empty, onEnterBack is a no-op regardless.
+	 * Per-slot action mapping:
+	 *
+	 *   Exit Replay:
+	 *     'once':    no-op
+	 *     'repeat':  clear exit state — element snap-returns to natural
+	 *     'reverse': reverse-play exit keyframe (smooth round-trip)
+	 *
+	 *   Entry Replay (only fires when Exit is empty):
+	 *     'once':    no-op
+	 *     'repeat':  replay entry forward (may flash if delay is set)
+	 *     'reverse': reverse-play entry keyframe (element "un-enters")
 	 */
-	function handleSlotReverseEnter( state ) {
-		if ( ! state.hasExit ) {
-			return;
-		}
+	function handleSlotEnterBack( state ) {
 		var el = state.el;
-		var inExited = el.classList.contains( 'mb-exit-triggered' );
 
-		if ( state.exitReplay === 'once' ) {
-			return;
-		}
-		if ( state.exitReplay === 'repeat' ) {
-			if ( inExited ) {
-				el.classList.remove( 'mb-exit-triggered' );
-				el.style.removeProperty( '--mb-direction' );
+		if ( state.hasExit ) {
+			// Exit slot wins at onEnterBack.
+			var inExited = el.classList.contains( 'mb-exit-triggered' );
+
+			if ( state.exitReplay === 'once' ) {
+				return;
 			}
+			if ( state.exitReplay === 'repeat' ) {
+				if ( inExited ) {
+					el.classList.remove( 'mb-exit-triggered' );
+					el.style.removeProperty( '--mb-direction' );
+				}
+				return;
+			}
+			// 'reverse' — reverse-play exit.
+			if ( ! inExited ) {
+				return;
+			}
+			var alreadyReversedExit =
+				el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
+			if ( alreadyReversedExit ) {
+				return;
+			}
+			el.style.setProperty( '--mb-direction', 'reverse' );
+			restartAnimation( el, 'mb-exit-triggered' );
 			return;
 		}
-		// 'reverse' — reverse-play exit.
-		if ( ! inExited ) {
-			// No prior exit to reverse. Element stays where it was.
+
+		// Exit slot empty — Entry slot's Replay drives onEnterBack.
+		if ( ! state.hasEntry ) {
 			return;
 		}
-		var alreadyReversed =
+		if ( state.entryReplay === 'once' ) {
+			return;
+		}
+		if ( state.entryReplay === 'repeat' ) {
+			// Replay entry forward at the same edge. Note: this may
+			// produce a brief snap if the entry animation has a delay
+			// (fill-mode: backwards holds at keyframe `from` during
+			// delay, then animates). Users who want smooth round-trip
+			// should pick `reverse` instead.
+			applySlotVars( el, state.entry );
+			el.style.setProperty( '--mb-direction', 'normal' );
+			restartAnimation( el, 'mb-triggered' );
+			return;
+		}
+		// 'reverse' — reverse-play entry. Element animates from
+		// entered → un-entered as it re-appears from the top.
+		var alreadyReversedEntry =
 			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
-		if ( alreadyReversed ) {
-			// Redundant IO event during reverse-play. No-op.
+		if ( alreadyReversedEntry ) {
 			return;
 		}
+		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'reverse' );
-		restartAnimation( el, 'mb-exit-triggered' );
+		el.classList.remove( 'mb-exit-triggered' );
+		restartAnimation( el, 'mb-triggered' );
 	}
 
 	/**
@@ -1340,39 +1382,32 @@
 	}
 
 	/**
-	 * onLeaveBack — Entry slot owns this edge (bottom, downward).
+	 * onLeaveBack — element scrolls off the bottom of the viewport
+	 * while user is going up. Generic cleanup so the next forward
+	 * enter starts from a clean state:
 	 *
-	 * Behavior depends on Entry Replay:
-	 *   - 'once': no-op (entry already played its one shot).
-	 *   - 'repeat': clear all trigger classes — element resets to
-	 *     initial-hide state for the next forward pass. This is the
-	 *     explicit form of the previously-implicit `b667967` off-screen
-	 *     reset.
-	 *   - 'reverse': fire entry keyframe in reverse — element animates
-	 *     out as it leaves the bottom of the viewport.
-	 *
-	 * If Entry slot is empty, onLeaveBack is a no-op regardless.
+	 *   - If Entry Replay = 'once': skip (preserve the entered state,
+	 *     since the user wants this block to stay animated forever).
+	 *   - Otherwise: reset all trigger classes and `--mb-direction`.
+	 *     This is the b667967 cleanup, now triggered at the trigger-
+	 *     zone bottom-edge crossing rather than the full-viewport
+	 *     boundary. Most users won't see the snap because the element
+	 *     is mostly off-screen at this point.
 	 */
 	function handleSlotLeaveBack( state ) {
-		if ( ! state.hasEntry ) {
+		if ( state.entryReplay === 'once' ) {
 			return;
 		}
 		var el = state.el;
 
-		if ( state.entryReplay === 'once' ) {
-			return;
-		}
-		if ( state.entryReplay === 'repeat' ) {
-			el.classList.remove( 'mb-triggered' );
-			el.classList.remove( 'mb-exit-triggered' );
-			el.style.removeProperty( '--mb-direction' );
-			return;
-		}
-		// 'reverse' — fire entry keyframe in reverse.
-		applySlotVars( el, state.entry );
-		el.style.setProperty( '--mb-direction', 'reverse' );
+		// Cleanup. No animation fires here in the new model — that
+		// concept moved to handleSlotEnterBack (Entry `reverse` fires
+		// at onEnterBack instead of onLeaveBack to match user-mental-
+		// model expectation of "reverse plays when scrolling back to
+		// the element").
+		el.classList.remove( 'mb-triggered' );
 		el.classList.remove( 'mb-exit-triggered' );
-		restartAnimation( el, 'mb-triggered' );
+		el.style.removeProperty( '--mb-direction' );
 	}
 
 	/* ---------------------------------------------------------------

@@ -556,11 +556,14 @@ export default function SlotControls( {
 			) }
 
 			{ /* Replay control.
-			     Slot-isolated spatial model: Entry owns the BOTTOM edge
-			     of the trigger zone; Exit owns the TOP edge. Each slot's
-			     Replay option configures the back-direction crossing at
-			     its own edge — no cross-slot reach. See REPLAY_OPTIONS
-			     in constants.js for the full mapping. */ }
+			     Behavioral model: each slot's Replay option controls
+			     what happens when the user scrolls back toward the
+			     element after the forward animation has already fired.
+			     Entry's reverse / repeat behaviors fire on scroll-back
+			     re-entry from above; Exit's fire when the user scrolls
+			     back to a previously-exited element. When both slots
+			     are filled, Exit's Replay wins at the shared scroll-back
+			     boundary. See REPLAY_OPTIONS in constants.js. */ }
 			<SelectControl
 				label={ __( 'Replay', 'motion-blocks' ) }
 				value={ animationReplay }
@@ -579,11 +582,11 @@ export default function SlotControls( {
 							  )
 							: animationReplay === 'repeat'
 							? __(
-									'Entry animation plays each time the element scrolls into view.',
+									'Entry animation plays each time the element scrolls into view, including when scrolling back from above.',
 									'motion-blocks'
 							  )
 							: __(
-									'Entry animation plays in reverse when the element leaves the bottom of the viewport.',
+									'Entry animation plays in reverse when the element scrolls back into view from above.',
 									'motion-blocks'
 							  )
 						: animationReplay === 'once'
@@ -593,7 +596,7 @@ export default function SlotControls( {
 						  )
 						: animationReplay === 'repeat'
 						? __(
-								'Exit animation plays each time the element scrolls out at the top.',
+								'Element snap-returns to natural state when the user scrolls back to it.',
 								'motion-blocks'
 						  )
 						: __(

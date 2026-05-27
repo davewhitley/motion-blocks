@@ -105,11 +105,12 @@ export default function SlotControls( {
 	const animationRotateAngle = attributes[ attrName( 'RotateAngle' ) ];
 	const animationReplay =
 		attributes[ attrName( 'Replay' ) ] ||
-		( slot === 'entry' ? 'repeat' : 'reverse' );
+		( slot === 'entry' ? 'once' : 'reverse' );
 	// Slot-specific default for the Replay attr when filling the slot
-	// for the first time. Matches today's runtime behavior: Entry
-	// replays each scroll-in, Exit reverse-plays on scroll-back.
-	const slotReplayDefault = slot === 'entry' ? 'repeat' : 'reverse';
+	// for the first time. Entry defaults to `once` (one-shot — element
+	// animates in on first appearance and stays); Exit defaults to
+	// `reverse` (smooth round-trip on scroll-back-up).
+	const slotReplayDefault = slot === 'entry' ? 'once' : 'reverse';
 
 	const isCustom = animationType === 'custom';
 	const isEmpty = animationType === '';
@@ -172,8 +173,8 @@ export default function SlotControls( {
 			Object.assign( newAttrs, customDefaultFromToForSlot( slot ) );
 		}
 		// First-time fill: seed the Replay default for this slot if it
-		// hasn't been set yet. Preserves today's behavior on filling a
-		// new slot (Entry → 'repeat', Exit → 'reverse').
+		// hasn't been set yet. Entry → 'once' (one-shot), Exit →
+		// 'reverse' (smooth round-trip on scroll-back-up).
 		if (
 			value !== '' &&
 			attributes[ attrName( 'Replay' ) ] === undefined
@@ -567,7 +568,17 @@ export default function SlotControls( {
 			<SelectControl
 				label={ __( 'Replay', 'motion-blocks' ) }
 				value={ animationReplay }
-				options={ REPLAY_OPTIONS }
+				// Append "(default)" to the slot's default option label
+				// (Once for Entry, Reverse for Exit) so users can see
+				// at a glance which value preserves baseline behavior.
+				options={ REPLAY_OPTIONS.map( ( opt ) =>
+					opt.value === slotReplayDefault
+						? {
+								...opt,
+								label: `${ opt.label } (default)`,
+						  }
+						: opt
+				) }
 				onChange={ ( value ) =>
 					setAttributes( {
 						[ attrName( 'Replay' ) ]: value,

@@ -1013,7 +1013,7 @@
 			// Read per-slot Replay attrs. Defaults preserve today's
 			// runtime behavior: Entry replays each scroll-in (`repeat`),
 			// Exit reverse-plays on scroll-back (`reverse`).
-			var entryReplay = el.dataset.mbEntryReplay || 'repeat';
+			var entryReplay = el.dataset.mbEntryReplay || 'once';
 			var exitReplay = el.dataset.mbExitReplay || 'reverse';
 
 			// Apply baseline direction / blur / rotate / custom-keyframe

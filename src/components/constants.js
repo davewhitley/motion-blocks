@@ -712,8 +712,8 @@ export const BLUR_SETTINGS = {
  *                at the back-direction crossing (smooth round-trip).
  *
  * Defaults (set on first-fill of each slot in SlotControls.handleTypeChange):
- *   - Entry default = 'repeat' (preserves today's Entry-only replay behavior).
- *   - Exit default  = 'reverse' (preserves today's smooth scroll-back).
+ *   - Entry default = 'once'    (one-shot — element animates in and stays).
+ *   - Exit default  = 'reverse' (smooth round-trip on scroll-back-up).
  *
  * Reads the same enum from `migrateScrollAppearAttrs` for legacy blocks.
  */
@@ -1691,7 +1691,7 @@ export const DEFAULT_ATTRIBUTES = {
 	// behavior: Entry replays each scroll-in (Entry-only `repeat`,
 	// Entry+Exit round-trip); Exit reverse-plays on scroll-back-up
 	// (Exit-only and Entry+Exit smooth round-trip).
-	animationEntryReplay: 'repeat',
+	animationEntryReplay: 'once',
 	animationExitReplay: 'reverse',
 	// Per-slot Custom From/To values (only relevant when the slot's
 	// type is 'custom'). The shared animationFrom* / animationTo*

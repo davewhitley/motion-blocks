@@ -507,7 +507,7 @@ function addAnimationAttributes( settings ) {
 			// stays in the schema for legacy block deserialization
 			// but is no longer written by the UI; the migration helper
 			// derives the new Replay attrs from it.
-			animationEntryReplay: { type: 'string', default: 'repeat' },
+			animationEntryReplay: { type: 'string', default: 'once' },
 			animationExitReplay: { type: 'string', default: 'reverse' },
 			// Per-slot Custom From/To values.
 			animationEntryFromOpacity: { type: [ 'number', 'null' ], default: null },

@@ -379,7 +379,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Defaults mirror `DEFAULT_ATTRIBUTES` in constants.js so the
         // JS save filter and PHP render filter agree.
         if ( $entry_type !== '' ) {
-            $entry_replay = $attrs['animationEntryReplay'] ?? 'repeat';
+            $entry_replay = $attrs['animationEntryReplay'] ?? 'once';
             $processor->set_attribute(
                 'data-mb-entry-replay',
                 esc_attr( $entry_replay )

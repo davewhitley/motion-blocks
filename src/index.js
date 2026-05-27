@@ -1019,7 +1019,29 @@ const withAnimationPreview = createHigherOrderComponent(
 
 			// Computed values — updated by the matching branch below.
 			let computedWrapperProps = wrapperProps;
-			let computedClassName = props.className;
+			// Strip any persistent `mb-*` preview classes that may have
+			// leaked into `props.className` (e.g., from a previous render
+			// or, defensively, from any save-time class merging path).
+			// Without this strip, switching from the Entry preview to the
+			// Exit preview can leave `mb-enter-{type}` / `mb-triggered` on
+			// the element alongside the newly-added `mb-exit-{type}` /
+			// `mb-exit-triggered`. Both class sets bind animation-name to
+			// different keyframes; even though CSS cascade resolves to
+			// one, the held fill-mode state of the previous animation can
+			// produce a visible "ghost of the entry effect" during the
+			// exit preview. Stripping guarantees a clean preview slate.
+			// Prefix-matches mb-animated, mb-mode-*, mb-has-*, mb-enter-*,
+			// mb-exit-* (which also covers mb-exit-triggered), mb-triggered,
+			// and mb-stagger-parent — i.e., every class the HOC or save-
+			// props might emit and that the preview path will re-emit.
+			const mbPreviewClassPattern =
+				/^mb-(animated|mode-|has-|enter-|exit-|triggered|stagger-parent)/;
+			const stripMbPreviewClasses = ( cn ) =>
+				( cn || '' )
+					.split( /\s+/ )
+					.filter( ( c ) => c && ! mbPreviewClassPattern.test( c ) )
+					.join( ' ' );
+			let computedClassName = stripMbPreviewClasses( props.className );
 			// Per-block @keyframes rule for custom-type animations.
 			// Injected next to BlockListBlock as a sibling <style>.
 			let injectedKeyframeRule = null;
@@ -1164,7 +1186,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				// scoped data-mb-uid CSS instead — no class needed.)
 				if ( targetIsImg && ! isCustomLike ) {
 					computedClassName = [
-						props.className || '',
+						stripMbPreviewClasses( props.className ),
 						'mb-mode-scroll-interactive',
 						`mb-enter-${ animationType }`,
 					]
@@ -1230,7 +1252,7 @@ const withAnimationPreview = createHigherOrderComponent(
 							? 'mb-exit-triggered'
 							: 'mb-triggered';
 					computedClassName = [
-						props.className || '',
+						stripMbPreviewClasses( props.className ),
 						'mb-animated',
 						enterCls,
 						triggeredCls,

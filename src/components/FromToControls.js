@@ -370,15 +370,25 @@ export default function FromToControls( {
 	// The second sentence surfaces that, framed as "properties you
 	// don't add" to match the ToolsPanel kebab UX (add a row to track
 	// a property; don't add it = leave it alone).
+	// Italicize "start" / "end" in the help text so the user sees at a
+	// glance which animation state the panel below is editing. Uses
+	// `createInterpolateElement` so the emphasis tags survive translation
+	// — same pattern used for the clip-path `<ExternalLink>` above.
 	const sideHelp =
 		side === 'start'
-			? __(
-					"Adjust how the block looks at the start of the animation. Properties you don't add use the block's normal styling.",
-					'motion-blocks'
+			? createInterpolateElement(
+					__(
+						"Adjust how the block looks at the <em>start</em> of the animation. Properties you don't add use the block's normal styling.",
+						'motion-blocks'
+					),
+					{ em: <em /> }
 			  )
-			: __(
-					"Adjust how the block looks at the end of the animation. Properties you don't add use the block's normal styling.",
-					'motion-blocks'
+			: createInterpolateElement(
+					__(
+						"Adjust how the block looks at the <em>end</em> of the animation. Properties you don't add use the block's normal styling.",
+						'motion-blocks'
+					),
+					{ em: <em /> }
 			  );
 
 	/**
@@ -400,14 +410,15 @@ export default function FromToControls( {
 			   SlotControls), where it can apply to any effect type —
 			   not just Custom. */ }
 
-			{ /* Segmented toggle for the Start/End side picker. Earlier
-			   versions used a styled TabPanel here; in the slot model
-			   the panel already has Entry/Exit tabs at the top level,
-			   so a second row of tabs would create visual nested-tabs
-			   confusion. ToggleGroupControl distinguishes the inner
-			   side-picker from the outer slot tabs by metaphor. */ }
+			{ /* Segmented toggle for the start/end animation-state
+			   picker. Earlier versions used a styled TabPanel here;
+			   in the slot model the panel already has Entry/Exit
+			   tabs at the top level, so a second row of tabs would
+			   create visual nested-tabs confusion. ToggleGroupControl
+			   distinguishes the inner state picker from the outer
+			   slot tabs by metaphor. */ }
 			<ToggleGroupControl
-				label={ __( 'Edit side', 'motion-blocks' ) }
+				label={ __( 'Animation state', 'motion-blocks' ) }
 				value={ side }
 				onChange={ ( newSide ) => newSide && setSide( newSide ) }
 				isBlock
@@ -450,8 +461,8 @@ export default function FromToControls( {
 						isPreviewing
 							? __( 'Stop previewing', 'motion-blocks' )
 							: side === 'start'
-							? __( 'Preview from state', 'motion-blocks' )
-							: __( 'Preview to state', 'motion-blocks' )
+							? __( 'Preview "from" state', 'motion-blocks' )
+							: __( 'Preview "to" state', 'motion-blocks' )
 					}
 					onClick={ togglePreview }
 				/>

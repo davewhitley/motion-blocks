@@ -375,6 +375,7 @@
 		gap: vars.$grid-unit-20;
 	}
 
+
 	.mb-sub-panel-header {
 		display: flex;
 		flex-direction: column;
@@ -478,21 +479,69 @@
 	// Section heading inside a sub-panel — visually matches the
 	// FromToControls "Properties" header (top divider, bold label,
 	// no inline action). Used for "Timing", "Exit timing", etc.
-	.mb-section-heading {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: vars.$grid-unit-10;
-		padding-top: vars.$grid-unit-10;
-		// Explicit margin: top supplied by us (visual rhythm) and bottom
-		// pinned to 0 so the element can be a semantic <h3> without
-		// inheriting the browser's default heading margin.
-		margin: vars.$grid-unit-10 0 0;
-		border-top: 1px solid colors.$gray-400;
-		font-size: 13px;
-		font-weight: 500;
-		color: colors.$gray-900;
-	}
+	//
+	// Spacing rationale:
+	//   - Top: 8px margin + 8px padding above the text. The margin
+	//     adds to the parent's `gap: 16px`, so total space above the
+	//     border line is 24px — clear separation from the previous
+	//     section.
+	//   - Bottom: -8px margin pulls the next sibling up by 8px. Combined
+	//     with the parent's 16px gap, the effective space between the
+	//     heading text and the first control below is 8px. Without
+	//     this counter-margin, the heading floats 16px above its
+	//     controls and reads as a separate section rather than a
+	//     label for the group below.
+	//   - Default browser h2 margin-bottom is overridden by the explicit
+	//     value here, so the element can be semantic without inheriting
+	//     UA styles.
+	// `.mb-section-heading` lives outside this @scope — see the
+	// rule below the closing brace for why (specificity).
+
+}
+
+// Section heading rule moved out of the `@scope (.mb-sub-panel)`
+// block above on purpose: WP's `.interface-complementary-area h2 {
+// margin-bottom: 1.5em }` rule has specificity 0,1,1 and would
+// otherwise override our `margin-bottom: 0`. `@scope` adds zero
+// specificity to its inner selectors (`:scope` behaves like
+// `:where()`), so `.mb-section-heading` inside @scope is only
+// 0,1,0 and loses. Writing it as `.mb-sub-panel .mb-section-heading`
+// here bumps specificity to 0,2,0, beating WP's 0,1,1 — same
+// pattern as the `.components-base-control` override below.
+.mb-sub-panel .mb-section-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: vars.$grid-unit-10;
+	padding-top: vars.$grid-unit-10;
+	margin: vars.$grid-unit-10 0 0;
+	border-top: 1px solid colors.$gray-400;
+	font-size: 13px;
+	font-weight: 500;
+	color: colors.$gray-900;
+}
+
+// WP's block-inspector cascade adds `margin-bottom: 16px` to every
+// `.components-base-control:where(:not(:last-child))`. Our controls
+// already pass `__nextHasNoMarginBottom` in JSX, but that prop doesn't
+// beat the block-inspector specificity, so BaseControl-backed rows
+// (SelectControl, ToggleControl, RangeControl, TextControl,
+// ToggleGroupControl, …) end up with 16px margin stacked on top of
+// `.mb-sub-panel`'s parent `gap: 16px` — visibly doubled spacing.
+//
+// Lives outside the `@scope (.mb-sub-panel)` block above on purpose:
+// `@scope` doesn't add specificity (`:scope` behaves like `:where()`),
+// so a rule like `.components-base-control { margin-bottom: 0 }`
+// nested inside @scope is only 0,1,0 specificity and loses to WP's
+// 0,2,0 (`.block-editor-block-inspector .components-base-control`).
+// Writing it as a descendant selector here matches that 0,2,0 and
+// wins on cascade order (our CSS loads after WP's).
+//
+// HStack-wrapped NumberControls (Duration / Delay) were never
+// affected — each is the only child of its FlexBlock wrapper, so
+// `:not(:last-child)` doesn't match. No change needed there.
+.mb-sub-panel .components-base-control {
+	margin-bottom: 0;
 }
 
 // Custom (Start / End) editor wrapper. Spacing only — the inner

@@ -491,6 +491,16 @@ export default function SlotControls( {
 				/>
 			) }
 
+			{ /* "Timing" section heading — matches the Page Load and
+			   Scroll Interactive panels, grouping Duration / Delay /
+			   Acceleration / Replay under one visual divider. The
+			   heading's styles (`.mb-section-heading` in editor.scss)
+			   pull it tight against the controls below via negative
+			   margin-bottom. */ }
+			<h2 className="mb-section-heading">
+				{ __( 'Timing', 'motion-blocks' ) }
+			</h2>
+
 			<HStack spacing={ 3 }>
 				<FlexBlock>
 					<NumberControl

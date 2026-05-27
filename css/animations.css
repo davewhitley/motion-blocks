@@ -90,7 +90,8 @@ html:has(body.mb-clip-page-overflow) {
         .mb-enter-slide-out,
         .mb-enter-scale-out,
         .mb-enter-blur-out,
-        .mb-enter-rotate-out
+        .mb-enter-rotate-out,
+        .mb-enter-curtain-out
     ):not(.mb-triggered) {
     opacity: 1;
 }
@@ -214,6 +215,15 @@ html:has(body.mb-clip-page-overflow) {
 @keyframes mbCurtainReveal {
     from { clip-path: var(--mb-curtain-from, inset(0 50% 0 50%)); }
     to   { clip-path: inset(0 0 0 0); }
+}
+
+/* Curtain Close — visual reverse of Curtain Reveal. Reuses
+   mbCurtainClose (defined further down in the Exit Keyframes
+   section) so the binding stays DRY across Scroll Appear's Exit
+   slot and Page Load / Scroll Interactive's class-based path. */
+.mb-enter-curtain-out.mb-triggered,
+.mb-mode-scroll-interactive.mb-enter-curtain-out {
+    animation-name: mbCurtainClose;
 }
 
 /* Flip In — direction via --mb-flip-transform */
@@ -552,6 +562,10 @@ html:has(body.mb-clip-page-overflow) {
 [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain img:first-of-type {
     animation-name: mbCurtainReveal;
 }
+[data-mb-target="img"].mb-enter-curtain-out.mb-triggered img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out img:first-of-type {
+    animation-name: mbCurtainClose;
+}
 [data-mb-target="img"].mb-enter-flip.mb-triggered img:first-of-type,
 [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip img:first-of-type {
     animation-name: mbFlipIn;
@@ -715,6 +729,7 @@ html:has(body.mb-clip-page-overflow) {
 .mb-stagger-parent.mb-enter-blur-out.mb-triggered   > * { animation-name: mbBlurOut; }
 .mb-stagger-parent.mb-enter-wipe.mb-triggered       > * { animation-name: mbWipeIn; }
 .mb-stagger-parent.mb-enter-curtain.mb-triggered    > * { animation-name: mbCurtainReveal; }
+.mb-stagger-parent.mb-enter-curtain-out.mb-triggered > * { animation-name: mbCurtainClose; }
 .mb-stagger-parent.mb-enter-flip.mb-triggered    > * {
     animation-name: mbFlipIn;
     backface-visibility: hidden;

@@ -26,6 +26,7 @@ export const ANIMATION_TYPE_OPTIONS = [
 	// value as "Curtain Close" because the slot's class prefix
 	// (`mb-exit-`) binds to the `mbCurtainClose` keyframe.
 	{ label: 'Curtain Open', value: 'curtain' },
+	{ label: 'Curtain Close', value: 'curtain-out' },
 	{ label: 'Flip', value: 'flip' },
 	{ label: 'Scale In', value: 'scale' },
 	{ label: 'Scale Out', value: 'scale-out' },
@@ -244,6 +245,10 @@ export const DIRECTION_OPTIONS = {
 		{ label: 'Horizontal', value: 'horizontal' },
 		{ label: 'Vertical', value: 'vertical' },
 	],
+	'curtain-out': [
+		{ label: 'Horizontal', value: 'horizontal' },
+		{ label: 'Vertical', value: 'vertical' },
+	],
 	flip: [
 		{ label: 'Left to right', value: 'ltr' },
 		{ label: 'Right to left', value: 'rtl' },
@@ -258,7 +263,7 @@ export const DIRECTION_OPTIONS = {
 /**
  * Types that show a direction control.
  */
-export const TYPES_WITH_DIRECTION = [ 'slide', 'slide-out', 'wipe', 'curtain', 'flip', 'scale', 'scale-out', 'image-move' ];
+export const TYPES_WITH_DIRECTION = [ 'slide', 'slide-out', 'wipe', 'curtain', 'curtain-out', 'flip', 'scale', 'scale-out', 'image-move' ];
 
 /**
  * Default direction when a directional type is first selected.
@@ -268,6 +273,7 @@ export const DEFAULT_DIRECTION = {
 	'slide-out': 'ttb',
 	wipe: 'ltr',
 	curtain: 'horizontal',
+	'curtain-out': 'horizontal',
 	flip: 'ltr',
 	scale: 'none',
 	'scale-out': 'none',
@@ -310,6 +316,14 @@ export const DIRECTION_CSS_VARS = {
 		horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
 		vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
 	},
+	// Curtain Close uses the same `--mb-curtain-from` vars — its
+	// keyframe (mbCurtainClose) animates `inset(0)` → that var, so the
+	// element closes inward to the same slit shape Curtain Open opens
+	// outward from. No separate "to" variable needed.
+	'curtain-out': {
+		horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
+		vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
+	},
 	flip: {
 		ltr: { '--mb-flip-transform': 'rotateY(-90deg)' },
 		rtl: { '--mb-flip-transform': 'rotateY(90deg)' },
@@ -347,6 +361,7 @@ export const ENTER_KEYFRAME_MAP = {
 	'slide-out': 'mbSlideOut',
 	wipe: 'mbWipeIn',
 	curtain: 'mbCurtainReveal',
+	'curtain-out': 'mbCurtainClose',
 	flip: 'mbFlipIn',
 	scale: 'mbScaleIn',
 	'scale-out': 'mbScaleOut',
@@ -1170,6 +1185,20 @@ export function getPresetFromTo( type, direction, options = {} ) {
 			return {
 				from: { clipPath: curtainFrom },
 				to: { clipPath: 'inset(0)' },
+			};
+		}
+
+		case 'curtain-out': {
+			// Curtain Close — visual reverse of Curtain Open. From
+			// fully visible (inset(0)) to the same slit shape Open
+			// reveals from.
+			const curtainTo =
+				direction === 'vertical'
+					? 'inset(50% 0 50% 0)'
+					: 'inset(0 50% 0 50%)';
+			return {
+				from: { clipPath: 'inset(0)' },
+				to: { clipPath: curtainTo },
 			};
 		}
 

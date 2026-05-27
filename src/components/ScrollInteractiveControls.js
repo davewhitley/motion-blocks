@@ -343,7 +343,7 @@ export default function ScrollInteractiveControls( {
 				</>
 			) }
 
-			{ ! isCustom && hasDirection && animationType === 'curtain' && (
+			{ ! isCustom && hasDirection && ( animationType === 'curtain' || animationType === 'curtain-out' ) && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -363,7 +363,7 @@ export default function ScrollInteractiveControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && animationType !== 'curtain-out' && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -415,6 +415,16 @@ export default function ScrollInteractiveControls( {
 					__next40pxDefaultSize
 				/>
 			) }
+
+			{ /* "Timing" section heading — matches the Page Load and
+			   Scroll Appear panels, which use the same heading above
+			   their Duration / Delay / Acceleration block. For
+			   Scroll Interactive the scroll position IS the timing,
+			   so this section groups Start Offset / End Offset /
+			   Acceleration as the equivalent timing controls. */ }
+			<h2 className="mb-section-heading">
+				{ __( 'Timing', 'motion-blocks' ) }
+			</h2>
 
 			<RangeControl
 				label={ __( 'Start Offset', 'motion-blocks' ) }

@@ -382,7 +382,7 @@ export default function PageLoadControls( {
 				</>
 			) }
 
-			{ ! isCustom && hasDirection && animationType === 'curtain' && (
+			{ ! isCustom && hasDirection && ( animationType === 'curtain' || animationType === 'curtain-out' ) && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }
@@ -402,7 +402,7 @@ export default function PageLoadControls( {
 				</ToggleGroupControl>
 			) }
 
-			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && (
+			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && animationType !== 'curtain-out' && (
 				<ToggleGroupControl
 					label={ __( 'Direction', 'motion-blocks' ) }
 					value={ animationDirection }

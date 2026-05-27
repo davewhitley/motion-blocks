@@ -22,7 +22,6 @@
 import { useState } from '@wordpress/element';
 import {
 	TabPanel,
-	ToggleControl,
 	Button,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
@@ -137,47 +136,12 @@ export default function ScrollAppearControls( props ) {
 				/>
 			) }
 
-			{ /* Play once — only meaningful when Entry is the ONLY
-			   filled slot. With Entry alone, the toggle gates whether
-			   the entry animation replays on every scroll-past (off)
-			   or fires exactly once and unobserves (on). With both
-			   slots filled, the block naturally round-trips (Entry on
-			   scroll-in, Exit on scroll-out, every time) and the
-			   playOnce attribute is ignored by frontend.js — the
-			   unobserve conditions require one slot empty. With only
-			   Exit filled, the exit reverse-plays on scroll-back-up
-			   for a smooth round-trip. In both two-state cases the
-			   toggle is disabled and shown unchecked to match what
-			   actually happens. */ }
-			<ToggleControl
-				label={ __( 'Play once', 'motion-blocks' ) }
-				checked={
-					hasEntry &&
-					! hasExit &&
-					!! attributes.animationPlayOnce
-				}
-				disabled={ ! ( hasEntry && ! hasExit ) }
-				onChange={ ( value ) =>
-					setAttributes( { animationPlayOnce: value } )
-				}
-				help={
-					hasEntry && ! hasExit
-						? __(
-								'Animate the element only once when scrolling for the first time.',
-								'motion-blocks'
-						  )
-						: hasEntry && hasExit
-						? __(
-								'Entry plays as you scroll in, Exit plays as you scroll out. Repeats each time.',
-								'motion-blocks'
-						  )
-						: __(
-								'Exit animations reverse-play when you scroll back up.',
-								'motion-blocks'
-						  )
-				}
-				__nextHasNoMarginBottom
-			/>
+			{ /* Per-slot Replay controls now live inside each tab
+			   (SlotControls). The legacy block-level "Play once"
+			   toggle was replaced by per-slot Replay dropdowns —
+			   `animationPlayOnce` is still in the schema for legacy
+			   block deserialization but no longer written from the UI.
+			   See REPLAY_OPTIONS in constants.js. */ }
 
 			<Button
 				variant="secondary"

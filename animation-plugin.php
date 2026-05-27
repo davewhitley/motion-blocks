@@ -165,7 +165,14 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
     $exit_set = isset( $attrs['animationExitType'] )
         && $attrs['animationExitType'] !== '';
     if ( $entry_set || $exit_set ) {
-        return $attrs;
+        // Already slot-model. Derive per-slot Replay attrs if absent
+        // — same idempotent logic as the JS migration helper.
+        return motion_blocks_derive_replay_attrs(
+            $attrs,
+            $entry_set,
+            $exit_set,
+            $attrs
+        );
     }
 
     // Normalize the legacy trigger value: v1 'both' aliases to v2 'mirror'.
@@ -229,6 +236,7 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         return $out;
     };
 
+    $legacy_attrs = $attrs;
     if ( $trigger === 'enter' ) {
         $attrs = array_merge( $attrs, $fill( 'animationEntry', false ) );
     } elseif ( $trigger === 'exit' ) {
@@ -237,6 +245,39 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         // mirror — fill both slots
         $attrs = array_merge( $attrs, $fill( 'animationEntry', false ) );
         $attrs = array_merge( $attrs, $fill( 'animationExit', true ) );
+    }
+    $final_entry_set = isset( $attrs['animationEntryType'] )
+        && $attrs['animationEntryType'] !== '';
+    $final_exit_set = isset( $attrs['animationExitType'] )
+        && $attrs['animationExitType'] !== '';
+    return motion_blocks_derive_replay_attrs(
+        $attrs,
+        $final_entry_set,
+        $final_exit_set,
+        $legacy_attrs
+    );
+}
+
+/**
+ * Derive per-slot Replay attrs from the pre-Replay schema.
+ * Mirror of `deriveReplayAttrs` in src/components/constants.js —
+ * same precedence and defaults so JS-emitted and PHP-emitted markup
+ * agree.
+ *
+ * Idempotent: only writes attrs that aren't already set on the input.
+ */
+function motion_blocks_derive_replay_attrs( $attrs, $entry_set, $exit_set, $legacy_attrs ) {
+    if ( ! isset( $attrs['animationEntryReplay'] ) ) {
+        if ( $entry_set && ! $exit_set ) {
+            $attrs['animationEntryReplay'] = ! empty( $legacy_attrs['animationPlayOnce'] )
+                ? 'once'
+                : 'repeat';
+        } elseif ( $entry_set && $exit_set ) {
+            $attrs['animationEntryReplay'] = 'repeat';
+        }
+    }
+    if ( ! isset( $attrs['animationExitReplay'] ) && $exit_set ) {
+        $attrs['animationExitReplay'] = 'reverse';
     }
     return $attrs;
 }
@@ -332,6 +373,25 @@ function motion_blocks_render_block( $block_content, $block ) {
             'data-mb-play-once',
             esc_attr( $play_once ? 'true' : 'false' )
         );
+
+        // Per-slot Replay attrs. Only emit when the corresponding slot
+        // is filled — empty slots have no replay behavior to control.
+        // Defaults mirror `DEFAULT_ATTRIBUTES` in constants.js so the
+        // JS save filter and PHP render filter agree.
+        if ( $entry_type !== '' ) {
+            $entry_replay = $attrs['animationEntryReplay'] ?? 'repeat';
+            $processor->set_attribute(
+                'data-mb-entry-replay',
+                esc_attr( $entry_replay )
+            );
+        }
+        if ( $exit_type !== '' ) {
+            $exit_replay = $attrs['animationExitReplay'] ?? 'reverse';
+            $processor->set_attribute(
+                'data-mb-exit-replay',
+                esc_attr( $exit_replay )
+            );
+        }
 
         // Per-slot attribute emission. Wrapped in a helper-like
         // structure to avoid duplicating logic across slots.

@@ -465,7 +465,10 @@ export function migrateScrollAppearAttrs( attrs ) {
 		return attrs;
 	}
 	// Already migrated — the user has interacted with the new UI and
-	// `animationEntryType` carries the canonical slot config.
+	// `animationEntryType` carries the canonical slot config. Skip the
+	// legacy slot-fill but still derive per-slot Replay attrs at the
+	// end of the function (slot-model blocks saved before the Replay
+	// rollout don't carry them yet).
 	const entrySet =
 		typeof attrs.animationEntryType === 'string' &&
 		attrs.animationEntryType !== '';
@@ -473,7 +476,15 @@ export function migrateScrollAppearAttrs( attrs ) {
 		typeof attrs.animationExitType === 'string' &&
 		attrs.animationExitType !== '';
 	if ( entrySet || exitSet ) {
-		return attrs;
+		// Spread before mutating so the input attrs object stays
+		// untouched (HOC passes its props.attributes directly here).
+		const needsReplayDerive =
+			attrs.animationEntryReplay === undefined ||
+			attrs.animationExitReplay === undefined;
+		if ( ! needsReplayDerive ) {
+			return attrs;
+		}
+		return deriveReplayAttrs( { ...attrs }, entrySet, exitSet );
 	}
 
 	// Block predates the slot model. Derive slot config from the
@@ -541,7 +552,50 @@ export function migrateScrollAppearAttrs( attrs ) {
 		fillSlot( 'Entry' );
 		fillSlot( 'Exit' );
 	}
-	return out;
+
+	const finalEntrySet =
+		typeof out.animationEntryType === 'string' &&
+		out.animationEntryType !== '';
+	const finalExitSet =
+		typeof out.animationExitType === 'string' &&
+		out.animationExitType !== '';
+	return deriveReplayAttrs( out, finalEntrySet, finalExitSet, attrs );
+}
+
+/**
+ * Derive per-slot Replay attrs (`animationEntryReplay` /
+ * `animationExitReplay`) for blocks that don't yet carry them.
+ * Preserves today's runtime behavior bit-for-bit when reading old
+ * saves:
+ *
+ *   - Entry-only + Play once ON  → Entry replay = 'once'
+ *   - Entry-only + Play once OFF → Entry replay = 'repeat'
+ *   - Exit-only                  → Exit replay = 'reverse' (smooth scroll-back-up)
+ *   - Entry + Exit               → Entry = 'repeat', Exit = 'reverse'
+ *
+ * Idempotent — only writes attrs that are currently `undefined`, so
+ * subsequent edits preserve the user's explicit choices.
+ *
+ * `legacyAttrs` is the raw pre-migration attrs object (used to read
+ * `animationPlayOnce` from legacy Entry-only blocks). Falls back to
+ * the post-migration object for slot-model saves that didn't go
+ * through legacy fill.
+ */
+function deriveReplayAttrs( attrs, entrySet, exitSet, legacyAttrs ) {
+	const source = legacyAttrs || attrs;
+	if ( attrs.animationEntryReplay === undefined ) {
+		if ( entrySet && ! exitSet ) {
+			attrs.animationEntryReplay = source.animationPlayOnce
+				? 'once'
+				: 'repeat';
+		} else if ( entrySet && exitSet ) {
+			attrs.animationEntryReplay = 'repeat';
+		}
+	}
+	if ( attrs.animationExitReplay === undefined && exitSet ) {
+		attrs.animationExitReplay = 'reverse';
+	}
+	return attrs;
 }
 
 /**
@@ -635,6 +689,39 @@ export const BLUR_SETTINGS = {
  * Translate values are stored as CSS-native strings ("20px", "10%")
  * to keep unit handling simple and CSS-side. Other values are numbers.
  * -------------------------------------------------------------- */
+
+/**
+ * Per-slot Replay options for Scroll Appear blocks.
+ *
+ * Each slot owns one edge of the trigger zone and its Replay option
+ * configures both directions of crossing at that edge:
+ *
+ *   - Entry slot owns the BOTTOM edge.
+ *     onEnter (cross bottom upward, element entering from below) → fire entry forward.
+ *     onLeaveBack (cross bottom downward, element exiting at bottom) → action per Replay.
+ *
+ *   - Exit slot owns the TOP edge.
+ *     onLeave (cross top upward, element exiting at top) → fire exit forward.
+ *     onEnterBack (cross top downward, element re-entering from above) → action per Replay.
+ *
+ * Replay values:
+ *   - 'once':    animation plays forward once, observer detaches.
+ *   - 'repeat':  animation plays forward on each pass; reset state on the
+ *                back-direction crossing (off-screen cleanup).
+ *   - 'reverse': animation plays forward on each pass; plays in reverse
+ *                at the back-direction crossing (smooth round-trip).
+ *
+ * Defaults (set on first-fill of each slot in SlotControls.handleTypeChange):
+ *   - Entry default = 'repeat' (preserves today's Entry-only replay behavior).
+ *   - Exit default  = 'reverse' (preserves today's smooth scroll-back).
+ *
+ * Reads the same enum from `migrateScrollAppearAttrs` for legacy blocks.
+ */
+export const REPLAY_OPTIONS = [
+	{ label: 'Once', value: 'once' },
+	{ label: 'Repeat', value: 'repeat' },
+	{ label: 'Reverse', value: 'reverse' },
+];
 
 export const TRANSLATE_UNIT_OPTIONS = [
 	{ label: 'px', value: 'px' },
@@ -1600,6 +1687,12 @@ export const DEFAULT_ATTRIBUTES = {
 	animationExitCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
 	animationExitBlurAmount: 8,
 	animationExitRotateAngle: 90,
+	// Per-slot Replay options. Defaults preserve today's runtime
+	// behavior: Entry replays each scroll-in (Entry-only `repeat`,
+	// Entry+Exit round-trip); Exit reverse-plays on scroll-back-up
+	// (Exit-only and Entry+Exit smooth round-trip).
+	animationEntryReplay: 'repeat',
+	animationExitReplay: 'reverse',
 	// Per-slot Custom From/To values (only relevant when the slot's
 	// type is 'custom'). The shared animationFrom* / animationTo*
 	// attributes below are still used by Page Load and Scroll

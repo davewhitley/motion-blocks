@@ -49,6 +49,7 @@ import {
 	TYPES_WITH_DIRECTION,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
+	REPLAY_OPTIONS,
 	BLUR_SETTINGS,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
@@ -102,6 +103,13 @@ export default function SlotControls( {
 		attributes[ attrName( 'CustomTimingFunction' ) ] || '';
 	const animationBlurAmount = attributes[ attrName( 'BlurAmount' ) ];
 	const animationRotateAngle = attributes[ attrName( 'RotateAngle' ) ];
+	const animationReplay =
+		attributes[ attrName( 'Replay' ) ] ||
+		( slot === 'entry' ? 'repeat' : 'reverse' );
+	// Slot-specific default for the Replay attr when filling the slot
+	// for the first time. Matches today's runtime behavior: Entry
+	// replays each scroll-in, Exit reverse-plays on scroll-back.
+	const slotReplayDefault = slot === 'entry' ? 'repeat' : 'reverse';
 
 	const isCustom = animationType === 'custom';
 	const isEmpty = animationType === '';
@@ -162,6 +170,15 @@ export default function SlotControls( {
 			! hasAnyCustomFromToSet( attributes, slot )
 		) {
 			Object.assign( newAttrs, customDefaultFromToForSlot( slot ) );
+		}
+		// First-time fill: seed the Replay default for this slot if it
+		// hasn't been set yet. Preserves today's behavior on filling a
+		// new slot (Entry → 'repeat', Exit → 'reverse').
+		if (
+			value !== '' &&
+			attributes[ attrName( 'Replay' ) ] === undefined
+		) {
+			newAttrs[ attrName( 'Replay' ) ] = slotReplayDefault;
 		}
 		setAttributes( newAttrs );
 	};
@@ -537,6 +554,56 @@ export default function SlotControls( {
 					__next40pxDefaultSize
 				/>
 			) }
+
+			{ /* Replay control.
+			     Slot-isolated spatial model: Entry owns the BOTTOM edge
+			     of the trigger zone; Exit owns the TOP edge. Each slot's
+			     Replay option configures the back-direction crossing at
+			     its own edge — no cross-slot reach. See REPLAY_OPTIONS
+			     in constants.js for the full mapping. */ }
+			<SelectControl
+				label={ __( 'Replay', 'motion-blocks' ) }
+				value={ animationReplay }
+				options={ REPLAY_OPTIONS }
+				onChange={ ( value ) =>
+					setAttributes( {
+						[ attrName( 'Replay' ) ]: value,
+					} )
+				}
+				help={
+					slot === 'entry'
+						? animationReplay === 'once'
+							? __(
+									'Entry animation plays once on first appearance, then stays.',
+									'motion-blocks'
+							  )
+							: animationReplay === 'repeat'
+							? __(
+									'Entry animation plays each time the element scrolls into view.',
+									'motion-blocks'
+							  )
+							: __(
+									'Entry animation plays in reverse when the element leaves the bottom of the viewport.',
+									'motion-blocks'
+							  )
+						: animationReplay === 'once'
+						? __(
+								'Exit animation plays once, then stays exited.',
+								'motion-blocks'
+						  )
+						: animationReplay === 'repeat'
+						? __(
+								'Exit animation plays each time the element scrolls out at the top.',
+								'motion-blocks'
+						  )
+						: __(
+								'Exit animation plays in reverse when the user scrolls back to the element.',
+								'motion-blocks'
+						  )
+				}
+				__next40pxDefaultSize
+				__nextHasNoMarginBottom
+			/>
 		</div>
 	);
 }

@@ -854,25 +854,6 @@
 		}
 
 		/**
-		 * Pseudo-observer interface for the handlers (which expect to
-		 * call `observer.unobserve(el)` on play-once). Flips an
-		 * internal flag that the tick loop checks AND calls
-		 * `state.io.unobserve` to stop the wake-up signal too — saves
-		 * the per-element IO callback cost once the element is
-		 * permanently "done."
-		 */
-		function makeObserver( state ) {
-			return {
-				unobserve: function () {
-					state.unobserved = true;
-					if ( state.io ) {
-						state.io.unobserve( state.el );
-					}
-				},
-			};
-		}
-
-		/**
 		 * The truth function. Reads cached bounds against the current
 		 * scroll viewport, computes inZone, fires a handler only on
 		 * inZone state flips. Called from IO callbacks and from
@@ -918,9 +899,30 @@
 			var inViewport =
 				state.pageBottom > viewportTop &&
 				state.pageTop < viewportBottom;
+			// Off-screen cleanup defense-in-depth.
+			//
+			// `handleSlotLeaveBack` (Entry Replay = 'repeat' branch)
+			// already resets at the trigger-zone bottom-edge crossing,
+			// so most blocks won't need this. But the b667967 case
+			// still applies for any state that didn't get reset there
+			// — e.g., the user scrolls fast enough that the inZone
+			// flip event was missed, or onLeaveBack fired in a state
+			// where the Entry slot is empty but cleanup is still
+			// desirable for downstream consistency.
+			//
+			// Gated on Entry Replay so `once` blocks (which want to
+			// stay entered forever) aren't reset. For empty Entry +
+			// Exit Replay = 'reverse' (today's Exit-only default), the
+			// reverse-played state is held by fill-mode; the next
+			// forward leave detects wasReversed and force-restarts.
+			// No reset needed there.
 			if ( state.inViewport && ! inViewport ) {
 				var exitedAtBottom = state.pageTop >= viewportBottom;
-				if ( exitedAtBottom ) {
+				var shouldCleanup =
+					exitedAtBottom &&
+					state.hasEntry &&
+					state.entryReplay !== 'once';
+				if ( shouldCleanup ) {
 					state.el.classList.remove( 'mb-triggered' );
 					state.el.classList.remove( 'mb-exit-triggered' );
 					state.el.style.removeProperty( '--mb-direction' );
@@ -963,15 +965,11 @@
 			if ( inZone ) {
 				state.hasEntered = true;
 				if ( dir === 'up' ) {
-					handleSlotReverseEnter( state.el );
+					// onEnterBack — Exit slot owns this.
+					handleSlotReverseEnter( state );
 				} else {
-					handleSlotEnter(
-						state.el,
-						state.entry,
-						state.hasExit,
-						state.playOnce,
-						makeObserver( state )
-					);
+					// onEnter — Entry slot owns this.
+					handleSlotEnter( state );
 				}
 			} else {
 				// Forward-leave guard: skip if the element has
@@ -994,18 +992,12 @@
 					state.hasEntered = true;
 				}
 				if ( dir === 'up' ) {
-					// onLeaveBack: no-op. Element fell off the
-					// bottom of the trigger zone while user
-					// scrolled up. Last-seen state stays.
+					// onLeaveBack — Entry slot owns this.
+					handleSlotLeaveBack( state );
 					return;
 				}
-				handleSlotExit(
-					state.el,
-					state.exit,
-					state.hasEntry,
-					state.playOnce,
-					makeObserver( state )
-				);
+				// onLeave — Exit slot owns this.
+				handleSlotExit( state );
 			}
 		}
 
@@ -1017,8 +1009,12 @@
 			if ( ! hasEntry && ! hasExit ) {
 				return;
 			}
-			var playOnce =
-				hasEntry && el.dataset.mbPlayOnce !== 'false';
+
+			// Read per-slot Replay attrs. Defaults preserve today's
+			// runtime behavior: Entry replays each scroll-in (`repeat`),
+			// Exit reverse-plays on scroll-back (`reverse`).
+			var entryReplay = el.dataset.mbEntryReplay || 'repeat';
+			var exitReplay = el.dataset.mbExitReplay || 'reverse';
 
 			// Apply baseline direction / blur / rotate / custom-keyframe
 			// setup. Per-slot timing is applied on each transition.
@@ -1032,7 +1028,8 @@
 				exit: exit,
 				hasEntry: hasEntry,
 				hasExit: hasExit,
-				playOnce: playOnce,
+				entryReplay: entryReplay,
+				exitReplay: exitReplay,
 				inZone: false,
 				inViewport: false,
 				hasEntered: false,
@@ -1197,84 +1194,93 @@
 	}
 
 	/**
-	 * Handle a forward-direction enter (`onEnter`): scrolling down
-	 * brings the element into the trigger zone for the first time,
-	 * or re-enters from below after a forward leave.
+	 * Slot ownership of the four GSAP-style positions:
 	 *
-	 * Fires the Entry slot if it's filled. For Exit-only blocks
-	 * (entry.type === ''), this branch is unreachable on a fresh
-	 * forward enter — Exit-only re-entries happen via
-	 * `handleSlotReverseEnter` on scroll-up (the only way an
-	 * Exit-only block can be in mb-exit-triggered state when
-	 * intersecting=true is after a previous forward leave; the
-	 * IO callback only routes here when direction is down/same,
-	 * which can't happen for that flow).
+	 *   onEnter     — Entry slot, bottom edge (element enters from below)
+	 *   onLeaveBack — Entry slot, bottom edge (element leaves at bottom, scrolling up)
+	 *   onLeave     — Exit slot,  top edge    (element exits at top, scrolling down)
+	 *   onEnterBack — Exit slot,  top edge    (element re-enters from above)
+	 *
+	 * Each slot's Replay option (`once` | `repeat` | `reverse`)
+	 * configures its TWO edge events. The forward-direction event
+	 * (onEnter for Entry, onLeave for Exit) always fires the slot's
+	 * animation forward; Replay only affects what happens at the
+	 * back-direction event of the same edge.
+	 */
+
+	/**
+	 * onEnter — Entry slot fires forward.
 	 *
 	 * Idempotent: if the element is already in the desired entry-
 	 * triggered terminal state, do nothing. Geometry-changing
-	 * animations (rotate, scale, slide) can shift the element's
-	 * bounding box mid-animation, causing IntersectionObserver to
-	 * fire repeat events; the guard prevents flicker.
+	 * animations (rotate, scale, slide) shift the bbox mid-animation;
+	 * the guard keeps redundant IO events silent.
 	 */
-	function handleSlotEnter( el, entry, hasExit, playOnce, observer ) {
-		if ( entry.type === '' ) {
-			// Exit-only block, forward enter. Nothing to fire — the
-			// Entry slot is empty by definition. Reverse-play (if
-			// applicable) happens via handleSlotReverseEnter on
-			// scroll-up only.
+	function handleSlotEnter( state ) {
+		if ( state.entry.type === '' ) {
+			// Entry slot empty (Exit-only block). Nothing to fire here.
 			return;
 		}
 
+		var el = state.el;
 		var inExited = el.classList.contains( 'mb-exit-triggered' );
 		var inTriggered = el.classList.contains( 'mb-triggered' );
 
-		// Already in entry-triggered state (mb-triggered present,
-		// mb-exit-triggered not). Skip — redundant IO event.
+		// Already entered. Skip redundant fire.
 		if ( inTriggered && ! inExited ) {
 			return;
 		}
 
-		applySlotVars( el, entry );
+		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-exit-triggered' );
 		el.classList.add( 'mb-triggered' );
 
-		// Play once only matters when Exit slot is empty. With both
-		// slots filled, the block is implicitly a round-trip and we
-		// keep observing so the exit phase can fire.
-		if ( ! hasExit && playOnce ) {
-			observer.unobserve( el );
+		// Entry Replay = 'once': fire once and stop observing.
+		if ( state.entryReplay === 'once' ) {
+			state.unobserved = true;
+			if ( state.io ) {
+				state.io.unobserve( el );
+			}
 		}
 	}
 
 	/**
-	 * Handle a backward-direction enter (`onEnterBack`): scrolling up,
-	 * the element re-enters the trigger zone from the top edge of
-	 * the viewport after a prior forward exit.
+	 * onEnterBack — Exit slot owns this edge (top, downward).
 	 *
-	 * Reverse-plays the exit keyframe so the element glides back to
-	 * natural state instead of snap-cutting. Works for both Exit-only
-	 * blocks (the originally-supported case from `3d3cfbe`) and now
-	 * also Entry+Exit blocks (which previously re-fired the Entry
-	 * animation here — the "weird" UX the user reported).
+	 * Behavior depends on Exit Replay:
+	 *   - 'once': no-op (exit already played its one shot).
+	 *   - 'repeat': clear exit state — element snap-returns to natural.
+	 *   - 'reverse': reverse-play the exit keyframe (smooth round-trip).
 	 *
-	 * Idempotent: skip if there's no prior exit to reverse, or if
-	 * reverse is already the current direction.
+	 * If Exit slot is empty, onEnterBack is a no-op regardless.
 	 */
-	function handleSlotReverseEnter( el ) {
+	function handleSlotReverseEnter( state ) {
+		if ( ! state.hasExit ) {
+			return;
+		}
+		var el = state.el;
 		var inExited = el.classList.contains( 'mb-exit-triggered' );
+
+		if ( state.exitReplay === 'once' ) {
+			return;
+		}
+		if ( state.exitReplay === 'repeat' ) {
+			if ( inExited ) {
+				el.classList.remove( 'mb-exit-triggered' );
+				el.style.removeProperty( '--mb-direction' );
+			}
+			return;
+		}
+		// 'reverse' — reverse-play exit.
 		if ( ! inExited ) {
-			// No prior exit fired — nothing to reverse. Element
-			// stays in whatever state it was last in (entered or
-			// natural). Matches the user's "stay" preference for
-			// Entry-only on scroll-up.
+			// No prior exit to reverse. Element stays where it was.
 			return;
 		}
 		var alreadyReversed =
 			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
 		if ( alreadyReversed ) {
-			// Reverse is already in effect — redundant IO event
-			// (bbox shift during reverse-play). No-op.
+			// Redundant IO event during reverse-play. No-op.
 			return;
 		}
 		el.style.setProperty( '--mb-direction', 'reverse' );
@@ -1282,23 +1288,22 @@
 	}
 
 	/**
-	 * Handle a leaving-viewport event. Fires the Exit slot if filled,
-	 * or clears the entry state for an Entry-only block (so the
-	 * animation can replay on the next entry when playOnce is off).
+	 * onLeave — Exit slot fires forward.
 	 *
-	 * Idempotent in the same way as handleSlotEnter: redundant IO
-	 * events caused by bounding-box shifts during the exit animation
-	 * (e.g. rotate's expanding AABB) are no-ops.
+	 * If Exit slot is empty, behavior falls back to Entry Replay rules
+	 * (the forward leave at the top edge is owned by Exit, but when
+	 * Exit is empty there's nothing animation-wise to do; the element
+	 * just scrolls off in whatever state it was in).
+	 *
+	 * Idempotent in the same way as handleSlotEnter.
 	 */
-	function handleSlotExit( el, exit, hasEntry, playOnce, observer ) {
-		if ( exit.type === '' ) {
-			// Exit slot empty. If playOnce is off and we have an
-			// Entry slot, re-hide the element so the next intersection
-			// replays the entry animation. With playOnce on, the
-			// observer already unobserved at enter time.
-			if ( hasEntry && ! playOnce ) {
-				el.classList.remove( 'mb-triggered' );
-			}
+	function handleSlotExit( state ) {
+		var el = state.el;
+		if ( state.exit.type === '' ) {
+			// Exit-empty + Entry slot filled. Element scrolls past
+			// the top in its entered state. No-op — the next forward
+			// enter (handleSlotEnter idempotency) handles re-fire if
+			// needed.
 			return;
 		}
 
@@ -1306,29 +1311,68 @@
 		var wasReversed =
 			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
 
-		// Already in forward-played exit state. Skip.
+		// Already in forward-played exit state. Skip redundant fire.
 		if ( inExited && ! wasReversed ) {
 			return;
 		}
 
-		applySlotVars( el, exit );
+		applySlotVars( el, state.exit );
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-triggered' );
 
 		if ( inExited ) {
-			// Coming from a reverse-played re-enter (Exit-only round
-			// trip going forward again). Force restart so the keyframe
-			// replays forward — the class is already there, so a plain
-			// add() wouldn't re-trigger the animation.
+			// Coming from a reverse-played state (Exit Replay =
+			// 'reverse' round-trip going forward again). Force restart
+			// so the keyframe replays forward.
 			restartAnimation( el, 'mb-exit-triggered' );
 		} else {
-			// First forward exit since most recent entry. Plain add.
+			// First forward exit since most recent entry/reset.
 			el.classList.add( 'mb-exit-triggered' );
 		}
 
-		if ( ! hasEntry && playOnce ) {
-			observer.unobserve( el );
+		// Exit Replay = 'once': fire once and stop observing.
+		if ( state.exitReplay === 'once' ) {
+			state.unobserved = true;
+			if ( state.io ) {
+				state.io.unobserve( el );
+			}
 		}
+	}
+
+	/**
+	 * onLeaveBack — Entry slot owns this edge (bottom, downward).
+	 *
+	 * Behavior depends on Entry Replay:
+	 *   - 'once': no-op (entry already played its one shot).
+	 *   - 'repeat': clear all trigger classes — element resets to
+	 *     initial-hide state for the next forward pass. This is the
+	 *     explicit form of the previously-implicit `b667967` off-screen
+	 *     reset.
+	 *   - 'reverse': fire entry keyframe in reverse — element animates
+	 *     out as it leaves the bottom of the viewport.
+	 *
+	 * If Entry slot is empty, onLeaveBack is a no-op regardless.
+	 */
+	function handleSlotLeaveBack( state ) {
+		if ( ! state.hasEntry ) {
+			return;
+		}
+		var el = state.el;
+
+		if ( state.entryReplay === 'once' ) {
+			return;
+		}
+		if ( state.entryReplay === 'repeat' ) {
+			el.classList.remove( 'mb-triggered' );
+			el.classList.remove( 'mb-exit-triggered' );
+			el.style.removeProperty( '--mb-direction' );
+			return;
+		}
+		// 'reverse' — fire entry keyframe in reverse.
+		applySlotVars( el, state.entry );
+		el.style.setProperty( '--mb-direction', 'reverse' );
+		el.classList.remove( 'mb-exit-triggered' );
+		restartAnimation( el, 'mb-triggered' );
 	}
 
 	/* ---------------------------------------------------------------

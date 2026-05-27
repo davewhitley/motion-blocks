@@ -501,6 +501,14 @@ function addAnimationAttributes( settings ) {
 			},
 			animationExitBlurAmount: { type: 'number', default: 8 },
 			animationExitRotateAngle: { type: 'number', default: 90 },
+			// Per-slot Replay options ('once' | 'repeat' | 'reverse').
+			// See REPLAY_OPTIONS in constants.js. Defaults preserve
+			// today's runtime behavior. `animationPlayOnce` (above)
+			// stays in the schema for legacy block deserialization
+			// but is no longer written by the UI; the migration helper
+			// derives the new Replay attrs from it.
+			animationEntryReplay: { type: 'string', default: 'repeat' },
+			animationExitReplay: { type: 'string', default: 'reverse' },
 			// Per-slot Custom From/To values.
 			animationEntryFromOpacity: { type: [ 'number', 'null' ], default: null },
 			animationEntryFromTranslateX: { type: [ 'string', 'null' ], default: null },
@@ -1634,6 +1642,19 @@ function saveScrollAppearProps( props, blockType, attributes ) {
 				DEFAULT_ATTRIBUTES.animationPlayOnce
 		),
 	};
+
+	// Per-slot Replay attrs. Only emit when the corresponding slot is
+	// filled — empty slots have no replay behavior to control.
+	if ( hasEntry ) {
+		dataAttrs[ 'data-mb-entry-replay' ] =
+			attributes.animationEntryReplay ||
+			DEFAULT_ATTRIBUTES.animationEntryReplay;
+	}
+	if ( hasExit ) {
+		dataAttrs[ 'data-mb-exit-replay' ] =
+			attributes.animationExitReplay ||
+			DEFAULT_ATTRIBUTES.animationExitReplay;
+	}
 
 	// img target — triggered by EITHER an image-effect type in any
 	// slot (those always imply img-target) OR the "Animate image only"

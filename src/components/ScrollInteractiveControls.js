@@ -48,6 +48,7 @@ import {
 	presetToFromToAttributes,
 } from './constants';
 import FromToControls from './FromToControls';
+import InfoPopover from './InfoPopover';
 import SubPanelModeHeader from './SubPanelModeHeader';
 
 const DIRECTION_ICON_MAP = {
@@ -426,37 +427,83 @@ export default function ScrollInteractiveControls( {
 				{ __( 'Timing', 'motion-blocks' ) }
 			</h2>
 
-			<RangeControl
-				label={ __( 'Start Offset', 'motion-blocks' ) }
-				value={ startOffset }
-				onChange={ ( value ) =>
-					setAttributes( {
-						animationRangeStart: `entry ${ value }%`,
-					} )
-				}
-				min={ 0 }
-				max={ 100 }
-				beforeIcon={ arrowDown }
-				renderTooltipContent={ ( value ) => `${ value }%` }
-				__next40pxDefaultSize
-				__nextHasNoMarginBottom
-			/>
+			<BaseControl __nextHasNoMarginBottom>
+				<HStack
+					alignment="center"
+					spacing={ 1 }
+					justify="flex-start"
+				>
+					<BaseControl.VisualLabel>
+						{ __( 'Start Offset', 'motion-blocks' ) }
+					</BaseControl.VisualLabel>
+					<InfoPopover
+						label={ __(
+							'About start offset',
+							'motion-blocks'
+						) }
+					>
+						<p>
+							{ __(
+								"Where the animation begins as the element scrolls into view from the bottom of the screen. 0% triggers the moment the element starts entering; 100% waits until it's fully on screen.",
+								'motion-blocks'
+							) }
+						</p>
+					</InfoPopover>
+				</HStack>
+				<RangeControl
+					value={ startOffset }
+					onChange={ ( value ) =>
+						setAttributes( {
+							animationRangeStart: `entry ${ value }%`,
+						} )
+					}
+					min={ 0 }
+					max={ 100 }
+					beforeIcon={ arrowDown }
+					renderTooltipContent={ ( value ) => `${ value }%` }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			</BaseControl>
 
-			<RangeControl
-				label={ __( 'End Offset', 'motion-blocks' ) }
-				value={ endOffset }
-				onChange={ ( value ) =>
-					setAttributes( {
-						animationRangeEnd: `exit ${ value }%`,
-					} )
-				}
-				min={ 0 }
-				max={ 100 }
-				beforeIcon={ arrowUp }
-				renderTooltipContent={ ( value ) => `${ value }%` }
-				__next40pxDefaultSize
-				__nextHasNoMarginBottom
-			/>
+			<BaseControl __nextHasNoMarginBottom>
+				<HStack
+					alignment="center"
+					spacing={ 1 }
+					justify="flex-start"
+				>
+					<BaseControl.VisualLabel>
+						{ __( 'End Offset', 'motion-blocks' ) }
+					</BaseControl.VisualLabel>
+					<InfoPopover
+						label={ __(
+							'About end offset',
+							'motion-blocks'
+						) }
+					>
+						<p>
+							{ __(
+								"Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen.",
+								'motion-blocks'
+							) }
+						</p>
+					</InfoPopover>
+				</HStack>
+				<RangeControl
+					value={ endOffset }
+					onChange={ ( value ) =>
+						setAttributes( {
+							animationRangeEnd: `exit ${ value }%`,
+						} )
+					}
+					min={ 0 }
+					max={ 100 }
+					beforeIcon={ arrowUp }
+					renderTooltipContent={ ( value ) => `${ value }%` }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			</BaseControl>
 
 			<SelectControl
 				label={ __( 'Acceleration', 'motion-blocks' ) }

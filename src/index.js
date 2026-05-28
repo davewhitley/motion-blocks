@@ -376,16 +376,16 @@ function addAnimationAttributes( settings ) {
 				default: 'entry',
 			},
 			// Scroll Interactive editor scrubber position (0–100).
-			// Transient UI state: the HOC freezes the effect at this
-			// percentage (paused animation seeked via negative delay) so
-			// the user can drag through the animation without the live
-			// view() timeline that OOMs Chrome. Reset to 100 (end) when
-			// the block is deselected; stripped from saved recipes. Adding
-			// it is validation-safe — save() no longer depends on any
-			// animation attribute (render-time-only emission).
+			// Transient UI state with NO default on purpose: when unset
+			// (undefined), the block renders its natural, un-animated
+			// state. Only once the user drags the scrubber does it hold a
+			// number, at which point the HOC freezes the effect at that
+			// percentage (paused animation seeked via negative delay — no
+			// view() timeline, which OOMs Chrome). Cleared on deselect so
+			// the block returns to its natural state. Validation-safe to
+			// add — save() no longer depends on any animation attribute.
 			animationScrubPosition: {
 				type: 'number',
-				default: 100,
 			},
 			// Custom (Start / End) state — only consulted when
 			// animationType === 'custom'. `null` = property not added
@@ -705,17 +705,17 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ isSelected ] );
 
-		// Reset the Scroll Interactive scrubber to its end position (100)
-		// when the block deselects. Leaving the block returns it to the
-		// natural resting look, and since 100 is the schema default a
-		// reset value stays out of serialized content.
+		// Clear the Scroll Interactive scrubber when the block deselects.
+		// Unsetting it (rather than parking it at an end value) returns
+		// the block to its natural, un-animated state — a custom effect's
+		// end frame can be off-screen, so "end" is not "natural." Also
+		// keeps the transient value out of serialized content.
 		useEffect( () => {
 			if (
 				! isSelected &&
-				typeof attributes.animationScrubPosition === 'number' &&
-				attributes.animationScrubPosition !== 100
+				typeof attributes.animationScrubPosition === 'number'
 			) {
-				setAttributes( { animationScrubPosition: 100 } );
+				setAttributes( { animationScrubPosition: undefined } );
 			}
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ isSelected ] );
@@ -1203,11 +1203,11 @@ const withAnimationPreview = createHigherOrderComponent(
 			// animationScrubPosition (0-100, default 100 = end) is driven
 			// by the RangeControl in ScrollInteractiveControls.
 			if ( animationMode === 'scroll-interactive' ) {
-				if ( animationType ) {
-					const scrubFraction =
-						( typeof animationScrubPosition === 'number'
-							? animationScrubPosition
-							: 100 ) / 100;
+				if (
+					animationType &&
+					typeof animationScrubPosition === 'number'
+				) {
+					const scrubFraction = animationScrubPosition / 100;
 					const isCustomLike =
 						animationType === 'custom' ||
 						animationType === 'image-move' ||

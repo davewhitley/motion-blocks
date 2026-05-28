@@ -1130,11 +1130,23 @@ const withAnimationPreview = createHigherOrderComponent(
 						''
 				  )
 				: null;
+			// For Scroll Interactive's Play preview, build TIME-BASED img
+			// CSS instead of the scroll-driven view() timeline. The live
+			// view() preview OOM-crashes Chrome and, on a Play click,
+			// wouldn't animate anyway (it just holds the img at its
+			// fill-mode start/end state). Passing 'page-load' makes
+			// buildImgTargetCSS emit a time-based animation the Play
+			// button drives — matching the wrapper-target preview path.
+			const imgPreviewMode =
+				animationMode === 'scroll-interactive' &&
+				animationPreviewPlaying
+					? 'page-load'
+					: animationMode;
 			const imgTargetCSS = targetIsImg
 				? buildImgTargetCSS(
 						customUid,
 						customKeyframe,
-						animationMode
+						imgPreviewMode
 				  )
 				: null;
 

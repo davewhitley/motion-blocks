@@ -494,6 +494,14 @@
 		}
 	}
 
+	// Wrapper div that `Dropdown` renders around the InfoPopover toggle.
+	// `inline-flex` collapses it onto the toggle's box so it aligns
+	// cleanly with the VisualLabel in the HStack (a plain inline-block
+	// wrapper would introduce a baseline gap and nudge the icon down).
+	.mb-info-popover-dropdown {
+		display: inline-flex;
+	}
+
 	.mb-remove-button {
 		width: 100%;
 		justify-content: center;
@@ -699,13 +707,24 @@
 	clip-path: none;
 }
 
-// Popover body styles for `InfoPopover` (the click-to-open info
-// panels attached to the Scroll Interactive offset controls).
-// Rendered in a portal outside `@scope (.mb-sub-panel)`, so these
-// rules live at the file root.
-.mb-info-popover .mb-info-popover__body {
+// Popover styles for `InfoPopover` (the click-to-open info panels
+// attached to the Scroll Interactive offset controls). Rendered in a
+// portal outside `@scope (.mb-sub-panel)`, so these rules live at the
+// file root.
+//
+// Sizing/padding go on WP's own `.components-popover__content` wrapper
+// (matching the Block Visibility plugin's InformationPopover). That
+// wrapper is the box WP positions; setting `min-width` here is what
+// stops the prose collapsing to `min-content` (one word per line) —
+// `max-width` alone can't, since it only caps the ceiling. `max-width`
+// keeps the popover from getting too wide for comfortable reading.
+.mb-info-popover .components-popover__content {
+	min-width: 220px;
+	max-width: 250px;
 	padding: vars.$grid-unit-15;
-	max-width: 260px;
+}
+
+.mb-info-popover .mb-info-popover__body {
 	font-size: 12px;
 	line-height: 16px;
 	color: colors.$gray-900;

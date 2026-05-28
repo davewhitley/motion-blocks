@@ -532,6 +532,8 @@ export default function AnimationPanel( {
 					blockName={ blockName }
 					clientId={ clientId }
 					onRemove={ removeAnimation }
+					onPreview={ replayPreview }
+					isPlayPending={ isPlayPending }
 					onPaste={ pasteAnimation }
 					onReset={ resetSettings }
 				/>

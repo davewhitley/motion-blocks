@@ -28,6 +28,7 @@ import {
 	arrowLeft,
 	arrowRight,
 } from '@wordpress/icons';
+import { SVG, Path } from '@wordpress/primitives';
 
 import {
 	ANIMATION_TYPE_OPTIONS,
@@ -56,6 +57,12 @@ const DIRECTION_ICON_MAP = {
 	rtl: arrowLeft,
 };
 
+const playIcon = (
+	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+		<Path d="M8 5.14v13.72l11-6.86L8 5.14z" />
+	</SVG>
+);
+
 /**
  * Extract the offset percentage from a range string like "entry 20%".
  */
@@ -69,6 +76,8 @@ export default function ScrollInteractiveControls( {
 	blockName,
 	clientId,
 	onRemove,
+	onPreview,
+	isPlayPending,
 	onPaste,
 	onReset,
 } ) {
@@ -233,6 +242,20 @@ export default function ScrollInteractiveControls( {
 						/>
 					</div>
 				</FlexBlock>
+				{ /* Scroll Interactive isn't live-previewed in the editor
+				   (the real effect is scroll-driven via animation-timeline:
+				   view(), which crashes Chrome when run in the editor
+				   iframe). This Play button gives a safe time-based one-shot
+				   instead — the HOC routes it through the class-based preview
+				   while animationPreviewPlaying is true. */ }
+				<Button
+					icon={ playIcon }
+					label={ __( 'Preview animation', 'motion-blocks' ) }
+					variant="secondary"
+					onClick={ () => onPreview && onPreview() }
+					disabled={ isPlayPending }
+					__next40pxDefaultSize
+				/>
 			</HStack>
 
 			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&

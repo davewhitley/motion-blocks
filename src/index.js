@@ -1151,8 +1151,14 @@ const withAnimationPreview = createHigherOrderComponent(
 			// the block at its natural resting state — computedClassName /
 			// computedWrapperProps keep their defaults — and let the effect play
 			// on the frontend.
-			if ( animationMode === 'scroll-interactive' ) {
-				// No live preview — see comment above. Block renders naturally.
+			// At rest: no live preview (avoids the view() OOM) — block renders
+			// naturally. While playing, this falls through to the class-based
+			// branch below for a safe, time-based one-shot preview (no view()).
+			if (
+				animationMode === 'scroll-interactive' &&
+				! animationPreviewPlaying
+			) {
+				// At rest — block renders naturally.
 			}
 
 			// Page-load / Scroll-appear: class-based preview.
@@ -1161,9 +1167,10 @@ const withAnimationPreview = createHigherOrderComponent(
 				const isLooping =
 					repeat === 'loop' || repeat === 'alternate';
 
-				const isPageLoadOrScrollAppear =
+				const isClassPreviewMode =
 					animationMode === 'page-load' ||
-					animationMode === 'scroll-appear';
+					animationMode === 'scroll-appear' ||
+					animationMode === 'scroll-interactive';
 				// Scroll Appear: ONLY animate on explicit Play click.
 				//
 				// Auto-playing the entry slot at editor load (the old
@@ -1180,13 +1187,19 @@ const withAnimationPreview = createHigherOrderComponent(
 				// play (it's how the user previews a page-load animation
 				// without clicking) because there's only one slot — no
 				// cross-contamination risk.
+				// Page Load auto-plays at rest (unless looping). Scroll
+				// Appear and Scroll Interactive only animate on an explicit
+				// Play click (animationPreviewPlaying) — Scroll Interactive
+				// because its live view() preview OOMs Chrome (see the
+				// scroll-interactive branch above), so the Play button gives
+				// a safe time-based one-shot here instead.
 				const shouldAnimate =
-					isPageLoadOrScrollAppear && animationType
-						? animationMode === 'scroll-appear'
-							? animationPreviewPlaying
-							: isLooping
-							? animationPreviewPlaying
-							: true
+					isClassPreviewMode && animationType
+						? animationMode === 'page-load'
+							? isLooping
+								? animationPreviewPlaying
+								: true
+							: animationPreviewPlaying
 						: false;
 
 				if ( shouldAnimate ) {

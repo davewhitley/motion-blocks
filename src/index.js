@@ -972,6 +972,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationRepeat,
 				animationRangeStart,
 				animationRangeEnd,
+				animationPreviewEnabled,
 				animationPreviewPlaying,
 				animationFromToPreviewSide,
 				animationScrubPosition,
@@ -1205,6 +1206,7 @@ const withAnimationPreview = createHigherOrderComponent(
 			if ( animationMode === 'scroll-interactive' ) {
 				if (
 					animationType &&
+					animationPreviewEnabled !== false &&
 					typeof animationScrubPosition === 'number'
 				) {
 					const scrubFraction = animationScrubPosition / 100;

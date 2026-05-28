@@ -25,6 +25,8 @@ import { __ } from '@wordpress/i18n';
 import { useDispatch } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import {
+	seen,
+	unseen,
 	arrowUp,
 	arrowDown,
 	arrowLeft,
@@ -83,6 +85,7 @@ export default function ScrollInteractiveControls( {
 		animationRotateAngle,
 		animationRangeStart,
 		animationRangeEnd,
+		animationPreviewEnabled,
 		animationScrubPosition,
 	} = attributes;
 
@@ -94,6 +97,9 @@ export default function ScrollInteractiveControls( {
 		typeof animationScrubPosition === 'number'
 			? animationScrubPosition
 			: 100;
+	// The eye toggle shows/hides the scrub slider. Off = the block renders
+	// its natural, un-animated state (same as deselecting).
+	const previewOn = animationPreviewEnabled !== false;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
 	// blocks that have a primary <img>. Hide entirely for block types
@@ -245,6 +251,33 @@ export default function ScrollInteractiveControls( {
 						/>
 					</div>
 				</FlexBlock>
+				{ /* Eye toggle: show/hide the scrub preview slider. Off
+				   clears the scrub value, returning the block to its
+				   natural state (same as deselecting). Independent of the
+				   From/To start/end eye icons in the Custom panel. */ }
+				{ animationType && (
+					<Button
+						icon={ previewOn ? seen : unseen }
+						label={
+							previewOn
+								? __( 'Hide scroll preview', 'motion-blocks' )
+								: __( 'Show scroll preview', 'motion-blocks' )
+						}
+						isPressed={ previewOn }
+						variant="secondary"
+						onClick={ () =>
+							setAttributes(
+								previewOn
+									? {
+											animationPreviewEnabled: false,
+											animationScrubPosition: undefined,
+									  }
+									: { animationPreviewEnabled: true }
+							)
+						}
+						__next40pxDefaultSize
+					/>
+				) }
 			</HStack>
 
 			{ /* Scrub preview. Scroll Interactive can't be live-previewed
@@ -253,7 +286,7 @@ export default function ScrollInteractiveControls( {
 			   the effect at a given point (start → end) so the user can
 			   drag through it. Drives animationScrubPosition, which the
 			   HOC turns into a paused-and-seeked animation. */ }
-			{ animationType && (
+			{ animationType && previewOn && (
 				<RangeControl
 					label={ __( 'Preview', 'motion-blocks' ) }
 					help={ __(

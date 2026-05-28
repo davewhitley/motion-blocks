@@ -600,6 +600,48 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 /* ----------------------------------------------------------------
+ * img-target redirect — EXIT phase (Scroll Appear Exit slot)
+ *
+ * Mirror of the enter-phase rules above, keyed on `.mb-exit-triggered`
+ * instead of `.mb-triggered`. Without these, a preset Exit effect with
+ * "Animate image only" on would animate the whole wrapper (the enter
+ * suppress rule doesn't match the exit state) while the img stayed
+ * static. Custom + image-effect exits are handled by their own
+ * JS-injected scoped CSS, so they're not listed here.
+ * -------------------------------------------------------------- */
+
+/* Suppress wrapper animation on exit when targeting the img. */
+[data-mb-target="img"].mb-animated.mb-exit-triggered {
+    animation-name: none;
+}
+
+/* Apply timed-animation props on the inner img for the exit phase.
+   Vars are set on the wrapper (inline) and inherit down; the
+   per-type rules below supply the animation-name. */
+[data-mb-target="img"].mb-animated.mb-exit-triggered img:first-of-type {
+    animation-duration: var(--mb-duration);
+    animation-delay: var(--mb-delay);
+    animation-timing-function: var(--mb-timing);
+    animation-fill-mode: var(--mb-fill-mode, both);
+    animation-iteration-count: var(--mb-iteration-count, 1);
+    animation-direction: var(--mb-direction, normal);
+}
+
+/* Per-type exit animation-name on the img descendant. */
+[data-mb-target="img"].mb-exit-fade.mb-exit-triggered img:first-of-type    { animation-name: mbFadeOut; }
+[data-mb-target="img"].mb-exit-slide.mb-exit-triggered img:first-of-type   { animation-name: mbSlideOut; }
+[data-mb-target="img"].mb-exit-scale.mb-exit-triggered img:first-of-type   { animation-name: mbScaleOut; }
+[data-mb-target="img"].mb-exit-blur.mb-exit-triggered img:first-of-type    { animation-name: mbBlurOut; }
+[data-mb-target="img"].mb-exit-rotate.mb-exit-triggered img:first-of-type  { animation-name: mbRotateOut; }
+[data-mb-target="img"].mb-exit-wipe.mb-exit-triggered img:first-of-type    { animation-name: mbWipeOut; }
+[data-mb-target="img"].mb-exit-curtain.mb-exit-triggered img:first-of-type { animation-name: mbCurtainClose; }
+[data-mb-target="img"].mb-exit-flip.mb-exit-triggered img:first-of-type {
+    animation-name: mbFlipOut;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+/* ----------------------------------------------------------------
  * Accessibility: Reduced Motion
  * -------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {

@@ -271,6 +271,7 @@ export default function ScrollInteractiveControls( {
 					min={ 0 }
 					max={ 100 }
 					step={ 1 }
+					withInputField={ false }
 					__next40pxDefaultSize
 					__nextHasNoMarginBottom
 				/>

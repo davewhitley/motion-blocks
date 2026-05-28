@@ -23,8 +23,6 @@ import {
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import {
-	seen,
-	unseen,
 	arrowUp,
 	arrowDown,
 	arrowLeft,
@@ -83,7 +81,6 @@ export default function ScrollInteractiveControls( {
 		animationRotateAngle,
 		animationRangeStart,
 		animationRangeEnd,
-		animationPreviewEnabled,
 	} = attributes;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
@@ -105,7 +102,6 @@ export default function ScrollInteractiveControls( {
 			: opt
 	);
 
-	const previewOn = animationPreviewEnabled !== false;
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
@@ -237,21 +233,6 @@ export default function ScrollInteractiveControls( {
 						/>
 					</div>
 				</FlexBlock>
-				<Button
-					icon={ previewOn ? seen : unseen }
-					label={
-						previewOn
-							? __( 'Disable preview', 'motion-blocks' )
-							: __( 'Enable preview', 'motion-blocks' )
-					}
-					variant="secondary"
-					onClick={ () =>
-						setAttributes( {
-							animationPreviewEnabled: ! previewOn,
-						} )
-					}
-					__next40pxDefaultSize
-				/>
 			</HStack>
 
 			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&

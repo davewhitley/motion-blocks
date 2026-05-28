@@ -926,7 +926,6 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationRepeat,
 				animationRangeStart,
 				animationRangeEnd,
-				animationPreviewEnabled,
 				animationPreviewPlaying,
 				animationFromToPreviewSide,
 			} = attributes;
@@ -1139,104 +1138,21 @@ const withAnimationPreview = createHigherOrderComponent(
 				  )
 				: null;
 
-			// Scroll-interactive: persistent scroll-driven animation.
-			if (
-				animationMode === 'scroll-interactive' &&
-				animationType &&
-				animationPreviewEnabled !== false
-			) {
-				const dirStyles =
-					animationType === 'custom'
-						? {}
-						: getDirectionStyles(
-								animationType,
-								animationDirection
-						  );
-
-				const rangeStartVal =
-					animationRangeStart || 'entry 0%';
-				const rangeEndVal =
-					animationRangeEnd || 'exit 100%';
-				// For custom: use the per-block keyframe name; if no
-				// properties are added, animation-name is empty and
-				// the block won't animate (which is the right call).
-				// For target='img' (and image-move / image-zoom, which
-				// are always img-target): don't animate the wrapper at
-				// all — the scoped CSS targets the inner img.
-				const isCustomLike =
-					animationType === 'custom' ||
-					animationType === 'image-move' ||
-					animationType === 'image-zoom';
-				const resolvedAnimationName = targetIsImg
-					? 'none'
-					: isCustomLike
-					? customKeyframe
-						? customKeyframe.name
-						: 'none'
-					: getEnterKeyframe( animationType );
-				const scrollInteractiveStyles = {
-					...( wrapperProps.style || {} ),
-					...dirStyles,
-					animationName: resolvedAnimationName,
-				};
-				// Only set scroll-driven props on the wrapper when
-				// it's the animation target; for img target the same
-				// props go on the img via scoped CSS.
-				if ( ! targetIsImg ) {
-					scrollInteractiveStyles.animationTimeline = 'view()';
-					scrollInteractiveStyles.animationRangeStart =
-						rangeStartVal;
-					scrollInteractiveStyles.animationRangeEnd =
-						rangeEndVal;
-					scrollInteractiveStyles.animationDuration = '1ms';
-					scrollInteractiveStyles.animationTimingFunction =
-						resolvedTiming;
-					scrollInteractiveStyles.animationFillMode = 'both';
-				} else {
-					// Pass timing vars down so img CSS can read them.
-					scrollInteractiveStyles[ '--mb-range-start' ] =
-						rangeStartVal;
-					scrollInteractiveStyles[ '--mb-range-end' ] =
-						rangeEndVal;
-					scrollInteractiveStyles[ '--mb-timing' ] =
-						resolvedTiming;
-				}
-				if ( animationType === 'blur' ) {
-					scrollInteractiveStyles[ '--mb-blur-amount' ] =
-						( animationBlurAmount ?? 8 ) + 'px';
-				}
-				if ( animationType === 'rotate' ) {
-					scrollInteractiveStyles[ '--mb-rotate-angle' ] =
-						( animationRotateAngle ?? 90 ) + 'deg';
-				}
-				if ( imgTargetCSS ) {
-					injectedKeyframeRule = imgTargetCSS;
-				} else if ( customKeyframe ) {
-					injectedKeyframeRule = customKeyframe.rule;
-				}
-				// For img-target preset effects (fade, slide, scale,
-				// etc.), the editor needs `mb-mode-scroll-interactive`
-				// + `mb-enter-{type}` classes on the wrapper so the
-				// global CSS in animations.css can route the keyframe
-				// + scroll-timeline props onto `img:first-of-type`.
-				// (Custom / image-move / image-zoom drive the img via
-				// scoped data-mb-uid CSS instead — no class needed.)
-				if ( targetIsImg && ! isCustomLike ) {
-					computedClassName = [
-						stripMbPreviewClasses( props.className ),
-						'mb-mode-scroll-interactive',
-						`mb-enter-${ animationType }`,
-					]
-						.filter( Boolean )
-						.join( ' ' );
-				}
-				computedWrapperProps = {
-					...wrapperProps,
-					style: scrollInteractiveStyles,
-				};
-				if ( targetIsImg && customUid ) {
-					computedWrapperProps[ 'data-mb-uid' ] = customUid;
-				}
+			// Scroll-interactive: intentionally NOT live-previewed in the editor.
+			//
+			// The effect is a CSS `animation-timeline: view()` scroll-driven
+			// animation, emitted on the frontend by `motion_blocks_render_block`.
+			// Running it live in the editor crashes Chrome: a view() timeline
+			// animating inside the editor iframe’s nested/clipped scroll context
+			// drives Chrome into a runaway layout/style loop until the renderer
+			// OOMs (“Aw, Snap!”, error code 5). Firefox only escapes it by not
+			// supporting view() yet. A scroll-driven preview is also misleading in
+			// the editor (its scroll context isn’t the real page), so we render
+			// the block at its natural resting state — computedClassName /
+			// computedWrapperProps keep their defaults — and let the effect play
+			// on the frontend.
+			if ( animationMode === 'scroll-interactive' ) {
+				// No live preview — see comment above. Block renders naturally.
 			}
 
 			// Page-load / Scroll-appear: class-based preview.

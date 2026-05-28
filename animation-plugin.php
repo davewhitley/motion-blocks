@@ -198,7 +198,7 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
 
     $direction    = $attrs['animationDirection'] ?? '';
     $duration     = $attrs['animationDuration'] ?? 0.6;
-    $delay        = $attrs['animationDelay'] ?? 0;
+    $delay        = $attrs['animationDelay'] ?? 0.4;
     $acceleration = $attrs['animationAcceleration'] ?? 'ease';
     $custom_tf    = $attrs['animationCustomTimingFunction']
         ?? 'cubic-bezier(0.25, 0.1, 0.25, 1)';
@@ -393,7 +393,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Defaults mirror `DEFAULT_ATTRIBUTES` in constants.js so the
         // JS save filter and PHP render filter agree.
         if ( $entry_type !== '' ) {
-            $entry_replay = $attrs['animationEntryReplay'] ?? 'once';
+            $entry_replay = $attrs['animationEntryReplay'] ?? 'repeat';
             $processor->set_attribute(
                 'data-mb-entry-replay',
                 esc_attr( $entry_replay )
@@ -442,7 +442,7 @@ function motion_blocks_render_block( $block_content, $block ) {
                 );
             }
 
-            $default_delay = 0;
+            $default_delay = ( $slot['name'] === 'entry' ) ? 0.4 : 0;
             $processor->set_attribute(
                 "{$slot['data']}-duration",
                 esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ] ?? 0.6 ) )
@@ -572,7 +572,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             );
             $processor->set_attribute(
                 'data-mb-delay',
-                esc_attr( (string) ( $attrs['animationDelay'] ?? 0 ) )
+                esc_attr( (string) ( $attrs['animationDelay'] ?? 0.4 ) )
             );
             $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
             $pause = $attrs['animationPauseOffscreen'] ?? true;

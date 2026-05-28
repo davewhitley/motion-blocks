@@ -290,9 +290,16 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: 0.6,
 			},
+			// Schema default stays at the original 0.4 for block-validation
+			// back-compat: WP omits default-valued attrs from the block
+			// comment, so changing this default re-resolves every
+			// previously-saved block to the new value and breaks save-output
+			// validation. The preferred new-block default (0) lives in
+			// DEFAULT_ATTRIBUTES and is written explicitly by selectMode, so
+			// it serializes into the comment (≠ default) and stays valid.
 			animationDelay: {
 				type: 'number',
-				default: 0,
+				default: 0.4,
 			},
 			animationRepeat: {
 				type: 'string',
@@ -482,7 +489,11 @@ function addAnimationAttributes( settings ) {
 			animationEntryType: { type: 'string', default: '' },
 			animationEntryDirection: { type: 'string', default: '' },
 			animationEntryDuration: { type: 'number', default: 0.6 },
-			animationEntryDelay: { type: 'number', default: 0 },
+			// Schema defaults stay at original values for validation
+			// back-compat — see the animationDelay note above. New-block
+			// preferences (0 delay, 'once' replay) live in
+			// DEFAULT_ATTRIBUTES and are written explicitly at creation.
+			animationEntryDelay: { type: 'number', default: 0.4 },
 			animationEntryAcceleration: { type: 'string', default: 'ease' },
 			animationEntryCustomTimingFunction: {
 				type: 'string',
@@ -507,7 +518,7 @@ function addAnimationAttributes( settings ) {
 			// stays in the schema for legacy block deserialization
 			// but is no longer written by the UI; the migration helper
 			// derives the new Replay attrs from it.
-			animationEntryReplay: { type: 'string', default: 'once' },
+			animationEntryReplay: { type: 'string', default: 'repeat' },
 			animationExitReplay: { type: 'string', default: 'reverse' },
 			// Per-slot Custom From/To values.
 			animationEntryFromOpacity: { type: [ 'number', 'null' ], default: null },

@@ -189,7 +189,7 @@ function getImageZoomKeyframe( clientId ) {
  * @param {string} animationMode 'page-load' | 'scroll-appear' | 'scroll-interactive'
  * @return {string|null}
  */
-function buildImgTargetCSS( uid, keyframe, animationMode ) {
+function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null ) {
 	if ( ! keyframe ) {
 		return null;
 	}
@@ -219,25 +219,39 @@ function buildImgTargetCSS( uid, keyframe, animationMode ) {
 	// img so the parent stays a static clipping frame.
 	const scrollDriven = animationMode === 'scroll-interactive';
 
-	const animationProps = scrollDriven
-		? [
-				`animation-name: ${ keyframe.name }`,
-				`animation-timeline: view()`,
-				`animation-range-start: var(--mb-range-start, entry 0%)`,
-				`animation-range-end: var(--mb-range-end, exit 100%)`,
-				`animation-duration: 1ms`,
-				`animation-fill-mode: both`,
-				`animation-timing-function: var(--mb-timing, linear)`,
-		  ]
-		: [
-				`animation-name: ${ keyframe.name }`,
-				`animation-duration: var(--mb-duration, 0.6s)`,
-				`animation-delay: var(--mb-delay, 0s)`,
-				`animation-fill-mode: var(--mb-fill-mode, both)`,
-				`animation-timing-function: var(--mb-timing, ease)`,
-				`animation-iteration-count: var(--mb-iteration-count, 1)`,
-				`animation-direction: var(--mb-direction, normal)`,
-		  ];
+	// Scrub preview (editor only): a PAUSED animation seeked to a fixed
+	// point with a negative delay. `scrubFraction` 0 → start, 1 → end.
+	// No view() timeline (which OOMs Chrome in the editor) and no live
+	// running — just a frozen frame the Scroll Interactive scrubber moves.
+	const animationProps =
+		scrubFraction !== null
+			? [
+					`animation-name: ${ keyframe.name }`,
+					`animation-duration: 1s`,
+					`animation-timing-function: linear`,
+					`animation-fill-mode: both`,
+					`animation-play-state: paused`,
+					`animation-delay: calc(${ scrubFraction } * -1s)`,
+			  ]
+			: scrollDriven
+			? [
+					`animation-name: ${ keyframe.name }`,
+					`animation-timeline: view()`,
+					`animation-range-start: var(--mb-range-start, entry 0%)`,
+					`animation-range-end: var(--mb-range-end, exit 100%)`,
+					`animation-duration: 1ms`,
+					`animation-fill-mode: both`,
+					`animation-timing-function: var(--mb-timing, linear)`,
+			  ]
+			: [
+					`animation-name: ${ keyframe.name }`,
+					`animation-duration: var(--mb-duration, 0.6s)`,
+					`animation-delay: var(--mb-delay, 0s)`,
+					`animation-fill-mode: var(--mb-fill-mode, both)`,
+					`animation-timing-function: var(--mb-timing, ease)`,
+					`animation-iteration-count: var(--mb-iteration-count, 1)`,
+					`animation-direction: var(--mb-direction, normal)`,
+			  ];
 
 	// `overflow: clip` on the img's immediate parent provides a
 	// static clipping rectangle that the transformed img child
@@ -251,11 +265,16 @@ function buildImgTargetCSS( uid, keyframe, animationMode ) {
 	// limitation; the caption case needs a separate wrapper around
 	// just the img.
 	return [
+		// `keyframe.rule` is null for preset effects (they bind to a
+		// global @keyframes in animations.css, e.g. mbScaleIn) — only
+		// custom / image-move / image-zoom carry a per-block rule.
 		keyframe.rule,
 		`${ parentSelector } { overflow: clip; }`,
 		`@supports not (overflow: clip) { ${ parentSelector } { overflow: hidden; } }`,
 		`${ imgSelector } { ${ animationProps.join( '; ' ) }; }`,
-	].join( '\n' );
+	]
+		.filter( Boolean )
+		.join( '\n' );
 }
 
 /**
@@ -355,6 +374,18 @@ function addAnimationAttributes( settings ) {
 			animationPreviewSlot: {
 				type: 'string',
 				default: 'entry',
+			},
+			// Scroll Interactive editor scrubber position (0–100).
+			// Transient UI state: the HOC freezes the effect at this
+			// percentage (paused animation seeked via negative delay) so
+			// the user can drag through the animation without the live
+			// view() timeline that OOMs Chrome. Reset to 100 (end) when
+			// the block is deselected; stripped from saved recipes. Adding
+			// it is validation-safe — save() no longer depends on any
+			// animation attribute (render-time-only emission).
+			animationScrubPosition: {
+				type: 'number',
+				default: 100,
 			},
 			// Custom (Start / End) state — only consulted when
 			// animationType === 'custom'. `null` = property not added
@@ -674,6 +705,21 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ isSelected ] );
 
+		// Reset the Scroll Interactive scrubber to its end position (100)
+		// when the block deselects. Leaving the block returns it to the
+		// natural resting look, and since 100 is the schema default a
+		// reset value stays out of serialized content.
+		useEffect( () => {
+			if (
+				! isSelected &&
+				typeof attributes.animationScrubPosition === 'number' &&
+				attributes.animationScrubPosition !== 100
+			) {
+				setAttributes( { animationScrubPosition: 100 } );
+			}
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ isSelected ] );
+
 		return (
 			<>
 				<BlockEdit { ...props } />
@@ -928,6 +974,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				animationRangeEnd,
 				animationPreviewPlaying,
 				animationFromToPreviewSide,
+				animationScrubPosition,
 			} = attributes;
 
 			// Static state preview — eye icon in the From/To panel.
@@ -1130,47 +1177,117 @@ const withAnimationPreview = createHigherOrderComponent(
 						''
 				  )
 				: null;
-			// For Scroll Interactive's Play preview, build TIME-BASED img
-			// CSS instead of the scroll-driven view() timeline. The live
-			// view() preview OOM-crashes Chrome and, on a Play click,
-			// wouldn't animate anyway (it just holds the img at its
-			// fill-mode start/end state). Passing 'page-load' makes
-			// buildImgTargetCSS emit a time-based animation the Play
-			// button drives — matching the wrapper-target preview path.
-			const imgPreviewMode =
-				animationMode === 'scroll-interactive' &&
-				animationPreviewPlaying
-					? 'page-load'
-					: animationMode;
+			// Custom-like img-target CSS for the Page Load / Scroll Appear
+			// class-preview path. (Scroll Interactive builds its own
+			// scrub-frozen img CSS in its branch below, so the view()
+			// variant produced here for SI is computed but never injected.)
 			const imgTargetCSS = targetIsImg
 				? buildImgTargetCSS(
 						customUid,
 						customKeyframe,
-						imgPreviewMode
+						animationMode
 				  )
 				: null;
 
-			// Scroll-interactive: intentionally NOT live-previewed in the editor.
+			// Scroll Interactive — scrub preview.
 			//
-			// The effect is a CSS `animation-timeline: view()` scroll-driven
-			// animation, emitted on the frontend by `motion_blocks_render_block`.
-			// Running it live in the editor crashes Chrome: a view() timeline
-			// animating inside the editor iframe’s nested/clipped scroll context
-			// drives Chrome into a runaway layout/style loop until the renderer
-			// OOMs (“Aw, Snap!”, error code 5). Firefox only escapes it by not
-			// supporting view() yet. A scroll-driven preview is also misleading in
-			// the editor (its scroll context isn’t the real page), so we render
-			// the block at its natural resting state — computedClassName /
-			// computedWrapperProps keep their defaults — and let the effect play
-			// on the frontend.
-			// At rest: no live preview (avoids the view() OOM) — block renders
-			// naturally. While playing, this falls through to the class-based
-			// branch below for a safe, time-based one-shot preview (no view()).
-			if (
-				animationMode === 'scroll-interactive' &&
-				! animationPreviewPlaying
-			) {
-				// At rest — block renders naturally.
+			// The real effect is scroll-driven (animation-timeline:
+			// view()) and ships to the frontend via PHP. We CANNOT run
+			// view() live in the editor: inside the editor iframe's
+			// nested/clipped scroll context it drives Chrome into a
+			// runaway layout/style loop until the renderer OOMs (Aw
+			// Snap, error code 5; Firefox only escapes it by not
+			// supporting view() yet). Instead we freeze the effect at a
+			// scrub position with a PAUSED animation seeked via a
+			// negative delay -- static at every position, no timeline.
+			// animationScrubPosition (0-100, default 100 = end) is driven
+			// by the RangeControl in ScrollInteractiveControls.
+			if ( animationMode === 'scroll-interactive' ) {
+				if ( animationType ) {
+					const scrubFraction =
+						( typeof animationScrubPosition === 'number'
+							? animationScrubPosition
+							: 100 ) / 100;
+					const isCustomLike =
+						animationType === 'custom' ||
+						animationType === 'image-move' ||
+						animationType === 'image-zoom';
+					const dirStyles =
+						animationType === 'custom'
+							? {}
+							: getDirectionStyles(
+									animationType,
+									animationDirection
+							  );
+					const scrubStyle = {
+						...( wrapperProps.style || {} ),
+						...dirStyles,
+					};
+					if ( animationType === 'blur' ) {
+						scrubStyle[ '--mb-blur-amount' ] =
+							( animationBlurAmount ?? 8 ) + 'px';
+					}
+					if ( animationType === 'rotate' ) {
+						scrubStyle[ '--mb-rotate-angle' ] =
+							( animationRotateAngle ?? 90 ) + 'deg';
+					}
+					if ( targetIsImg ) {
+						// Wrapper static; the inner img is frozen via
+						// scoped CSS. Presets bind a global @keyframes
+						// (no per-block rule); custom-like use their own.
+						scrubStyle.animationName = 'none';
+						const scrubUid =
+							customUid ||
+							String( props.clientId ).replace(
+								/[^a-z0-9]/gi,
+								''
+							);
+						const scrubKeyframe = isCustomLike
+							? customKeyframe
+							: {
+									name: getEnterKeyframe( animationType ),
+									rule: null,
+							  };
+						const scrubCSS = scrubKeyframe
+							? buildImgTargetCSS(
+									scrubUid,
+									scrubKeyframe,
+									'scroll-interactive',
+									scrubFraction
+							  )
+							: null;
+						if ( scrubCSS ) {
+							injectedKeyframeRule = scrubCSS;
+						}
+						computedWrapperProps = {
+							...wrapperProps,
+							style: scrubStyle,
+							'data-mb-uid': scrubUid,
+							'data-mb-target': 'img',
+						};
+					} else {
+						const scrubName = isCustomLike
+							? customKeyframe
+								? customKeyframe.name
+								: 'none'
+							: getEnterKeyframe( animationType );
+						scrubStyle.animationName = scrubName;
+						scrubStyle.animationDuration = '1s';
+						scrubStyle.animationTimingFunction = 'linear';
+						scrubStyle.animationFillMode = 'both';
+						scrubStyle.animationPlayState = 'paused';
+						scrubStyle.animationDelay =
+							'calc(' + scrubFraction + ' * -1s)';
+						if ( isCustomLike && customKeyframe ) {
+							injectedKeyframeRule = customKeyframe.rule;
+						}
+						computedWrapperProps = {
+							...wrapperProps,
+							style: scrubStyle,
+						};
+					}
+				}
+				// No animationType yet -- block renders naturally.
 			}
 
 			// Page-load / Scroll-appear: class-based preview.
@@ -1179,39 +1296,23 @@ const withAnimationPreview = createHigherOrderComponent(
 				const isLooping =
 					repeat === 'loop' || repeat === 'alternate';
 
-				const isClassPreviewMode =
+				const isPageLoadOrScrollAppear =
 					animationMode === 'page-load' ||
-					animationMode === 'scroll-appear' ||
-					animationMode === 'scroll-interactive';
-				// Scroll Appear: ONLY animate on explicit Play click.
-				//
-				// Auto-playing the entry slot at editor load (the old
-				// behavior) caused cross-contamination between Entry and
-				// Exit previews — the entry animation's `fill-mode: both`
-				// held state (rotate transform, wipe clip-path, etc.)
-				// stayed visually applied while the user was switching to
-				// the Exit tab, producing a "I see both rotate and fade"
-				// effect when the user clicked Play on Exit.
-				//
-				// With the explicit-Play model, at-rest blocks show their
-				// natural state — no animation runs until the user clicks
-				// a slot's Play button. Page Load mode keeps the auto-
-				// play (it's how the user previews a page-load animation
-				// without clicking) because there's only one slot — no
-				// cross-contamination risk.
+					animationMode === 'scroll-appear';
 				// Page Load auto-plays at rest (unless looping). Scroll
-				// Appear and Scroll Interactive only animate on an explicit
-				// Play click (animationPreviewPlaying) — Scroll Interactive
-				// because its live view() preview OOMs Chrome (see the
-				// scroll-interactive branch above), so the Play button gives
-				// a safe time-based one-shot here instead.
+				// Appear only animates on an explicit Play click — auto-
+				// playing the entry slot at editor load caused
+				// cross-contamination between the Entry and Exit previews
+				// (the entry's fill-mode: both held state lingered while
+				// switching tabs). Scroll Interactive is handled entirely
+				// in its own scrub branch above and never reaches here.
 				const shouldAnimate =
-					isClassPreviewMode && animationType
-						? animationMode === 'page-load'
-							? isLooping
-								? animationPreviewPlaying
-								: true
-							: animationPreviewPlaying
+					isPageLoadOrScrollAppear && animationType
+						? animationMode === 'scroll-appear'
+							? animationPreviewPlaying
+							: isLooping
+							? animationPreviewPlaying
+							: true
 						: false;
 
 				if ( shouldAnimate ) {

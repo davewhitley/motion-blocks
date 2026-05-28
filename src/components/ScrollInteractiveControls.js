@@ -22,13 +22,14 @@ import {
 	Notice,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
+import { useDispatch } from '@wordpress/data';
+import { store as blockEditorStore } from '@wordpress/block-editor';
 import {
 	arrowUp,
 	arrowDown,
 	arrowLeft,
 	arrowRight,
 } from '@wordpress/icons';
-import { SVG, Path } from '@wordpress/primitives';
 
 import {
 	ANIMATION_TYPE_OPTIONS,
@@ -57,12 +58,6 @@ const DIRECTION_ICON_MAP = {
 	rtl: arrowLeft,
 };
 
-const playIcon = (
-	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-		<Path d="M8 5.14v13.72l11-6.86L8 5.14z" />
-	</SVG>
-);
-
 /**
  * Extract the offset percentage from a range string like "entry 20%".
  */
@@ -76,8 +71,6 @@ export default function ScrollInteractiveControls( {
 	blockName,
 	clientId,
 	onRemove,
-	onPreview,
-	isPlayPending,
 	onPaste,
 	onReset,
 } ) {
@@ -90,7 +83,17 @@ export default function ScrollInteractiveControls( {
 		animationRotateAngle,
 		animationRangeStart,
 		animationRangeEnd,
+		animationScrubPosition,
 	} = attributes;
+
+	// Scrub updates fire on every drag step; mark them non-persistent so
+	// dragging the preview slider doesn't flood the editor undo stack.
+	const { __unstableMarkNextChangeAsNotPersistent } =
+		useDispatch( blockEditorStore );
+	const scrubValue =
+		typeof animationScrubPosition === 'number'
+			? animationScrubPosition
+			: 100;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
 	// blocks that have a primary <img>. Hide entirely for block types
@@ -242,21 +245,36 @@ export default function ScrollInteractiveControls( {
 						/>
 					</div>
 				</FlexBlock>
-				{ /* Scroll Interactive isn't live-previewed in the editor
-				   (the real effect is scroll-driven via animation-timeline:
-				   view(), which crashes Chrome when run in the editor
-				   iframe). This Play button gives a safe time-based one-shot
-				   instead — the HOC routes it through the class-based preview
-				   while animationPreviewPlaying is true. */ }
-				<Button
-					icon={ playIcon }
-					label={ __( 'Preview animation', 'motion-blocks' ) }
-					variant="secondary"
-					onClick={ () => onPreview && onPreview() }
-					disabled={ isPlayPending }
-					__next40pxDefaultSize
-				/>
 			</HStack>
+
+			{ /* Scrub preview. Scroll Interactive can't be live-previewed
+			   in the editor — its real animation-timeline: view() effect
+			   crashes Chrome inside the editor iframe. This slider freezes
+			   the effect at a given point (start → end) so the user can
+			   drag through it. Drives animationScrubPosition, which the
+			   HOC turns into a paused-and-seeked animation. */ }
+			{ animationType && (
+				<RangeControl
+					label={ __( 'Preview', 'motion-blocks' ) }
+					help={ __(
+						'Drag to scrub through the animation, from start to end. Preview only — the effect plays on scroll on the front end.',
+						'motion-blocks'
+					) }
+					value={ scrubValue }
+					onChange={ ( v ) => {
+						__unstableMarkNextChangeAsNotPersistent();
+						setAttributes( {
+							animationScrubPosition:
+								typeof v === 'number' ? v : 100,
+						} );
+					} }
+					min={ 0 }
+					max={ 100 }
+					step={ 1 }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
+			) }
 
 			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
 				isImageTargetUnavailable( blockName, attributes ) && (

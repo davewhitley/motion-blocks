@@ -353,16 +353,26 @@ function motion_blocks_render_block( $block_content, $block ) {
         return $block_content;
     }
 
-    // Legacy-content degradation path. As of the render-time-only
-    // refactor, save() no longer bakes `mb-*` into post_content — this
-    // function is the sole authority for emitting animation markup. But
-    // content saved BEFORE that refactor still has `mb-animated` + the
-    // data attrs in its stored HTML. For those blocks, leave the markup
-    // untouched: the baked-in classes/attrs already drive the animation,
-    // and re-emitting would risk duplicating/conflicting. Such blocks
-    // re-save to the clean (plain) shape the next time they're edited.
-    $existing_class = $processor->get_attribute( 'class' ) ?? '';
-    if ( str_contains( $existing_class, 'mb-animated' ) ) {
+    // Skip blocks that already carry complete animation markup. We gate
+    // on `data-mb-mode` (what the frontend actually reads), NOT the
+    // `mb-animated` class.
+    //
+    // Why the distinction matters: content saved before the render-time
+    // refactor can be in a PARTIAL state — the `mb-animated` class baked
+    // into post_content but the `data-mb-*` attributes missing (e.g. a
+    // group/cover whose stored HTML kept the class through an
+    // intermediate save while the attrs were dropped). Gating on the
+    // class would see `mb-animated`, assume the block is complete, and
+    // skip — leaving it permanently un-animated on the front end with no
+    // way to recover short of deleting and re-adding the block.
+    //
+    // Gating on `data-mb-mode` instead lets those partial blocks fall
+    // through so we re-emit: `add_class()` is idempotent (no duplicate
+    // classes) and `set_attribute()` overwrites, so re-emitting is safe
+    // for genuinely-complete legacy blocks too. The attrs are rebuilt
+    // from the block-comment attributes, so any block whose comment still
+    // holds its animation config self-heals at render with no re-save.
+    if ( $processor->get_attribute( 'data-mb-mode' ) !== null ) {
         return $block_content;
     }
 

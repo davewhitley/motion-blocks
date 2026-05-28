@@ -264,7 +264,6 @@ export default function ScrollInteractiveControls( {
 								: __( 'Show scroll preview', 'motion-blocks' )
 						}
 						isPressed={ previewOn }
-						variant="secondary"
 						onClick={ () =>
 							setAttributes(
 								previewOn

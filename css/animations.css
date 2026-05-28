@@ -448,6 +448,32 @@ html:has(body.mb-clip-page-overflow) {
     animation-name: mbRotateIn;
 }
 
+/* Flip Out — direction via --mb-flip-transform. Inverse of mbFlipIn:
+   starts flat, flips away to the 90deg state for the chosen axis.
+   The base rule mirrors `.mb-enter-flip` — flip is the only effect
+   that needs a 3D rendering context (backface-visibility +
+   transform-style) for the rotation to read as a flip rather than a
+   squash. */
+.mb-exit-flip {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+.mb-exit-flip.mb-exit-triggered {
+    animation-name: mbFlipOut;
+}
+
+@keyframes mbFlipOut {
+    from {
+        opacity: 1;
+        transform: perspective(800px) rotateY(0deg) rotateX(0deg);
+    }
+    to {
+        opacity: 0;
+        transform: perspective(800px) var(--mb-flip-transform, rotateY(90deg));
+    }
+}
+
 /* Scroll Appear Custom (slot model). The per-block keyframe names
    come from the frontend script via these CSS custom properties.
    Each phase reads its own var so Entry and Exit can hold
@@ -750,6 +776,13 @@ html:has(body.mb-clip-page-overflow) {
 .mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > * { animation-name: mbBlurOut; }
 .mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > * { animation-name: mbWipeOut; }
 .mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > * { animation-name: mbCurtainClose; }
+/* Flip needs the 3D context on each child, like the enter-phase
+   stagger rule above — a plain one-liner would squash instead. */
+.mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > * {
+    animation-name: mbFlipOut;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
 .mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > * {
     animation-name: var(--mb-exit-anim-name, none);
 }

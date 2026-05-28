@@ -432,10 +432,9 @@ export const ENTRY_TYPE_OPTIONS = [
 /**
  * Effect dropdown options for the Scroll Appear Exit slot.
  *
- * No Flip entry — the existing CSS falls back to mbFadeOut for
- * Flip's exit, which would look broken next to the other Out
- * variants. Wipe and Curtain are symmetric (no In/Out direction
- * to distinguish via label).
+ * Flip Out maps to the `mbFlipOut` keyframe (the inverse of the Flip
+ * entrance: flat → 90° flipped away). Wipe and Curtain are symmetric
+ * (no In/Out direction to distinguish via label).
  */
 export const EXIT_TYPE_OPTIONS = [
 	{ label: 'Fade Out', value: 'fade' },
@@ -443,6 +442,7 @@ export const EXIT_TYPE_OPTIONS = [
 	{ label: 'Scale Out', value: 'scale' },
 	{ label: 'Blur Out', value: 'blur' },
 	{ label: 'Rotate Out', value: 'rotate' },
+	{ label: 'Flip Out', value: 'flip' },
 	{ label: 'Wipe', value: 'wipe' },
 	{ label: 'Curtain Close', value: 'curtain' },
 	{ label: 'Image Move (Beta)', value: 'image-move' },

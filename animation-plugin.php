@@ -17,6 +17,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'MOTION_BLOCKS_VERSION', '0.1.0' );
 
 /**
+ * Bundled saved-animation recipe schema version. Bump whenever the
+ * set of recipes returned by `motion_blocks_bundled_recipes()`
+ * changes (new recipe added, etc.). The `admin_init` version gate
+ * re-runs the (idempotent) seeder once per bump so existing installs
+ * receive newly-bundled recipes on update — not just fresh
+ * activations.
+ *
+ * History:
+ *   1 — Spin only (legacy one-shot `mb_saved_animations_seeded` flag)
+ *   2 — + Iris Wipe, Diagonal Wipe
+ */
+define( 'MOTION_BLOCKS_RECIPE_VERSION', 2 );
+
+/**
  * Load the shared-constants JSON file (single source of truth that
  * the JS side also imports via webpack). Cached per request — the
  * file is tiny and OPcache doesn't help here since it's not PHP.
@@ -799,93 +813,157 @@ function motion_blocks_register_settings() {
 add_action( 'init', 'motion_blocks_register_settings' );
 
 /**
- * Built-in "Spin" recipe seeded into the saved-animations library
- * on first plugin activation.
+ * Bundled saved-animation recipes that ship with the plugin.
  *
- * Bundles the Page Load + Custom rotate (0° → 360°) + Loop + Linear
- * configuration that produces an infinite constant-speed spin — a
- * common pattern that would otherwise take ~six dial adjustments to
- * build from scratch. Lives in the user library (`mb_saved_animations`)
- * rather than the theme library so the user can rename / edit / delete
- * it like any animation they authored themselves.
+ * Each is keyed by a stable uid and lives in the user library
+ * (`mb_saved_animations`) — the user can rename / edit / delete any
+ * of them like an animation they authored. The seeder
+ * (`motion_blocks_seed_default_animations`) reads this registry to
+ * decide what to add.
  *
- * Seed strategy: one-shot. We set the companion flag
- * `mb_saved_animations_seeded` after running, so reactivating the
- * plugin (or activating after the user has deleted the Spin entry)
- * does NOT restore it. Respecting an explicit delete matters more
- * than ensuring the recipe is always present.
+ *   spin-default          — Page Load + Custom rotate 0°→360° + Loop
+ *                           + Linear: an infinite constant-speed spin.
+ *   iris-wipe-default     — Scroll Appear (Entry) Custom clip-path
+ *                           circle(0%) → circle(150%): a center-out
+ *                           iris reveal (silent-film grammar).
+ *   diagonal-wipe-default — Scroll Appear (Entry) Custom clip-path
+ *                           polygon sweep TL→BR: a 45° diagonal wipe
+ *                           (Star Wars-era film grammar).
+ */
+function motion_blocks_bundled_recipes() {
+    return array(
+        'spin-default'          => array(
+            'name'       => __( 'Spin', 'motion-blocks' ),
+            'attributes' => motion_blocks_spin_recipe_attributes(),
+        ),
+        'iris-wipe-default'     => array(
+            'name'       => __( 'Iris Wipe', 'motion-blocks' ),
+            'attributes' => motion_blocks_iris_wipe_recipe_attributes(),
+        ),
+        'diagonal-wipe-default' => array(
+            'name'       => __( 'Diagonal Wipe', 'motion-blocks' ),
+            'attributes' => motion_blocks_diagonal_wipe_recipe_attributes(),
+        ),
+    );
+}
+
+/**
+ * Seed the bundled recipes into the saved-animations library.
+ *
+ * Per-uid tracking: `mb_saved_animations_seeded_uids` records which
+ * recipe uids have ever been seeded. A uid in that list is never
+ * re-added — so an explicit user delete is respected (deleting "Iris
+ * Wipe" won't see it reappear on the next update), while genuinely
+ * new recipes still reach installs that seeded earlier ones.
+ *
+ * Migration: prior versions used a one-shot boolean
+ * `mb_saved_animations_seeded`. The first time this runs without the
+ * new uids option present, we translate that flag into "spin-default
+ * was already seeded" so the legacy Spin entry isn't duplicated and a
+ * user who deleted Spin under the old scheme doesn't get it back.
+ *
+ * Idempotent — safe to call repeatedly (the `admin_init` version gate
+ * just avoids running it on every page load).
  */
 function motion_blocks_seed_default_animations() {
-    if ( get_option( 'mb_saved_animations_seeded', false ) ) {
-        return;
+    $seeded_uids = get_option( 'mb_saved_animations_seeded_uids', null );
+
+    if ( null === $seeded_uids ) {
+        $seeded_uids = array();
+        if ( get_option( 'mb_saved_animations_seeded', false ) ) {
+            $seeded_uids[] = 'spin-default';
+        }
     }
+    if ( ! is_array( $seeded_uids ) ) {
+        $seeded_uids = array();
+    }
+
     $existing = get_option( 'mb_saved_animations', array() );
     if ( ! is_array( $existing ) ) {
         $existing = array();
     }
-    $spin_uid = 'spin-default';
-    if ( ! isset( $existing[ $spin_uid ] ) ) {
-        $existing[ $spin_uid ] = array(
-            'name'       => __( 'Spin', 'motion-blocks' ),
-            'createdAt'  => gmdate( 'Y-m-d\TH:i:s\Z' ),
-            'attributes' => motion_blocks_spin_recipe_attributes(),
-        );
+
+    $changed = false;
+    foreach ( motion_blocks_bundled_recipes() as $uid => $recipe ) {
+        if ( in_array( $uid, $seeded_uids, true ) ) {
+            continue; // Already seeded once — respects a user delete.
+        }
+        if ( ! isset( $existing[ $uid ] ) ) {
+            $existing[ $uid ] = array(
+                'name'       => $recipe['name'],
+                'createdAt'  => gmdate( 'Y-m-d\TH:i:s\Z' ),
+                'attributes' => $recipe['attributes'],
+            );
+            $changed = true;
+        }
+        $seeded_uids[] = $uid;
+    }
+
+    if ( $changed ) {
         update_option( 'mb_saved_animations', $existing );
     }
-    update_option( 'mb_saved_animations_seeded', true );
+    update_option( 'mb_saved_animations_seeded_uids', $seeded_uids );
 }
-register_activation_hook( __FILE__, 'motion_blocks_seed_default_animations' );
+
+// Fresh installs: seed on activation and stamp the recipe version so
+// the admin_init gate below doesn't redundantly re-run on first load.
+register_activation_hook( __FILE__, function () {
+    motion_blocks_seed_default_animations();
+    update_option( 'mb_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
+} );
+
+// Existing installs: version-gated re-seed so newly-bundled recipes
+// reach sites that activated before they existed. Runs once per
+// MOTION_BLOCKS_RECIPE_VERSION bump, not on every admin page load.
+add_action( 'admin_init', function () {
+    if ( (int) get_option( 'mb_saved_animations_recipe_version', 0 ) < MOTION_BLOCKS_RECIPE_VERSION ) {
+        motion_blocks_seed_default_animations();
+        update_option( 'mb_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
+    }
+} );
 
 /**
- * Attribute bag for the seeded "Spin" recipe.
- *
- * Mirrors `DEFAULT_ATTRIBUTES` from `src/components/constants.js` —
- * every animation attribute the editor saves on a block is included
- * here so applying the recipe cleanly resets any leftover mode-
- * specific config (e.g. residual `animationEntryType` from Scroll
- * Appear, residual `animationRangeStart` from Scroll Interactive).
- *
- * Spin-specific overrides on top of the baseline defaults:
- *   - animationMode: 'page-load'      // fires on DOMContentLoaded
- *   - animationType: 'custom'         // per-block rotate keyframe
- *   - animationDuration: 2            // one full rotation / 2s
- *   - animationRepeat: 'loop'         // infinite cycle
- *   - animationAcceleration: 'linear' // constant angular velocity
- *   - animationFromRotate: '0deg'     // start at 0°
- *   - animationToRotate: '360deg'     // end at 360° (== 0° visually)
+ * Baseline attribute bag for bundled recipes — a full mirror of
+ * `DEFAULT_ATTRIBUTES` in `src/components/constants.js` at default
+ * values. Every recipe `array_merge`s its overrides on top of this so
+ * applying it cleanly resets any leftover mode-specific config (e.g.
+ * residual `animationEntryType` from a prior Scroll Appear setup,
+ * residual `animationRangeStart` from Scroll Interactive) and so all
+ * recipes stay in sync as new attributes land — they're added here
+ * once, not in each recipe.
  *
  * UI-state keys (`animationFromToActiveSide`,
  * `animationFromToPreviewSide`, `animationPreviewSlot`,
  * `animationPreviewEnabled`, `animationPreviewPlaying`) are
- * intentionally omitted — `stripUiState` in savedAnimations.js
- * strips them on the JS save path too, so the seed matches what a
- * user save would produce.
+ * intentionally omitted — `stripUiState` in savedAnimations.js strips
+ * them on the JS save path too, so a seed matches what a user save
+ * would produce.
  */
-function motion_blocks_spin_recipe_attributes() {
+function motion_blocks_base_recipe_attributes() {
     return array(
         // --- Mode + core animation ---
-        'animationMode'                       => 'page-load',
-        'animationType'                       => 'custom',
+        'animationMode'                       => '',
+        'animationType'                       => 'fade',
         'animationDirection'                  => '',
-        'animationDuration'                   => 2,
+        'animationDuration'                   => 0.6,
         'animationDelay'                      => 0,
-        'animationRepeat'                     => 'loop',
+        'animationRepeat'                     => 'once',
         'animationPauseOffscreen'             => true,
         'animationPlayOnce'                   => true,
         'animationScrollTrigger'              => 'enter',
-        'animationAcceleration'               => 'linear',
+        'animationAcceleration'               => 'ease',
         'animationCustomTimingFunction'       => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationBlurAmount'                 => 8,
         'animationRotateAngle'                => 90,
         'animationRangeStart'                 => 'entry 0%',
         'animationRangeEnd'                   => 'exit 100%',
 
-        // --- Shared Custom From/To (only Rotate is set) ---
+        // --- Shared Custom From/To (Page Load / Scroll Interactive) ---
         'animationFromOpacity'                => null,
         'animationFromTranslateX'             => null,
         'animationFromTranslateY'             => null,
         'animationFromScale'                  => null,
-        'animationFromRotate'                 => '0deg',
+        'animationFromRotate'                 => null,
         'animationFromRotateX'                => null,
         'animationFromRotateY'                => null,
         'animationFromBlur'                   => null,
@@ -894,7 +972,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationToTranslateX'               => null,
         'animationToTranslateY'               => null,
         'animationToScale'                    => null,
-        'animationToRotate'                   => '360deg',
+        'animationToRotate'                   => null,
         'animationToRotateX'                  => null,
         'animationToRotateY'                  => null,
         'animationToBlur'                     => null,
@@ -904,10 +982,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationStaggerEnabled'             => false,
         'animationStaggerStep'                => 0.1,
 
-        // --- Scroll Appear slot attrs (Spin is Page Load, so these
-        //     are empty/defaults — applying Spin to a block that was
-        //     previously configured for Scroll Appear should clear
-        //     its per-slot config so the modes don't bleed together) ---
+        // --- Scroll Appear Entry slot ---
         'animationEntryType'                  => '',
         'animationEntryDirection'             => '',
         'animationEntryDuration'              => 0.6,
@@ -916,6 +991,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationEntryCustomTimingFunction'  => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationEntryBlurAmount'            => 8,
         'animationEntryRotateAngle'           => 90,
+        'animationEntryReplay'                => 'once',
         'animationEntryFromOpacity'           => null,
         'animationEntryFromTranslateX'        => null,
         'animationEntryFromTranslateY'        => null,
@@ -934,6 +1010,8 @@ function motion_blocks_spin_recipe_attributes() {
         'animationEntryToRotateY'             => null,
         'animationEntryToBlur'                => null,
         'animationEntryToClipPath'            => null,
+
+        // --- Scroll Appear Exit slot ---
         'animationExitType'                   => '',
         'animationExitDirection'              => '',
         'animationExitDuration'               => 0.6,
@@ -942,6 +1020,7 @@ function motion_blocks_spin_recipe_attributes() {
         'animationExitCustomTimingFunction'   => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationExitBlurAmount'             => 8,
         'animationExitRotateAngle'            => 90,
+        'animationExitReplay'                 => 'reverse',
         'animationExitFromOpacity'            => null,
         'animationExitFromTranslateX'         => null,
         'animationExitFromTranslateY'         => null,
@@ -960,5 +1039,66 @@ function motion_blocks_spin_recipe_attributes() {
         'animationExitToRotateY'              => null,
         'animationExitToBlur'                 => null,
         'animationExitToClipPath'             => null,
+    );
+}
+
+/**
+ * "Spin" recipe — Page Load + Custom rotate (0° → 360°) + Loop +
+ * Linear: an infinite constant-speed spin. A common pattern that
+ * would otherwise take ~six dial adjustments to build from scratch.
+ */
+function motion_blocks_spin_recipe_attributes() {
+    return array_merge(
+        motion_blocks_base_recipe_attributes(),
+        array(
+            'animationMode'        => 'page-load',
+            'animationType'        => 'custom',
+            'animationDuration'    => 2,
+            'animationRepeat'      => 'loop',
+            'animationAcceleration' => 'linear',
+            'animationFromRotate'  => '0deg',
+            'animationToRotate'    => '360deg',
+        )
+    );
+}
+
+/**
+ * "Iris Wipe" recipe — Scroll Appear (Entry) Custom clip-path that
+ * grows a circle from the center outward, revealing the element.
+ * `circle(150%)` exceeds the half-diagonal at any aspect ratio, so
+ * the final frame fully reveals. Silent-film / classic-cinema grammar.
+ */
+function motion_blocks_iris_wipe_recipe_attributes() {
+    return array_merge(
+        motion_blocks_base_recipe_attributes(),
+        array(
+            'animationMode'              => 'scroll-appear',
+            'animationEntryType'         => 'custom',
+            'animationEntryDuration'     => 1,
+            'animationEntryReplay'       => 'once',
+            'animationEntryFromClipPath' => 'circle(0% at 50% 50%)',
+            'animationEntryToClipPath'   => 'circle(150% at 50% 50%)',
+        )
+    );
+}
+
+/**
+ * "Diagonal Wipe" recipe — Scroll Appear (Entry) Custom clip-path that
+ * sweeps a 45° boundary from the top-left corner to the bottom-right.
+ * A 4-vertex polygon with two vertices pinned at the TL corner and two
+ * sweeping outward in lockstep keeps the boundary a true diagonal at
+ * every frame. Star Wars / Saul Bass-era film grammar.
+ */
+function motion_blocks_diagonal_wipe_recipe_attributes() {
+    return array_merge(
+        motion_blocks_base_recipe_attributes(),
+        array(
+            'animationMode'              => 'scroll-appear',
+            'animationEntryType'         => 'custom',
+            'animationEntryDuration'     => 0.9,
+            'animationEntryReplay'       => 'once',
+            'animationEntryFromClipPath' => 'polygon(0% 0%, 0% 0%, 0% 0%, 0% 0%)',
+            'animationEntryToClipPath'   => 'polygon(0% 0%, 200% 0%, 0% 200%, 0% 0%)',
+        )
     );
 }

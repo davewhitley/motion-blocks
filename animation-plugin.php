@@ -149,8 +149,11 @@ add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
 /**
  * Add animation classes and data attributes to rendered block HTML.
  *
- * This mirrors the JS `addAnimationSaveProps` filter so that server-rendered
- * blocks (e.g. inside Query Loop) receive the same markup as static blocks.
+ * As of the render-time-only refactor this is the SOLE authority for
+ * emitting animation markup — save() no longer bakes `mb-*` into
+ * post_content, so changing the animation schema (new attribute,
+ * changed default) can never again invalidate saved blocks. Runs for
+ * every animated block on the frontend (static and dynamic).
  * Uses WP_HTML_Tag_Processor (WP 6.2+).
  *
  * @param string $block_content Rendered block HTML.
@@ -296,9 +299,26 @@ function motion_blocks_derive_replay_attrs( $attrs, $entry_set, $exit_set, $lega
     return $attrs;
 }
 
+/**
+ * Whether img-target animations can attach to a block's image element.
+ * PHP mirror of `isImageTargetUnavailable` in src/components/constants.js.
+ *
+ * Cover renders its background as `<img class="wp-block-cover__image-
+ * background">` normally, but switches to a `<div>` background when
+ * "Fixed background" (hasParallax) or "Repeated background" (isRepeated)
+ * is on — leaving no `<img>` for the scoped img-target CSS to animate.
+ */
+function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
+    if ( 'core/cover' === $block_name ) {
+        return ! empty( $attrs['hasParallax'] ) || ! empty( $attrs['isRepeated'] );
+    }
+    return false;
+}
+
 function motion_blocks_render_block( $block_content, $block ) {
-    $attrs = $block['attrs'] ?? array();
-    $mode  = $attrs['animationMode'] ?? '';
+    $attrs      = $block['attrs'] ?? array();
+    $mode       = $attrs['animationMode'] ?? '';
+    $block_name = $block['blockName'] ?? '';
 
     if ( ! $mode || empty( $block_content ) ) {
         return $block_content;
@@ -333,10 +353,14 @@ function motion_blocks_render_block( $block_content, $block ) {
         return $block_content;
     }
 
-    // Check if classes are already present (static blocks saved with JS filter).
-    // For static blocks, the editor's getSaveContent filter has already
-    // added `mb-animated` and the data attributes to the saved HTML, so
-    // we don't need to do that work again.
+    // Legacy-content degradation path. As of the render-time-only
+    // refactor, save() no longer bakes `mb-*` into post_content — this
+    // function is the sole authority for emitting animation markup. But
+    // content saved BEFORE that refactor still has `mb-animated` + the
+    // data attrs in its stored HTML. For those blocks, leave the markup
+    // untouched: the baked-in classes/attrs already drive the animation,
+    // and re-emitting would risk duplicating/conflicting. Such blocks
+    // re-save to the clean (plain) shape the next time they're edited.
     $existing_class = $processor->get_attribute( 'class' ) ?? '';
     if ( str_contains( $existing_class, 'mb-animated' ) ) {
         return $block_content;
@@ -374,13 +398,24 @@ function motion_blocks_render_block( $block_content, $block ) {
     $custom_props = $shared['propertyCssVar'] ?? array();
 
     if ( $mode === 'scroll-appear' ) {
-        // Note: `data-mb-target="img"` is NOT emitted here. Image
-        // effects + the "Animate image only" toggle are restricted to
-        // `core/cover`, which is a static block — the JS save filter
-        // (`saveScrollAppearProps` in src/index.js) is the
-        // authoritative writer of `data-mb-target` into post_content
-        // for those cases. Dynamic blocks don't reach this code path
-        // for img-target because the feature isn't available on them.
+        // img-target: animate the first <img> descendant instead of the
+        // wrapper. Mirrors the old `saveScrollAppearProps` JS logic
+        // (now removed — emission is render-time only). Emit when an
+        // image-effect type fills either slot, or the "Animate image
+        // only" toggle is on with any slot filled, gated on img
+        // availability (Cover w/o Fixed/Repeated bg).
+        $img_target_available = ! motion_blocks_is_image_target_unavailable( $block_name, $attrs );
+        $slot_target          = $attrs['animationFromToTarget'] ?? 'block';
+        $has_image_effect_slot =
+            'image-move' === $entry_type || 'image-zoom' === $entry_type ||
+            'image-move' === $exit_type  || 'image-zoom' === $exit_type;
+        if (
+            $img_target_available
+            && ( $has_image_effect_slot
+                || ( 'img' === $slot_target && ( '' !== $entry_type || '' !== $exit_type ) ) )
+        ) {
+            $processor->set_attribute( 'data-mb-target', 'img' );
+        }
 
         $play_once = $attrs['animationPlayOnce'] ?? true;
         $processor->set_attribute(
@@ -511,8 +546,17 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Page Load + Scroll Interactive — shared attribute emission.
         $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
 
-        // Note: `data-mb-target="img"` is NOT emitted here — see the
-        // matching comment in the scroll-appear branch above.
+        // img-target — mirrors the old `addAnimationSaveProps` JS logic
+        // (now removed). Image effects always imply img target; any
+        // other type honors the "Animate image only" toggle. Gated on
+        // img availability (Cover w/o Fixed/Repeated bg).
+        if ( ! motion_blocks_is_image_target_unavailable( $block_name, $attrs ) ) {
+            if ( 'image-move' === $type || 'image-zoom' === $type ) {
+                $processor->set_attribute( 'data-mb-target', 'img' );
+            } elseif ( '' !== $type && 'img' === ( $attrs['animationFromToTarget'] ?? 'block' ) ) {
+                $processor->set_attribute( 'data-mb-target', 'img' );
+            }
+        }
 
         $acceleration = $attrs['animationAcceleration'] ?? 'ease';
         if ( $acceleration === 'custom' ) {
@@ -591,7 +635,6 @@ function motion_blocks_render_block( $block_content, $block ) {
     // shared-constants.json (same source as JS STAGGER_PARENT_BLOCKS).
     $stagger_parent_blocks = motion_blocks_shared_constants()['staggerParentBlocks'] ?? array();
     $stagger_enabled       = ! empty( $attrs['animationStaggerEnabled'] );
-    $block_name            = $block['blockName'] ?? '';
     if (
         $stagger_enabled
         && in_array( $block_name, $stagger_parent_blocks, true )

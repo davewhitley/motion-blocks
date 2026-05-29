@@ -615,6 +615,22 @@
 		grid-column: span 1;
 	}
 
+	// The From / To picker is rendered by ToggleGroupControl inside its
+	// own BaseControl wrapper, and THAT wrapper — not our control — is
+	// the grid item in the ToolsPanel's 2-column layout. Span the
+	// wrapper full-width (via :has, since our class lands on the inner
+	// control) so the toggle reads as one full-width tab row directly
+	// under the "Properties" header, above the property rows.
+	.components-base-control:has( .mb-from-to__state-toggle ) {
+		grid-column: 1 / -1;
+	}
+
+	// Fill the now-full-width wrapper so the From / To options split the
+	// entire row evenly (isBlock makes them equal-width within this).
+	.mb-from-to__state-toggle {
+		width: 100%;
+	}
+
 	// ToolsPanel is designed to sit at the sidebar's full width and
 	// applies its own 16px horizontal padding. Here it lives inside
 	// a PanelBody that already supplies 16px padding, so the inner

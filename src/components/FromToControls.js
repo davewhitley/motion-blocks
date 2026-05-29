@@ -410,35 +410,6 @@ export default function FromToControls( {
 			   SlotControls), where it can apply to any effect type —
 			   not just Custom. */ }
 
-			{ /* Segmented toggle for the start/end animation-state
-			   picker. Earlier versions used a styled TabPanel here;
-			   in the slot model the panel already has Entry/Exit
-			   tabs at the top level, so a second row of tabs would
-			   create visual nested-tabs confusion. ToggleGroupControl
-			   distinguishes the inner state picker from the outer
-			   slot tabs by metaphor. */ }
-			<ToggleGroupControl
-				label={ __( 'Animation state', 'motion-blocks' ) }
-				value={ side }
-				onChange={ ( newSide ) => newSide && setSide( newSide ) }
-				isBlock
-				help={ sideHelp }
-				__nextHasNoMarginBottom
-			>
-				{ /* Values stay 'start'/'end' for backward compat with
-				   the `animationFromToActiveSide` attribute; only the
-				   labels switched to From/To to match the underlying
-				   CSS @keyframes vocabulary. */ }
-				<ToggleGroupControlOption
-					value="start"
-					label={ __( 'From', 'motion-blocks' ) }
-				/>
-				<ToggleGroupControlOption
-					value="end"
-					label={ __( 'To', 'motion-blocks' ) }
-				/>
-			</ToggleGroupControl>
-
 			{ /*
 			 * `key={side}` forces ToolsPanel to remount when the user
 			 * flips Start↔End so each side keeps its own panel state
@@ -468,14 +439,36 @@ export default function FromToControls( {
 				/>
 			<ToolsPanel
 				key={ `${ slot || 'shared' }-${ side }` }
-				label={
-					side === 'start'
-						? __( 'From Properties', 'motion-blocks' )
-						: __( 'To Properties', 'motion-blocks' )
-				}
+				label={ __( 'Properties', 'motion-blocks' ) }
 				resetAll={ resetAll }
 				panelId={ panelId }
 			>
+				{ /* From / To state picker — segmented tabs that filter
+				   which side's values the rows below show. Lives inside
+				   the panel (under the single "Properties" header) so the
+				   eye + kebab sit above the tabs. Values stay 'start'/'end'
+				   for back-compat with `animationFromToActiveSide`; labels
+				   use From/To to match the CSS @keyframes vocabulary. */ }
+				<ToggleGroupControl
+					className="mb-from-to__state-toggle"
+					label={ __( 'Animation state', 'motion-blocks' ) }
+					hideLabelFromVision
+					value={ side }
+					onChange={ ( newSide ) => newSide && setSide( newSide ) }
+					isBlock
+					help={ sideHelp }
+					__nextHasNoMarginBottom
+				>
+					<ToggleGroupControlOption
+						value="start"
+						label={ __( 'From', 'motion-blocks' ) }
+					/>
+					<ToggleGroupControlOption
+						value="end"
+						label={ __( 'To', 'motion-blocks' ) }
+					/>
+				</ToggleGroupControl>
+
 				{ PROPERTY_DEFINITIONS.map( ( def ) => {
 					const attrName = attrMap[ def.id ];
 					const value = attributes[ attrName ];

@@ -287,30 +287,50 @@ export default function ScrollInteractiveControls( {
 			   drag through it. Drives animationScrubPosition, which the
 			   HOC turns into a paused-and-seeked animation. */ }
 			{ animationType && previewOn && (
-				<RangeControl
-					className="mb-scrub-range"
-					label={ __( 'Preview', 'motion-blocks' ) }
-					help={ __(
-						'Drag to scrub through the animation, from start to end. Preview only — the effect plays on scroll on the front end.',
-						'motion-blocks'
-					) }
-					value={ scrubValue }
-					onChange={ ( v ) => {
-						__unstableMarkNextChangeAsNotPersistent();
-						setAttributes( {
-							animationScrubPosition:
-								typeof v === 'number' ? v : 100,
-						} );
-					} }
-					min={ 0 }
-					max={ 100 }
-					step={ 1 }
-					withInputField={ false }
-					beforeIcon={ scrubFromIcon }
-					afterIcon={ scrubToIcon }
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				/>
+				<BaseControl __nextHasNoMarginBottom>
+					<HStack
+						className="mb-info-label-row"
+						alignment="center"
+						spacing={ 1 }
+						justify="flex-start"
+					>
+						<BaseControl.VisualLabel>
+							{ __( 'Scroll Preview', 'motion-blocks' ) }
+						</BaseControl.VisualLabel>
+						<InfoPopover
+							label={ __(
+								'About scroll preview',
+								'motion-blocks'
+							) }
+						>
+							<p>
+								{ __(
+									'Drag to preview the animation, from start to end. Scroll interaction only works on the live site.',
+									'motion-blocks'
+								) }
+							</p>
+						</InfoPopover>
+					</HStack>
+					<RangeControl
+						className="mb-scrub-range"
+						value={ scrubValue }
+						onChange={ ( v ) => {
+							__unstableMarkNextChangeAsNotPersistent();
+							setAttributes( {
+								animationScrubPosition:
+									typeof v === 'number' ? v : 100,
+							} );
+						} }
+						min={ 0 }
+						max={ 100 }
+						step={ 1 }
+						withInputField={ false }
+						beforeIcon={ scrubFromIcon }
+						afterIcon={ scrubToIcon }
+						__next40pxDefaultSize
+						__nextHasNoMarginBottom
+					/>
+				</BaseControl>
 			) }
 
 			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&

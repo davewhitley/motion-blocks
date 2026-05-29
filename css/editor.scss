@@ -508,6 +508,27 @@
 		margin-top: vars.$grid-unit-10;
 	}
 
+	// Scrub-preview slider: WP's RangeControl nudges its before/after
+	// icon wrappers down with `margin-top: 4px` (tuned for the ~20px
+	// dashicons it ships with). Our 24px start/end icons then sit ~2px
+	// below the rail in the `align-items: center` flex row. Zero the
+	// nudge so they center on the track. `:has(> svg)` targets the icon
+	// wrappers (the only spans with a direct <svg> child) — they carry
+	// only unstable Emotion classes, so structure is the reliable hook.
+	.mb-scrub-range span:has( > svg ) {
+		margin-top: 0;
+	}
+
+	// Info-icon label rows (Start / End Offset): BaseControl.VisualLabel
+	// ships a margin-bottom meant for label→input spacing. Inside the
+	// centered HStack next to the InfoPopover (i) button, that bottom
+	// margin tips the text up so the icon reads ~4px below center. Zero
+	// it so the icon and label share a center line. (Same fix as
+	// `.mb-effect-field__label-row` at the top of the file.)
+	.mb-info-label-row .components-base-control__label {
+		margin-bottom: 0;
+	}
+
 	// Section heading inside a sub-panel — visually matches the
 	// FromToControls "Properties" header (top divider, bold label,
 	// no inline action). Used for "Timing", "Exit timing", etc.

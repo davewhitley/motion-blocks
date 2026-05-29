@@ -52,6 +52,7 @@ import {
 import FromToControls from './FromToControls';
 import InfoPopover from './InfoPopover';
 import SubPanelModeHeader from './SubPanelModeHeader';
+import { scrubFromIcon, scrubToIcon } from './icons';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -287,6 +288,7 @@ export default function ScrollInteractiveControls( {
 			   HOC turns into a paused-and-seeked animation. */ }
 			{ animationType && previewOn && (
 				<RangeControl
+					className="mb-scrub-range"
 					label={ __( 'Preview', 'motion-blocks' ) }
 					help={ __(
 						'Drag to scrub through the animation, from start to end. Preview only — the effect plays on scroll on the front end.',
@@ -304,6 +306,8 @@ export default function ScrollInteractiveControls( {
 					max={ 100 }
 					step={ 1 }
 					withInputField={ false }
+					beforeIcon={ scrubFromIcon }
+					afterIcon={ scrubToIcon }
 					__next40pxDefaultSize
 					__nextHasNoMarginBottom
 				/>
@@ -484,6 +488,7 @@ export default function ScrollInteractiveControls( {
 
 			<BaseControl __nextHasNoMarginBottom>
 				<HStack
+					className="mb-info-label-row"
 					alignment="center"
 					spacing={ 1 }
 					justify="flex-start"
@@ -523,6 +528,7 @@ export default function ScrollInteractiveControls( {
 
 			<BaseControl __nextHasNoMarginBottom>
 				<HStack
+					className="mb-info-label-row"
 					alignment="center"
 					spacing={ 1 }
 					justify="flex-start"

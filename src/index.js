@@ -1268,25 +1268,42 @@ const withAnimationPreview = createHigherOrderComponent(
 							'data-mb-target': 'img',
 						};
 					} else {
-						const scrubName = isCustomLike
-							? customKeyframe
-								? customKeyframe.name
-								: 'none'
-							: getEnterKeyframe( animationType );
-						scrubStyle.animationName = scrubName;
-						scrubStyle.animationDuration = '1s';
-						scrubStyle.animationTimingFunction = 'linear';
-						scrubStyle.animationFillMode = 'both';
-						scrubStyle.animationPlayState = 'paused';
-						scrubStyle.animationDelay =
-							'calc(' + scrubFraction + ' * -1s)';
-						if ( isCustomLike && customKeyframe ) {
-							injectedKeyframeRule = customKeyframe.rule;
+						// Image effects without an img target (Cover
+						// with Fixed/Repeated bg, where no <img>
+						// renders) must not fall back to the wrapper —
+						// the whole Cover block would animate. Render
+						// the block in its natural state; matches the
+						// frontend's no-op path.
+						const isImageEffect =
+							animationType === 'image-move' ||
+							animationType === 'image-zoom';
+						if ( isImageEffect ) {
+							scrubStyle.animationName = 'none';
+							computedWrapperProps = {
+								...wrapperProps,
+								style: scrubStyle,
+							};
+						} else {
+							const scrubName = isCustomLike
+								? customKeyframe
+									? customKeyframe.name
+									: 'none'
+								: getEnterKeyframe( animationType );
+							scrubStyle.animationName = scrubName;
+							scrubStyle.animationDuration = '1s';
+							scrubStyle.animationTimingFunction = 'linear';
+							scrubStyle.animationFillMode = 'both';
+							scrubStyle.animationPlayState = 'paused';
+							scrubStyle.animationDelay =
+								'calc(' + scrubFraction + ' * -1s)';
+							if ( isCustomLike && customKeyframe ) {
+								injectedKeyframeRule = customKeyframe.rule;
+							}
+							computedWrapperProps = {
+								...wrapperProps,
+								style: scrubStyle,
+							};
 						}
-						computedWrapperProps = {
-							...wrapperProps,
-							style: scrubStyle,
-						};
 					}
 				}
 				// No animationType yet -- block renders naturally.
@@ -1401,6 +1418,9 @@ const withAnimationPreview = createHigherOrderComponent(
 						animationType === 'custom' ||
 						animationType === 'image-move' ||
 						animationType === 'image-zoom';
+					const isImageEffectPreview =
+						animationType === 'image-move' ||
+						animationType === 'image-zoom';
 					if ( isCustomLikePreview ) {
 						if ( targetIsImg ) {
 							// Wrapper doesn't animate; the scoped CSS
@@ -1410,6 +1430,15 @@ const withAnimationPreview = createHigherOrderComponent(
 							if ( imgTargetCSS ) {
 								injectedKeyframeRule = imgTargetCSS;
 							}
+						} else if ( isImageEffectPreview ) {
+							// Image effects are img-only by design.
+							// Without an img target (e.g. Cover with
+							// Fixed/Repeated bg), animating the wrapper
+							// would move the whole block — wrong
+							// behavior. No-op to match the frontend.
+							// Only genuine `custom` falls through to
+							// the wrapper-keyframe branch below.
+							previewStyles.animationName = 'none';
 						} else if ( customKeyframe ) {
 							previewStyles.animationName = customKeyframe.name;
 							injectedKeyframeRule = customKeyframe.rule;

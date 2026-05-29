@@ -418,9 +418,20 @@
 		// "explode" past the figure bounds onto surrounding content).
 		// The editor's dropdown no longer offers these on non-Cover
 		// blocks, so users can pick a different effect on next edit.
+		//
+		// Also bail when the img target isn't available — Cover blocks
+		// with Fixed/Repeated background render a `<div>` bg, no
+		// `<img>` element to scope to. The render filter drops
+		// `data-mb-target="img"` in that case (via
+		// motion_blocks_is_image_target_unavailable in
+		// animation-plugin.php). Without that attribute the wrapper-
+		// fallback path below would synthesize a keyframe and bind it
+		// to the Cover wrapper, moving the whole block instead of the
+		// (non-existent) bg image.
 		if (
 			( type === 'image-move' || type === 'image-zoom' ) &&
-			! el.classList.contains( 'wp-block-cover' )
+			( ! el.classList.contains( 'wp-block-cover' ) ||
+				el.dataset.mbTarget !== 'img' )
 		) {
 			return;
 		}
@@ -503,8 +514,16 @@
 		// legacy selections on non-Cover blocks so they don't render
 		// without a clip frame. See the non-slot path above for the
 		// same gate + rationale.
+		//
+		// Also strip when img target is unavailable (Cover with
+		// Fixed/Repeated bg). Same reasoning as the non-slot path:
+		// without an `<img>` to scope to, the wrapper-fallback below
+		// would bind the synthesized keyframe to the Cover wrapper.
+		// The earlier "image effects always imply imgTarget" comment
+		// no longer holds — the render filter drops the target attr
+		// when no img will exist.
 		var isCover = el.classList.contains( 'wp-block-cover' );
-		if ( ! isCover ) {
+		if ( ! isCover || ! imgTarget ) {
 			if ( entryType === 'image-move' || entryType === 'image-zoom' ) {
 				entryType = '';
 			}

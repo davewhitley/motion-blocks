@@ -514,6 +514,25 @@ html:has(body.mb-clip-page-overflow) {
     animation-name: none;
 }
 
+/* Safety net for image-effect types (image-move / image-zoom) when the
+ * img target is unavailable — e.g. a Cover block with Fixed/Repeated
+ * background, which renders a <div> bg instead of an <img>. The render
+ * filter correctly drops `data-mb-target="img"` in that case but the
+ * `mb-enter-image-*` / `mb-exit-image-*` class still ships, which
+ * would otherwise leave the wrapper bound to a synthesized keyframe
+ * (inline `animation-name` from frontend.js / the editor HOC). These
+ * effects are img-only by design — there is no meaningful wrapper
+ * fallback — so suppress wrapper animation entirely. `!important` to
+ * beat inline `animation-name` set by the editor preview HOC and
+ * frontend.js. The JS-side guards below also bail out at synthesis
+ * time; this rule is defense in depth. */
+.mb-enter-image-move:not([data-mb-target="img"]),
+.mb-enter-image-zoom:not([data-mb-target="img"]),
+.mb-exit-image-move:not([data-mb-target="img"]),
+.mb-exit-image-zoom:not([data-mb-target="img"]) {
+    animation-name: none !important;
+}
+
 /* Apply timed-animation props on the inner img for Page Load /
    Scroll Appear. The CSS variables are set on the wrapper inline
    and inherit down. Animation-name comes from the per-type rules

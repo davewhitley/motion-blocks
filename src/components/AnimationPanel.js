@@ -148,6 +148,19 @@ export default function AnimationPanel( {
 			const current = isSlotMode
 				? attributes[ `animation${ slotPrefix }Type` ] || ''
 				: animationType;
+			// TEMP DIAGNOSTIC — confirm the click reaches this handler
+			// and capture the conditions that could make it bail.
+			// eslint-disable-next-line no-console
+			console.log( '[mb] replayPreview', {
+				slot,
+				isSlotMode,
+				current,
+				animationMode,
+				isPlayPending,
+				isLoopingMode,
+				animationPreviewPlaying:
+					attributes?.animationPreviewPlaying,
+			} );
 			if ( ! current ) {
 				return;
 			}

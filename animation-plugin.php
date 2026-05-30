@@ -315,6 +315,24 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
     return false;
 }
 
+/**
+ * Render-time filter that injects mb-* classes and data-mb-* attrs
+ * onto the block wrapper based on the block's stored animation
+ * attributes. Runs on every block; bails early when no animation is
+ * configured.
+ *
+ * ⚠️ KEEP DEFAULTS IN SYNC WITH JS
+ *
+ * Every `$attrs[key] ?? fallback` in this file MUST match the
+ * corresponding key's default in DEFAULT_ATTRIBUTES at
+ * src/components/constants.js. WordPress's block-comment serializer
+ * OMITS attribute values that equal the schema default, so the
+ * fallbacks here are what actually apply for the common case (most
+ * blocks accept the defaults). When changing a JS default in
+ * constants.js, `grep` this file for the attribute name and update
+ * every fallback to match. See the docblock above DEFAULT_ATTRIBUTES
+ * in constants.js for the full rationale.
+ */
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs      = $block['attrs'] ?? array();
     $mode       = $attrs['animationMode'] ?? '';

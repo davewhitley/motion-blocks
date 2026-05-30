@@ -1636,6 +1636,27 @@ export function attrsToBag( attributes, attrMap ) {
 
 /**
  * Default attribute values for all animation settings.
+ *
+ * ⚠️ KEEP IN SYNC WITH PHP — animation-plugin.php
+ *
+ * Every default here that the PHP render filter reads via
+ * `$attrs[key] ?? fallback` MUST have the matching fallback value
+ * in animation-plugin.php (motion_blocks_render_block and its
+ * helpers).
+ *
+ * Why: WordPress's block-comment serializer OMITS attribute values
+ * that equal their schema default — so PHP receives an attrs array
+ * with those keys MISSING. The `?? fallback` is what actually
+ * applies for the common case. If the JS default and the PHP
+ * fallback diverge, blocks configured with default values silently
+ * render with the wrong behavior on the frontend, while the editor
+ * (which has these JS defaults locally) keeps working fine.
+ *
+ * When changing a default here, `grep` animation-plugin.php for
+ * the attribute name — usually 2–3 call sites need to update in
+ * lockstep. A centralized defaults source (loaded from
+ * shared-constants.json on both sides) would prevent this class
+ * of bug; until that lands, keep both files in sync by hand.
  */
 export const DEFAULT_ATTRIBUTES = {
 	animationMode: '',

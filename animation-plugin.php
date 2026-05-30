@@ -353,13 +353,13 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
  * attributes. Runs on every block; bails early when no animation is
  * configured.
  *
- * Default values for any `?? motion_blocks_attr_default(…)` lookup
- * here live in shared-constants.json under "attributeDefaults" — the
- * same source the JS side reads via DEFAULT_ATTRIBUTES in
- * src/components/constants.js. Change a default there, both sides
- * pick it up. The legacy migration function above
- * (motion_blocks_migrate_scroll_appear_attrs) is the exception — its
- * fallbacks are intentional pre-slot-model literals.
+ * Fallback values for `?? motion_blocks_attr_default(…)` come from
+ * the ACTIVE default layer in shared-constants.json — see the
+ * `_README_attributeDefaults` block at the top of that file for the
+ * dual-default model. The legacy migration function above
+ * (motion_blocks_migrate_scroll_appear_attrs) is the exception: its
+ * literal fallbacks are intentional pre-slot-model values and do NOT
+ * route through the central source.
  */
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs      = $block['attrs'] ?? array();

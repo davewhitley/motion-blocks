@@ -1635,23 +1635,15 @@ export function attrsToBag( attributes, attrMap ) {
 
 
 /**
- * Default attribute values for all animation settings.
+ * Default attribute values for all animation settings (the ACTIVE
+ * layer of the dual-default model — see `_README_attributeDefaults`
+ * in shared-constants.json for the architecture and when to use
+ * each layer).
  *
- * The cross-language subset (everything PHP also reads at render
- * time) lives in shared-constants.json under "attributeDefaults" and
- * is spread in below — that's the single source of truth shared with
- * animation-plugin.php's motion_blocks_attr_default() helper. Change
- * a default in shared-constants.json and both sides pick it up.
- *
- * JS-only keys (editor preview state, From/To property bags, gates,
- * `null` sentinels) stay defined here directly — PHP doesn't need
- * them at render time.
- *
- * Note: these "active defaults" are DISTINCT from the SCHEMA defaults
- * declared in src/index.js → addAnimationAttributes. Some of those
- * are intentionally frozen at older values for block-validation
- * back-compat (e.g. animationDelay schema=0.4 vs active=0). See the
- * banner above addAnimationAttributes for that distinction.
+ * The cross-language subset comes from shared-constants.json via the
+ * spread below. JS-only keys (editor preview state, From/To `null`
+ * sentinels, gate flags) are added on top — PHP doesn't need them
+ * at render time.
  */
 export const DEFAULT_ATTRIBUTES = {
 	// Cross-language defaults — see shared-constants.json.

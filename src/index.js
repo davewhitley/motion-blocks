@@ -280,30 +280,17 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 /**
  * Add animation attributes to all blocks.
  *
- * ⚠️ SCHEMA defaults below are DISTINCT from the "active defaults"
- * exposed via DEFAULT_ATTRIBUTES (constants.js) and
- * shared-constants.json. They serve a different purpose and can
- * INTENTIONALLY diverge — do not "helpfully" sync them.
+ * Each entry below defines a SCHEMA default — the value WordPress
+ * uses for omit-on-save + read-time fallback on legacy blocks.
+ * Distinct from the ACTIVE defaults in shared-constants.json. See
+ * `_README_attributeDefaults` in that file for the dual-default
+ * model and when to deviate. Type info stays hand-coded per
+ * attribute (types rarely change; inference is unreliable).
  *
- *   - Schema default (here): determines what WordPress's block-comment
- *     serializer omits from the saved JSON (it drops values equal to
- *     the schema default to save bytes) AND the back-compat fallback
- *     for legacy blocks whose JSON pre-dates a schema change.
- *
- *   - Active default (constants.js + shared-constants.json): what
- *     selectMode() writes for new blocks + what the PHP render filter
- *     falls back to at render time when the key is missing from JSON.
- *
- * Example of intentional divergence: animationDelay schema = 0.4,
- * active = 0. New blocks explicitly serialize delay = 0 (≠ schema
- * default) and render with 0s delay. Legacy blocks with no delay key
- * resolve to the schema's 0.4 (back-compat) and re-saving them stays
- * validation-clean. See the per-attribute comment on animationDelay
- * below for the full reasoning.
- *
- * Rule of thumb: change a schema default only when you're prepared
- * to break save-output validation on legacy blocks. Otherwise change
- * the active default in shared-constants.json instead.
+ * Most schema defaults here happen to equal their active default,
+ * but they MAY diverge — see the per-attribute comment on
+ * animationDelay below for the canonical case (schema=0.4 vs
+ * active=0) and the back-compat reasoning.
  */
 function addAnimationAttributes( settings ) {
 	if ( settings.attributes?.animationMode ) {

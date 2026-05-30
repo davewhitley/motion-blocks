@@ -935,6 +935,11 @@ const withAnimationPreview = createHigherOrderComponent(
 					}
 				}
 				if ( ! blockEl ) {
+					// TEMP DIAGNOSTIC
+					// eslint-disable-next-line no-console
+					console.log( '[mb] restart-bail-A: block not found', {
+						clientId,
+					} );
 					return;
 				}
 				const previewSlot =
@@ -946,6 +951,13 @@ const withAnimationPreview = createHigherOrderComponent(
 						? 'mb-exit-triggered'
 						: 'mb-triggered';
 				if ( ! blockEl.classList.contains( triggerClass ) ) {
+					// TEMP DIAGNOSTIC
+					// eslint-disable-next-line no-console
+					console.log( '[mb] restart-bail-B: triggerClass missing', {
+						clientId,
+						triggerClass,
+						classList: Array.from( blockEl.classList ),
+					} );
 					return;
 				}
 				// Belt-and-suspenders: when previewing one slot,

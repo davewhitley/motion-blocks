@@ -336,7 +336,17 @@ function motion_blocks_render_block( $block_content, $block ) {
     // Page Load / Scroll Interactive still use the shared animationType.
     // Scroll Appear's "is there anything to render" check is "does either
     // slot have a type" — different logic, handled below.
-    $type = $attrs['animationType'] ?? '';
+    //
+    // Default to 'fade' — matches DEFAULT_ATTRIBUTES.animationType in
+    // src/components/constants.js. WordPress's block-comment serializer
+    // OMITS attribute values that equal their schema default, so blocks
+    // saved with the default `fade` type arrive here with no
+    // `animationType` key at all. A bare `?? ''` fallback would then
+    // make the bail check below fire and silently strip all Motion
+    // Blocks markup from the rendered output. Anything saved with a
+    // non-default type retains its value in the JSON and overrides
+    // this fallback.
+    $type = $attrs['animationType'] ?? 'fade';
     $entry_type = $attrs['animationEntryType'] ?? '';
     $exit_type  = $attrs['animationExitType'] ?? '';
 
@@ -438,7 +448,10 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Defaults mirror `DEFAULT_ATTRIBUTES` in constants.js so the
         // JS save filter and PHP render filter agree.
         if ( $entry_type !== '' ) {
-            $entry_replay = $attrs['animationEntryReplay'] ?? 'repeat';
+            // 'once' matches DEFAULT_ATTRIBUTES.animationEntryReplay
+            // (was 'repeat'; default flipped to 'once' in an earlier
+            // commit and the PHP fallback wasn't synced).
+            $entry_replay = $attrs['animationEntryReplay'] ?? 'once';
             $processor->set_attribute(
                 'data-mb-entry-replay',
                 esc_attr( $entry_replay )
@@ -487,7 +500,14 @@ function motion_blocks_render_block( $block_content, $block ) {
                 );
             }
 
-            $default_delay = ( $slot['name'] === 'entry' ) ? 0.4 : 0;
+            // Both slot delays now default to 0 — matches
+            // DEFAULT_ATTRIBUTES.animationEntryDelay /
+            // animationExitDelay in src/components/constants.js. Entry
+            // used to default to 0.4; the JS default was synced to 0
+            // in an earlier commit but this PHP fallback wasn't
+            // updated, causing legacy-defaulted blocks to render with
+            // an unwanted 0.4s delay.
+            $default_delay = 0;
             $processor->set_attribute(
                 "{$slot['data']}-duration",
                 esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ] ?? 0.6 ) )
@@ -626,7 +646,10 @@ function motion_blocks_render_block( $block_content, $block ) {
             );
             $processor->set_attribute(
                 'data-mb-delay',
-                esc_attr( (string) ( $attrs['animationDelay'] ?? 0.4 ) )
+                // 0 matches DEFAULT_ATTRIBUTES.animationDelay (changed
+                // from 0.4 in an earlier commit; PHP fallback wasn't
+                // synced at the time).
+                esc_attr( (string) ( $attrs['animationDelay'] ?? 0 ) )
             );
             $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
             $pause = $attrs['animationPauseOffscreen'] ?? true;

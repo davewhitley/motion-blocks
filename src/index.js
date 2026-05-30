@@ -901,6 +901,16 @@ const withAnimationPreview = createHigherOrderComponent(
 				const currentPlaying =
 					!! props.attributes?.animationPreviewPlaying;
 				const wasPlaying = prevPlayingRef.current;
+				// TEMP DIAGNOSTIC — log every effect run + the bail
+				// decision so we can see whether the effect even fires
+				// after setAttributes, and if it does, why it bails.
+				// eslint-disable-next-line no-console
+				console.log( '[mb] restart-effect', {
+					clientId,
+					currentPlaying,
+					wasPlaying,
+					willBail: ! currentPlaying || wasPlaying,
+				} );
 				prevPlayingRef.current = currentPlaying;
 				if ( ! currentPlaying || wasPlaying ) {
 					// Only fire on the false → true transition.

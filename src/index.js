@@ -964,11 +964,46 @@ const withAnimationPreview = createHigherOrderComponent(
 						cls.remove( name );
 					}
 				}
+				// Restart the animation. Class-toggle alone (remove,
+				// reflow, add) is fragile: when the resulting computed
+				// `animation-name` matches the previous one, browsers
+				// often optimize the "change" away and don't restart.
+				// Hard-reset `animation` inline first to force the
+				// engine to genuinely re-evaluate when the class comes
+				// back. For staggered parents the cascade lives on
+				// direct children, so reset there too.
+				const isStaggerParent = cls.contains( 'mb-stagger-parent' );
+				const restartTargets = isStaggerParent
+					? [ blockEl, ...blockEl.children ]
+					: [ blockEl ];
+				// Step 1: zero animation on every target.
+				restartTargets.forEach( ( el ) => {
+					el.style.animation = 'none';
+				} );
+				void blockEl.offsetWidth;
+				// Step 2: clear the inline override so CSS class-bound
+				// rules take over again.
+				restartTargets.forEach( ( el ) => {
+					el.style.animation = '';
+				} );
+				// Step 3: class-toggle. With the inline reset above,
+				// this is now redundant for the "same animation-name"
+				// case, but still load-bearing when the class change
+				// itself swaps between different keyframe bindings.
 				cls.remove( triggerClass );
-				// Reflow flush — see frontend.js restartAnimation for
-				// the matching rationale.
 				void blockEl.offsetWidth;
 				cls.add( triggerClass );
+				// TEMP DIAGNOSTIC — remove once Play-restart is
+				// verified working. Logs the restart attempt with the
+				// key conditions so we can spot any silent failures
+				// on subsequent clicks.
+				// eslint-disable-next-line no-console
+				console.log( '[mb] restart', {
+					clientId,
+					hasTrigger: cls.contains( triggerClass ),
+					isStaggerParent,
+					childCount: blockEl.children.length,
+				} );
 				// eslint-disable-next-line react-hooks/exhaustive-deps
 			}, [ props.attributes?.animationPreviewPlaying ] );
 			const {

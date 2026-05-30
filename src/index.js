@@ -901,22 +901,24 @@ const withAnimationPreview = createHigherOrderComponent(
 				const currentPlaying =
 					!! props.attributes?.animationPreviewPlaying;
 				const wasPlaying = prevPlayingRef.current;
-				// TEMP DIAGNOSTIC — log every effect run + the bail
-				// decision so we can see whether the effect even fires
-				// after setAttributes, and if it does, why it bails.
-				// eslint-disable-next-line no-console
-				console.log( '[mb] restart-effect', {
-					clientId,
-					currentPlaying,
-					wasPlaying,
-					willBail: ! currentPlaying || wasPlaying,
-				} );
 				prevPlayingRef.current = currentPlaying;
 				if ( ! currentPlaying || wasPlaying ) {
 					// Only fire on the false → true transition.
 					return;
 				}
-				const selector = `[data-block="${ clientId }"]`;
+				// Both `[data-block]` AND `[data-type]` — when the
+				// editor's List View is open, every block in the post
+				// renders a list-view leaf in the PARENT document with
+				// the same `data-block="<clientId>"`. Without the
+				// `[data-type]` filter, `document.querySelector` matches
+				// the leaf first (the parent doc is searched before the
+				// canvas iframe), the leaf has no `mb-*` classes, the
+				// triggerClass check below bails silently, and the
+				// restart never fires. List-view leaves carry
+				// `data-block` only — only the actual block wrapper in
+				// the canvas iframe carries `data-type`.
+				const selector =
+					`[data-block="${ clientId }"][data-type]`;
 				let blockEl = document.querySelector( selector );
 				if ( ! blockEl ) {
 					const iframes = document.querySelectorAll(
@@ -935,11 +937,6 @@ const withAnimationPreview = createHigherOrderComponent(
 					}
 				}
 				if ( ! blockEl ) {
-					// TEMP DIAGNOSTIC
-					// eslint-disable-next-line no-console
-					console.log( '[mb] restart-bail-A: block not found', {
-						clientId,
-					} );
 					return;
 				}
 				const previewSlot =
@@ -951,13 +948,6 @@ const withAnimationPreview = createHigherOrderComponent(
 						? 'mb-exit-triggered'
 						: 'mb-triggered';
 				if ( ! blockEl.classList.contains( triggerClass ) ) {
-					// TEMP DIAGNOSTIC
-					// eslint-disable-next-line no-console
-					console.log( '[mb] restart-bail-B: triggerClass missing', {
-						clientId,
-						triggerClass,
-						classList: Array.from( blockEl.classList ),
-					} );
 					return;
 				}
 				// Belt-and-suspenders: when previewing one slot,
@@ -1015,17 +1005,6 @@ const withAnimationPreview = createHigherOrderComponent(
 				cls.remove( triggerClass );
 				void blockEl.offsetWidth;
 				cls.add( triggerClass );
-				// TEMP DIAGNOSTIC — remove once Play-restart is
-				// verified working. Logs the restart attempt with the
-				// key conditions so we can spot any silent failures
-				// on subsequent clicks.
-				// eslint-disable-next-line no-console
-				console.log( '[mb] restart', {
-					clientId,
-					hasTrigger: cls.contains( triggerClass ),
-					isStaggerParent,
-					childCount: blockEl.children.length,
-				} );
 				// eslint-disable-next-line react-hooks/exhaustive-deps
 			}, [ props.attributes?.animationPreviewPlaying ] );
 			const {

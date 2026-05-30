@@ -1637,81 +1637,39 @@ export function attrsToBag( attributes, attrMap ) {
 /**
  * Default attribute values for all animation settings.
  *
- * ⚠️ KEEP IN SYNC WITH PHP — animation-plugin.php
+ * The cross-language subset (everything PHP also reads at render
+ * time) lives in shared-constants.json under "attributeDefaults" and
+ * is spread in below — that's the single source of truth shared with
+ * animation-plugin.php's motion_blocks_attr_default() helper. Change
+ * a default in shared-constants.json and both sides pick it up.
  *
- * Every default here that the PHP render filter reads via
- * `$attrs[key] ?? fallback` MUST have the matching fallback value
- * in animation-plugin.php (motion_blocks_render_block and its
- * helpers).
+ * JS-only keys (editor preview state, From/To property bags, gates,
+ * `null` sentinels) stay defined here directly — PHP doesn't need
+ * them at render time.
  *
- * Why: WordPress's block-comment serializer OMITS attribute values
- * that equal their schema default — so PHP receives an attrs array
- * with those keys MISSING. The `?? fallback` is what actually
- * applies for the common case. If the JS default and the PHP
- * fallback diverge, blocks configured with default values silently
- * render with the wrong behavior on the frontend, while the editor
- * (which has these JS defaults locally) keeps working fine.
- *
- * When changing a default here, `grep` animation-plugin.php for
- * the attribute name — usually 2–3 call sites need to update in
- * lockstep. A centralized defaults source (loaded from
- * shared-constants.json on both sides) would prevent this class
- * of bug; until that lands, keep both files in sync by hand.
+ * Note: these "active defaults" are DISTINCT from the SCHEMA defaults
+ * declared in src/index.js → addAnimationAttributes. Some of those
+ * are intentionally frozen at older values for block-validation
+ * back-compat (e.g. animationDelay schema=0.4 vs active=0). See the
+ * banner above addAnimationAttributes for that distinction.
  */
 export const DEFAULT_ATTRIBUTES = {
+	// Cross-language defaults — see shared-constants.json.
+	...SHARED.attributeDefaults,
+	// JS-only: empty string used as a gate (no animation configured).
 	animationMode: '',
-	animationType: 'fade',
-	animationDirection: '',
-	animationDuration: 0.6,
-	animationDelay: 0,
-	animationRepeat: 'once',
-	animationPauseOffscreen: true,
-	animationPlayOnce: true,
 	// Legacy trigger attribute. The Scroll Appear panel no longer
 	// reads or writes this — it's been replaced by the slot model
 	// (animationEntry* / animationExit*). Kept registered so old
 	// saves continue to deserialize cleanly; migrated on read by
 	// migrateScrollAppearAttrs().
 	animationScrollTrigger: 'enter',
-	animationAcceleration: 'ease',
-	animationCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
-	animationBlurAmount: 8,
-	animationRotateAngle: 90,
-	animationRangeStart: 'entry 0%',
-	animationRangeEnd: 'exit 100%',
-	// --- Slot model: Scroll Appear's Entry / Exit slots ---
-	// Each slot mirrors the shared animation attrs but scoped to a
-	// single direction. '' = slot is empty (no animation for that
-	// phase). Both slots filled = round-trip (replaces the old
-	// "Mirror" trigger). Only Entry filled = "enter trigger." Only
-	// Exit filled = "exit trigger." See constants.js → migration
-	// shim for how legacy blocks map onto this.
-	animationEntryType: '',
-	animationEntryDirection: '',
-	animationEntryDuration: 0.6,
-	animationEntryDelay: 0,
-	animationEntryAcceleration: 'ease',
-	animationEntryCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
-	animationEntryBlurAmount: 8,
-	animationEntryRotateAngle: 90,
-	animationExitType: '',
-	animationExitDirection: '',
-	animationExitDuration: 0.6,
-	animationExitDelay: 0,
-	animationExitAcceleration: 'ease',
-	animationExitCustomTimingFunction: DEFAULT_CUSTOM_TIMING_FUNCTION,
-	animationExitBlurAmount: 8,
-	animationExitRotateAngle: 90,
-	// Per-slot Replay options. Defaults preserve today's runtime
-	// behavior: Entry replays each scroll-in (Entry-only `repeat`,
-	// Entry+Exit round-trip); Exit reverse-plays on scroll-back-up
-	// (Exit-only and Entry+Exit smooth round-trip).
-	animationEntryReplay: 'once',
-	animationExitReplay: 'reverse',
 	// Per-slot Custom From/To values (only relevant when the slot's
 	// type is 'custom'). The shared animationFrom* / animationTo*
 	// attributes below are still used by Page Load and Scroll
-	// Interactive modes.
+	// Interactive modes. `null` sentinels are JS-only — PHP never
+	// needs defaults here because "no key present" already means
+	// "user hasn't added this property."
 	animationEntryFromOpacity: null,
 	animationEntryFromTranslateX: null,
 	animationEntryFromTranslateY: null,
@@ -1780,19 +1738,17 @@ export const DEFAULT_ATTRIBUTES = {
 	// animation; 'start' or 'end' freezes the editor block at the
 	// chosen side's static values (no animation).
 	animationFromToPreviewSide: 'off',
-	// Custom animation target: 'block' applies transforms to the
-	// block wrapper (default); 'img' applies them to the first
-	// `<img>` descendant via scoped CSS so the surrounding figure /
-	// figcaption / link wrapper stays stationary. Only meaningful
-	// for blocks listed in IMAGE_TARGETABLE_BLOCKS.
-	animationFromToTarget: 'block',
-	// Stagger cascade — only meaningful when the block is a
+	// Stagger gate — only meaningful when the block is a
 	// STAGGER_PARENT_BLOCKS member. When true, the parent block
 	// stops animating itself and becomes the cascade controller for
-	// its inner blocks. Step is the delay added per inner block (in
-	// seconds — see staggerStepSeconds for the legacy-ms heuristic).
+	// its inner blocks. (The companion `animationStaggerStep` —
+	// delay added per inner block in seconds — comes from the
+	// SHARED.attributeDefaults spread above. See staggerStepSeconds
+	// for the legacy-ms heuristic.)
 	animationStaggerEnabled: false,
-	animationStaggerStep: DEFAULT_STAGGER_STEP_SECONDS,
+	// animationFromToTarget ('block' | 'img') and animationStaggerStep
+	// (0.1s) come from SHARED.attributeDefaults — both are read by
+	// the PHP render filter and need to stay in sync.
 };
 
 /**

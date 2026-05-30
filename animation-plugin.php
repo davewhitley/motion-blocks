@@ -58,6 +58,29 @@ function motion_blocks_shared_constants() {
 }
 
 /**
+ * Look up the active default for a single animation attribute.
+ *
+ * Backs the `$attrs[ $key ] ?? motion_blocks_attr_default( $key )`
+ * pattern used throughout the render filter. The values live in
+ * shared-constants.json under "attributeDefaults" so PHP and JS
+ * agree without hand-mirroring.
+ *
+ * Returns null for keys absent from attributeDefaults — caller is
+ * expected to know whether that's meaningful (e.g. legacy keys not
+ * yet centralized, or attributes that genuinely have no default).
+ *
+ * @param string $key Attribute name (e.g. 'animationType').
+ * @return mixed The default value, or null if the key isn't listed.
+ */
+function motion_blocks_attr_default( $key ) {
+    static $defaults = null;
+    if ( $defaults === null ) {
+        $defaults = motion_blocks_shared_constants()['attributeDefaults'] ?? array();
+    }
+    return $defaults[ $key ] ?? null;
+}
+
+/**
  * Enqueue editor scripts and styles for block controls.
  *
  * JS + panel-only CSS go on enqueue_block_editor_assets (parent frame).
@@ -192,6 +215,15 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         );
     }
 
+    // Fallback literals below are intentionally LEGACY pre-slot-model
+    // defaults — they reproduce the behavior of blocks saved before the
+    // slot-model refactor, NOT the current active defaults. Do not
+    // switch these to motion_blocks_attr_default(): notably,
+    // animationDelay defaulted to 0.4 in the pre-slot schema (today's
+    // active default is 0), and the migration must preserve that
+    // perceived timing for legacy blocks rather than retroactively
+    // changing it. Current-defaults live in shared-constants.json.
+
     // Normalize the legacy trigger value: v1 'both' aliases to v2 'mirror'.
     $raw_trigger = $attrs['animationScrollTrigger'] ?? 'enter';
     $trigger = ( $raw_trigger === 'both' ) ? 'mirror' : $raw_trigger;
@@ -321,17 +353,13 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
  * attributes. Runs on every block; bails early when no animation is
  * configured.
  *
- * ⚠️ KEEP DEFAULTS IN SYNC WITH JS
- *
- * Every `$attrs[key] ?? fallback` in this file MUST match the
- * corresponding key's default in DEFAULT_ATTRIBUTES at
- * src/components/constants.js. WordPress's block-comment serializer
- * OMITS attribute values that equal the schema default, so the
- * fallbacks here are what actually apply for the common case (most
- * blocks accept the defaults). When changing a JS default in
- * constants.js, `grep` this file for the attribute name and update
- * every fallback to match. See the docblock above DEFAULT_ATTRIBUTES
- * in constants.js for the full rationale.
+ * Default values for any `?? motion_blocks_attr_default(…)` lookup
+ * here live in shared-constants.json under "attributeDefaults" — the
+ * same source the JS side reads via DEFAULT_ATTRIBUTES in
+ * src/components/constants.js. Change a default there, both sides
+ * pick it up. The legacy migration function above
+ * (motion_blocks_migrate_scroll_appear_attrs) is the exception — its
+ * fallbacks are intentional pre-slot-model literals.
  */
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs      = $block['attrs'] ?? array();
@@ -354,19 +382,9 @@ function motion_blocks_render_block( $block_content, $block ) {
     // Page Load / Scroll Interactive still use the shared animationType.
     // Scroll Appear's "is there anything to render" check is "does either
     // slot have a type" — different logic, handled below.
-    //
-    // Default to 'fade' — matches DEFAULT_ATTRIBUTES.animationType in
-    // src/components/constants.js. WordPress's block-comment serializer
-    // OMITS attribute values that equal their schema default, so blocks
-    // saved with the default `fade` type arrive here with no
-    // `animationType` key at all. A bare `?? ''` fallback would then
-    // make the bail check below fire and silently strip all Motion
-    // Blocks markup from the rendered output. Anything saved with a
-    // non-default type retains its value in the JSON and overrides
-    // this fallback.
-    $type = $attrs['animationType'] ?? 'fade';
-    $entry_type = $attrs['animationEntryType'] ?? '';
-    $exit_type  = $attrs['animationExitType'] ?? '';
+    $type       = $attrs['animationType'] ?? motion_blocks_attr_default( 'animationType' );
+    $entry_type = $attrs['animationEntryType'] ?? motion_blocks_attr_default( 'animationEntryType' );
+    $exit_type  = $attrs['animationExitType'] ?? motion_blocks_attr_default( 'animationExitType' );
 
     if (
         ( $mode === 'scroll-appear' && $entry_type === '' && $exit_type === '' )
@@ -443,7 +461,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         // only" toggle is on with any slot filled, gated on img
         // availability (Cover w/o Fixed/Repeated bg).
         $img_target_available = ! motion_blocks_is_image_target_unavailable( $block_name, $attrs );
-        $slot_target          = $attrs['animationFromToTarget'] ?? 'block';
+        $slot_target          = $attrs['animationFromToTarget'] ?? motion_blocks_attr_default( 'animationFromToTarget' );
         $has_image_effect_slot =
             'image-move' === $entry_type || 'image-zoom' === $entry_type ||
             'image-move' === $exit_type  || 'image-zoom' === $exit_type;
@@ -455,7 +473,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
         }
 
-        $play_once = $attrs['animationPlayOnce'] ?? true;
+        $play_once = $attrs['animationPlayOnce'] ?? motion_blocks_attr_default( 'animationPlayOnce' );
         $processor->set_attribute(
             'data-mb-play-once',
             esc_attr( $play_once ? 'true' : 'false' )
@@ -466,17 +484,16 @@ function motion_blocks_render_block( $block_content, $block ) {
         // Defaults mirror `DEFAULT_ATTRIBUTES` in constants.js so the
         // JS save filter and PHP render filter agree.
         if ( $entry_type !== '' ) {
-            // 'once' matches DEFAULT_ATTRIBUTES.animationEntryReplay
-            // (was 'repeat'; default flipped to 'once' in an earlier
-            // commit and the PHP fallback wasn't synced).
-            $entry_replay = $attrs['animationEntryReplay'] ?? 'once';
+            $entry_replay = $attrs['animationEntryReplay']
+                ?? motion_blocks_attr_default( 'animationEntryReplay' );
             $processor->set_attribute(
                 'data-mb-entry-replay',
                 esc_attr( $entry_replay )
             );
         }
         if ( $exit_type !== '' ) {
-            $exit_replay = $attrs['animationExitReplay'] ?? 'reverse';
+            $exit_replay = $attrs['animationExitReplay']
+                ?? motion_blocks_attr_default( 'animationExitReplay' );
             $processor->set_attribute(
                 'data-mb-exit-replay',
                 esc_attr( $exit_replay )
@@ -510,7 +527,8 @@ function motion_blocks_render_block( $block_content, $block ) {
                 esc_attr( $slot_type )
             );
 
-            $slot_dir = $attrs[ "{$slot['prefix']}Direction" ] ?? '';
+            $slot_dir = $attrs[ "{$slot['prefix']}Direction" ]
+                ?? motion_blocks_attr_default( "{$slot['prefix']}Direction" );
             if ( $slot_dir ) {
                 $processor->set_attribute(
                     "{$slot['data']}-direction",
@@ -518,29 +536,29 @@ function motion_blocks_render_block( $block_content, $block ) {
                 );
             }
 
-            // Both slot delays now default to 0 — matches
-            // DEFAULT_ATTRIBUTES.animationEntryDelay /
-            // animationExitDelay in src/components/constants.js. Entry
-            // used to default to 0.4; the JS default was synced to 0
-            // in an earlier commit but this PHP fallback wasn't
-            // updated, causing legacy-defaulted blocks to render with
-            // an unwanted 0.4s delay.
-            $default_delay = 0;
             $processor->set_attribute(
                 "{$slot['data']}-duration",
-                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ] ?? 0.6 ) )
+                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ]
+                    ?? motion_blocks_attr_default( "{$slot['prefix']}Duration" ) ) )
             );
             $processor->set_attribute(
                 "{$slot['data']}-delay",
-                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Delay" ] ?? $default_delay ) )
+                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Delay" ]
+                    ?? motion_blocks_attr_default( "{$slot['prefix']}Delay" ) ) )
             );
 
-            $slot_accel = $attrs[ "{$slot['prefix']}Acceleration" ] ?? 'ease';
+            $slot_accel = $attrs[ "{$slot['prefix']}Acceleration" ]
+                ?? motion_blocks_attr_default( "{$slot['prefix']}Acceleration" );
             if ( $slot_accel === 'custom' ) {
+                // `?? ''` here is intentional — distinguishes "user
+                // typed nothing in the Custom field" (falls back to
+                // the default cubic-bezier) from "user is on Custom
+                // with a value". The default itself comes from the
+                // central source.
                 $custom_tf = $attrs[ "{$slot['prefix']}CustomTimingFunction" ] ?? '';
                 $slot_accel = trim( $custom_tf ) !== ''
                     ? $custom_tf
-                    : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+                    : motion_blocks_attr_default( "{$slot['prefix']}CustomTimingFunction" );
             }
             if ( $slot_accel !== 'ease' ) {
                 $processor->set_attribute(
@@ -550,8 +568,9 @@ function motion_blocks_render_block( $block_content, $block ) {
             }
 
             if ( $slot_type === 'blur' ) {
-                $blur_amount = $attrs[ "{$slot['prefix']}BlurAmount" ] ?? 8;
-                if ( (int) $blur_amount !== 8 ) {
+                $blur_default = motion_blocks_attr_default( "{$slot['prefix']}BlurAmount" );
+                $blur_amount  = $attrs[ "{$slot['prefix']}BlurAmount" ] ?? $blur_default;
+                if ( (int) $blur_amount !== (int) $blur_default ) {
                     $processor->set_attribute(
                         "{$slot['data']}-blur-amount",
                         esc_attr( (string) $blur_amount )
@@ -560,8 +579,9 @@ function motion_blocks_render_block( $block_content, $block ) {
             }
 
             if ( $slot_type === 'rotate' ) {
-                $rotate_angle = $attrs[ "{$slot['prefix']}RotateAngle" ] ?? 90;
-                if ( (int) $rotate_angle !== 90 ) {
+                $rotate_default = motion_blocks_attr_default( "{$slot['prefix']}RotateAngle" );
+                $rotate_angle   = $attrs[ "{$slot['prefix']}RotateAngle" ] ?? $rotate_default;
+                if ( (int) $rotate_angle !== (int) $rotate_default ) {
                     $processor->set_attribute(
                         "{$slot['data']}-rotate-angle",
                         esc_attr( (string) $rotate_angle )
@@ -601,37 +621,45 @@ function motion_blocks_render_block( $block_content, $block ) {
         if ( ! motion_blocks_is_image_target_unavailable( $block_name, $attrs ) ) {
             if ( 'image-move' === $type || 'image-zoom' === $type ) {
                 $processor->set_attribute( 'data-mb-target', 'img' );
-            } elseif ( '' !== $type && 'img' === ( $attrs['animationFromToTarget'] ?? 'block' ) ) {
+            } elseif ( '' !== $type && 'img' === ( $attrs['animationFromToTarget']
+                    ?? motion_blocks_attr_default( 'animationFromToTarget' ) ) ) {
                 $processor->set_attribute( 'data-mb-target', 'img' );
             }
         }
 
-        $acceleration = $attrs['animationAcceleration'] ?? 'ease';
+        $acceleration = $attrs['animationAcceleration']
+            ?? motion_blocks_attr_default( 'animationAcceleration' );
         if ( $acceleration === 'custom' ) {
+            // `?? ''` distinguishes "user typed nothing" from "user has
+            // a value"; the default cubic-bezier comes from the central
+            // source.
             $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
             $acceleration = trim( $custom_tf ) !== ''
                 ? $custom_tf
-                : 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+                : motion_blocks_attr_default( 'animationCustomTimingFunction' );
         }
         if ( $acceleration !== 'ease' ) {
             $processor->set_attribute( 'data-mb-acceleration', esc_attr( $acceleration ) );
         }
 
-        $direction = $attrs['animationDirection'] ?? '';
+        $direction = $attrs['animationDirection']
+            ?? motion_blocks_attr_default( 'animationDirection' );
         if ( $direction ) {
             $processor->set_attribute( 'data-mb-direction', esc_attr( $direction ) );
         }
 
         if ( $type === 'blur' ) {
-            $blur_amount = $attrs['animationBlurAmount'] ?? 8;
-            if ( (int) $blur_amount !== 8 ) {
+            $blur_default = motion_blocks_attr_default( 'animationBlurAmount' );
+            $blur_amount  = $attrs['animationBlurAmount'] ?? $blur_default;
+            if ( (int) $blur_amount !== (int) $blur_default ) {
                 $processor->set_attribute( 'data-mb-blur-amount', esc_attr( (string) $blur_amount ) );
             }
         }
 
         if ( $type === 'rotate' ) {
-            $rotate_angle = $attrs['animationRotateAngle'] ?? 90;
-            if ( (int) $rotate_angle !== 90 ) {
+            $rotate_default = motion_blocks_attr_default( 'animationRotateAngle' );
+            $rotate_angle   = $attrs['animationRotateAngle'] ?? $rotate_default;
+            if ( (int) $rotate_angle !== (int) $rotate_default ) {
                 $processor->set_attribute( 'data-mb-rotate-angle', esc_attr( (string) $rotate_angle ) );
             }
         }
@@ -660,23 +688,35 @@ function motion_blocks_render_block( $block_content, $block ) {
         if ( $mode === 'page-load' ) {
             $processor->set_attribute(
                 'data-mb-duration',
-                esc_attr( (string) ( $attrs['animationDuration'] ?? 0.6 ) )
+                esc_attr( (string) ( $attrs['animationDuration']
+                    ?? motion_blocks_attr_default( 'animationDuration' ) ) )
             );
             $processor->set_attribute(
                 'data-mb-delay',
-                // 0 matches DEFAULT_ATTRIBUTES.animationDelay (changed
-                // from 0.4 in an earlier commit; PHP fallback wasn't
-                // synced at the time).
-                esc_attr( (string) ( $attrs['animationDelay'] ?? 0 ) )
+                esc_attr( (string) ( $attrs['animationDelay']
+                    ?? motion_blocks_attr_default( 'animationDelay' ) ) )
             );
-            $processor->set_attribute( 'data-mb-repeat', esc_attr( $attrs['animationRepeat'] ?? 'once' ) );
-            $pause = $attrs['animationPauseOffscreen'] ?? true;
+            $processor->set_attribute(
+                'data-mb-repeat',
+                esc_attr( $attrs['animationRepeat']
+                    ?? motion_blocks_attr_default( 'animationRepeat' ) )
+            );
+            $pause = $attrs['animationPauseOffscreen']
+                ?? motion_blocks_attr_default( 'animationPauseOffscreen' );
             $processor->set_attribute( 'data-mb-pause-offscreen', esc_attr( $pause ? 'true' : 'false' ) );
         }
 
         if ( $mode === 'scroll-interactive' ) {
-            $processor->set_attribute( 'data-mb-range-start', esc_attr( $attrs['animationRangeStart'] ?? 'entry 0%' ) );
-            $processor->set_attribute( 'data-mb-range-end', esc_attr( $attrs['animationRangeEnd'] ?? 'exit 100%' ) );
+            $processor->set_attribute(
+                'data-mb-range-start',
+                esc_attr( $attrs['animationRangeStart']
+                    ?? motion_blocks_attr_default( 'animationRangeStart' ) )
+            );
+            $processor->set_attribute(
+                'data-mb-range-end',
+                esc_attr( $attrs['animationRangeEnd']
+                    ?? motion_blocks_attr_default( 'animationRangeEnd' ) )
+            );
         }
     }
 
@@ -696,7 +736,8 @@ function motion_blocks_render_block( $block_content, $block ) {
         // blocks may have it in ms (default 100); the > 5 check folds
         // those down to seconds so old saves keep working. Mirrors the
         // JS `staggerStepSeconds()` helper in constants.js.
-        $raw_step = $attrs['animationStaggerStep'] ?? 0.1;
+        $raw_step = $attrs['animationStaggerStep']
+            ?? motion_blocks_attr_default( 'animationStaggerStep' );
         $step     = is_numeric( $raw_step ) ? (float) $raw_step : 0.1;
         if ( $step < 0 ) {
             $step = 0.1;

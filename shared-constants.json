@@ -29,5 +29,43 @@
 		"rotateY": "rotate-y",
 		"blur": "blur",
 		"clipPath": "clip-path"
+	},
+
+	"_attributeDefaults_comment": "Active defaults for animation attributes — what new blocks get from selectMode + what the PHP render filter falls back to when an attribute key is missing from the saved block-comment JSON (WordPress omits values equal to the SCHEMA default). Distinct from the SCHEMA defaults declared in src/index.js:addAnimationAttributes, which some intentionally hold at older values for block-validation back-compat (e.g. animationDelay schema=0.4 vs active=0). JS reads these via the spread in DEFAULT_ATTRIBUTES (src/components/constants.js); PHP via the motion_blocks_attr_default() helper (animation-plugin.php).",
+
+	"attributeDefaults": {
+		"animationType": "fade",
+		"animationDirection": "",
+		"animationDuration": 0.6,
+		"animationDelay": 0,
+		"animationRepeat": "once",
+		"animationPauseOffscreen": true,
+		"animationPlayOnce": true,
+		"animationAcceleration": "ease",
+		"animationCustomTimingFunction": "cubic-bezier(0.25, 0.1, 0.25, 1)",
+		"animationBlurAmount": 8,
+		"animationRotateAngle": 90,
+		"animationRangeStart": "entry 0%",
+		"animationRangeEnd": "exit 100%",
+		"animationEntryType": "",
+		"animationEntryDirection": "",
+		"animationEntryDuration": 0.6,
+		"animationEntryDelay": 0,
+		"animationEntryAcceleration": "ease",
+		"animationEntryCustomTimingFunction": "cubic-bezier(0.25, 0.1, 0.25, 1)",
+		"animationEntryBlurAmount": 8,
+		"animationEntryRotateAngle": 90,
+		"animationEntryReplay": "once",
+		"animationExitType": "",
+		"animationExitDirection": "",
+		"animationExitDuration": 0.6,
+		"animationExitDelay": 0,
+		"animationExitAcceleration": "ease",
+		"animationExitCustomTimingFunction": "cubic-bezier(0.25, 0.1, 0.25, 1)",
+		"animationExitBlurAmount": 8,
+		"animationExitRotateAngle": 90,
+		"animationExitReplay": "reverse",
+		"animationFromToTarget": "block",
+		"animationStaggerStep": 0.1
 	}
 }

@@ -985,8 +985,21 @@ const withAnimationPreview = createHigherOrderComponent(
 				// back. For staggered parents the cascade lives on
 				// direct children, so reset there too.
 				const isStaggerParent = cls.contains( 'mb-stagger-parent' );
+				// Img-target effects (Cover + image-move / image-zoom, or any
+				// preset with "Animate image only") run their animation on the
+				// inner <img>, not the wrapper. Image Move / Image Zoom bind via
+				// an unconditional rule in the injected <style>, so the class
+				// toggle below doesn't restart them. Reset the img's animation
+				// inline too so Play re-triggers on every click.
+				const isImgTarget =
+					blockEl.getAttribute( 'data-mb-target' ) === 'img';
+				const innerImg = isImgTarget
+					? blockEl.querySelector( 'img:first-of-type' )
+					: null;
 				const restartTargets = isStaggerParent
 					? [ blockEl, ...blockEl.children ]
+					: innerImg
+					? [ blockEl, innerImg ]
 					: [ blockEl ];
 				// Step 1: zero animation on every target.
 				restartTargets.forEach( ( el ) => {

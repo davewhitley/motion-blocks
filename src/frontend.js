@@ -851,6 +851,11 @@
 
 		var states = [];
 		var prevScrollY = window.scrollY;
+		// Shared scroll direction. tick() updates it ONLY when the scroll
+		// position actually changes, so every element processed in a
+		// single scroll frame (states.forEach(tick)) reads the same
+		// direction instead of all-but-the-first collapsing to 'same'.
+		var scrollDir = 'same';
 
 		/**
 		 * Compute the element's page-relative top via the offsetParent
@@ -888,13 +893,20 @@
 				return;
 			}
 			var currentScrollY = window.scrollY;
-			var dir =
-				currentScrollY > prevScrollY
-					? 'down'
-					: currentScrollY < prevScrollY
-					? 'up'
-					: 'same';
+			// Update the SHARED direction only on a real position change.
+			// When unchanged — every element after the first in a
+			// `states.forEach(tick)` frame, or an IO/ResizeObserver
+			// callback that fired without a scroll — KEEP the last
+			// direction rather than collapsing to 'same'. Collapsing
+			// would gate onEnterBack / onLeaveBack (dir === 'up') off for
+			// every element except whichever ticked first this frame.
+			if ( currentScrollY > prevScrollY ) {
+				scrollDir = 'down';
+			} else if ( currentScrollY < prevScrollY ) {
+				scrollDir = 'up';
+			}
 			prevScrollY = currentScrollY;
+			var dir = scrollDir;
 
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
@@ -1249,16 +1261,25 @@
 		var el = state.el;
 		var inExited = el.classList.contains( 'mb-exit-triggered' );
 		var inTriggered = el.classList.contains( 'mb-triggered' );
+		var wasReversed =
+			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
 
-		// Already entered. Skip redundant fire.
-		if ( inTriggered && ! inExited ) {
+		// Already forward-entered — skip redundant fire. EXCEPT when the
+		// element is mid-reverse (Entry 'reverse' played at the bottom
+		// edge and we scrolled back down before it cleared off-screen);
+		// there we restart it forward so the cycle resumes cleanly.
+		if ( inTriggered && ! inExited && ! wasReversed ) {
 			return;
 		}
 
 		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-exit-triggered' );
-		el.classList.add( 'mb-triggered' );
+		if ( wasReversed ) {
+			restartAnimation( el, 'mb-triggered' );
+		} else {
+			el.classList.add( 'mb-triggered' );
+		}
 
 		// Entry Replay = 'once': fire once and stop observing.
 		if ( state.entryReplay === 'once' ) {
@@ -1286,10 +1307,10 @@
 	 *     'repeat':  clear exit state — element snap-returns to natural
 	 *     'reverse': reverse-play exit keyframe (smooth round-trip)
 	 *
-	 *   Entry Replay (only fires when Exit is empty):
-	 *     'once':    no-op
-	 *     'repeat':  replay entry forward (may flash if delay is set)
-	 *     'reverse': reverse-play entry keyframe (element "un-enters")
+	 *   Entry Replay (Exit slot empty): no-op for every mode. Entry
+	 *     never re-fires at onEnterBack — its per-mode action (reset for
+	 *     'repeat', reverse-play for 'reverse') happens at the bottom
+	 *     edge (onLeaveBack) / off-screen instead.
 	 */
 	function handleSlotEnterBack( state ) {
 		var el = state.el;
@@ -1322,35 +1343,11 @@
 			return;
 		}
 
-		// Exit slot empty — Entry slot's Replay drives onEnterBack.
-		if ( ! state.hasEntry ) {
-			return;
-		}
-		if ( state.entryReplay === 'once' ) {
-			return;
-		}
-		if ( state.entryReplay === 'repeat' ) {
-			// Replay entry forward at the same edge. Note: this may
-			// produce a brief snap if the entry animation has a delay
-			// (fill-mode: backwards holds at keyframe `from` during
-			// delay, then animates). Users who want smooth round-trip
-			// should pick `reverse` instead.
-			applySlotVars( el, state.entry );
-			el.style.setProperty( '--mb-direction', 'normal' );
-			restartAnimation( el, 'mb-triggered' );
-			return;
-		}
-		// 'reverse' — reverse-play entry. Element animates from
-		// entered → un-entered as it re-appears from the top.
-		var alreadyReversedEntry =
-			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
-		if ( alreadyReversedEntry ) {
-			return;
-		}
-		applySlotVars( el, state.entry );
-		el.style.setProperty( '--mb-direction', 'reverse' );
-		el.classList.remove( 'mb-exit-triggered' );
-		restartAnimation( el, 'mb-triggered' );
+		// Exit slot empty — the Entry slot does nothing at onEnterBack.
+		// Every Entry Replay mode is "play none none X": scrolling back
+		// UP into the element never re-fires it. The per-mode action
+		// (reset for 'repeat', reverse-play for 'reverse') happens at the
+		// bottom edge instead — see handleSlotLeaveBack.
 	}
 
 	/**
@@ -1419,19 +1416,38 @@
 	 *     is mostly off-screen at this point.
 	 */
 	function handleSlotLeaveBack( state ) {
-		if ( state.entryReplay === 'once' ) {
+		// Fires at the trigger-zone bottom edge while scrolling up — the
+		// element is leaving at the bottom of the viewport. Entry-owned.
+		//
+		//   'once':    no-op (stays entered forever).
+		//   'repeat':  no-op here. Clearing the trigger classes at this
+		//              edge would snap the element to its hidden state
+		//              while still partly on-screen (a visible flash);
+		//              the reset happens off-screen instead, via the
+		//              tick() cleanup (gated on entryReplay !== 'once').
+		//   'reverse': play the entry keyframe BACKWARD so the element
+		//              animates out as it leaves the bottom of the
+		//              viewport (GSAP "play none none reverse"). The
+		//              tick() off-screen cleanup then clears it so the
+		//              next onEnter replays forward.
+		if ( state.entryReplay !== 'reverse' || ! state.hasEntry ) {
+			return;
+		}
+		// With an Exit slot present, onLeave already drove the Exit
+		// animation forward — don't override it with an entry reverse.
+		if ( state.hasExit ) {
 			return;
 		}
 		var el = state.el;
-
-		// Cleanup. No animation fires here in the new model — that
-		// concept moved to handleSlotEnterBack (Entry `reverse` fires
-		// at onEnterBack instead of onLeaveBack to match user-mental-
-		// model expectation of "reverse plays when scrolling back to
-		// the element").
-		el.classList.remove( 'mb-triggered' );
+		if (
+			el.style.getPropertyValue( '--mb-direction' ) === 'reverse'
+		) {
+			return; // already reversing
+		}
+		applySlotVars( el, state.entry );
+		el.style.setProperty( '--mb-direction', 'reverse' );
 		el.classList.remove( 'mb-exit-triggered' );
-		el.style.removeProperty( '--mb-direction' );
+		restartAnimation( el, 'mb-triggered' );
 	}
 
 	/* ---------------------------------------------------------------

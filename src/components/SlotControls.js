@@ -566,15 +566,19 @@ export default function SlotControls( {
 				/>
 			) }
 
-			{ /* Replay control.
-			     Behavioral model: each slot's Replay option controls
-			     what happens when the user scrolls back toward the
-			     element after the forward animation has already fired.
-			     Entry's reverse / repeat behaviors fire on scroll-back
-			     re-entry from above; Exit's fire when the user scrolls
-			     back to a previously-exited element. When both slots
-			     are filled, Exit's Replay wins at the shared scroll-back
-			     boundary. See REPLAY_OPTIONS in constants.js. */ }
+			{ /* Replay control. Each slot maps to a GSAP-style
+			     "play / none / none / X" toggle:
+			       Entry — plays forward on scroll-in; the Replay option
+			         sets what happens at the bottom edge as you scroll
+			         back up: once = nothing, repeat = reset off-screen,
+			         reverse = play backward as it leaves the bottom.
+			       Exit — plays forward on scroll-out (top edge); the
+			         Replay option sets what happens when you scroll back
+			         to it: once = nothing, repeat = snap to natural,
+			         reverse = play backward.
+			     When both slots are filled, the Exit slot owns the
+			     scroll-back (top) edge. See REPLAY_OPTIONS in
+			     constants.js. */ }
 			<SelectControl
 				label={ __( 'Replay', 'motion-blocks' ) }
 				value={ animationReplay }
@@ -603,11 +607,11 @@ export default function SlotControls( {
 							  )
 							: animationReplay === 'repeat'
 							? __(
-									'Entry animation plays each time the element scrolls into view, including when scrolling back from above.',
+									'Entry animation replays every time the element scrolls into view. It resets off-screen after you scroll past it, so each pass plays again.',
 									'motion-blocks'
 							  )
 							: __(
-									'Entry animation plays in reverse when the element scrolls back into view from above.',
+									'Entry animation plays forward as the element scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up.',
 									'motion-blocks'
 							  )
 						: animationReplay === 'once'

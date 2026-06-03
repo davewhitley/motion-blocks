@@ -744,6 +744,7 @@
 			// animations.css. Inline `animationIterationCount` on the
 			// parent would NOT cascade.
 			var repeat = el.dataset.mbRepeat || 'once';
+			var isLooping = repeat === 'loop' || repeat === 'alternate';
 
 			if ( repeat === 'loop' ) {
 				el.style.setProperty( '--mb-iteration-count', 'infinite' );
@@ -757,8 +758,12 @@
 			// Trigger the animation.
 			el.classList.add( 'mb-triggered' );
 
-			// Pause off-screen (mainly useful for looping/alternating animations).
-			if ( el.dataset.mbPauseOffscreen === 'true' ) {
+			// Pause off-screen only applies to looping animations.
+			// Pausing a one-shot while off-screen would freeze it at
+			// frame 0 until it scrolls into view — turning Page Load
+			// into Scroll Appear. One-shot Page Load fires on load and
+			// finishes regardless of viewport, by design.
+			if ( isLooping && el.dataset.mbPauseOffscreen === 'true' ) {
 				setupPauseOffscreen( el );
 			}
 		} );

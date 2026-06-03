@@ -543,18 +543,28 @@ export default function PageLoadControls( {
 				__nextHasNoMarginBottom
 			/>
 
-			<ToggleControl
-				label={ __( 'Pause off-screen', 'motion-blocks' ) }
-				checked={ animationPauseOffscreen }
-				onChange={ ( value ) =>
-					setAttributes( { animationPauseOffscreen: value } )
-				}
-				help={ __(
-					'Animation will pause when the block is not visible for better performance.',
-					'motion-blocks'
-				) }
-				__nextHasNoMarginBottom
-			/>
+			{ /* Pause off-screen only applies to looping animations —
+			   for a one-shot, pausing while off-screen would freeze it
+			   at frame 0 until scrolled into view, turning Page Load
+			   into Scroll Appear. Hidden for non-looping repeats so the
+			   setting can't be misapplied. */ }
+			{ ( animationRepeat === 'loop' ||
+				animationRepeat === 'alternate' ) && (
+				<ToggleControl
+					label={ __( 'Pause off-screen', 'motion-blocks' ) }
+					checked={ animationPauseOffscreen }
+					onChange={ ( value ) =>
+						setAttributes( {
+							animationPauseOffscreen: value,
+						} )
+					}
+					help={ __(
+						'Pause the loop while the block is off-screen for better performance.',
+						'motion-blocks'
+					) }
+					__nextHasNoMarginBottom
+				/>
+			) }
 
 			<Button
 				variant="secondary"

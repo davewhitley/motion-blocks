@@ -43,6 +43,8 @@
 
         let totalMigrated = 0;
         let totalProcessed = 0;
+        let totalSkipped = 0;
+        let prevRemaining = null;
         // Hard cap as a safety net (~25 000 posts at batch=25). If we
         // ever exceed this something is wrong with the server-side
         // termination — bail rather than spin forever.
@@ -55,33 +57,57 @@
                     method: 'POST',
                     data: { batch: 25 },
                 } );
-                totalMigrated += Number( res.migrated ) || 0;
-                totalProcessed += Number( res.processed ) || 0;
-                setCount( Number( res.remaining ) || 0 );
+                const migrated = Number( res.migrated ) || 0;
+                const processed = Number( res.processed ) || 0;
+                const remaining = Number( res.remaining ) || 0;
+                totalMigrated += migrated;
+                totalProcessed += processed;
+                setCount( remaining );
                 setStatus(
                     sprintf(
                         /* translators: %1$d: posts migrated so far, %2$d: posts remaining. */
                         __( 'Working… %1$d migrated, %2$d remaining.', 'motion-blocks' ),
                         totalMigrated,
-                        Number( res.remaining ) || 0
+                        remaining
                     )
                 );
                 // Done when the server has nothing left, or when a pass
-                // returned zero processed (e.g. all remaining posts
-                // matched the LIKE but didn't actually need cleaning —
-                // protects against an infinite loop on false positives).
-                if ( ! res.remaining || ! res.processed ) {
+                // returned zero processed (no IDs came back).
+                if ( ! remaining || ! processed ) {
                     break;
                 }
+                // Stuck-detection: if the remaining count didn't drop
+                // (a batch scanned posts but none actually got migrated),
+                // they're false positives the strip function can't
+                // clean. Stop and report rather than loop forever.
+                if ( prevRemaining !== null && remaining >= prevRemaining ) {
+                    totalSkipped = remaining;
+                    break;
+                }
+                prevRemaining = remaining;
             }
-            setStatus(
-                sprintf(
-                    /* translators: %1$d: posts migrated, %2$d: posts scanned. */
-                    __( 'Done. %1$d posts migrated (scanned %2$d).', 'motion-blocks' ),
-                    totalMigrated,
-                    totalProcessed
-                )
-            );
+            if ( totalSkipped > 0 ) {
+                setStatus(
+                    sprintf(
+                        /* translators: %1$d: posts migrated, %2$d: posts that couldn't be cleaned automatically. */
+                        __(
+                            'Done. %1$d posts migrated. %2$d post(s) couldn’t be cleaned automatically (the "mb-animated" marker is in plain text or in a slot the migrator doesn’t touch). Edit and re-save those posts manually, or delete them if no longer needed.',
+                            'motion-blocks'
+                        ),
+                        totalMigrated,
+                        totalSkipped
+                    )
+                );
+            } else {
+                setStatus(
+                    sprintf(
+                        /* translators: %1$d: posts migrated, %2$d: posts scanned. */
+                        __( 'Done. %1$d posts migrated (scanned %2$d).', 'motion-blocks' ),
+                        totalMigrated,
+                        totalProcessed
+                    )
+                );
+            }
         } catch ( err ) {
             const msg = ( err && ( err.message || err.code ) ) || 'unknown error';
             setStatus(

@@ -1325,6 +1325,29 @@ function motion_blocks_strip_legacy_markup( $html ) {
 function motion_blocks_migrate_block_tree( &$blocks ) {
     $changed = false;
     foreach ( $blocks as &$block ) {
+        // Strip mb-* tokens from the block attrs `className`. Old
+        // save-props sometimes baked our preview classes into this
+        // slot, where they round-trip through parse_blocks /
+        // serialize_blocks unchanged. Without this, the SQL LIKE
+        // detector keeps matching the same post forever and the
+        // migration loop spins.
+        if ( isset( $block['attrs']['className'] ) && is_string( $block['attrs']['className'] ) ) {
+            $tokens = preg_split( '/\s+/', trim( $block['attrs']['className'] ) );
+            $kept   = array();
+            foreach ( $tokens as $t ) {
+                if ( $t !== '' && strpos( $t, 'mb-' ) !== 0 ) {
+                    $kept[] = $t;
+                }
+            }
+            if ( count( $kept ) !== count( $tokens ) ) {
+                if ( count( $kept ) > 0 ) {
+                    $block['attrs']['className'] = implode( ' ', $kept );
+                } else {
+                    unset( $block['attrs']['className'] );
+                }
+                $changed = true;
+            }
+        }
         if ( isset( $block['innerHTML'] ) && is_string( $block['innerHTML'] ) ) {
             list( $new_html, $was_changed ) = motion_blocks_strip_legacy_markup( $block['innerHTML'] );
             if ( $was_changed ) {

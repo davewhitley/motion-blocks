@@ -1237,3 +1237,440 @@ function motion_blocks_diagonal_wipe_recipe_attributes() {
         )
     );
 }
+
+
+// ============================================================================
+// Legacy-block migration
+// ============================================================================
+//
+// Before commit cad8cf2 (the render-time-only refactor), `save()` baked
+// `mb-*` classes and `data-mb-*` attributes into each animated block's
+// stored HTML. The current `save()` returns plain core HTML; all Motion
+// Blocks markup is regenerated at render time by the filter above and
+// by the editor HOC. Posts saved with an earlier version still carry
+// the legacy markup in `post_content`, where it serves no purpose and
+// can interfere with the render-time emission (stale classes leaking
+// back into editor `props.className`, double-applied data attrs, etc.).
+//
+// This one-time migration walks each affected block's innerHTML, strips
+// `mb-*` class tokens and `data-mb-*` attributes from the outermost
+// element, and re-saves the post. The block's animation configuration
+// itself (the JSON in the `<!-- wp:* { … } -->` comment) is untouched —
+// only the leftover rendered markup is cleaned. Idempotent: a migrated
+// post no longer contains `mb-*` in its content and won't be re-flagged.
+
+/**
+ * Strip `mb-*` class tokens and `data-mb-*` attributes from the first
+ * tag in an HTML fragment.
+ *
+ * @param string $html
+ * @return array{0:string,1:bool} `[ $new_html, $changed ]`.
+ */
+function motion_blocks_strip_legacy_markup( $html ) {
+    if ( ! is_string( $html ) || $html === '' || strpos( $html, 'mb-' ) === false ) {
+        return array( $html, false );
+    }
+    if ( ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
+        return array( $html, false );
+    }
+    $proc = new WP_HTML_Tag_Processor( $html );
+    if ( ! $proc->next_tag() ) {
+        return array( $html, false );
+    }
+    $changed = false;
+
+    // Strip mb-* class tokens. Rebuilding the value is more reliable
+    // than `remove_class()` per token because remove_class doesn't
+    // exist on older HTML processor revisions and the prefix check is
+    // O(n) either way.
+    $class_str = $proc->get_attribute( 'class' );
+    if ( is_string( $class_str ) ) {
+        $tokens = preg_split( '/\s+/', trim( $class_str ) );
+        $kept   = array();
+        foreach ( $tokens as $t ) {
+            if ( $t !== '' && strpos( $t, 'mb-' ) !== 0 ) {
+                $kept[] = $t;
+            }
+        }
+        if ( count( $kept ) !== count( $tokens ) ) {
+            if ( count( $kept ) > 0 ) {
+                $proc->set_attribute( 'class', implode( ' ', $kept ) );
+            } else {
+                $proc->remove_attribute( 'class' );
+            }
+            $changed = true;
+        }
+    }
+
+    // Strip data-mb-* attributes. `get_attribute_names_with_prefix` is
+    // available in WP 6.4+. We target 6.9+ so it's guaranteed present.
+    $names = $proc->get_attribute_names_with_prefix( 'data-mb-' );
+    if ( is_array( $names ) ) {
+        foreach ( $names as $name ) {
+            $proc->remove_attribute( $name );
+            $changed = true;
+        }
+    }
+
+    return array( $changed ? $proc->get_updated_html() : $html, $changed );
+}
+
+/**
+ * Walk a parsed block tree and strip legacy markup from each block.
+ * Mutates `$blocks` in place; returns true if anything changed.
+ *
+ * @param array $blocks
+ * @return bool
+ */
+function motion_blocks_migrate_block_tree( &$blocks ) {
+    $changed = false;
+    foreach ( $blocks as &$block ) {
+        if ( isset( $block['innerHTML'] ) && is_string( $block['innerHTML'] ) ) {
+            list( $new_html, $was_changed ) = motion_blocks_strip_legacy_markup( $block['innerHTML'] );
+            if ( $was_changed ) {
+                $block['innerHTML'] = $new_html;
+                $changed            = true;
+            }
+        }
+        // innerContent is the array of string chunks interleaved with
+        // null placeholders for inner blocks. Each string chunk shares
+        // the same markup shape; rewrite the chunk that carries the
+        // outer tag (typically the first non-null entry).
+        if ( isset( $block['innerContent'] ) && is_array( $block['innerContent'] ) ) {
+            foreach ( $block['innerContent'] as &$chunk ) {
+                if ( is_string( $chunk ) ) {
+                    list( $new_chunk, $was_changed ) = motion_blocks_strip_legacy_markup( $chunk );
+                    if ( $was_changed ) {
+                        $chunk   = $new_chunk;
+                        $changed = true;
+                    }
+                }
+            }
+            unset( $chunk );
+        }
+        if ( ! empty( $block['innerBlocks'] ) ) {
+            if ( motion_blocks_migrate_block_tree( $block['innerBlocks'] ) ) {
+                $changed = true;
+            }
+        }
+    }
+    unset( $block );
+    return $changed;
+}
+
+/**
+ * Migrate a post's content. Returns the new content string, or null if
+ * nothing needed changing.
+ *
+ * @param string $content
+ * @return string|null
+ */
+function motion_blocks_migrate_post_content( $content ) {
+    if ( ! is_string( $content ) || $content === '' || strpos( $content, 'mb-' ) === false ) {
+        return null;
+    }
+    $blocks = parse_blocks( $content );
+    if ( empty( $blocks ) ) {
+        return null;
+    }
+    if ( ! motion_blocks_migrate_block_tree( $blocks ) ) {
+        return null;
+    }
+    return serialize_blocks( $blocks );
+}
+
+/**
+ * Count posts that still contain legacy `mb-*` markup in their
+ * content. The `mb-animated` token is the most reliable legacy marker
+ * — old `save()` always emitted it on animated blocks, and it is never
+ * produced at render time (mb-* classes are added to the DOM but not
+ * persisted back to `post_content`).
+ *
+ * @return int
+ */
+function motion_blocks_legacy_post_count() {
+    global $wpdb;
+    $like = '%' . $wpdb->esc_like( 'mb-animated' ) . '%';
+    return (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM {$wpdb->posts}
+         WHERE post_status NOT IN ( 'trash', 'auto-draft' )
+           AND post_type NOT IN ( 'revision' )
+           AND post_content LIKE %s",
+        $like
+    ) );
+}
+
+/**
+ * Return up to $limit legacy post ids, ordered ascending. Caller may
+ * pass an $after_id cursor to resume from a known point (useful for
+ * dry-run / inspection where rows are not consumed).
+ *
+ * @param int $limit
+ * @param int $after_id
+ * @return int[]
+ */
+function motion_blocks_legacy_post_ids( $limit = 50, $after_id = 0 ) {
+    global $wpdb;
+    $like = '%' . $wpdb->esc_like( 'mb-animated' ) . '%';
+    $sql  = $wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts}
+         WHERE post_status NOT IN ( 'trash', 'auto-draft' )
+           AND post_type NOT IN ( 'revision' )
+           AND post_content LIKE %s
+           AND ID > %d
+         ORDER BY ID ASC
+         LIMIT %d",
+        $like,
+        (int) $after_id,
+        (int) $limit
+    );
+    return array_map( 'intval', (array) $wpdb->get_col( $sql ) );
+}
+
+/**
+ * Process one batch of legacy posts. Each call walks the next chunk of
+ * matches; migrated posts drop off the result set on subsequent calls
+ * (their content no longer contains `mb-animated`).
+ *
+ * @param int $batch_size
+ * @return array{processed:int,migrated:int,remaining:int}
+ */
+function motion_blocks_migrate_batch( $batch_size = 25 ) {
+    $batch_size = max( 1, min( 100, (int) $batch_size ) );
+    $ids        = motion_blocks_legacy_post_ids( $batch_size, 0 );
+    $migrated   = 0;
+    foreach ( $ids as $id ) {
+        $post = get_post( $id );
+        if ( ! $post ) {
+            continue;
+        }
+        $new_content = motion_blocks_migrate_post_content( $post->post_content );
+        if ( $new_content === null || $new_content === $post->post_content ) {
+            continue;
+        }
+        // wp_update_post triggers revisions, which gives us a fallback
+        // if any individual post turns out to have been mangled. We
+        // accept the kses filtering applied to non-unfiltered_html
+        // users — the migrated content is just the original minus
+        // legacy attrs/classes, all of which kses would pass through.
+        $result = wp_update_post(
+            array(
+                'ID'           => $id,
+                'post_content' => $new_content,
+            ),
+            true
+        );
+        if ( ! is_wp_error( $result ) && $result ) {
+            $migrated++;
+        }
+    }
+    return array(
+        'processed' => count( $ids ),
+        'migrated'  => $migrated,
+        'remaining' => motion_blocks_legacy_post_count(),
+    );
+}
+
+// ---- WP-CLI ---------------------------------------------------------------
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    /**
+     * Migrate legacy animated blocks.
+     *
+     * ## OPTIONS
+     *
+     * [--batch=<n>]
+     * : Batch size per pass. Default 50.
+     *
+     * [--dry-run]
+     * : Report what would change without writing.
+     *
+     * ## EXAMPLES
+     *
+     *     wp motion-blocks migrate-legacy
+     *     wp motion-blocks migrate-legacy --dry-run
+     *     wp motion-blocks migrate-legacy --batch=200
+     */
+    WP_CLI::add_command(
+        'motion-blocks migrate-legacy',
+        function ( $args, $assoc_args ) {
+            $batch   = isset( $assoc_args['batch'] ) ? max( 1, (int) $assoc_args['batch'] ) : 50;
+            $dry_run = ! empty( $assoc_args['dry-run'] );
+            $total   = motion_blocks_legacy_post_count();
+
+            if ( $total === 0 ) {
+                WP_CLI::success( 'No legacy posts found.' );
+                return;
+            }
+            WP_CLI::log( sprintf( 'Found %d posts to migrate.', $total ) );
+
+            $migrated = 0;
+            $scanned  = 0;
+            $cursor   = 0;
+
+            while ( true ) {
+                $ids = $dry_run
+                    ? motion_blocks_legacy_post_ids( $batch, $cursor )
+                    : motion_blocks_legacy_post_ids( $batch, 0 );
+                if ( empty( $ids ) ) {
+                    break;
+                }
+                foreach ( $ids as $id ) {
+                    $post = get_post( $id );
+                    if ( ! $post ) {
+                        continue;
+                    }
+                    $scanned++;
+                    $new_content = motion_blocks_migrate_post_content( $post->post_content );
+                    if ( $new_content === null || $new_content === $post->post_content ) {
+                        continue;
+                    }
+                    if ( $dry_run ) {
+                        WP_CLI::log( sprintf( '  Would migrate post %d (%s)', $id, $post->post_title ) );
+                        $cursor = $id;
+                    } else {
+                        $result = wp_update_post(
+                            array(
+                                'ID'           => $id,
+                                'post_content' => $new_content,
+                            ),
+                            true
+                        );
+                        if ( is_wp_error( $result ) ) {
+                            WP_CLI::warning( sprintf( '  Post %d: %s', $id, $result->get_error_message() ) );
+                            continue;
+                        }
+                        WP_CLI::log( sprintf( '  Migrated post %d (%s)', $id, $post->post_title ) );
+                    }
+                    $migrated++;
+                }
+            }
+            if ( ! $dry_run && motion_blocks_legacy_post_count() === 0 ) {
+                update_option( 'mb_legacy_migration_done', true );
+            }
+            WP_CLI::success(
+                $dry_run
+                    ? sprintf( 'Dry run complete. %d posts would be migrated (scanned %d).', $migrated, $scanned )
+                    : sprintf( 'Done. %d posts migrated (scanned %d).', $migrated, $scanned )
+            );
+        }
+    );
+}
+
+// ---- REST endpoints -------------------------------------------------------
+add_action( 'rest_api_init', function () {
+    register_rest_route(
+        'motion-blocks/v1',
+        '/migrate-status',
+        array(
+            'methods'             => 'GET',
+            'permission_callback' => function () {
+                return current_user_can( 'manage_options' );
+            },
+            'callback'            => function () {
+                return array(
+                    'remaining' => motion_blocks_legacy_post_count(),
+                    'done'      => (bool) get_option( 'mb_legacy_migration_done' ),
+                );
+            },
+        )
+    );
+
+    register_rest_route(
+        'motion-blocks/v1',
+        '/migrate-batch',
+        array(
+            'methods'             => 'POST',
+            'permission_callback' => function () {
+                return current_user_can( 'manage_options' );
+            },
+            'args'                => array(
+                'batch' => array(
+                    'type'              => 'integer',
+                    'minimum'           => 1,
+                    'maximum'           => 100,
+                    'default'           => 25,
+                    'sanitize_callback' => 'absint',
+                ),
+            ),
+            'callback'            => function ( $request ) {
+                $result = motion_blocks_migrate_batch( $request->get_param( 'batch' ) );
+                if ( $result['remaining'] === 0 ) {
+                    update_option( 'mb_legacy_migration_done', true );
+                }
+                return $result;
+            },
+        )
+    );
+} );
+
+// ---- Admin Tools page -----------------------------------------------------
+add_action( 'admin_menu', function () {
+    add_management_page(
+        __( 'Motion Blocks Tools', 'motion-blocks' ),
+        __( 'Motion Blocks', 'motion-blocks' ),
+        'manage_options',
+        'motion-blocks-tools',
+        'motion_blocks_render_tools_page'
+    );
+} );
+
+function motion_blocks_render_tools_page() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'motion-blocks' ) );
+    }
+    $count = motion_blocks_legacy_post_count();
+    $done  = (bool) get_option( 'mb_legacy_migration_done' );
+    ?>
+    <div class="wrap">
+        <h1><?php esc_html_e( 'Motion Blocks Tools', 'motion-blocks' ); ?></h1>
+
+        <h2><?php esc_html_e( 'Migrate Legacy Animated Blocks', 'motion-blocks' ); ?></h2>
+        <p>
+            <?php esc_html_e( 'Posts saved with an earlier version of Motion Blocks contain leftover mb-* CSS classes and data-mb-* attributes in their stored HTML. The current version generates these at render time, so the leftovers serve no purpose and can occasionally interfere with previews. This tool re-saves affected posts to remove the legacy markup. Each block\'s animation configuration is preserved — only the rendered output is cleaned.', 'motion-blocks' ); ?>
+        </p>
+
+        <p>
+            <strong><?php esc_html_e( 'Legacy posts found:', 'motion-blocks' ); ?></strong>
+            <span id="mb-migrate-count"><?php echo (int) $count; ?></span>
+        </p>
+
+        <p>
+            <button
+                id="mb-migrate-run"
+                class="button button-primary"
+                <?php disabled( $count === 0 ); ?>
+            >
+                <?php esc_html_e( 'Run migration', 'motion-blocks' ); ?>
+            </button>
+            <span id="mb-migrate-status" style="margin-left: 8px;"></span>
+        </p>
+
+        <?php if ( $count === 0 && $done ) : ?>
+            <p>
+                <em><?php esc_html_e( 'All known legacy posts have been migrated.', 'motion-blocks' ); ?></em>
+            </p>
+        <?php endif; ?>
+
+        <noscript>
+            <p>
+                <em><?php esc_html_e( 'JavaScript is required for this button. WP-CLI is available as an alternative:', 'motion-blocks' ); ?></em>
+            </p>
+            <p><code>wp motion-blocks migrate-legacy</code></p>
+        </noscript>
+    </div>
+    <?php
+}
+
+add_action( 'admin_enqueue_scripts', function ( $hook ) {
+    if ( $hook !== 'tools_page_motion-blocks-tools' ) {
+        return;
+    }
+    wp_enqueue_script(
+        'motion-blocks-admin-tools',
+        plugin_dir_url( __FILE__ ) . 'admin-tools.js',
+        array( 'wp-api-fetch', 'wp-i18n' ),
+        defined( 'MOTION_BLOCKS_VERSION' ) ? MOTION_BLOCKS_VERSION : '0.2.0',
+        true
+    );
+    wp_set_script_translations( 'motion-blocks-admin-tools', 'motion-blocks' );
+} );

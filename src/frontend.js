@@ -1110,6 +1110,15 @@
 			states.push( state );
 		} );
 
+		// Recompute every element's cached bounds, then re-tick. Shared
+		// by resize and the late-layout refresh below.
+		function refreshAll() {
+			states.forEach( function ( state ) {
+				refreshBounds( state );
+				tick( state );
+			} );
+		}
+
 		// Window resize: viewport-height change affects the trigger
 		// zone calculation, so re-evaluate all states. Per-element
 		// ResizeObserver above catches element-level changes; this
@@ -1120,13 +1129,26 @@
 			if ( resizeTimer ) {
 				clearTimeout( resizeTimer );
 			}
-			resizeTimer = setTimeout( function () {
-				states.forEach( function ( state ) {
-					refreshBounds( state );
-					tick( state );
-				} );
-			}, 100 );
+			resizeTimer = setTimeout( refreshAll, 100 );
 		} );
+
+		// Late-layout bounds refresh. Cached offsetTop is captured at
+		// init (DOMContentLoaded), but content ABOVE a block can shift it
+		// down afterwards — images without intrinsic size finishing load,
+		// web fonts swapping in, theme reflow. The element's own
+		// ResizeObserver only catches changes to its OWN box, not to
+		// siblings above it, so without this the trigger would fire at a
+		// stale scroll position. Same idea as GSAP ScrollTrigger.refresh()
+		// on load. tick()'s flip guard makes the extra passes cheap
+		// no-ops when nothing actually moved.
+		if ( document.readyState === 'complete' ) {
+			refreshAll();
+		} else {
+			window.addEventListener( 'load', refreshAll );
+		}
+		if ( document.fonts && document.fonts.ready ) {
+			document.fonts.ready.then( refreshAll );
+		}
 
 		// Scroll listener safety net.
 		//

@@ -1,14 +1,14 @@
 # Motion Blocks
 
-A WordPress plugin that adds CSS-driven animations to any block in the Site Editor — no custom block required. Pre-release.
+A WordPress plugin that adds CSS-driven animations to any block in the Site Editor, with no custom block required. Pre-release.
 
 ## Animation modes
 
 Each block gets one mode at a time, picked from the **Motion Effects** sub-panel in the block inspector.
 
-- **On page load** — Plays once when the page loads. Supports `repeat: once / loop / alternate` and pauses when the element is off-screen.
-- **Appear on scroll** — Slot-based model. Each block has independent **Entry** and **Exit** slots; either or both can be filled. Triggered by an Intersection Observer.
-- **Interactive scroll** — Animation progress is tied to scroll position via CSS `animation-timeline: view()`. Supports custom range start/end (e.g. `entry 20%` → `exit 80%`).
+- **On page load**. Plays once when the page loads. Supports `repeat: once / loop / alternate` and pauses when the element is off-screen.
+- **Appear on scroll**. Slot-based model. Each block has independent **Entry** and **Exit** slots; either or both can be filled. Triggered by an Intersection Observer.
+- **Interactive scroll**. Animation progress is tied to scroll position via CSS `animation-timeline: view()`. Supports custom range start/end (for example, `entry 20%` to `exit 80%`).
 
 ## Effects
 
@@ -20,36 +20,36 @@ Each block gets one mode at a time, picked from the **Motion Effects** sub-panel
 | Blur In / Out | ✓ | ✓ | ✓ | ✓ |
 | Rotate In / Out (±360°) | ✓ | ✓ | ✓ | ✓ |
 | Wipe / Curtain | ✓ | ✓ | ✓ | ✓ |
-| Flip | ✓ | ✓ | — | ✓ |
+| Flip | ✓ | ✓ | ✓ | ✓ |
 | **Image Move (Beta)** *(Cover only)* | ✓ | ✓ | ✓ | ✓ |
 | **Image Zoom (Beta)** *(Cover only)* | ✓ | ✓ | ✓ | ✓ |
 | **Custom** (From / To) | ✓ | ✓ | ✓ | ✓ |
 
-**Image Move, Image Zoom, and Custom "Animate image only" target are v1-scoped to `core/cover` blocks.** Cover has a clean single-img markup contract (the `wp-block-cover__image-background` img) without figcaption or link variants, so the image-effect machinery composes reliably with the editor preview and frontend render path. Image blocks get the rest of the catalog (fade / slide / scale / blur / rotate / wipe / curtain / flip / Custom on the entire figure) but can't currently use img-targeted effects. Re-introducing Image block support is on the roadmap once the wrap mechanism is unified across editor and frontend.
+**Image Move, Image Zoom, and Custom "Animate image only" target are v1-scoped to `core/cover` blocks.** Cover has a clean single-img markup contract (the `wp-block-cover__image-background` img) without figcaption or link variants, so the image-effect machinery composes reliably with the editor preview and frontend render path. Image blocks get the rest of the catalog (fade, slide, scale, blur, rotate, wipe, curtain, flip, and Custom on the entire figure) but can't currently use img-targeted effects. Re-introducing Image block support is on the roadmap once the wrap mechanism is unified across editor and frontend.
 
-### Cover block — known interactions
+### Cover block: known interactions
 
 The Cover block has a few settings that change how its background renders. Motion Blocks handles them as follows:
 
 | Cover setting | What happens with motion effects |
 |---|---|
-| **Fixed background** (`hasParallax`) | Cover switches to a CSS `background-image` div — no `<img>` element to target. Image Move / Image Zoom / Custom (Image only) are disabled in the panel with a warning notice. Animate the Entire block instead, or turn Fixed background off. |
-| **Repeated background** (`isRepeated`) | Same as above — CSS `background-image` instead of `<img>`. Same handling. |
-| **Focal point** | Unaffected — `background-position` (or `object-position` on the inner img) composes cleanly with our transforms. |
+| **Fixed background** (`hasParallax`) | Cover switches to a CSS `background-image` div, so there's no `<img>` element to target. Image Move, Image Zoom, and Custom (Image only) are disabled in the panel with a warning notice. Animate the entire block instead, or turn Fixed background off. |
+| **Repeated background** (`isRepeated`) | Same as above. Cover uses CSS `background-image` instead of `<img>`, and image-targeted effects are disabled. |
+| **Focal point** | Unaffected. `background-position` (or `object-position` on the inner img) composes cleanly with our transforms. |
 | **Aspect ratio / dimensions** | Unaffected. Cover's `object-fit: cover` continues to fit the visible crop; transform animations apply on top. |
 
-There's one CSS-spec interaction worth knowing about: applying any `transform` animation (rotate, scale, etc.) to the Entire block creates a new containing block, which "unfixes" any descendant `position: fixed` / `background-attachment: fixed`. If you animate the whole Cover block with a transform AND have Fixed background enabled, the fixed background will scroll with the page while the animation runs. This is a CSS limitation, not specific to this plugin — pick one or the other.
+There's one CSS-spec interaction worth knowing about. Applying any `transform` animation (rotate, scale, etc.) to the entire block creates a new containing block, which un-fixes any descendant `position: fixed` or `background-attachment: fixed`. If you animate the whole Cover block with a transform AND have Fixed background enabled, the fixed background will scroll with the page while the animation runs. This is a CSS limitation, not specific to this plugin. Pick one or the other.
 
 ## Cross-cutting features
 
-- **Stagger** — On parent blocks with multiple inner blocks (Group / Columns / Buttons / Gallery / List), the animation cascades to each child with a configurable step delay. Works with every effect including Custom (the synthesized keyframe is shared across children via a CSS custom property).
-- **Custom From / To** — A 9-property editor (opacity, translateX/Y, scale, rotate, rotateX/Y, blur, clip-path) for arbitrary keyframes. Per-slot in Scroll Appear; shared in the other modes.
-- **Editor preview** — Click the play button in any slot / mode to preview the animation in place. The eye icon on the Custom From / To editor freezes the block at the From or To state for visual inspection.
-- **Auto-animate this page** — One-click apply: walks the block tree, applies a tasteful default to each top-level block, skips body content and nested blocks. Three style presets (Subtle / Smooth / Bold).
-- **Saved animations library** — Save a configured animation as a recipe, apply it to other blocks. Stored in the `mb_saved_animations` site option. Comes seeded with a "Spin" recipe.
-- **Per-device disable** — Three toggles in the Page panel (Desktop / Tablet / Mobile) selectively suppress animations at each breakpoint.
-- **Reduced motion support** — All animations are disabled when `prefers-reduced-motion: reduce` is set at the OS level.
-- **Page-level overflow protection** — A single `html { overflow-x: clip }` rule (gated on `body.mb-clip-page-overflow`) keeps horizontal scrollbars from appearing when animations transform elements off-screen. Filterable via `motion_blocks_apply_overflow_clip`.
+- **Stagger**. On parent blocks with multiple inner blocks (Group, Columns, Buttons, Gallery, List), the animation cascades to each child with a configurable step delay. Works with every effect including Custom; the synthesized keyframe is shared across children via a CSS custom property.
+- **Custom From / To**. A 9-property editor (opacity, translateX/Y, scale, rotate, rotateX/Y, blur, clip-path) for arbitrary keyframes. Per-slot in Scroll Appear; shared in the other modes.
+- **Editor preview**. Click the play button in any slot or mode to preview the animation in place. The eye icon on the Custom From / To editor freezes the block at the From or To state for visual inspection.
+- **Auto-animate this page**. One-click apply that walks the block tree and applies a default to each top-level block, skipping body content and nested blocks. Three style presets (Subtle, Smooth, Bold).
+- **Saved animations library**. Save a configured animation as a recipe, apply it to other blocks. Stored in the `mb_saved_animations` site option. Comes seeded with Spin, Iris Wipe, and Diagonal Wipe recipes.
+- **Per-device disable**. Three toggles in the Page panel (Desktop, Tablet, Mobile) selectively suppress animations at each breakpoint.
+- **Reduced motion support**. All animations are disabled when `prefers-reduced-motion: reduce` is set at the OS level.
+- **Page-level overflow protection**. A single `html { overflow-x: clip }` rule (gated on `body.mb-clip-page-overflow`) keeps horizontal scrollbars from appearing when animations transform elements off-screen. Filterable via `motion_blocks_apply_overflow_clip`.
 
 ## Theme-shipped animation recipes (`theme.json`)
 
@@ -94,27 +94,26 @@ Themes can ship animation recipes at `settings.custom.motionBlocks.savedAnimatio
 ```
 
 **Storage format for Custom From/To values:**
-- `opacity`, `scale` — bare numbers (`0`, `1`, `0.5`, `1.2`).
-- `translateX`, `translateY` — strings with unit (`"40px"`, `"50%"`, `"2vw"`).
-- `rotate`, `rotateX`, `rotateY` — strings with `deg` (`"45deg"`, `"-10deg"`, `"360deg"`).
-- `blur` — string with `px` (`"8px"`).
-- `clipPath` — raw CSS string (`"inset(0 50% 0 50%)"`).
+- `opacity`, `scale`. Bare numbers (`0`, `1`, `0.5`, `1.2`).
+- `translateX`, `translateY`. Strings with unit (`"40px"`, `"50%"`, `"2vw"`).
+- `rotate`, `rotateX`, `rotateY`. Strings with `deg` (`"45deg"`, `"-10deg"`, `"360deg"`).
+- `blur`. String with `px` (`"8px"`).
+- `clipPath`. Raw CSS string (`"inset(0 50% 0 50%)"`).
 
 Recipe `attributes` are copied verbatim into the block, so the format above is exactly what the editor stores after a user configures the same animation through the panel.
 
 ## Architecture (brief)
 
-The plugin extends existing blocks via three filters — it doesn't register any new block types.
+The plugin extends existing blocks via three filters. It doesn't register any new block types.
 
 | Concern | Where |
 |---|---|
 | Block attribute schema | `src/index.js` → `addAnimationAttributes` |
 | Editor UI / preview HOC | `src/index.js` → `withAnimationPreview`, components in `src/components/` |
-| Save-time HTML props | `src/index.js` → `addAnimationSaveProps`, `saveScrollAppearProps` |
-| Server-side render filter | `animation-plugin.php` → `motion_blocks_render_block` (handles dynamic blocks + Image-effect wrap injection) |
+| Class + data-attribute emission | `animation-plugin.php` → `motion_blocks_render_block`. Render-time only; `save()` no longer emits. Editor preview gets the same classes via the HOC above. |
 | Frontend runtime | `src/frontend.js` → mode-specific init (`initPageLoadAnimations`, `initScrollAppearAnimations`, `initScrollInteractiveAnimations`) |
 | Animation keyframes / class bindings | `css/animations.css` |
-| Migration shim (legacy Scroll trigger model → Slot model) | `migrateScrollAppearAttrs` in `src/components/constants.js` (mirrored as `motion_blocks_migrate_scroll_appear_attrs` in PHP) |
+| Migration shim (legacy Scroll trigger model → Slot model) | `migrateScrollAppearAttrs` in `src/components/constants.js`, mirrored as `motion_blocks_migrate_scroll_appear_attrs` in PHP |
 
 ## Requirements
 

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Motion Blocks
  * Description: Add CSS animations to any block in the Site Editor
- * Version: 0.1.0
+ * Version: 0.2.0
  * Requires at least: 6.2
  * Requires PHP: 7.4
  * Author: Dave Whitley
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'MOTION_BLOCKS_VERSION', '0.1.0' );
+define( 'MOTION_BLOCKS_VERSION', '0.2.0' );
 
 /**
  * Bundled saved-animation recipe schema version. Bump whenever the
@@ -164,6 +164,18 @@ function motion_blocks_enqueue_block_assets() {
                 $frontend_asset['version'],
                 true
             );
+
+            // Opt-in debug overlay: when the admin setting is on, draw
+            // the Scroll Appear trigger lines on the front end. Limited
+            // to logged-in users so it stays a dev aid, never shown to
+            // public visitors. Off by default.
+            if ( get_option( 'mb_debug_markers' ) && is_user_logged_in() ) {
+                wp_add_inline_script(
+                    'motion-blocks-frontend',
+                    'window.motionBlocksDebugMarkers = true;',
+                    'before'
+                );
+            }
         }
     }
 }
@@ -944,8 +956,117 @@ function motion_blocks_register_settings() {
             ),
         )
     );
+
+    // Debug-markers toggle. Registered into the `motion_blocks_settings`
+    // group so the Settings → Motion Blocks form (Settings API) can save
+    // it via options.php. `manage_options` gates writes; the value is a
+    // plain boolean coerced through rest_sanitize_boolean.
+    register_setting(
+        'motion_blocks_settings',
+        'mb_debug_markers',
+        array(
+            'type'              => 'boolean',
+            'description'       => __( 'Show Scroll Appear trigger lines on the front end.', 'motion-blocks' ),
+            'default'           => false,
+            'sanitize_callback' => 'rest_sanitize_boolean',
+            'show_in_rest'      => true,
+        )
+    );
 }
 add_action( 'init', 'motion_blocks_register_settings' );
+
+/**
+ * Settings → Motion Blocks admin page.
+ *
+ * One toggle for now: the Scroll Appear debug trigger lines. The page is
+ * structured with the Settings API (section + field) so more options can
+ * slot in later without restructuring. `manage_options` gates the whole
+ * page, matching the setting's own write cap.
+ */
+function motion_blocks_add_settings_page() {
+    add_options_page(
+        __( 'Motion Blocks', 'motion-blocks' ),
+        __( 'Motion Blocks', 'motion-blocks' ),
+        'manage_options',
+        'motion-blocks',
+        'motion_blocks_render_settings_page'
+    );
+}
+add_action( 'admin_menu', 'motion_blocks_add_settings_page' );
+
+/**
+ * Register the Settings API section + field used by the page above.
+ */
+function motion_blocks_register_settings_ui() {
+    add_settings_section(
+        'motion_blocks_debug_section',
+        __( 'Debugging', 'motion-blocks' ),
+        'motion_blocks_render_debug_section',
+        'motion-blocks'
+    );
+
+    add_settings_field(
+        'mb_debug_markers',
+        __( 'Trigger lines', 'motion-blocks' ),
+        'motion_blocks_render_debug_markers_field',
+        'motion-blocks',
+        'motion_blocks_debug_section'
+    );
+}
+add_action( 'admin_init', 'motion_blocks_register_settings_ui' );
+
+/**
+ * Section intro: warn that the lines are public on the front end.
+ */
+function motion_blocks_render_debug_section() {
+    ?>
+    <p class="description">
+        <?php esc_html_e( 'Visual aids for working with Scroll Appear animations.', 'motion-blocks' ); ?>
+    </p>
+    <?php
+}
+
+/**
+ * The single checkbox field.
+ */
+function motion_blocks_render_debug_markers_field() {
+    $value = (bool) get_option( 'mb_debug_markers', false );
+    ?>
+    <label>
+        <input
+            type="checkbox"
+            name="mb_debug_markers"
+            value="1"
+            <?php checked( $value ); ?>
+        />
+        <?php esc_html_e( 'Show Scroll Appear trigger lines on the front end', 'motion-blocks' ); ?>
+    </label>
+    <p class="description">
+        <?php esc_html_e( 'The lines are only shown to logged-in users, so visitors never see them.', 'motion-blocks' ); ?>
+    </p>
+    <?php
+}
+
+/**
+ * Render the settings page form.
+ */
+function motion_blocks_render_settings_page() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+    ?>
+    <div class="wrap">
+        <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+        <form action="options.php" method="post">
+            <?php
+            settings_fields( 'motion_blocks_settings' );
+            do_settings_sections( 'motion-blocks' );
+            submit_button();
+            ?>
+        </form>
+    </div>
+    <?php
+}
 
 /**
  * Bundled saved-animation recipes that ship with the plugin.

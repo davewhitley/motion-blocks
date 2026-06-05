@@ -1824,5 +1824,78 @@ export function switchModeAttributes( attributes, newMode ) {
 		out.animationRangeEnd = DEFAULT_ATTRIBUTES.animationRangeEnd;
 	}
 
+	// Bridge shared <-> slot attrs across mode switches so the user's
+	// effect + timing carry over. Page Load / Scroll Interactive read
+	// shared keys (animationType, animationDuration, …); Scroll Appear
+	// reads per-slot keys (animationEntryType, animationEntryDuration,
+	// …). Without this seeding, switching to Scroll Appear left the
+	// Entry slot at schema defaults, and `migrateScrollAppearAttrs`
+	// produced a "virtual" view derived from the shared attrs. The UI
+	// showed those derived values, but UI edits wrote to slot attrs
+	// that the next render's migration immediately overrode again, AND
+	// the Preview button (which reads the raw saved `animationEntryType`,
+	// not the migrated view) bailed because the saved value was still
+	// empty. The cure is to write the seeded values explicitly at switch
+	// time so the saved state is real, not virtual.
+	if ( newMode === 'scroll-appear' && oldMode !== 'scroll-appear' ) {
+		// Switching INTO Scroll Appear: seed the Entry slot from shared.
+		const baseType = ( attributes?.animationType || '' ).replace(
+			/-out$/,
+			''
+		);
+		if ( baseType ) {
+			out.animationEntryType = baseType;
+			out.animationEntryDirection = attributes.animationDirection || '';
+			out.animationEntryDuration =
+				attributes.animationDuration ??
+				DEFAULT_ATTRIBUTES.animationEntryDuration;
+			out.animationEntryDelay =
+				attributes.animationDelay ??
+				DEFAULT_ATTRIBUTES.animationEntryDelay;
+			out.animationEntryAcceleration =
+				attributes.animationAcceleration ||
+				DEFAULT_ATTRIBUTES.animationEntryAcceleration;
+			out.animationEntryCustomTimingFunction =
+				attributes.animationCustomTimingFunction ||
+				DEFAULT_ATTRIBUTES.animationEntryCustomTimingFunction;
+			out.animationEntryBlurAmount =
+				attributes.animationBlurAmount ??
+				DEFAULT_ATTRIBUTES.animationEntryBlurAmount;
+			out.animationEntryRotateAngle =
+				attributes.animationRotateAngle ??
+				DEFAULT_ATTRIBUTES.animationEntryRotateAngle;
+			out.animationEntryReplay =
+				DEFAULT_ATTRIBUTES.animationEntryReplay;
+		}
+	} else if ( newMode !== 'scroll-appear' && oldMode === 'scroll-appear' ) {
+		// Switching OUT OF Scroll Appear: copy Entry slot back onto the
+		// shared attrs so Page Load / Scroll Interactive see what the
+		// user configured. Exit-slot config is not surfaced in the
+		// other modes (no concept of exit there) and is left behind.
+		const entryType = attributes?.animationEntryType || '';
+		if ( entryType ) {
+			out.animationType = entryType;
+			out.animationDirection = attributes.animationEntryDirection || '';
+			out.animationDuration =
+				attributes.animationEntryDuration ??
+				DEFAULT_ATTRIBUTES.animationDuration;
+			out.animationDelay =
+				attributes.animationEntryDelay ??
+				DEFAULT_ATTRIBUTES.animationDelay;
+			out.animationAcceleration =
+				attributes.animationEntryAcceleration ||
+				DEFAULT_ATTRIBUTES.animationAcceleration;
+			out.animationCustomTimingFunction =
+				attributes.animationEntryCustomTimingFunction ||
+				DEFAULT_ATTRIBUTES.animationCustomTimingFunction;
+			out.animationBlurAmount =
+				attributes.animationEntryBlurAmount ??
+				DEFAULT_ATTRIBUTES.animationBlurAmount;
+			out.animationRotateAngle =
+				attributes.animationEntryRotateAngle ??
+				DEFAULT_ATTRIBUTES.animationRotateAngle;
+		}
+	}
+
 	return out;
 }

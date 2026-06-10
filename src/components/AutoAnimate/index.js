@@ -30,7 +30,7 @@ import {
 	summarizeByBlockType,
 } from './plan';
 
-export default function AutoAnimateModal( { isOpen, onClose } ) {
+export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
 	const [ stylePreset, setStylePreset ] = useState( 'smooth' );
 
 	// Pull what we need from the store. `getBlocks()` returns top-level
@@ -149,7 +149,11 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 
 	return (
 		<Modal
-			title={ __( 'Auto-animate this page', 'motion-blocks' ) }
+			title={ sprintf(
+				/* translators: %s: editor context noun — page, pattern, template, etc. */
+				__( 'Auto-animate this %s', 'motion-blocks' ),
+				contextNoun
+			) }
 			onRequestClose={ onClose }
 			className="mb-auto-animate-modal"
 			// 512px isn't one of WP's standard `size` values
@@ -205,9 +209,13 @@ export default function AutoAnimateModal( { isOpen, onClose } ) {
 					</div>
 				) : (
 					<p className="mb-auto-animate-modal__empty">
-						{ __(
-							'Nothing to animate on this page — every block is either body content, site chrome, or already animated.',
-							'motion-blocks'
+						{ sprintf(
+							/* translators: %s: editor context noun — page, pattern, template, etc. */
+							__(
+								'Nothing to animate on this %s — every block is either body content, site chrome, or already animated.',
+								'motion-blocks'
+							),
+							contextNoun
 						) }
 					</p>
 				) }

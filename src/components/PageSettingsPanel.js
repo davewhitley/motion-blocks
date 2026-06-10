@@ -60,6 +60,25 @@ const DEVICE_OPTIONS = [
 ];
 
 /**
+ * The "Motion Effects" panel renders in every post-editor context, not
+ * just pages — the pattern editor (`wp_block`), templates, and template
+ * parts all show it. Map the current post type to a noun so the copy
+ * reads correctly ("this pattern" / "this template" / …) instead of
+ * always saying "page". Unknown / transient post types fall back to the
+ * neutral "content".
+ */
+const EDITOR_CONTEXT_NOUNS = {
+	page: __( 'page', 'motion-blocks' ),
+	post: __( 'post', 'motion-blocks' ),
+	wp_block: __( 'pattern', 'motion-blocks' ),
+	wp_template: __( 'template', 'motion-blocks' ),
+	wp_template_part: __( 'template part', 'motion-blocks' ),
+};
+
+const editorContextNoun = ( postType ) =>
+	EDITOR_CONTEXT_NOUNS[ postType ] || __( 'content', 'motion-blocks' );
+
+/**
  * Animation attributes that get reset when the user clicks
  * "Remove all animations". `animationMode: ''` is the kill switch
  * (no class is emitted, no `data-mb-*` attrs); we also clear the
@@ -106,6 +125,7 @@ function MotionBlocksPagePanel() {
 		( select ) => select( editorStore ).getCurrentPostType(),
 		[]
 	);
+	const contextNoun = editorContextNoun( postType );
 
 	const [ meta = {}, setMeta ] = useEntityProp(
 		'postType',
@@ -185,9 +205,10 @@ function MotionBlocksPagePanel() {
 					onClick={ () => setAutoAnimateOpen( true ) }
 					__next40pxDefaultSize
 				>
-					{ __(
-						'Auto-animate this page',
-						'motion-blocks'
+					{ sprintf(
+						/* translators: %s: editor context noun — page, pattern, template, etc. */
+						__( 'Auto-animate this %s', 'motion-blocks' ),
+						contextNoun
 					) }
 				</Button>
 
@@ -242,13 +263,14 @@ function MotionBlocksPagePanel() {
 				confirmButtonText={ __( 'Remove', 'motion-blocks' ) }
 			>
 				{ sprintf(
-					/* translators: %d: number of animated blocks */
+					/* translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks */
 					_n(
-						'Remove all animations on this page (%d block)? This can be reversed using the Undo button.',
-						'Remove all animations on this page (%d blocks)? This can be reversed using the Undo button.',
+						'Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button.',
+						'Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button.',
 						animatedCount,
 						'motion-blocks'
 					),
+					contextNoun,
 					animatedCount
 				) }
 			</ConfirmDialog>
@@ -256,6 +278,7 @@ function MotionBlocksPagePanel() {
 			<AutoAnimateModal
 				isOpen={ autoAnimateOpen }
 				onClose={ () => setAutoAnimateOpen( false ) }
+				contextNoun={ contextNoun }
 			/>
 		</PluginDocumentSettingPanel>
 	);

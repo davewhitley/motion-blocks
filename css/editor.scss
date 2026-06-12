@@ -4,25 +4,17 @@
  * Uses @scope for clean specificity over Emotion CSS-in-JS,
  * and WPDS tokens from @wordpress/base-styles.
  *
- * ⚠️ FRONTEND-LEAK WARNING
- * This file compiles to `build/index.css`, which is enqueued via
- * `enqueue_block_assets` so the styles reach the editor canvas
- * iframe — but that hook ALSO fires on the public frontend. So
- * every rule in here ships to the rendered site too.
+ * This file compiles to `build/index.css`, enqueued via
+ * `enqueue_block_assets` gated on `is_admin()` — so it loads in the
+ * editor (parent frame AND canvas iframe, via WP 6.3+'s iframed
+ * asset collection) but NOT on the public frontend (since 0.2.1).
+ * `css/animations.css` is the frontend's single source of truth;
+ * the keyframes duplicated here are an editor-canvas safety net.
  *
- * Most of the file is fine because the selectors target our own
- * `.mb-*` UI components (sidebar panels, modals, etc.) or WP's
- * `.components-*` admin elements, none of which exist outside the
- * editor. Animation-related rules also work the same way in both
- * contexts and are intentionally duplicated with `animations.css`.
- *
- * The pitfall: any rule that uses a GENERIC selector (e.g. `> *`,
- * `:not([something])`, `.wp-block`) AND assumes editor context
- * will match real elements on the frontend too. When that's
- * unavoidable, gate the rule with `[data-block]` on the parent —
- * `data-block` is set on every block wrapper in the editor and
- * never on rendered frontend HTML. Example: see the editor-chrome
- * stagger-exclusion rule at the bottom of this file.
+ * Historical note: before 0.2.1 this file also shipped to the
+ * frontend, which is why some rules carry editor-only guards like
+ * `[data-block]` (see the stagger-exclusion rule at the bottom).
+ * Those guards are kept as defense in depth.
  */
 
 @use "@wordpress/base-styles/colors" as colors;
@@ -721,16 +713,14 @@
 // `data-type`, while every real block does. `:not([data-type])` is
 // the reliable discriminator INSIDE THE EDITOR.
 //
-// IMPORTANT: this file (build/index.css) is enqueued via
-// `enqueue_block_assets` so the keyframes reach the editor canvas
-// iframe — but that hook ALSO fires for the public frontend. On the
-// frontend none of the rendered HTML has a `data-type` attribute
-// (editor-only), so without a guard `> :not([data-type])` would
-// match every real column child and wipe out the cascade. Gate the
-// rule on a parent attribute that ONLY exists in the editor:
-// `[data-block]` is set on every block wrapper there and never on
-// frontend output. With this guard the rule is a no-op on the
-// frontend; in the editor it works exactly as before.
+// Historical/defensive: before 0.2.1 this file also shipped to the
+// public frontend, where rendered HTML has no `data-type` attribute
+// (editor-only) — so an unguarded `> :not([data-type])` would have
+// matched every real column child and wiped out the cascade. The
+// `[data-block]` parent gate (set on every editor block wrapper,
+// never on frontend output) made the rule a frontend no-op. The
+// file is now editor-only (`is_admin()` gate in the enqueue), but
+// the guard stays as defense in depth.
 //
 // Three classes (mb-stagger-parent + mb-animated + mb-triggered) +
 // one attribute (`[data-block]`) + one `:not()` give this rule

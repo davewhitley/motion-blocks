@@ -113,23 +113,33 @@ add_action( 'enqueue_block_editor_assets', 'motion_blocks_enqueue_editor_assets'
 function motion_blocks_enqueue_block_assets() {
     // Editor CSS — compiled from css/editor.scss via wp-scripts.
     // Includes preview keyframes + animation class rules.
-    // Must load inside the iframe for BlockListBlock className preview to work.
+    // Must load inside the iframe for BlockListBlock className preview
+    // to work, which is why it's on enqueue_block_assets and not
+    // enqueue_block_editor_assets: WP 6.3+'s
+    // _wp_get_iframed_editor_assets() fires this hook during the admin
+    // request and collects the styles into the canvas iframe. That
+    // admin request always has is_admin() true, so gating on it keeps
+    // iframe delivery intact while dropping the ~8.5 KB of editor-only
+    // CSS that previously shipped to every public frontend page
+    // (animations.css below is the frontend's source of truth).
     //
     // Use filemtime() as the version so every rebuild busts the
     // browser cache. Hardcoding MOTION_BLOCKS_VERSION (e.g. 0.1.0)
     // means the browser keeps the cached stylesheet across rebuilds
     // — fine for releases, breaks dev iteration. JS uses the asset
     // .php hash already; CSS gets the same treatment via mtime.
-    $editor_css_path = plugin_dir_path( __FILE__ ) . 'build/index.css';
-    $editor_css_ver  = file_exists( $editor_css_path )
-        ? filemtime( $editor_css_path )
-        : MOTION_BLOCKS_VERSION;
-    wp_enqueue_style(
-        'motion-blocks-editor-styles',
-        plugins_url( 'build/index.css', __FILE__ ),
-        array(),
-        $editor_css_ver
-    );
+    if ( is_admin() ) {
+        $editor_css_path = plugin_dir_path( __FILE__ ) . 'build/index.css';
+        $editor_css_ver  = file_exists( $editor_css_path )
+            ? filemtime( $editor_css_path )
+            : MOTION_BLOCKS_VERSION;
+        wp_enqueue_style(
+            'motion-blocks-editor-styles',
+            plugins_url( 'build/index.css', __FILE__ ),
+            array(),
+            $editor_css_ver
+        );
+    }
 
     // animations.css: the single source of truth for animation
     // class → keyframe bindings, duration/delay/fill-mode bindings,

@@ -192,6 +192,31 @@ function motion_blocks_enqueue_block_assets() {
 add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
 
 /**
+ * JS-detection marker for the no-JS visibility fallback.
+ *
+ * The initial-hide rules in css/animations.css are scoped to
+ * `html.mb-js`; when JavaScript never runs (disabled, blocked,
+ * stripped), the class is absent and animated content stays visible
+ * instead of being stranded at opacity 0.
+ *
+ * Printed synchronously in <head> (priority 0) so it lands before
+ * first paint. Order relative to stylesheets is irrelevant — class
+ * selectors re-match retroactively — only order vs. paint matters.
+ *
+ * Frontend only (wp_head): the editor canvas never carries the
+ * `mb-mode-*` classes these rules key on (the preview HOC manages
+ * its own classes — see `withAnimationPreview` in src/index.js), so
+ * the scoped rules are inert there by design.
+ */
+function motion_blocks_print_js_marker() {
+    wp_print_inline_script_tag(
+        "document.documentElement.classList.add('mb-js');",
+        array( 'id' => 'motion-blocks-js-marker' )
+    );
+}
+add_action( 'wp_head', 'motion_blocks_print_js_marker', 0 );
+
+/**
  * Add animation classes and data attributes to rendered block HTML.
  *
  * As of the render-time-only refactor this is the SOLE authority for

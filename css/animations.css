@@ -58,8 +58,17 @@ html:has(body.mb-clip-page-overflow) {
  * Page-load: hidden until .mb-triggered on DOMContentLoaded.
  * Scroll in view (enter / both): hidden until scrolled into view.
  * Scroll in view (exit only): visible by default, no initial hide.
+ *
+ * No-JS contract: every HIDE rule (opacity: 0) is scoped under
+ * `:where(html.mb-js)` — the marker class a synchronous head script
+ * adds on the frontend (motion_blocks_print_js_marker). If JS never
+ * runs, the rules don't match and content stays visible. `:where()`
+ * adds ZERO specificity, so all the `opacity: 1` override rules
+ * below keep winning unchanged. The editor canvas is unaffected
+ * either way: it never carries `mb-mode-*` classes (the preview HOC
+ * deliberately omits them — see src/index.js withAnimationPreview).
  * -------------------------------------------------------------- */
-.mb-mode-page-load:not(.mb-triggered) {
+:where(html.mb-js) .mb-mode-page-load:not(.mb-triggered) {
     opacity: 0;
 }
 
@@ -68,7 +77,7 @@ html:has(body.mb-clip-page-overflow) {
    class is active. An Exit-only block (`.mb-has-entry` absent)
    starts visible — its exit animation hides it via forwards fill
    when the user scrolls past. */
-.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) {
+:where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) {
     opacity: 0;
 }
 /* img-target Custom: the wrapper never animates — only the first
@@ -761,8 +770,8 @@ html:has(body.mb-clip-page-overflow) {
    "before triggered" rule but applied to the kids. Scroll Appear
    gates on `.mb-has-entry` (slot model) so Exit-only blocks don't
    hide their kids before the entry animation has anything to do. */
-.mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
-.mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > * {
+:where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
+:where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > * {
     opacity: 0;
 }
 

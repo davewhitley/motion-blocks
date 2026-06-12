@@ -930,6 +930,103 @@ add_filter( 'body_class', 'motion_blocks_body_class' );
  * Capability: `edit_theme_options` matches "site design" ownership
  * so non-admin Editors with that cap can manage the library.
  */
+/**
+ * Scrub a single string attribute value from a saved-animation recipe.
+ *
+ * Deliberately NOT sanitize_text_field(): its percent-octet stripping
+ * (`%[a-f0-9]{2}`) would corrupt space-less CSS values like
+ * `polygon(50%50%,...)`. These values are never echoed raw — the render
+ * filter passes everything through esc_attr() — so this is defense in
+ * depth: strip tags, control characters, and absurd lengths while
+ * leaving legitimate CSS strings (clip-paths, cubic-beziers, unit
+ * values) byte-identical.
+ *
+ * @param string $value Raw string value.
+ * @return string Scrubbed value, capped at 200 characters.
+ */
+function motion_blocks_scrub_recipe_string( $value ) {
+    $value = wp_check_invalid_utf8( $value );
+    $value = wp_strip_all_tags( $value );
+    $value = preg_replace( '/[\x00-\x1f\x7f]/', '', $value );
+    $value = trim( $value );
+    return mb_substr( $value, 0, 200 );
+}
+
+/**
+ * Sanitize the saved-animations library on write (REST + options API).
+ *
+ * The REST schema keeps `additionalProperties: true` on `attributes`
+ * for forward compatibility — this callback is the real gate. It must
+ * be LOSSLESS for everything the editor and the bundled-recipe seeder
+ * produce (the seeder's update_option() calls route through here):
+ *   - `null` attribute values are kept — they're the From/To "not set"
+ *     sentinels the editor saves via pickAnimationAttributes().
+ *   - int/float/bool kept as-is; strings scrubbed (see above); arrays
+ *     and objects dropped (no legitimate recipe contains them).
+ *   - createdAt accepts both JS toISOString() (with milliseconds) and
+ *     the seeder's gmdate('Y-m-d\TH:i:s\Z') (without); anything else
+ *     becomes '' (the editor's sort tolerates it).
+ *
+ * @param mixed $value Raw option value.
+ * @return array Sanitized uid-keyed library.
+ */
+function motion_blocks_sanitize_saved_animations( $value ) {
+    if ( ! is_array( $value ) ) {
+        return array();
+    }
+
+    $clean = array();
+    foreach ( $value as $uid => $entry ) {
+        if ( count( $clean ) >= 200 ) {
+            break;
+        }
+        // JS uids are 8-char base36 (generateUid); bundled uids are
+        // slugs like `spin-default`.
+        if ( ! is_string( $uid ) || ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $uid ) ) {
+            continue;
+        }
+        if ( ! is_array( $entry ) ) {
+            continue;
+        }
+
+        $name = '';
+        if ( isset( $entry['name'] ) && is_string( $entry['name'] ) ) {
+            $name = mb_substr( sanitize_text_field( $entry['name'] ), 0, 100 );
+        }
+
+        $created_at = '';
+        if (
+            isset( $entry['createdAt'] ) && is_string( $entry['createdAt'] ) &&
+            preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:?\d{2})?$/', $entry['createdAt'] )
+        ) {
+            $created_at = $entry['createdAt'];
+        }
+
+        $attrs = array();
+        if ( isset( $entry['attributes'] ) && is_array( $entry['attributes'] ) ) {
+            foreach ( $entry['attributes'] as $key => $attr_value ) {
+                if ( ! is_string( $key ) || ! preg_match( '/^animation[A-Za-z]+$/', $key ) ) {
+                    continue;
+                }
+                if ( null === $attr_value || is_int( $attr_value ) || is_float( $attr_value ) || is_bool( $attr_value ) ) {
+                    $attrs[ $key ] = $attr_value;
+                } elseif ( is_string( $attr_value ) ) {
+                    $attrs[ $key ] = motion_blocks_scrub_recipe_string( $attr_value );
+                }
+                // Arrays / objects: dropped.
+            }
+        }
+
+        $clean[ $uid ] = array(
+            'name'       => $name,
+            'createdAt'  => $created_at,
+            'attributes' => $attrs,
+        );
+    }
+
+    return $clean;
+}
+
 function motion_blocks_register_settings() {
     register_setting(
         'options',
@@ -938,6 +1035,7 @@ function motion_blocks_register_settings() {
             'type'         => 'object',
             'description'  => __( 'Motion Blocks saved animation library.', 'motion-blocks' ),
             'default'      => array(),
+            'sanitize_callback' => 'motion_blocks_sanitize_saved_animations',
             // Editors with `edit_theme_options` (admins by default,
             // optionally Editors via membership plugins) can read and
             // write the library through the REST options endpoint.

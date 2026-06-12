@@ -46,10 +46,11 @@ There's one CSS-spec interaction worth knowing about. Applying any `transform` a
 - **Custom From / To**. A 9-property editor (opacity, translateX/Y, scale, rotate, rotateX/Y, blur, clip-path) for arbitrary keyframes. Per-slot in Scroll Appear; shared in the other modes.
 - **Editor preview**. Click the play button in any slot or mode to preview the animation in place. The eye icon on the Custom From / To editor freezes the block at the From or To state for visual inspection.
 - **Auto-animate this page**. One-click apply that walks the block tree and applies a default to each top-level block, skipping body content and nested blocks. Three style presets (Subtle, Smooth, Bold).
-- **Saved animations library**. Save a configured animation as a recipe, apply it to other blocks. Stored in the `mb_saved_animations` site option. Comes seeded with Spin, Iris Wipe, and Diagonal Wipe recipes.
+- **Saved animations library**. Save a configured animation as a recipe, apply it to other blocks. Stored in the `mb_saved_animations` site option (sanitized on write; removed on uninstall along with all other plugin data). Comes seeded with Spin, Iris Wipe, and Diagonal Wipe recipes.
 - **Per-device disable**. Three toggles in the Page panel (Desktop, Tablet, Mobile) selectively suppress animations at each breakpoint.
 - **Reduced motion support**. All animations are disabled when `prefers-reduced-motion: reduce` is set at the OS level.
 - **Page-level overflow protection**. A single `html { overflow-x: clip }` rule (gated on `body.mb-clip-page-overflow`) keeps horizontal scrollbars from appearing when animations transform elements off-screen. Filterable via `motion_blocks_apply_overflow_clip`.
+- **No-JS fallback**. The initial-hide rules are gated on an `html.mb-js` marker set by a synchronous head script — if JavaScript is disabled or blocked, animated content is never invisible; it simply renders statically.
 
 ## Theme-shipped animation recipes (`theme.json`)
 

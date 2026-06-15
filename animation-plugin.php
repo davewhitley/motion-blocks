@@ -101,6 +101,17 @@ function motion_blocks_enqueue_editor_assets() {
         $asset['version'],
         true
     );
+
+    // Beta flag bridge: expose the live-preview opt-in to the editor
+    // bundle as a global it reads at load (LIVE_SCROLL_PREVIEW_OK in
+    // src/index.js). 'before' so it runs prior to the bundle.
+    if ( get_option( 'mb_beta_live_scroll_preview' ) ) {
+        wp_add_inline_script(
+            'motion-blocks-editor',
+            'window.motionBlocksBetaLivePreview = true;',
+            'before'
+        );
+    }
 }
 add_action( 'enqueue_block_editor_assets', 'motion_blocks_enqueue_editor_assets' );
 
@@ -1105,6 +1116,24 @@ function motion_blocks_register_settings() {
             'show_in_rest'      => true,
         )
     );
+
+    // Beta: live Scroll Interactive preview in the editor. Off by
+    // default; opt-in only. When on, the editor runs the real
+    // `animation-timeline: view()` scroll animation in the canvas on
+    // every browser (see LIVE_SCROLL_PREVIEW_OK in src/index.js — gated
+    // on this flag alone). Off → the editor uses the scrub slider, which
+    // is safe everywhere.
+    register_setting(
+        'motion_blocks_settings',
+        'mb_beta_live_scroll_preview',
+        array(
+            'type'              => 'boolean',
+            'description'       => __( 'Live Scroll Interactive preview in the editor (beta).', 'motion-blocks' ),
+            'default'           => false,
+            'sanitize_callback' => 'rest_sanitize_boolean',
+            'show_in_rest'      => true,
+        )
+    );
 }
 add_action( 'init', 'motion_blocks_register_settings' );
 
@@ -1145,6 +1174,21 @@ function motion_blocks_register_settings_ui() {
         'motion-blocks',
         'motion_blocks_debug_section'
     );
+
+    add_settings_section(
+        'motion_blocks_beta_section',
+        __( 'Beta features', 'motion-blocks' ),
+        'motion_blocks_render_beta_section',
+        'motion-blocks'
+    );
+
+    add_settings_field(
+        'mb_beta_live_scroll_preview',
+        __( 'Live scroll preview', 'motion-blocks' ),
+        'motion_blocks_render_beta_live_preview_field',
+        'motion-blocks',
+        'motion_blocks_beta_section'
+    );
 }
 add_action( 'admin_init', 'motion_blocks_register_settings_ui' );
 
@@ -1176,6 +1220,38 @@ function motion_blocks_render_debug_markers_field() {
     </label>
     <p class="description">
         <?php esc_html_e( 'The lines are only shown to logged-in users, so visitors never see them.', 'motion-blocks' ); ?>
+    </p>
+    <?php
+}
+
+/**
+ * Beta section intro.
+ */
+function motion_blocks_render_beta_section() {
+    ?>
+    <p class="description">
+        <?php esc_html_e( 'Opt-in features still being tested. They affect the editor only — your published site is unchanged.', 'motion-blocks' ); ?>
+    </p>
+    <?php
+}
+
+/**
+ * Live Scroll Interactive preview toggle.
+ */
+function motion_blocks_render_beta_live_preview_field() {
+    $value = (bool) get_option( 'mb_beta_live_scroll_preview', false );
+    ?>
+    <label>
+        <input
+            type="checkbox"
+            name="mb_beta_live_scroll_preview"
+            value="1"
+            <?php checked( $value ); ?>
+        />
+        <?php esc_html_e( 'Preview Scroll Interactive animations live in the editor', 'motion-blocks' ); ?>
+    </label>
+    <p class="description">
+        <?php esc_html_e( 'Scrolling the editor canvas plays the real scroll-driven animation, matching the live site. Experimental: it works in current browsers but may not run (or may be unstable) in older or unsupported ones. If the editor misbehaves, turn this off here — this page is separate from the editor and always works.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

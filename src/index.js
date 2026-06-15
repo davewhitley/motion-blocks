@@ -72,6 +72,24 @@ if ( typeof document !== 'undefined' ) {
 }
 
 /**
+ * Whether the live Scroll Interactive preview (the real `view()` scroll
+ * timeline) runs in the editor. Gated ONLY on the beta opt-in
+ * (`window.motionBlocksBetaLivePreview`, set by a `before` inline script
+ * when the "Beta features → Live scroll preview" admin setting is on).
+ *
+ * Deliberately NOT gated by engine or version — this is an explicit,
+ * off-by-default beta. Browsers without `animation-timeline: view()`
+ * just don't scrub (the block shows its end state) and the scrub slider
+ * still works as a manual fallback. The kill switch lives on the
+ * settings page — a separate page that never runs the preview — so it
+ * stays reachable even if a browser mishandles view() in the editor
+ * iframe. (That iframe view() OOM-crashed very old Blink; see
+ * examples/view-timeline-iframe-crash/. Opting in accepts that risk.)
+ */
+const LIVE_SCROLL_PREVIEW_OK =
+	typeof window !== 'undefined' && !! window.motionBlocksBetaLivePreview;
+
+/**
  * Get the entrance keyframe name for a given animation type.
  */
 function getEnterKeyframe( type ) {
@@ -375,9 +393,14 @@ function addAnimationAttributes( settings ) {
 				type: 'string',
 				default: 'exit 100%',
 			},
+			// Scroll Interactive preview eye toggle. Default OFF so a
+			// freshly selected block doesn't auto-run a preview (and,
+			// with the beta live preview on, doesn't start a real view()
+			// animation the moment it's selected). Read everywhere via
+			// `!== false`, so `false` here = off until the user opts in.
 			animationPreviewEnabled: {
 				type: 'boolean',
-				default: true,
+				default: false,
 			},
 			animationPreviewPlaying: {
 				type: 'boolean',
@@ -731,6 +754,66 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			}
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ isSelected ] );
+
+		// Live preview: scrolling the canvas hands a scrubbed block
+		// back to live. Dragging the scrub slider freezes the block at
+		// that frame (the HOC's scrub branch wins), and without an exit
+		// the live scroll preview would stay locked out. So while a
+		// scrubbed, live-eligible block is selected, watch for the next
+		// canvas scroll and clear the scrub — the view() timeline then
+		// takes over and scrolling drives the animation again. Only when
+		// live preview is actually available (beta + engine); otherwise
+		// the scrub slider is the sole preview and a scroll must not
+		// wipe it.
+		const hasLiveScrub =
+			isSelected &&
+			LIVE_SCROLL_PREVIEW_OK &&
+			attributes.animationMode === 'scroll-interactive' &&
+			attributes.animationPreviewEnabled !== false &&
+			typeof attributes.animationScrubPosition === 'number';
+		useEffect( () => {
+			if ( ! hasLiveScrub ) {
+				return undefined;
+			}
+			// Find the block in the canvas (parent doc first, then the
+			// editor iframe) to reach its scroll container — same lookup
+			// the Play-restart effect uses.
+			const selector = `[data-block="${ clientId }"][data-type]`;
+			let blockEl = document.querySelector( selector );
+			if ( ! blockEl ) {
+				const iframes = document.querySelectorAll(
+					'iframe[name="editor-canvas"]'
+				);
+				for ( const iframe of iframes ) {
+					try {
+						const doc = iframe.contentDocument;
+						if ( doc ) {
+							blockEl = doc.querySelector( selector );
+							if ( blockEl ) {
+								break;
+							}
+						}
+					} catch ( e ) {
+						// Cross-origin / detached iframe — skip.
+					}
+				}
+			}
+			const view = blockEl?.ownerDocument?.defaultView;
+			if ( ! view ) {
+				return undefined;
+			}
+			const onScroll = () => {
+				setAttributes( { animationScrubPosition: undefined } );
+			};
+			// `once` so a single scroll hands control back; React cleanup
+			// covers the deselect-before-scroll case.
+			view.addEventListener( 'scroll', onScroll, {
+				passive: true,
+				once: true,
+			} );
+			return () => view.removeEventListener( 'scroll', onScroll );
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ hasLiveScrub, clientId ] );
 
 		return (
 			<>
@@ -1251,19 +1334,22 @@ const withAnimationPreview = createHigherOrderComponent(
 				  )
 				: null;
 
-			// Scroll Interactive — scrub preview.
+			// Scroll Interactive — two editor preview paths.
 			//
 			// The real effect is scroll-driven (animation-timeline:
-			// view()) and ships to the frontend via PHP. We CANNOT run
-			// view() live in the editor: inside the editor iframe's
-			// nested/clipped scroll context it drives Chrome into a
-			// runaway layout/style loop until the renderer OOMs (Aw
-			// Snap, error code 5; Firefox only escapes it by not
-			// supporting view() yet). Instead we freeze the effect at a
-			// scrub position with a PAUSED animation seeked via a
-			// negative delay -- static at every position, no timeline.
-			// animationScrubPosition (0-100, default 100 = end) is driven
-			// by the RangeControl in ScrollInteractiveControls.
+			// view()), emitted on the frontend by PHP. In the editor:
+			//
+			//   • SCRUB (default, every browser): freeze the effect at a
+			//     point with a PAUSED animation seeked via a negative
+			//     delay — static at every position, no timeline. Driven
+			//     by animationScrubPosition (0–100) from the RangeControl.
+			//     A dragged scrub always wins, overriding live preview.
+			//   • LIVE view() (LIVE_SCROLL_PREVIEW_OK — the beta setting
+			//     on): run the real scroll timeline in the editor so
+			//     scrolling the canvas scrubs it like the frontend.
+			//     Beta-gated only; browsers without view() just show the
+			//     end state (the scrub slider still works). See the
+			//     LIVE_SCROLL_PREVIEW_OK helper above.
 			if ( animationMode === 'scroll-interactive' ) {
 				if (
 					animationType &&
@@ -1366,8 +1452,102 @@ const withAnimationPreview = createHigherOrderComponent(
 							};
 						}
 					}
+				} else if (
+					animationType &&
+					animationPreviewEnabled !== false &&
+					LIVE_SCROLL_PREVIEW_OK
+				) {
+					// Live view() preview (beta + engine eligible). The
+					// real scroll-driven animation runs in the editor, so
+					// scrolling the canvas scrubs it exactly like the
+					// frontend. A dragged scrub value takes the branch
+					// above instead, freezing it at a point.
+					const dirStyles =
+						animationType === 'custom'
+							? {}
+							: getDirectionStyles(
+									animationType,
+									animationDirection
+							  );
+					const rangeStartVal = animationRangeStart || 'entry 0%';
+					const rangeEndVal = animationRangeEnd || 'exit 100%';
+					const isCustomLive =
+						animationType === 'custom' ||
+						animationType === 'image-move' ||
+						animationType === 'image-zoom';
+					const liveAnimationName = targetIsImg
+						? 'none'
+						: isCustomLive
+						? customKeyframe
+							? customKeyframe.name
+							: 'none'
+						: getEnterKeyframe( animationType );
+					const liveStyles = {
+						...( wrapperProps.style || {} ),
+						...dirStyles,
+						animationName: liveAnimationName,
+					};
+					if ( ! targetIsImg ) {
+						liveStyles.animationTimeline = 'view()';
+						liveStyles.animationRangeStart = rangeStartVal;
+						liveStyles.animationRangeEnd = rangeEndVal;
+						liveStyles.animationDuration = '1ms';
+						liveStyles.animationTimingFunction = resolvedTiming;
+						liveStyles.animationFillMode = 'both';
+					} else {
+						// img-target: the timeline goes on the inner img
+						// via scoped CSS; pass the range + timing down as
+						// custom properties for it to inherit.
+						liveStyles[ '--mb-range-start' ] = rangeStartVal;
+						liveStyles[ '--mb-range-end' ] = rangeEndVal;
+						liveStyles[ '--mb-timing' ] = resolvedTiming;
+					}
+					if ( animationType === 'blur' ) {
+						liveStyles[ '--mb-blur-amount' ] =
+							( animationBlurAmount ?? 8 ) + 'px';
+					}
+					if ( animationType === 'rotate' ) {
+						liveStyles[ '--mb-rotate-angle' ] =
+							( animationRotateAngle ?? 90 ) + 'deg';
+					}
+					if ( imgTargetCSS ) {
+						injectedKeyframeRule = imgTargetCSS;
+					} else if ( customKeyframe ) {
+						injectedKeyframeRule = customKeyframe.rule;
+					}
+					if ( targetIsImg ) {
+						// Inner <img> animates (scoped CSS for custom,
+						// the data-mb-target + mb-enter-{type} rules in
+						// animations.css for presets); wrapper stays a
+						// static clipping frame.
+						computedWrapperProps = {
+							...wrapperProps,
+							style: liveStyles,
+							'data-mb-target': 'img',
+						};
+						if ( customUid ) {
+							computedWrapperProps[ 'data-mb-uid' ] =
+								customUid;
+						}
+						if ( ! isCustomLive ) {
+							computedClassName = [
+								stripMbPreviewClasses( props.className ),
+								'mb-mode-scroll-interactive',
+								`mb-enter-${ animationType }`,
+							]
+								.filter( Boolean )
+								.join( ' ' );
+						}
+					} else {
+						computedWrapperProps = {
+							...wrapperProps,
+							style: liveStyles,
+						};
+					}
 				}
-				// No animationType yet -- block renders naturally.
+				// else: block renders at its natural resting state — no
+				// scrub set, and live preview not eligible (beta off or
+				// an engine without verified view() support).
 			}
 
 			// Page-load / Scroll-appear: class-based preview.

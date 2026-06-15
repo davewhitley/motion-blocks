@@ -98,8 +98,10 @@ export default function ScrollInteractiveControls( {
 		typeof animationScrubPosition === 'number'
 			? animationScrubPosition
 			: 100;
-	// The eye toggle shows/hides the scrub slider. Off = the block renders
-	// its natural, un-animated state (same as deselecting).
+	// The eye toggle governs the editor preview: it shows/hides the scrub
+	// slider AND (when the live-preview beta is on for a supported browser)
+	// the live scroll animation. Off = the block renders its natural,
+	// un-animated state (same as deselecting).
 	const previewOn = animationPreviewEnabled !== false;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
@@ -261,8 +263,8 @@ export default function ScrollInteractiveControls( {
 						icon={ previewOn ? seen : unseen }
 						label={
 							previewOn
-								? __( 'Hide scroll preview', 'motion-blocks' )
-								: __( 'Show scroll preview', 'motion-blocks' )
+								? __( 'Hide preview', 'motion-blocks' )
+								: __( 'Show preview', 'motion-blocks' )
 						}
 						isPressed={ previewOn }
 						onClick={ () =>

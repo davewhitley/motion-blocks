@@ -99,10 +99,19 @@ export default function ScrollInteractiveControls( {
 			? animationScrubPosition
 			: 100;
 	// The eye toggle governs the editor preview: it shows/hides the scrub
-	// slider AND (when the live-preview beta is on for a supported browser)
-	// the live scroll animation. Off = the block renders its natural,
-	// un-animated state (same as deselecting).
+	// slider AND (when the live-preview beta is on) the live scroll
+	// animation. Off = the block renders its natural, un-animated state
+	// (same as deselecting).
 	const previewOn = animationPreviewEnabled !== false;
+	// Live preview active = the beta opt-in is on AND preview is on. While
+	// live, the scrub slider is hidden: you preview by scrolling the canvas
+	// (and hold any frame just by stopping), so the slider is redundant —
+	// and keeping both would put two controls in conflict over one
+	// element's animation timeline. The slider returns when the beta is off.
+	const liveActive =
+		previewOn &&
+		typeof window !== 'undefined' &&
+		!! window.motionBlocksBetaLivePreview;
 
 	// Image effects (image-move, image-zoom) are only meaningful on
 	// blocks that have a primary <img>. Hide entirely for block types
@@ -282,13 +291,13 @@ export default function ScrollInteractiveControls( {
 				) }
 			</HStack>
 
-			{ /* Scrub preview. Scroll Interactive can't be live-previewed
-			   in the editor — its real animation-timeline: view() effect
-			   crashes Chrome inside the editor iframe. This slider freezes
-			   the effect at a given point (start → end) so the user can
-			   drag through it. Drives animationScrubPosition, which the
-			   HOC turns into a paused-and-seeked animation. */ }
-			{ animationType && previewOn && (
+			{ /* Scrub preview — shown when the live-preview beta is OFF.
+			   Freezes the effect at a point (start → end) via a paused,
+			   delay-seeked animation so you can drag through it without a
+			   real scroll timeline. When the live beta is on, this is
+			   hidden in favor of scrolling the canvas (see the hint
+			   below), so the two never fight over one element. */ }
+			{ animationType && previewOn && ! liveActive && (
 				<BaseControl __nextHasNoMarginBottom>
 					<HStack
 						className="mb-info-label-row"
@@ -332,6 +341,22 @@ export default function ScrollInteractiveControls( {
 						__next40pxDefaultSize
 						__nextHasNoMarginBottom
 					/>
+				</BaseControl>
+			) }
+
+			{ /* Live-preview hint — replaces the scrub slider while the
+			   beta is active. Scrolling the canvas is the preview. */ }
+			{ animationType && liveActive && (
+				<BaseControl
+					__nextHasNoMarginBottom
+					help={ __(
+						'Scroll the editor canvas to preview. The animation follows your scroll.',
+						'motion-blocks'
+					) }
+				>
+					<BaseControl.VisualLabel>
+						{ __( 'Live scroll preview', 'motion-blocks' ) }
+					</BaseControl.VisualLabel>
 				</BaseControl>
 			) }
 

@@ -755,72 +755,6 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ isSelected ] );
 
-		// Live preview: scrolling the canvas hands a scrubbed block
-		// back to live. Dragging the scrub slider freezes the block at
-		// that frame (the HOC's scrub branch wins), and without an exit
-		// the live scroll preview would stay locked out. So while a
-		// scrubbed, live-eligible block is selected, watch for the next
-		// user scroll gesture and clear the scrub — the view() timeline
-		// then takes over and scrolling drives the animation again.
-		//
-		// We listen for `wheel` (mouse / trackpad), NOT `scroll`: setting
-		// the scrub can make the editor programmatically scroll the
-		// selected block into view, and a plain `scroll` listener would
-		// catch that synthetic scroll and clear the scrub the instant the
-		// user set it — making the slider feel dead. `wheel` only fires
-		// from a genuine user scroll. Only when live preview is actually
-		// available (beta + engine); otherwise the scrub slider is the
-		// sole preview and must not be wiped.
-		const hasLiveScrub =
-			isSelected &&
-			LIVE_SCROLL_PREVIEW_OK &&
-			attributes.animationMode === 'scroll-interactive' &&
-			attributes.animationPreviewEnabled !== false &&
-			typeof attributes.animationScrubPosition === 'number';
-		useEffect( () => {
-			if ( ! hasLiveScrub ) {
-				return undefined;
-			}
-			// Find the block in the canvas (parent doc first, then the
-			// editor iframe) to reach its scroll container — same lookup
-			// the Play-restart effect uses.
-			const selector = `[data-block="${ clientId }"][data-type]`;
-			let blockEl = document.querySelector( selector );
-			if ( ! blockEl ) {
-				const iframes = document.querySelectorAll(
-					'iframe[name="editor-canvas"]'
-				);
-				for ( const iframe of iframes ) {
-					try {
-						const doc = iframe.contentDocument;
-						if ( doc ) {
-							blockEl = doc.querySelector( selector );
-							if ( blockEl ) {
-								break;
-							}
-						}
-					} catch ( e ) {
-						// Cross-origin / detached iframe — skip.
-					}
-				}
-			}
-			const view = blockEl?.ownerDocument?.defaultView;
-			if ( ! view ) {
-				return undefined;
-			}
-			const onUserScroll = () => {
-				setAttributes( { animationScrubPosition: undefined } );
-			};
-			// `once` so a single wheel gesture hands control back; React
-			// cleanup covers the deselect-before-scroll case.
-			view.addEventListener( 'wheel', onUserScroll, {
-				passive: true,
-				once: true,
-			} );
-			return () => view.removeEventListener( 'wheel', onUserScroll );
-			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [ hasLiveScrub, clientId ] );
-
 		return (
 			<>
 				<BlockEdit { ...props } />
@@ -1400,13 +1334,12 @@ const withAnimationPreview = createHigherOrderComponent(
 						...( wrapperProps.style || {} ),
 						...dirStyles,
 					};
-					// When the live preview was running it set
-					// `animation-timeline: view()` inline on this wrapper.
-					// Force the default timeline back, or the scroll
-					// timeline keeps driving the animation and the paused,
-					// delay-seeked scrub below is ignored entirely (the
-					// slider would appear to do nothing). Harmless for
-					// img-target, where the wrapper itself doesn't animate.
+					// Reset to the default timeline so the paused,
+					// delay-seeked scrub below actually freezes the frame
+					// (a stray scroll timeline would drive it from scroll
+					// instead). Defensive — the scrub UI is hidden while
+					// the live view() preview is active, so they don't
+					// normally coexist on one element.
 					scrubStyle.animationTimeline = 'auto';
 					if ( animationType === 'blur' ) {
 						scrubStyle[ '--mb-blur-amount' ] =

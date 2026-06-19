@@ -760,11 +760,17 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// that frame (the HOC's scrub branch wins), and without an exit
 		// the live scroll preview would stay locked out. So while a
 		// scrubbed, live-eligible block is selected, watch for the next
-		// canvas scroll and clear the scrub — the view() timeline then
-		// takes over and scrolling drives the animation again. Only when
-		// live preview is actually available (beta + engine); otherwise
-		// the scrub slider is the sole preview and a scroll must not
-		// wipe it.
+		// user scroll gesture and clear the scrub — the view() timeline
+		// then takes over and scrolling drives the animation again.
+		//
+		// We listen for `wheel` (mouse / trackpad), NOT `scroll`: setting
+		// the scrub can make the editor programmatically scroll the
+		// selected block into view, and a plain `scroll` listener would
+		// catch that synthetic scroll and clear the scrub the instant the
+		// user set it — making the slider feel dead. `wheel` only fires
+		// from a genuine user scroll. Only when live preview is actually
+		// available (beta + engine); otherwise the scrub slider is the
+		// sole preview and must not be wiped.
 		const hasLiveScrub =
 			isSelected &&
 			LIVE_SCROLL_PREVIEW_OK &&
@@ -802,16 +808,16 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			if ( ! view ) {
 				return undefined;
 			}
-			const onScroll = () => {
+			const onUserScroll = () => {
 				setAttributes( { animationScrubPosition: undefined } );
 			};
-			// `once` so a single scroll hands control back; React cleanup
-			// covers the deselect-before-scroll case.
-			view.addEventListener( 'scroll', onScroll, {
+			// `once` so a single wheel gesture hands control back; React
+			// cleanup covers the deselect-before-scroll case.
+			view.addEventListener( 'wheel', onUserScroll, {
 				passive: true,
 				once: true,
 			} );
-			return () => view.removeEventListener( 'scroll', onScroll );
+			return () => view.removeEventListener( 'wheel', onUserScroll );
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, [ hasLiveScrub, clientId ] );
 
@@ -1084,15 +1090,37 @@ const withAnimationPreview = createHigherOrderComponent(
 					: innerImg
 					? [ blockEl, innerImg ]
 					: [ blockEl ];
-				// Step 1: zero animation on every target.
+				// Capture any inline `animation-name` BEFORE zeroing.
+				// Preset effects bind their keyframe via a CSS class rule
+				// (`.mb-enter-fade.mb-triggered { animation-name: mbFadeIn }`)
+				// so their inline animation-name is '' — the restore below
+				// is a no-op for them. But Custom in Page Load mode has NO
+				// backing class rule (there's a `.mb-mode-scroll-appear.
+				// mb-enter-custom` rule but none for page-load), so its
+				// keyframe is bound ONLY by the inline animation-name the
+				// HOC set. The old "Step 2: clear to ''" wiped that sole
+				// binding, and React never re-applied it (the style prop
+				// value was unchanged across the play toggle), leaving the
+				// block with no animation. Frontend was unaffected because
+				// it sets animation-name inline once and never clears it.
+				// Save and restore instead of clearing.
+				const savedNames = restartTargets.map(
+					( el ) => el.style.animationName
+				);
+				// Step 1: zero animation on every target to force a fresh
+				// cycle.
 				restartTargets.forEach( ( el ) => {
 					el.style.animation = 'none';
 				} );
 				void blockEl.offsetWidth;
-				// Step 2: clear the inline override so CSS class-bound
-				// rules take over again.
-				restartTargets.forEach( ( el ) => {
+				// Step 2: clear the shorthand so CSS class-bound timing
+				// longhands (duration/delay/etc. via --mb-* vars on
+				// `.mb-animated.mb-triggered`) take over again, then
+				// restore the inline animation-name binding (load-bearing
+				// for Custom; '' no-op for presets).
+				restartTargets.forEach( ( el, i ) => {
 					el.style.animation = '';
+					el.style.animationName = savedNames[ i ];
 				} );
 				// Step 3: class-toggle. With the inline reset above,
 				// this is now redundant for the "same animation-name"
@@ -1372,6 +1400,14 @@ const withAnimationPreview = createHigherOrderComponent(
 						...( wrapperProps.style || {} ),
 						...dirStyles,
 					};
+					// When the live preview was running it set
+					// `animation-timeline: view()` inline on this wrapper.
+					// Force the default timeline back, or the scroll
+					// timeline keeps driving the animation and the paused,
+					// delay-seeked scrub below is ignored entirely (the
+					// slider would appear to do nothing). Harmless for
+					// img-target, where the wrapper itself doesn't animate.
+					scrubStyle.animationTimeline = 'auto';
 					if ( animationType === 'blur' ) {
 						scrubStyle[ '--mb-blur-amount' ] =
 							( animationBlurAmount ?? 8 ) + 'px';

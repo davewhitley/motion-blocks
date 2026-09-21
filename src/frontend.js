@@ -856,6 +856,11 @@
 		//   in zone   + dir=up        → onEnterBack (reverse-play exit)
 		//   out zone  + dir=down/same → onLeave     (fire Exit forward)
 		//   out zone  + dir=up        → onLeaveBack (no-op)
+		//
+		// One exception: an element's FIRST-ever entry always dispatches
+		// onEnter, even when dir=up. onEnterBack presumes a prior visit
+		// to reverse; a never-entered element seen from above (reload
+		// with scroll restored below it, hash-anchor landing) has none.
 
 		var states = [];
 		var prevScrollY = window.scrollY;
@@ -1008,12 +1013,24 @@
 			state.inZone = inZone;
 
 			if ( inZone ) {
+				// Capture BEFORE flipping hasEntered: a first-ever entry
+				// must fire the Entry regardless of scroll direction.
+				// onEnterBack semantics ("you've been here, reverse the
+				// exit") only apply to a genuine RE-entry. Without this,
+				// an element first seen from above — reload with scroll
+				// restored below it, a hash-anchor landing, a jump link —
+				// routes to handleSlotEnterBack, which is a no-op for the
+				// Entry slot, and the element stays at its hidden "from"
+				// state forever (GH #2).
+				var firstEntry = ! state.hasEntered;
 				state.hasEntered = true;
-				if ( dir === 'up' ) {
-					// onEnterBack — Exit slot owns this.
+				if ( dir === 'up' && ! firstEntry ) {
+					// onEnterBack — genuine re-entry from above; Exit
+					// slot owns this.
 					handleSlotEnterBack( state );
 				} else {
-					// onEnter — Entry slot owns this.
+					// onEnter — scroll-down enter, OR the first sighting
+					// from any direction. Entry slot owns this.
 					handleSlotEnter( state );
 				}
 			} else {
@@ -1322,9 +1339,12 @@
 	}
 
 	/**
-	 * onEnterBack — element re-enters the trigger zone from the top
-	 * while user is scrolling up. Both slots can have configured
-	 * behavior here:
+	 * onEnterBack — element RE-enters the trigger zone from the top
+	 * while user is scrolling up. Only reached for elements that have
+	 * entered before: tick() routes a first-ever entry to
+	 * handleSlotEnter regardless of direction, so this handler never
+	 * has to invent a "reverse" for an animation that hasn't played.
+	 * Both slots can have configured behavior here:
 	 *
 	 *   - When Exit slot is filled, Exit's Replay option wins (it's the
 	 *     most-recently-forward-played animation, so reversing it

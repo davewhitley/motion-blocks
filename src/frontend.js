@@ -763,6 +763,13 @@
 				el.style.setProperty( '--mb-fill-mode', 'none' );
 			}
 
+			// A one-shot Page Load animation never replays, so it's
+			// always safe to drop its residue once it finishes.
+			// Looping animations never fire `animationend`.
+			if ( ! isLooping ) {
+				settleOnFinish( el );
+			}
+
 			// Trigger the animation.
 			el.classList.add( 'mb-triggered' );
 
@@ -793,6 +800,39 @@
 		);
 
 		observer.observe( el );
+	}
+
+	/**
+	 * Drop a finished entry animation so it leaves no residue.
+	 *
+	 * With `animation-fill-mode: both` the final keyframe stays applied
+	 * forever, and an entry effect's terminal `transform: translate(0,0)`
+	 * resolves to an IDENTITY MATRIX — not `none`. Any transform other
+	 * than `none` (also a non-`none` filter, and the `preserve-3d` Flip
+	 * sets) creates a containing block for `position: fixed`
+	 * descendants, so a long-finished animation traps core/navigation's
+	 * full-screen mobile overlay inside the nav block. See the
+	 * "Settled State" note in animations.css.
+	 *
+	 * Only call this for elements that will NEVER animate again —
+	 * removing `.mb-settled` re-runs the animation (same mechanism as
+	 * `restartAnimation`), so replayable elements must be left alone.
+	 */
+	function settleOnFinish( el ) {
+		el.addEventListener( 'animationend', function ( e ) {
+			// animationend bubbles. Settle only the element that
+			// actually finished — the block itself, or one of its
+			// staggered children (each finishes on its own delay).
+			var target = e.target;
+			if ( target !== el && target.parentNode !== el ) {
+				return;
+			}
+			// Never settle an exit: its filled end state is the point.
+			if ( el.classList.contains( 'mb-exit-triggered' ) ) {
+				return;
+			}
+			target.classList.add( 'mb-settled' );
+		} );
 	}
 
 	/* ---------------------------------------------------------------
@@ -1077,6 +1117,15 @@
 			// Exit reverse-plays on scroll-back (`reverse`).
 			var entryReplay = el.dataset.mbEntryReplay || 'once';
 			var exitReplay = el.dataset.mbExitReplay || 'reverse';
+
+			// Drop the finished entry animation's residue, but ONLY when
+			// nothing can re-animate this element: Replay = Once (the
+			// default) with no Exit slot. `repeat` / `reverse` and any
+			// Exit slot need the animation to stay attached, so they keep
+			// today's behavior. See `settleOnFinish`.
+			if ( hasEntry && ! hasExit && entryReplay === 'once' ) {
+				settleOnFinish( el );
+			}
 
 			// Apply baseline direction / blur / rotate / custom-keyframe
 			// setup. Per-slot timing is applied on each transition.

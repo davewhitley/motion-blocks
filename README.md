@@ -38,7 +38,9 @@ The Cover block has a few settings that change how its background renders. Motio
 | **Focal point** | Unaffected. `background-position` (or `object-position` on the inner img) composes cleanly with our transforms. |
 | **Aspect ratio / dimensions** | Unaffected. Cover's `object-fit: cover` continues to fit the visible crop; transform animations apply on top. |
 
-There's one CSS-spec interaction worth knowing about. Applying any `transform` animation (rotate, scale, etc.) to the entire block creates a new containing block, which un-fixes any descendant `position: fixed` or `background-attachment: fixed`. If you animate the whole Cover block with a transform AND have Fixed background enabled, the fixed background will scroll with the page while the animation runs. This is a CSS limitation, not specific to this plugin. Pick one or the other.
+There's one CSS-spec interaction worth knowing about. Applying any `transform` animation (rotate, scale, etc.) to the entire block creates a new containing block, which un-fixes any descendant `position: fixed` or `background-attachment: fixed`. If you animate the whole Cover block with a transform AND have Fixed background enabled, the fixed background will scroll with the page **while the animation runs**. This is a CSS limitation, not specific to this plugin. Pick one or the other.
+
+This only applies *during* the animation. Since 0.2.3, a finished animation cleans up after itself, so it no longer affects a full-screen `position: fixed` overlay — such as the Navigation block's mobile menu — once it has played. (Animations that are designed to keep replaying — Scroll Appear with Replay set to Repeat or Reverse, or a block that also has an Exit animation — must stay attached, so the interaction persists for those.)
 
 ## Cross-cutting features
 

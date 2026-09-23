@@ -122,6 +122,39 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 /* ----------------------------------------------------------------
+ * Settled State — drop the finished animation's residue
+ *
+ * `animation-fill-mode: both` keeps the final keyframe applied
+ * forever. For an entry effect that terminal value LOOKS like a
+ * no-op, but it is a *resolved* one: `transform: translate(0, 0)`
+ * computes to an identity matrix, NOT `none`. Per CSS, any transform
+ * other than `none` — plus a non-`none` `filter`, and
+ * `transform-style: preserve-3d` (which Flip sets) — creates a
+ * containing block for `position: fixed` descendants. So a finished
+ * animation silently traps a fixed child inside the animated block:
+ * core/navigation's full-screen mobile overlay renders inside the nav
+ * instead of covering the viewport.
+ *
+ * Ending the keyframe at `transform: none` does NOT fix this — a
+ * forwards-filling transform animation still resolves to an identity
+ * matrix. The animation itself has to stop applying.
+ *
+ * Once an entry animation has finished, the element's natural
+ * (un-animated) state IS its correct final appearance — the
+ * initial-hide rules above no longer match once `.mb-triggered` is
+ * present — so dropping the animation is visually identical.
+ *
+ * frontend.js adds `.mb-settled` on `animationend`, and ONLY for
+ * elements that will never animate again (one-shot Page Load; Entry
+ * with Replay = Once and no Exit slot). Removing the class would
+ * restart the animation, so replayable elements are left alone.
+ * -------------------------------------------------------------- */
+.mb-settled {
+    animation: none !important;
+    transform-style: flat !important;
+}
+
+/* ----------------------------------------------------------------
  * Triggered State — Exit (scroll-appear only)
  *
  * Exit shares duration / timing with enter — v2 dropped the separate

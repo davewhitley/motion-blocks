@@ -480,10 +480,10 @@ export function migrateScrollAppearAttrs( attrs ) {
 		return attrs;
 	}
 	// Already migrated — the user has interacted with the new UI and
-	// `animationEntryType` carries the canonical slot config. Skip the
-	// legacy slot-fill but still derive per-slot Replay attrs at the
-	// end of the function (slot-model blocks saved before the Replay
-	// rollout don't carry them yet).
+	// `animationEntryType` carries the canonical slot config. Replay
+	// needs no derivation: the schema always fills both Replay attrs
+	// (Entry 'once', Exit 'reverse'), and PHP resolves them the same
+	// way.
 	const entrySet =
 		typeof attrs.animationEntryType === 'string' &&
 		attrs.animationEntryType !== '';
@@ -491,35 +491,29 @@ export function migrateScrollAppearAttrs( attrs ) {
 		typeof attrs.animationExitType === 'string' &&
 		attrs.animationExitType !== '';
 	if ( entrySet || exitSet ) {
-		// Spread before mutating so the input attrs object stays
-		// untouched (HOC passes its props.attributes directly here).
-		const needsReplayDerive =
-			attrs.animationEntryReplay === undefined ||
-			attrs.animationExitReplay === undefined;
-		if ( ! needsReplayDerive ) {
-			return attrs;
-		}
-		return deriveReplayAttrs( { ...attrs }, entrySet, exitSet );
+		return attrs;
 	}
 
 	// Block predates the slot model. Derive slot config from the
-	// legacy `animationScrollTrigger` + `animationType` pair.
+	// legacy `animationScrollTrigger` + `animationType` pair. The
+	// fallbacks only matter for callers passing raw attrs; editor attrs
+	// already carry the schema defaults.
 	const trigger = normalizeScrollTrigger( attrs.animationScrollTrigger );
-	const rawType = attrs.animationType || '';
+	const rawType = attrs.animationType ?? SCHEMA_DEFAULTS.animationType;
 	const baseType = rawType.replace( /-out$/, '' ); // strip -out suffix; slot encodes direction now
 	const direction = attrs.animationDirection || '';
 	const duration =
-		attrs.animationDuration ?? DEFAULT_ATTRIBUTES.animationDuration;
-	const delay = attrs.animationDelay ?? DEFAULT_ATTRIBUTES.animationDelay;
+		attrs.animationDuration ?? SCHEMA_DEFAULTS.animationDuration;
+	const delay = attrs.animationDelay ?? SCHEMA_DEFAULTS.animationDelay;
 	const acceleration =
-		attrs.animationAcceleration ?? DEFAULT_ATTRIBUTES.animationAcceleration;
+		attrs.animationAcceleration ?? SCHEMA_DEFAULTS.animationAcceleration;
 	const customTiming =
 		attrs.animationCustomTimingFunction ??
-		DEFAULT_ATTRIBUTES.animationCustomTimingFunction;
+		SCHEMA_DEFAULTS.animationCustomTimingFunction;
 	const blur =
-		attrs.animationBlurAmount ?? DEFAULT_ATTRIBUTES.animationBlurAmount;
+		attrs.animationBlurAmount ?? SCHEMA_DEFAULTS.animationBlurAmount;
 	const rotate =
-		attrs.animationRotateAngle ?? DEFAULT_ATTRIBUTES.animationRotateAngle;
+		attrs.animationRotateAngle ?? SCHEMA_DEFAULTS.animationRotateAngle;
 
 	// Copy shared Custom From/To values onto the appropriate slot's
 	// keyframe attrs. Same property bag goes to both slots if Mirror
@@ -568,49 +562,7 @@ export function migrateScrollAppearAttrs( attrs ) {
 		fillSlot( 'Exit' );
 	}
 
-	const finalEntrySet =
-		typeof out.animationEntryType === 'string' &&
-		out.animationEntryType !== '';
-	const finalExitSet =
-		typeof out.animationExitType === 'string' &&
-		out.animationExitType !== '';
-	return deriveReplayAttrs( out, finalEntrySet, finalExitSet, attrs );
-}
-
-/**
- * Derive per-slot Replay attrs (`animationEntryReplay` /
- * `animationExitReplay`) for blocks that don't yet carry them.
- * Preserves today's runtime behavior bit-for-bit when reading old
- * saves:
- *
- *   - Entry-only + Play once ON  → Entry replay = 'once'
- *   - Entry-only + Play once OFF → Entry replay = 'repeat'
- *   - Exit-only                  → Exit replay = 'reverse' (smooth scroll-back-up)
- *   - Entry + Exit               → Entry = 'repeat', Exit = 'reverse'
- *
- * Idempotent — only writes attrs that are currently `undefined`, so
- * subsequent edits preserve the user's explicit choices.
- *
- * `legacyAttrs` is the raw pre-migration attrs object (used to read
- * `animationPlayOnce` from legacy Entry-only blocks). Falls back to
- * the post-migration object for slot-model saves that didn't go
- * through legacy fill.
- */
-function deriveReplayAttrs( attrs, entrySet, exitSet, legacyAttrs ) {
-	const source = legacyAttrs || attrs;
-	if ( attrs.animationEntryReplay === undefined ) {
-		if ( entrySet && ! exitSet ) {
-			attrs.animationEntryReplay = source.animationPlayOnce
-				? 'once'
-				: 'repeat';
-		} else if ( entrySet && exitSet ) {
-			attrs.animationEntryReplay = 'repeat';
-		}
-	}
-	if ( attrs.animationExitReplay === undefined && exitSet ) {
-		attrs.animationExitReplay = 'reverse';
-	}
-	return attrs;
+	return out;
 }
 
 /**
@@ -1635,27 +1587,32 @@ export function attrsToBag( attributes, attrMap ) {
 
 
 /**
- * Default attribute values for all animation settings (the ACTIVE
- * layer of the dual-default model — see `_README_attributeDefaults`
- * in shared-constants.json for the architecture and when to use
- * each layer).
+ * Schema default of each animation attribute: what an attribute
+ * resolves to when it's missing from a block's saved comment.
+ * Registered as the block-schema defaults in `addAnimationAttributes`
+ * (src/index.js) and merged under the saved attrs by the PHP render
+ * filter, so the editor and the front end read omitted keys the same
+ * way. See `_README_schemaDefaults` in shared-constants.json.
+ */
+export const SCHEMA_DEFAULTS = SHARED.schemaDefaults;
+
+/**
+ * Values for NEW blocks — what the mode picker and resets write.
  *
- * The cross-language subset comes from shared-constants.json via the
- * spread below. JS-only keys (editor preview state, From/To `null`
- * sentinels, gate flags) are added on top — PHP doesn't need them
- * at render time.
+ * Starts from the schema defaults and overrides the keys where the
+ * preferred new-block value differs. Those overrides are written
+ * explicitly, and since they differ from the schema default they
+ * serialize into the block comment. JS-only keys (editor preview
+ * state, From/To `null` sentinels) are added on top — PHP doesn't
+ * need them at render time.
  */
 export const DEFAULT_ATTRIBUTES = {
-	// Cross-language defaults — see shared-constants.json.
-	...SHARED.attributeDefaults,
-	// JS-only: empty string used as a gate (no animation configured).
-	animationMode: '',
-	// Legacy trigger attribute. The Scroll Appear panel no longer
-	// reads or writes this — it's been replaced by the slot model
-	// (animationEntry* / animationExit*). Kept registered so old
-	// saves continue to deserialize cleanly; migrated on read by
-	// migrateScrollAppearAttrs().
-	animationScrollTrigger: 'enter',
+	...SCHEMA_DEFAULTS,
+	// New blocks start with no delay. The schema default stays 0.4
+	// because blocks saved before this preference changed omit the
+	// key and rely on it.
+	animationDelay: 0,
+	animationEntryDelay: 0,
 	// Per-slot Custom From/To values (only relevant when the slot's
 	// type is 'custom'). The shared animationFrom* / animationTo*
 	// attributes below are still used by Page Load and Scroll
@@ -1730,17 +1687,6 @@ export const DEFAULT_ATTRIBUTES = {
 	// animation; 'start' or 'end' freezes the editor block at the
 	// chosen side's static values (no animation).
 	animationFromToPreviewSide: 'off',
-	// Stagger gate — only meaningful when the block is a
-	// STAGGER_PARENT_BLOCKS member. When true, the parent block
-	// stops animating itself and becomes the cascade controller for
-	// its inner blocks. (The companion `animationStaggerStep` —
-	// delay added per inner block in seconds — comes from the
-	// SHARED.attributeDefaults spread above. See staggerStepSeconds
-	// for the legacy-ms heuristic.)
-	animationStaggerEnabled: false,
-	// animationFromToTarget ('block' | 'img') and animationStaggerStep
-	// (0.1s) come from SHARED.attributeDefaults — both are read by
-	// the PHP render filter and need to stay in sync.
 };
 
 /**

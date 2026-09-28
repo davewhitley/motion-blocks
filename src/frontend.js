@@ -1072,9 +1072,9 @@
 				return;
 			}
 
-			// Read per-slot Replay attrs. Defaults preserve today's
-			// runtime behavior: Entry replays each scroll-in (`repeat`),
-			// Exit reverse-plays on scroll-back (`reverse`).
+			// Read per-slot Replay attrs. The render filter always emits
+			// them for filled slots; the fallbacks match the schema
+			// defaults (Entry `once`, Exit `reverse`).
 			var entryReplay = el.dataset.mbEntryReplay || 'once';
 			var exitReplay = el.dataset.mbExitReplay || 'reverse';
 

@@ -277,12 +277,10 @@ export default function AnimationPanel( {
 			next.animationEntryDirection = '';
 			next.animationEntryDuration = DEFAULT_ATTRIBUTES.animationDuration;
 			next.animationEntryDelay = DEFAULT_ATTRIBUTES.animationDelay;
-			// Write the preferred Replay explicitly. The attribute's schema
-			// default is 'repeat' (kept stable for block-validation
-			// back-compat — see src/index.js), so a new block would
-			// otherwise resolve to 'repeat'. Writing DEFAULT_ATTRIBUTES'
-			// 'once' here both gives new blocks the intended default and
-			// serializes it into the comment (≠ schema default → valid).
+			// Reset Replay to the default ('once') in case the block still
+			// carries an earlier choice. It equals
+			// the schema default, so WordPress omits it on save and the
+			// render filter resolves the omitted key to 'once' as well.
 			next.animationEntryReplay = DEFAULT_ATTRIBUTES.animationEntryReplay;
 			next.animationExitType = '';
 		}

@@ -17,6 +17,7 @@ import { useEffect, useCallback, useRef } from '@wordpress/element';
 import AnimationPanel from './components/AnimationPanel';
 import {
 	DEFAULT_ATTRIBUTES,
+	SCHEMA_DEFAULTS,
 	ENTER_KEYFRAME_MAP,
 	DIRECTION_CSS_VARS,
 	TYPES_WITH_DIRECTION,
@@ -298,17 +299,16 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 /**
  * Add animation attributes to all blocks.
  *
- * Each entry below defines a SCHEMA default — the value WordPress
- * uses for omit-on-save + read-time fallback on legacy blocks.
- * Distinct from the ACTIVE defaults in shared-constants.json. See
- * `_README_attributeDefaults` in that file for the dual-default
- * model and when to deviate. Type info stays hand-coded per
+ * Schema defaults — the values WordPress omits on save and refills
+ * on load — come from SCHEMA_DEFAULTS (shared-constants.json), which
+ * the PHP render filter also merges under the saved attrs. Keeping
+ * one source is what makes the front end resolve an omitted key the
+ * same way the editor does. See `_README_schemaDefaults` in that
+ * file before changing a value. Type info stays hand-coded per
  * attribute (types rarely change; inference is unreliable).
  *
- * Most schema defaults here happen to equal their active default,
- * but they MAY diverge — see the per-attribute comment on
- * animationDelay below for the canonical case (schema=0.4 vs
- * active=0) and the back-compat reasoning.
+ * New-block preferences that differ from the schema default (e.g.
+ * a 0s delay) live in DEFAULT_ATTRIBUTES, not here.
  */
 function addAnimationAttributes( settings ) {
 	if ( settings.attributes?.animationMode ) {
@@ -321,77 +321,74 @@ function addAnimationAttributes( settings ) {
 			...settings.attributes,
 			animationMode: {
 				type: 'string',
-				default: '',
+				default: SCHEMA_DEFAULTS.animationMode,
 			},
 			animationType: {
 				type: 'string',
-				// Matches DEFAULT_ATTRIBUTES.animationType in constants.js.
 				// A block with no animation has animationMode = '' which
-				// short-circuits all save-props / render paths, so the
+				// short-circuits the preview and render paths, so the
 				// non-empty default only surfaces once a mode is picked.
-				default: 'fade',
+				default: SCHEMA_DEFAULTS.animationType,
 			},
 			animationDirection: {
 				type: 'string',
-				default: '',
+				default: SCHEMA_DEFAULTS.animationDirection,
 			},
 			animationDuration: {
 				type: 'number',
-				default: 0.6,
+				default: SCHEMA_DEFAULTS.animationDuration,
 			},
-			// Schema default stays at the original 0.4 for block-validation
-			// back-compat: WP omits default-valued attrs from the block
-			// comment, so changing this default re-resolves every
-			// previously-saved block to the new value and breaks save-output
-			// validation. The preferred new-block default (0) lives in
-			// DEFAULT_ATTRIBUTES and is written explicitly by selectMode, so
-			// it serializes into the comment (≠ default) and stays valid.
+			// Schema default stays at the original 0.4: blocks saved with
+			// that value omit the key, so changing it would silently
+			// re-time them. The preferred new-block delay (0) lives in
+			// DEFAULT_ATTRIBUTES and is written explicitly by selectMode,
+			// so it serializes into the comment (≠ default).
 			animationDelay: {
 				type: 'number',
-				default: 0.4,
+				default: SCHEMA_DEFAULTS.animationDelay,
 			},
 			animationRepeat: {
 				type: 'string',
-				default: 'once',
+				default: SCHEMA_DEFAULTS.animationRepeat,
 			},
 			animationPauseOffscreen: {
 				type: 'boolean',
-				default: true,
+				default: SCHEMA_DEFAULTS.animationPauseOffscreen,
 			},
 			animationPlayOnce: {
 				type: 'boolean',
-				default: true,
+				default: SCHEMA_DEFAULTS.animationPlayOnce,
 			},
 			animationScrollTrigger: {
 				type: 'string',
-				default: 'enter',
+				default: SCHEMA_DEFAULTS.animationScrollTrigger,
 			},
 			animationAcceleration: {
 				type: 'string',
-				default: 'ease',
+				default: SCHEMA_DEFAULTS.animationAcceleration,
 			},
 			// Stored CSS timing function used when animationAcceleration
 			// is set to 'custom'. Free-form so users can enter any valid
 			// CSS value (cubic-bezier, steps, linear() with stops, etc.).
 			animationCustomTimingFunction: {
 				type: 'string',
-				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+				default: SCHEMA_DEFAULTS.animationCustomTimingFunction,
 			},
 			animationBlurAmount: {
 				type: 'number',
-				default: 8,
+				default: SCHEMA_DEFAULTS.animationBlurAmount,
 			},
 			animationRotateAngle: {
 				type: 'number',
-				default: 90,
+				default: SCHEMA_DEFAULTS.animationRotateAngle,
 			},
 			animationRangeStart: {
 				type: 'string',
-				default: 'entry 0%',
+				default: SCHEMA_DEFAULTS.animationRangeStart,
 			},
 			animationRangeEnd: {
 				type: 'string',
-				default: 'exit 100%',
+				default: SCHEMA_DEFAULTS.animationRangeEnd,
 			},
 			// Scroll Interactive preview eye toggle. Default OFF so a
 			// freshly selected block doesn't auto-run a preview (and,
@@ -526,7 +523,7 @@ function addAnimationAttributes( settings ) {
 			// so the surrounding markup acts as a clipping frame.
 			animationFromToTarget: {
 				type: 'string',
-				default: 'block',
+				default: SCHEMA_DEFAULTS.animationFromToTarget,
 			},
 			// Stagger cascade — only meaningful on STAGGER_PARENT_BLOCKS.
 			// When `animationStaggerEnabled` is true, the parent block
@@ -535,7 +532,7 @@ function addAnimationAttributes( settings ) {
 			// :nth-child).
 			animationStaggerEnabled: {
 				type: 'boolean',
-				default: false,
+				default: SCHEMA_DEFAULTS.animationStaggerEnabled,
 			},
 			animationStaggerStep: {
 				type: 'number',
@@ -544,7 +541,7 @@ function addAnimationAttributes( settings ) {
 				// `staggerStepSeconds()` heuristic in constants.js, which
 				// folds anything > 5 down by /1000. New saves should
 				// always be in seconds.
-				default: 0.1,
+				default: SCHEMA_DEFAULTS.animationStaggerStep,
 			},
 			// --- Slot model: per-slot attribute pairs (Scroll Appear) ---
 			// Each Scroll Appear block stores its Entry and Exit slot
@@ -552,40 +549,38 @@ function addAnimationAttributes( settings ) {
 			// empty, no animation for that phase." See constants.js →
 			// migrateScrollAppearAttrs for how legacy blocks map onto
 			// these.
-			animationEntryType: { type: 'string', default: '' },
-			animationEntryDirection: { type: 'string', default: '' },
-			animationEntryDuration: { type: 'number', default: 0.6 },
-			// Schema defaults stay at original values for validation
-			// back-compat — see the animationDelay note above. New-block
-			// preferences (0 delay, 'once' replay) live in
-			// DEFAULT_ATTRIBUTES and are written explicitly at creation.
-			animationEntryDelay: { type: 'number', default: 0.4 },
-			animationEntryAcceleration: { type: 'string', default: 'ease' },
+			animationEntryType: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryType },
+			animationEntryDirection: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryDirection },
+			animationEntryDuration: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryDuration },
+			// Stays at 0.4 for the same reason as animationDelay above;
+			// new blocks get DEFAULT_ATTRIBUTES' 0, written explicitly.
+			animationEntryDelay: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryDelay },
+			animationEntryAcceleration: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryAcceleration },
 			animationEntryCustomTimingFunction: {
 				type: 'string',
-				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+				default: SCHEMA_DEFAULTS.animationEntryCustomTimingFunction,
 			},
-			animationEntryBlurAmount: { type: 'number', default: 8 },
-			animationEntryRotateAngle: { type: 'number', default: 90 },
-			animationExitType: { type: 'string', default: '' },
-			animationExitDirection: { type: 'string', default: '' },
-			animationExitDuration: { type: 'number', default: 0.6 },
-			animationExitDelay: { type: 'number', default: 0 },
-			animationExitAcceleration: { type: 'string', default: 'ease' },
+			animationEntryBlurAmount: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryBlurAmount },
+			animationEntryRotateAngle: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryRotateAngle },
+			animationExitType: { type: 'string', default: SCHEMA_DEFAULTS.animationExitType },
+			animationExitDirection: { type: 'string', default: SCHEMA_DEFAULTS.animationExitDirection },
+			animationExitDuration: { type: 'number', default: SCHEMA_DEFAULTS.animationExitDuration },
+			animationExitDelay: { type: 'number', default: SCHEMA_DEFAULTS.animationExitDelay },
+			animationExitAcceleration: { type: 'string', default: SCHEMA_DEFAULTS.animationExitAcceleration },
 			animationExitCustomTimingFunction: {
 				type: 'string',
-				default: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+				default: SCHEMA_DEFAULTS.animationExitCustomTimingFunction,
 			},
-			animationExitBlurAmount: { type: 'number', default: 8 },
-			animationExitRotateAngle: { type: 'number', default: 90 },
+			animationExitBlurAmount: { type: 'number', default: SCHEMA_DEFAULTS.animationExitBlurAmount },
+			animationExitRotateAngle: { type: 'number', default: SCHEMA_DEFAULTS.animationExitRotateAngle },
 			// Per-slot Replay options ('once' | 'repeat' | 'reverse').
-			// See REPLAY_OPTIONS in constants.js. Defaults preserve
-			// today's runtime behavior. `animationPlayOnce` (above)
-			// stays in the schema for legacy block deserialization
-			// but is no longer written by the UI; the migration helper
-			// derives the new Replay attrs from it.
-			animationEntryReplay: { type: 'string', default: 'once' },
-			animationExitReplay: { type: 'string', default: 'reverse' },
+			// See REPLAY_OPTIONS in constants.js. `animationPlayOnce`
+			// (above) stays in the schema so legacy blocks deserialize
+			// cleanly, but nothing reads it for Replay any more: an
+			// omitted Replay means Entry 'once' / Exit 'reverse' in the
+			// editor and on the front end alike.
+			animationEntryReplay: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryReplay },
+			animationExitReplay: { type: 'string', default: SCHEMA_DEFAULTS.animationExitReplay },
 			// Per-slot Custom From/To values.
 			animationEntryFromOpacity: { type: [ 'number', 'null' ], default: null },
 			animationEntryFromTranslateX: { type: [ 'string', 'null' ], default: null },

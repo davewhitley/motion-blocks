@@ -229,4 +229,37 @@ return array(
 			'data-mb-range-end'   => 'exit 100%',
 		),
 	),
+	// Server-rendered (dynamic) blocks. In the editor these preview
+	// through the block-renderer endpoint, which used to reject the
+	// animation attributes ("Error loading block", GH #24).
+	array(
+		'label'    => 'Archives (server-rendered), Scroll Appear Entry = Slide',
+		'panel'    => 'Block loads in the editor · Entry: Slide In (bottom to top) · Replay: Once',
+		'behavior' => 'The archive list slides up once.',
+		'block'    => 'core/archives',
+		'attrs'    => array(
+			'animationMode'           => 'scroll-appear',
+			'animationEntryType'      => 'slide',
+			'animationEntryDirection' => 'btt',
+			'animationEntryDelay'     => 0,
+		),
+		'expect'   => array(
+			'data-mb-entry-type'   => 'slide',
+			'data-mb-entry-replay' => 'once',
+		),
+	),
+	array(
+		'label'    => 'Calendar (server-rendered), Page Load Fade',
+		'panel'    => 'Block loads in the editor · Page Load: Fade In · Delay 0s',
+		'behavior' => 'The calendar fades in on page load.',
+		'block'    => 'core/calendar',
+		'attrs'    => array(
+			'animationMode'  => 'page-load',
+			'animationDelay' => 0,
+		),
+		'expect'   => array(
+			'data-mb-type'  => 'fade',
+			'data-mb-delay' => '0',
+		),
+	),
 );

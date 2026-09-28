@@ -644,32 +644,27 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		//      `isSelected: false` on every block — so the prop
 		//      alone never lets the panel render. We render for
 		//      the first multi-selected block instead.
-		const { selectedClientIds, isMultiSelecting, shouldRenderPanel } =
+		//
+		// This runs for EVERY block on every store change, so the result
+		// must stay shallow-equal when nothing relevant changed: return
+		// only primitives plus the store's own memoized id array. Building
+		// a fresh array here re-rendered every block on every keystroke
+		// (GH #27).
+		const { multiSelectedClientIds, isMultiSelecting, shouldRenderPanel } =
 			useSelect(
 				( select ) => {
 					const sel = select( blockEditorStore );
-					const single = sel.getSelectedBlockClientId();
-					const multi = sel.getMultiSelectedBlockClientIds
-						? sel.getMultiSelectedBlockClientIds()
-						: [];
-					const ids =
-						multi.length > 0
-							? multi
-							: single
-							? [ single ]
-							: [];
+					const multi = sel.getMultiSelectedBlockClientIds();
 					const isMulti = multi.length > 1;
 					// Render only one copy of the panel: for single
-					// selection use the standard isSelected prop;
-					// for multi, render on the first selected block.
-					const renderHere = isMulti
-						? multi[ 0 ] === clientId
-						: single === clientId;
+					// selection use the selected block; for multi,
+					// render on the first selected block.
 					return {
-						selectedClientIds:
-							ids.length > 0 ? ids : [ clientId ],
+						multiSelectedClientIds: multi,
 						isMultiSelecting: isMulti,
-						shouldRenderPanel: renderHere,
+						shouldRenderPanel: isMulti
+							? multi[ 0 ] === clientId
+							: sel.getSelectedBlockClientId() === clientId,
 					};
 				},
 				[ clientId ]
@@ -683,14 +678,14 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		const fanSetAttributes = useCallback(
 			( newAttrs ) => {
 				if ( isMultiSelecting ) {
-					updateBlockAttributes( selectedClientIds, newAttrs );
+					updateBlockAttributes( multiSelectedClientIds, newAttrs );
 				} else {
 					setAttributes( newAttrs );
 				}
 			},
 			[
 				isMultiSelecting,
-				selectedClientIds,
+				multiSelectedClientIds,
 				setAttributes,
 				updateBlockAttributes,
 			]
@@ -762,7 +757,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 							clientId={ clientId }
 							multiSelectCount={
 								isMultiSelecting
-									? selectedClientIds.length
+									? multiSelectedClientIds.length
 									: 0
 							}
 						/>

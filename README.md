@@ -133,7 +133,7 @@ npm run start    # watch mode
 
 Build output goes to `build/`. Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
 
-`tests/schema-defaults/check.php` checks that the front end renders saved blocks the way the editor panel shows them. Run it with WP-CLI from a site that has the plugin active (add `page` to generate a visual test page, or `audit` to list the output of every animated block on the site):
+`tests/schema-defaults/check.php` checks that the front end renders saved blocks the way the editor panel shows them, and that server-rendered block previews (Archives, Calendar, and so on) load in the editor. Run it with WP-CLI from a site that has the plugin active (add `page` to generate a visual test page, or `audit` to list the output of every animated block on the site):
 
 ```bash
 wp eval-file path/to/motion-blocks/tests/schema-defaults/check.php

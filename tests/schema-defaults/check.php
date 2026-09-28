@@ -15,7 +15,9 @@
  *   studio wp eval-file ../animation-controls-plugin/tests/schema-defaults/check.php
  *
  * Modes (optional positional arg):
- *   (none)  Run the fixtures. Prints PASS/FAIL per case, exits 1 on failure.
+ *   (none)  Run the fixtures, then check that server-rendered block
+ *           previews (block-renderer endpoint) accept the editor's
+ *           attributes. Prints PASS/FAIL per case, exits 1 on failure.
  *   audit   Print one line per animated block on the site with the
  *           attributes the render filter emits for it. Capture before
  *           and after a change and `diff` the two files.
@@ -66,6 +68,19 @@ function mb_test_fixture_markup( $n, $case ) {
 				'innerBlocks'  => $children,
 				'innerHTML'    => '',
 				'innerContent' => $content,
+			)
+		);
+	}
+
+	if ( 'core/paragraph' !== $name ) {
+		// Server-rendered block: saved as a self-closing comment.
+		return serialize_block(
+			array(
+				'blockName'    => $name,
+				'attrs'        => $attrs,
+				'innerBlocks'  => array(),
+				'innerHTML'    => '',
+				'innerContent' => array(),
 			)
 		);
 	}
@@ -286,6 +301,74 @@ foreach ( $mb_cases as $i => $case ) {
 }
 $total = count( $mb_cases );
 echo "\n" . ( $total - $failed ) . " / {$total} cases match the editor\n";
-if ( $failed ) {
+
+// --- Server-rendered previews (GH #24) ---
+// ServerSideRender sends every block attribute, including the ones this
+// plugin adds on the client, to the block-renderer endpoint. It must
+// accept them, and the preview must not carry animation markup (the
+// editor animates the block wrapper instead).
+echo "\nServer-rendered previews in the editor\n";
+wp_set_current_user( 1 ); // The endpoint requires edit_posts.
+$editor_attrs = array_merge(
+	motion_blocks_schema_defaults(),
+	array(
+		'animationMode'              => 'scroll-appear',
+		'animationEntryType'         => 'fade',
+		'animationFromOpacity'       => null,
+		'animationPreviewPlaying'    => false,
+		'animationFromToPreviewSide' => 'off',
+	)
+);
+// Control: a third-party block that registers its own animation*
+// attribute server-side. That one must reach its render callback.
+register_block_type(
+	'mb-test/own-animation',
+	array(
+		'attributes'      => array( 'animationSpeed' => array( 'type' => 'number' ) ),
+		'render_callback' => function ( $attrs ) {
+			return '<div>speed:' . ( $attrs['animationSpeed'] ?? 'none' ) . '</div>';
+		},
+	)
+);
+$previews = array(
+	array( 'core/archives', array(), null ),
+	array( 'core/calendar', array(), null ),
+	array( 'core/latest-comments', array(), null ),
+	array( 'core/tag-cloud', array(), null ),
+	array( 'mb-test/own-animation', array( 'animationSpeed' => 3 ), 'speed:3' ),
+);
+$preview_failed = 0;
+foreach ( $previews as $i => list( $name, $own, $must_contain ) ) {
+	$request = new WP_REST_Request( 'GET', "/wp/v2/block-renderer/{$name}" );
+	$request->set_query_params(
+		array(
+			'context'    => 'edit',
+			'attributes' => array_merge( $editor_attrs, $own ),
+		)
+	);
+	$response = rest_do_request( $request );
+	$data     = $response->get_data();
+	$html     = is_array( $data ) ? (string) ( $data['rendered'] ?? '' ) : '';
+	$errors   = array();
+	if ( 200 !== $response->get_status() ) {
+		$errors[] = 'HTTP ' . $response->get_status() . ': ' . ( $data['code'] ?? '' ) . ' ' . ( $data['message'] ?? '' );
+	} elseif ( false !== strpos( $html, 'data-mb-' ) ) {
+		$errors[] = 'preview contains animation markup';
+	} elseif ( $must_contain && false === strpos( $html, $must_contain ) ) {
+		$errors[] = "the block's own attribute was dropped (want \"{$must_contain}\" in the preview)";
+	}
+	echo ( $errors ? 'FAIL' : 'PASS' ) . '  P' . ( $i + 1 ) . ". {$name} preview loads with the editor's attributes\n";
+	foreach ( $errors as $error ) {
+		echo "        {$error}\n";
+	}
+	if ( $errors ) {
+		$preview_failed++;
+	}
+}
+unregister_block_type( 'mb-test/own-animation' );
+$preview_total = count( $previews );
+echo "\n" . ( $preview_total - $preview_failed ) . " / {$preview_total} previews load\n";
+
+if ( $failed || $preview_failed ) {
 	exit( 1 );
 }

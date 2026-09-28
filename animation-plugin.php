@@ -814,6 +814,64 @@ function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type,
 add_filter( 'render_block', 'motion_blocks_render_block', 10, 2 );
 
 /**
+ * Let server-rendered block previews load in the editor.
+ *
+ * Blocks like Archives, Calendar or Latest Comments preview through
+ * ServerSideRender, which sends every block attribute to the
+ * block-renderer endpoint, including the `animation*` attributes this
+ * plugin adds on the client. The endpoint validates them against the
+ * block's server-side registration, which doesn't have them, and rejects
+ * the request, so the block shows "Error loading block" (GH #24).
+ *
+ * Drop our attributes from those requests before WordPress validates
+ * them. The preview doesn't need them: the editor animates the block's
+ * wrapper, not the server-rendered markup inside it. Registering the
+ * attributes server-side would also work, but WordPress inlines every
+ * block type's server-side attributes into each editor page load, and
+ * ours would add ~6 KB per registered block type.
+ *
+ * Runs on `rest_pre_dispatch` because the endpoint validates params
+ * right after it. Attributes the block type registers itself (e.g. a
+ * third-party block's own `animationSpeed`) are kept.
+ *
+ * @param mixed           $result  Response to short-circuit with, or null.
+ * @param WP_REST_Server  $server  REST server.
+ * @param WP_REST_Request $request Current request.
+ * @return mixed Unchanged `$result`.
+ */
+function motion_blocks_strip_block_renderer_attrs( $result, $server, $request ) {
+    $prefix = '/wp/v2/block-renderer/';
+    $route  = $request->get_route();
+    if ( 0 !== strpos( $route, $prefix ) ) {
+        return $result;
+    }
+    $attributes = $request->get_param( 'attributes' );
+    if ( ! is_array( $attributes ) ) {
+        return $result;
+    }
+
+    // URL params aren't parsed yet at this point, so read the block
+    // name from the route.
+    $block_type = WP_Block_Type_Registry::get_instance()->get_registered(
+        substr( $route, strlen( $prefix ) )
+    );
+    $own_attrs = $block_type ? $block_type->get_attributes() : array();
+
+    $kept = array();
+    foreach ( $attributes as $key => $value ) {
+        if ( preg_match( '/^animation[A-Z]/', $key ) && ! isset( $own_attrs[ $key ] ) ) {
+            continue;
+        }
+        $kept[ $key ] = $value;
+    }
+    if ( count( $kept ) !== count( $attributes ) ) {
+        $request->set_param( 'attributes', $kept );
+    }
+    return $result;
+}
+add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10, 3 );
+
+/**
  * Register page-level settings as post meta.
  *
  * Three independent flags, one per device bucket. To "disable

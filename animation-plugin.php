@@ -58,26 +58,42 @@ function motion_blocks_shared_constants() {
 }
 
 /**
- * Look up the active default for a single animation attribute.
+ * Schema defaults for the animation attributes: the value each one has
+ * when it's missing from a block's saved comment.
+ *
+ * WordPress omits any attribute equal to its schema default on save and
+ * the editor refills it from the schema on load. The editor's schema
+ * (`addAnimationAttributes` in src/index.js) reads its defaults from the
+ * same "schemaDefaults" map in shared-constants.json, so merging this map
+ * under the saved attrs makes the render filter resolve omitted keys
+ * exactly as the editor does.
+ *
+ * @return array Attribute name => schema default.
+ */
+function motion_blocks_schema_defaults() {
+    static $defaults = null;
+    if ( $defaults === null ) {
+        $defaults = motion_blocks_shared_constants()['schemaDefaults'] ?? array();
+    }
+    return $defaults;
+}
+
+/**
+ * Look up the schema default for a single animation attribute.
  *
  * Backs the `$attrs[ $key ] ?? motion_blocks_attr_default( $key )`
- * pattern used throughout the render filter. The values live in
- * shared-constants.json under "attributeDefaults" so PHP and JS
- * agree without hand-mirroring.
+ * fallbacks in the render filter (which only matter for callers that
+ * skip the schema-defaults merge) and the "differs from the default"
+ * comparisons for blur / rotate.
  *
- * Returns null for keys absent from attributeDefaults — caller is
- * expected to know whether that's meaningful (e.g. legacy keys not
- * yet centralized, or attributes that genuinely have no default).
+ * Returns null for keys absent from schemaDefaults (e.g. Custom From/To
+ * values, whose schema default is null anyway).
  *
  * @param string $key Attribute name (e.g. 'animationType').
  * @return mixed The default value, or null if the key isn't listed.
  */
 function motion_blocks_attr_default( $key ) {
-    static $defaults = null;
-    if ( $defaults === null ) {
-        $defaults = motion_blocks_shared_constants()['attributeDefaults'] ?? array();
-    }
-    return $defaults[ $key ] ?? null;
+    return motion_blocks_schema_defaults()[ $key ] ?? null;
 }
 
 /**
@@ -251,6 +267,10 @@ add_action( 'wp_head', 'motion_blocks_print_js_marker', 0 );
  * Idempotent: if either `animationEntryType` or `animationExitType`
  * is already set, returns `$attrs` unchanged.
  *
+ * Expects `$attrs` merged with the schema defaults (as the render filter
+ * does), so it sees the same values as the editor-side shim. The
+ * fallbacks below only matter for callers passing raw saved attrs.
+ *
  * @param array $attrs Block attributes.
  * @return array Normalized attributes.
  */
@@ -263,40 +283,24 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
     $exit_set = isset( $attrs['animationExitType'] )
         && $attrs['animationExitType'] !== '';
     if ( $entry_set || $exit_set ) {
-        // Already slot-model. Derive per-slot Replay attrs if absent
-        // — same idempotent logic as the JS migration helper.
-        return motion_blocks_derive_replay_attrs(
-            $attrs,
-            $entry_set,
-            $exit_set,
-            $attrs
-        );
+        return $attrs;
     }
 
-    // Fallback literals below are intentionally LEGACY pre-slot-model
-    // defaults — they reproduce the behavior of blocks saved before the
-    // slot-model refactor, NOT the current active defaults. Do not
-    // switch these to motion_blocks_attr_default(): notably,
-    // animationDelay defaulted to 0.4 in the pre-slot schema (today's
-    // active default is 0), and the migration must preserve that
-    // perceived timing for legacy blocks rather than retroactively
-    // changing it. Current-defaults live in shared-constants.json.
-
     // Normalize the legacy trigger value: v1 'both' aliases to v2 'mirror'.
-    $raw_trigger = $attrs['animationScrollTrigger'] ?? 'enter';
+    $raw_trigger = $attrs['animationScrollTrigger'] ?? motion_blocks_attr_default( 'animationScrollTrigger' );
     $trigger = ( $raw_trigger === 'both' ) ? 'mirror' : $raw_trigger;
 
-    $raw_type = $attrs['animationType'] ?? '';
-    $base_type = preg_replace( '/-out$/', '', $raw_type );
+    $raw_type = $attrs['animationType'] ?? motion_blocks_attr_default( 'animationType' );
+    $base_type = preg_replace( '/-out$/', '', (string) $raw_type );
 
-    $direction    = $attrs['animationDirection'] ?? '';
-    $duration     = $attrs['animationDuration'] ?? 0.6;
-    $delay        = $attrs['animationDelay'] ?? 0.4;
-    $acceleration = $attrs['animationAcceleration'] ?? 'ease';
+    $direction    = $attrs['animationDirection'] ?? motion_blocks_attr_default( 'animationDirection' );
+    $duration     = $attrs['animationDuration'] ?? motion_blocks_attr_default( 'animationDuration' );
+    $delay        = $attrs['animationDelay'] ?? motion_blocks_attr_default( 'animationDelay' );
+    $acceleration = $attrs['animationAcceleration'] ?? motion_blocks_attr_default( 'animationAcceleration' );
     $custom_tf    = $attrs['animationCustomTimingFunction']
-        ?? 'cubic-bezier(0.25, 0.1, 0.25, 1)';
-    $blur         = $attrs['animationBlurAmount'] ?? 8;
-    $rotate       = $attrs['animationRotateAngle'] ?? 90;
+        ?? motion_blocks_attr_default( 'animationCustomTimingFunction' );
+    $blur         = $attrs['animationBlurAmount'] ?? motion_blocks_attr_default( 'animationBlurAmount' );
+    $rotate       = $attrs['animationRotateAngle'] ?? motion_blocks_attr_default( 'animationRotateAngle' );
 
     $custom_props = array(
         'Opacity',
@@ -343,7 +347,6 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         return $out;
     };
 
-    $legacy_attrs = $attrs;
     if ( $trigger === 'enter' ) {
         $attrs = array_merge( $attrs, $fill( 'animationEntry', false ) );
     } elseif ( $trigger === 'exit' ) {
@@ -352,39 +355,6 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         // mirror — fill both slots
         $attrs = array_merge( $attrs, $fill( 'animationEntry', false ) );
         $attrs = array_merge( $attrs, $fill( 'animationExit', true ) );
-    }
-    $final_entry_set = isset( $attrs['animationEntryType'] )
-        && $attrs['animationEntryType'] !== '';
-    $final_exit_set = isset( $attrs['animationExitType'] )
-        && $attrs['animationExitType'] !== '';
-    return motion_blocks_derive_replay_attrs(
-        $attrs,
-        $final_entry_set,
-        $final_exit_set,
-        $legacy_attrs
-    );
-}
-
-/**
- * Derive per-slot Replay attrs from the pre-Replay schema.
- * Mirror of `deriveReplayAttrs` in src/components/constants.js —
- * same precedence and defaults so JS-emitted and PHP-emitted markup
- * agree.
- *
- * Idempotent: only writes attrs that aren't already set on the input.
- */
-function motion_blocks_derive_replay_attrs( $attrs, $entry_set, $exit_set, $legacy_attrs ) {
-    if ( ! isset( $attrs['animationEntryReplay'] ) ) {
-        if ( $entry_set && ! $exit_set ) {
-            $attrs['animationEntryReplay'] = ! empty( $legacy_attrs['animationPlayOnce'] )
-                ? 'once'
-                : 'repeat';
-        } elseif ( $entry_set && $exit_set ) {
-            $attrs['animationEntryReplay'] = 'repeat';
-        }
-    }
-    if ( ! isset( $attrs['animationExitReplay'] ) && $exit_set ) {
-        $attrs['animationExitReplay'] = 'reverse';
     }
     return $attrs;
 }
@@ -411,13 +381,9 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
  * attributes. Runs on every block; bails early when no animation is
  * configured.
  *
- * Fallback values for `?? motion_blocks_attr_default(…)` come from
- * the ACTIVE default layer in shared-constants.json — see the
- * `_README_attributeDefaults` block at the top of that file for the
- * dual-default model. The legacy migration function above
- * (motion_blocks_migrate_scroll_appear_attrs) is the exception: its
- * literal fallbacks are intentional pre-slot-model values and do NOT
- * route through the central source.
+ * The saved attrs are merged over the schema defaults first, so every
+ * omitted key resolves exactly as it does in the editor — see
+ * `_README_schemaDefaults` in shared-constants.json.
  */
 function motion_blocks_render_block( $block_content, $block ) {
     $attrs      = $block['attrs'] ?? array();
@@ -427,6 +393,12 @@ function motion_blocks_render_block( $block_content, $block ) {
     if ( ! $mode || empty( $block_content ) ) {
         return $block_content;
     }
+
+    // WordPress drops attrs equal to their schema default from the saved
+    // block comment, and the editor refills them from the schema on load.
+    // Do the same here so the front end sees what the editor panel shows
+    // (e.g. an omitted Replay is 'once', an omitted delay is 0.4s).
+    $attrs = array_merge( motion_blocks_schema_defaults(), $attrs );
 
     // Scroll Appear uses the slot model (animationEntry* / animationExit*).
     // Migrate legacy `animationScrollTrigger` + `animationType` on read so
@@ -539,8 +511,6 @@ function motion_blocks_render_block( $block_content, $block ) {
 
         // Per-slot Replay attrs. Only emit when the corresponding slot
         // is filled — empty slots have no replay behavior to control.
-        // Defaults mirror `DEFAULT_ATTRIBUTES` in constants.js so the
-        // JS save filter and PHP render filter agree.
         if ( $entry_type !== '' ) {
             $entry_replay = $attrs['animationEntryReplay']
                 ?? motion_blocks_attr_default( 'animationEntryReplay' );

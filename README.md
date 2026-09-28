@@ -110,7 +110,7 @@ The plugin extends existing blocks via three filters. It doesn't register any ne
 
 | Concern | Where |
 |---|---|
-| Block attribute schema | `src/index.js` → `addAnimationAttributes` |
+| Block attribute schema | `src/index.js` → `addAnimationAttributes`. Defaults come from `schemaDefaults` in `shared-constants.json`, which the PHP render filter also applies, so omitted attributes resolve the same in the editor and on the front end. |
 | Editor UI / preview HOC | `src/index.js` → `withAnimationPreview`, components in `src/components/` |
 | Class + data-attribute emission | `animation-plugin.php` → `motion_blocks_render_block`. Render-time only; `save()` no longer emits. Editor preview gets the same classes via the HOC above. |
 | Frontend runtime | `src/frontend.js` → mode-specific init (`initPageLoadAnimations`, `initScrollAppearAnimations`, `initScrollInteractiveAnimations`) |
@@ -132,6 +132,12 @@ npm run start    # watch mode
 ```
 
 Build output goes to `build/`. Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
+
+`tests/schema-defaults/check.php` checks that the front end renders saved blocks the way the editor panel shows them. Run it with WP-CLI from a site that has the plugin active (add `page` to generate a visual test page, or `audit` to list the output of every animated block on the site):
+
+```bash
+wp eval-file path/to/motion-blocks/tests/schema-defaults/check.php
+```
 
 ## License
 

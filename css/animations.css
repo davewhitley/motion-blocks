@@ -162,13 +162,27 @@ html:has(body.mb-clip-page-overflow) {
 /* ----------------------------------------------------------------
  * Mode: Interactive Scroll (CSS Scroll-Driven Animations)
  *
- * animation-timeline, animation-range-start, animation-range-end
- * are set per-element by frontend.js.
+ * The view() timeline and the default range are declared here, so
+ * the block scroll-drives from first paint and without JS.
+ * frontend.js re-applies them inline with the block's own range and
+ * emits `--mb-range-start` / `--mb-range-end`, which this rule (and
+ * the img-target rule further down) reads.
+ *
+ * Gated on `@supports`: without a view timeline the 1ms animation
+ * would run once on the document timeline and hold its END frame.
+ * Browsers without scroll-driven animations get the "Scroll
+ * Interactive fallback" further down instead (block shown at rest,
+ * GH #42).
  * -------------------------------------------------------------- */
-.mb-mode-scroll-interactive {
-    animation-duration: 1ms;
-    animation-timing-function: var(--mb-timing);
-    animation-fill-mode: both;
+@supports (animation-timeline: view()) {
+    .mb-mode-scroll-interactive {
+        animation-timeline: view();
+        animation-range-start: var(--mb-range-start, entry 0%);
+        animation-range-end: var(--mb-range-end, exit 100%);
+        animation-duration: 1ms;
+        animation-timing-function: var(--mb-timing);
+        animation-fill-mode: both;
+    }
 }
 
 /* ----------------------------------------------------------------
@@ -570,14 +584,17 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 /* Apply scroll-driven props on the inner img for Scroll Interactive.
-   Wrapper holds the range vars; img reads them via inheritance. */
-[data-mb-target="img"].mb-mode-scroll-interactive img:first-of-type {
-    animation-timeline: view();
-    animation-range-start: var(--mb-range-start, entry 0%);
-    animation-range-end: var(--mb-range-end, exit 100%);
-    animation-duration: 1ms;
-    animation-fill-mode: both;
-    animation-timing-function: var(--mb-timing, linear);
+   Wrapper holds the range vars; img reads them via inheritance.
+   Gated like the wrapper base above (GH #42). */
+@supports (animation-timeline: view()) {
+    [data-mb-target="img"].mb-mode-scroll-interactive img:first-of-type {
+        animation-timeline: view();
+        animation-range-start: var(--mb-range-start, entry 0%);
+        animation-range-end: var(--mb-range-end, exit 100%);
+        animation-duration: 1ms;
+        animation-fill-mode: both;
+        animation-timing-function: var(--mb-timing, linear);
+    }
 }
 
 /* Per-type animation-name on the img descendant. Mirrors the
@@ -681,6 +698,30 @@ html:has(body.mb-clip-page-overflow) {
     animation-name: mbFlipOut;
     backface-visibility: hidden;
     transform-style: preserve-3d;
+}
+
+/* ----------------------------------------------------------------
+ * Scroll Interactive fallback (no scroll-driven animations, GH #42)
+ *
+ * The per-type `animation-name` bindings above apply to Scroll
+ * Interactive blocks whether or not the browser supports view().
+ * Without a view timeline the 1ms animation would run once on the
+ * document timeline and hold its END frame through fill-mode, so Out
+ * presets (and Custom effects ending at opacity 0) would stay
+ * invisible. Instead the block is shown at rest, without the effect.
+ *
+ * `!important` to beat the inline `animation-name` frontend.js sets
+ * for Custom, and the runtime-injected `[data-mb-uid] img:first-of-type`
+ * rules (Custom / Image Move / Image Zoom on the Cover image) — same
+ * pattern as the Reduced Motion and per-device blocks below. Kept to
+ * Scroll Interactive wrappers and their own img target, so nested
+ * animated images in other modes are untouched.
+ * -------------------------------------------------------------- */
+@supports not (animation-timeline: view()) {
+    .mb-mode-scroll-interactive,
+    [data-mb-target="img"].mb-mode-scroll-interactive img:first-of-type {
+        animation-name: none !important;
+    }
 }
 
 /* ----------------------------------------------------------------

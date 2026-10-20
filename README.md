@@ -121,7 +121,7 @@ The plugin extends existing blocks via three filters. It doesn't register any ne
 
 - WordPress 6.4+
 - PHP 7.4+
-- Browser: any with CSS animation support. `animation-timeline: view()` (Scroll Interactive mode) gracefully degrades to a one-shot animation in browsers that don't support scroll-driven animations.
+- Browser: any with CSS animation support. Scroll Interactive mode needs scroll-driven animations (`animation-timeline: view()`); in browsers without them (e.g. Firefox, Safari before 26), Scroll Interactive blocks are shown at rest, without the effect.
 
 ## Development
 

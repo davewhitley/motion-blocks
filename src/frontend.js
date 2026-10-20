@@ -397,12 +397,21 @@ import SHARED from '../shared-constants.json';
 			];
 		}
 
+		var imgRule = imgSelector + ' { ' + animProps.join( '; ' ) + '; }';
+		if ( mode === 'scroll-interactive' ) {
+			// Same gate as the static Scroll Interactive rules in
+			// animations.css: without a view timeline the 1ms animation
+			// would hold its END frame on the document timeline (GH #42).
+			imgRule =
+				'@supports (animation-timeline: view()) { ' + imgRule + ' }';
+		}
+
 		return [
 			parentSelector + ' { overflow: clip; }',
 			'@supports not (overflow: clip) { ' +
 				parentSelector +
 				' { overflow: hidden; } }',
-			imgSelector + ' { ' + animProps.join( '; ' ) + '; }',
+			imgRule,
 		].join( '\n' );
 	}
 

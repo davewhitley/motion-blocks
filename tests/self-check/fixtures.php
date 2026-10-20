@@ -627,7 +627,22 @@ function mb_self_check_smoke( $image ) {
 					),
 					$colors['stagger']
 				);
-				$count += 2;
+				// Exit Replay left at its default ('reverse') on purpose:
+				// scrolling back up must reverse-play the children's Exit
+				// keyframe, not replay it forward and leave them hidden (#51).
+				$inner .= mb_self_check_group(
+					mb_self_check_paragraph( 'Stagger · Group · Scroll Appear · Entry: fade (Replay: Repeat) · Exit: fade (Replay: Reverse)' ) . $children( 3, 'Child' ),
+					array(
+						'animationMode'           => 'scroll-appear',
+						'animationEntryType'      => 'fade',
+						'animationEntryDelay'     => 0,
+						'animationEntryReplay'    => 'repeat',
+						'animationExitType'       => 'fade',
+						'animationStaggerEnabled' => true,
+					),
+					$colors['stagger']
+				);
+				$count += 3;
 				break;
 			case 'core/columns':
 				$columns = '';

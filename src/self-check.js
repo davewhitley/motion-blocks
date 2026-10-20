@@ -167,9 +167,16 @@
 			if ( isScrollInteractive && supportsViewTimeline ) {
 				return;
 			}
+			// A reverse-played Exit (Exit Replay = 'reverse', scrolling
+			// back up) ends at the visible "from" state, so a block in
+			// that state that is still hidden is stuck (GH #51).
+			var reversedExit =
+				el.classList.contains( 'mb-exit-triggered' ) &&
+				el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
 			if (
 				el.classList.contains( 'mb-triggered' ) ||
-				el.classList.contains( 'mb-exit-triggered' )
+				( el.classList.contains( 'mb-exit-triggered' ) &&
+					! reversedExit )
 			) {
 				return;
 			}
@@ -210,6 +217,15 @@
 							blockLabel( el ) +
 								' is invisible: this browser can’t run scroll-linked animations, so it froze on its final frame.',
 							42
+					  )
+					: reversedExit
+					? issue(
+							'invisible-on-screen',
+							'error',
+							el,
+							blockLabel( el ) +
+								' is back on screen but still hidden — its Exit played in reverse but left it at the hidden end state.',
+							51
 					  )
 					: issue(
 							'invisible-on-screen',

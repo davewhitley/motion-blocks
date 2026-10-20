@@ -529,6 +529,10 @@ function mb_self_check_smoke( $image ) {
 		array( 'Exit Replay: once', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'once' ) ),
 		array( 'Exit Replay: repeat', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'repeat' ) ),
 		array( 'Exit only (no Entry)', array( 'animationEntryType' => '', 'animationExitType' => 'fade' ) ),
+		// GH #45: an Exit slot at its defaults must not inherit the
+		// Entry slot's blur / rotate / timing values.
+		array( 'Entry: blur 20 + linear · Exit: blur at defaults (GH #45)', array( 'animationEntryType' => 'blur', 'animationEntryBlurAmount' => 20, 'animationEntryAcceleration' => 'linear', 'animationEntryReplay' => 'repeat', 'animationExitType' => 'blur' ) ),
+		array( 'Entry: rotate 180 · Exit: rotate at defaults (GH #45)', array( 'animationEntryType' => 'rotate', 'animationEntryRotateAngle' => 180, 'animationEntryReplay' => 'repeat', 'animationExitType' => 'rotate' ) ),
 	);
 	foreach ( $replays as list( $text, $extra ) ) {
 		$attrs = array_merge(

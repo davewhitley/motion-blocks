@@ -7,6 +7,8 @@
  *   3. Interactive scroll — CSS scroll-driven animations (view-timeline).
  */
 
+import SHARED from '../shared-constants.json';
+
 ( function () {
 	'use strict';
 
@@ -16,6 +18,28 @@
 	var TRIGGER_ZONE_TOP_PCT = 0.15;
 	var TRIGGER_ZONE_BOTTOM_PCT = 0.85;
 	var TRIGGER_OVERLAP_RATIO = 0.1;
+
+	// What an omitted per-slot Scroll Appear attr resolves to: the same
+	// schemaDefaults the editor schema and the PHP merge use (GH #45).
+	// PHP leaves default-valued per-slot attrs (ease, 8px blur, 90deg
+	// rotate) out of the markup, so the runtime fills them in itself.
+	// Static property access keeps the JSON import tree-shaken.
+	var SLOT_DEFAULTS = {
+		entry: {
+			duration: SHARED.schemaDefaults.animationEntryDuration,
+			delay: SHARED.schemaDefaults.animationEntryDelay,
+			acceleration: SHARED.schemaDefaults.animationEntryAcceleration,
+			blurAmount: SHARED.schemaDefaults.animationEntryBlurAmount,
+			rotateAngle: SHARED.schemaDefaults.animationEntryRotateAngle,
+		},
+		exit: {
+			duration: SHARED.schemaDefaults.animationExitDuration,
+			delay: SHARED.schemaDefaults.animationExitDelay,
+			acceleration: SHARED.schemaDefaults.animationExitAcceleration,
+			blurAmount: SHARED.schemaDefaults.animationExitBlurAmount,
+			rotateAngle: SHARED.schemaDefaults.animationExitRotateAngle,
+		},
+	};
 
 	/**
 	 * How much of an element (page-relative layout bounds) overlaps the
@@ -1273,18 +1297,28 @@
 	/**
 	 * Read a slot's config from the element's data attributes. Returns
 	 * an object even when the slot is empty (type === '').
+	 *
+	 * Omitted timing / blur / rotate values resolve to that slot's own
+	 * schema defaults (SLOT_DEFAULTS): PHP leaves default-valued attrs
+	 * out of the markup, and the editor preview resolves them the same
+	 * way. Present dataset values are non-empty strings (even "0"), so
+	 * `||` only falls back when the attr is absent.
 	 */
 	function readSlotConfig( el, slot ) {
 		var prefix = slot === 'entry' ? 'mbEntry' : 'mbExit';
+		var defaults = SLOT_DEFAULTS[ slot ];
 		return {
 			slot: slot,
 			type: el.dataset[ prefix + 'Type' ] || '',
 			direction: el.dataset[ prefix + 'Direction' ] || '',
-			duration: el.dataset[ prefix + 'Duration' ],
-			delay: el.dataset[ prefix + 'Delay' ],
-			acceleration: el.dataset[ prefix + 'Acceleration' ],
-			blurAmount: el.dataset[ prefix + 'BlurAmount' ],
-			rotateAngle: el.dataset[ prefix + 'RotateAngle' ],
+			duration: el.dataset[ prefix + 'Duration' ] || defaults.duration,
+			delay: el.dataset[ prefix + 'Delay' ] || defaults.delay,
+			acceleration:
+				el.dataset[ prefix + 'Acceleration' ] || defaults.acceleration,
+			blurAmount:
+				el.dataset[ prefix + 'BlurAmount' ] || defaults.blurAmount,
+			rotateAngle:
+				el.dataset[ prefix + 'RotateAngle' ] || defaults.rotateAngle,
 		};
 	}
 
@@ -1294,32 +1328,23 @@
 	 * `--mb-timing` / `--mb-blur-amount` / `--mb-rotate-angle` so the
 	 * existing CSS animation rules (which read these names) consume
 	 * the right values for the current phase.
+	 *
+	 * Every variable is written on every call, so a slot never inherits
+	 * the values the other slot left on the element (GH #45). No
+	 * truthiness guards: a resolved default delay can be the number 0.
 	 */
 	function applySlotVars( el, slotConfig ) {
-		if ( slotConfig.duration ) {
-			el.style.setProperty(
-				'--mb-duration',
-				slotConfig.duration + 's'
-			);
-		}
-		if ( slotConfig.delay ) {
-			el.style.setProperty( '--mb-delay', slotConfig.delay + 's' );
-		}
-		if ( slotConfig.acceleration ) {
-			el.style.setProperty( '--mb-timing', slotConfig.acceleration );
-		}
-		if ( slotConfig.blurAmount ) {
-			el.style.setProperty(
-				'--mb-blur-amount',
-				slotConfig.blurAmount + 'px'
-			);
-		}
-		if ( slotConfig.rotateAngle ) {
-			el.style.setProperty(
-				'--mb-rotate-angle',
-				slotConfig.rotateAngle + 'deg'
-			);
-		}
+		el.style.setProperty( '--mb-duration', slotConfig.duration + 's' );
+		el.style.setProperty( '--mb-delay', slotConfig.delay + 's' );
+		el.style.setProperty( '--mb-timing', slotConfig.acceleration );
+		el.style.setProperty(
+			'--mb-blur-amount',
+			slotConfig.blurAmount + 'px'
+		);
+		el.style.setProperty(
+			'--mb-rotate-angle',
+			slotConfig.rotateAngle + 'deg'
+		);
 		applyDirectionProps( el, slotConfig.type, slotConfig.direction );
 	}
 

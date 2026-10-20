@@ -360,17 +360,16 @@ function mb_self_check_fixtures( $image ) {
 
 	if ( $image ) {
 		$fixtures['motion-off'] = array(
-			'title'                 => 'Motion off',
-			'note'                  => 'Animations are turned off for this page on every device, so nothing should move. The Cover image still zooms and the staggered list (purple) still fades in item by item. Turn on reduced motion and they should stop too; they don\'t.',
-			'content'               => mb_self_check_cover( $image, $cover_zoom )
+			'title'   => 'Motion off',
+			'note'    => 'Animations are turned off for this page on every device, so nothing should move: the looping Cover image zoom and the staggered list (purple) stay still and fully visible, with or without reduced motion.',
+			'content' => mb_self_check_cover( $image, $cover_zoom )
 				. mb_self_check_list( 8, $stagger_list, MB_SELF_CHECK_COLORS['list'] ),
-			'meta'                  => array(
+			'meta'    => array(
 				'mb_disabled_desktop' => '1',
 				'mb_disabled_tablet'  => '1',
 				'mb_disabled_mobile'  => '1',
 			),
-			'expect'                => array( 'disabled-device-leak#44' ),
-			'expect_reduced_motion' => array( 'disabled-device-leak#44', 'reduced-motion-leak#26' ),
+			'expect'  => array(),
 		);
 	} else {
 		fwrite( STDERR, "No image available (empty media library and no GD): skipping the motion-off fixture.\n" );
@@ -691,13 +690,10 @@ function mb_self_check_smoke( $image ) {
 	$body .= $section( 'Recipes', $inner );
 
 	return array(
-		'title'                 => 'Smoke test',
-		'note'                  => "Every effect in every mode, set up correctly: {$count} animated blocks, tinted by mode (green Page Load, blue Scroll Appear, purple Scroll Interactive, orange Stagger, pink Recipes). Run it after every update. On the front end the sweep should report nothing. Then open this page in the editor and run: await motionBlocksEditorCheck() — it should report no invalid blocks or errors.",
-		'content'               => $body . mb_self_check_spacer( 600 ),
-		'expect'                => array(),
-		// Image-targeted animations ignore reduced motion until GH #26
-		// is fixed.
-		'expect_reduced_motion' => $image ? array( 'reduced-motion-leak#26' ) : array(),
+		'title'   => 'Smoke test',
+		'note'    => "Every effect in every mode, set up correctly: {$count} animated blocks, tinted by mode (green Page Load, blue Scroll Appear, purple Scroll Interactive, orange Stagger, pink Recipes). Run it after every update. On the front end the sweep should report nothing. Then open this page in the editor and run: await motionBlocksEditorCheck() — it should report no invalid blocks or errors.",
+		'content' => $body . mb_self_check_spacer( 600 ),
+		'expect'  => array(),
 	);
 }
 

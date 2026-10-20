@@ -95,21 +95,90 @@ function mb_self_check_block( $name, $attrs, $html ) {
 	return "<!-- wp:{$name}{$json} -->\n{$html}\n<!-- /wp:{$name} -->\n";
 }
 
-function mb_self_check_paragraph( $text, $attrs = array() ) {
-	return mb_self_check_block( 'paragraph', $attrs, '<p>' . esc_html( $text ) . '</p>' );
+/**
+ * Background tints, so it's obvious on the page which blocks are the
+ * animated ones under test (and which kind each is).
+ */
+const MB_SELF_CHECK_COLORS = array(
+	'callout'   => '#fef9c3',
+	'paragraph' => '#dcfce7',
+	'group'     => '#dbeafe',
+	'list'      => '#ede9fe',
+	'slide'     => '#ffedd5',
+	'injected'  => '#fce7f3',
+);
+
+/**
+ * Adds a background colour and padding to a block's attributes and
+ * returns the matching class and inline style for its wrapper, the way
+ * the editor would save them.
+ *
+ * @return array{0:array,1:string,2:string} Attributes, class, style.
+ */
+function mb_self_check_tint( $attrs, $color ) {
+	if ( ! $color ) {
+		return array( $attrs, '', '' );
+	}
+	$attrs['style'] = array(
+		'color'   => array( 'background' => $color ),
+		'spacing' => array(
+			'padding' => array(
+				'top'    => '1.5rem',
+				'right'  => '1.5rem',
+				'bottom' => '1.5rem',
+				'left'   => '1.5rem',
+			),
+		),
+	);
+	$style = "background-color:{$color};padding-top:1.5rem;padding-right:1.5rem;padding-bottom:1.5rem;padding-left:1.5rem";
+	return array( $attrs, ' has-background', " style=\"{$style}\"" );
 }
 
-function mb_self_check_group( $inner, $attrs = array() ) {
+function mb_self_check_paragraph( $text, $attrs = array(), $color = null ) {
+	list( $attrs, $class, $style ) = mb_self_check_tint( $attrs, $color );
+	$class_attr = $class ? ' class="' . trim( $class ) . '"' : '';
+	return mb_self_check_block( 'paragraph', $attrs, "<p{$class_attr}{$style}>" . esc_html( $text ) . '</p>' );
+}
+
+function mb_self_check_group( $inner, $attrs = array(), $color = null ) {
 	$attrs['layout'] = array( 'type' => 'constrained' );
-	return mb_self_check_block( 'group', $attrs, "<div class=\"wp-block-group\">\n{$inner}</div>" );
+	list( $attrs, $class, $style ) = mb_self_check_tint( $attrs, $color );
+	return mb_self_check_block( 'group', $attrs, "<div class=\"wp-block-group{$class}\"{$style}>\n{$inner}</div>" );
 }
 
-function mb_self_check_list( $count, $attrs ) {
+function mb_self_check_list( $count, $attrs, $color = null ) {
+	list( $attrs, $class, $style ) = mb_self_check_tint( $attrs, $color );
 	$items = '';
 	for ( $i = 1; $i <= $count; $i++ ) {
 		$items .= "<!-- wp:list-item --><li>Item {$i}</li><!-- /wp:list-item -->";
 	}
-	return mb_self_check_block( 'list', $attrs, "<ul class=\"wp-block-list\">{$items}</ul>" );
+	return mb_self_check_block( 'list', $attrs, "<ul class=\"wp-block-list{$class}\"{$style}>{$items}</ul>" );
+}
+
+/**
+ * The yellow box at the top of each page: what it tests and what the
+ * self-check should report.
+ */
+function mb_self_check_callout( $fixture ) {
+	$describe = function ( $expect ) {
+		if ( ! $expect ) {
+			return 'nothing (the page should come back clean)';
+		}
+		return implode( ', ', $expect );
+	};
+	$reduced = isset( $fixture['expect_reduced_motion'] ) ? $fixture['expect_reduced_motion'] : $fixture['expect'];
+
+	$inner = mb_self_check_block(
+		'heading',
+		array( 'level' => 3 ),
+		'<h3 class="wp-block-heading">What this page tests</h3>'
+	)
+		. mb_self_check_paragraph( $fixture['note'] )
+		. mb_self_check_paragraph( 'Self-check should report: ' . $describe( $fixture['expect'] ) . '.' )
+		. mb_self_check_paragraph( 'With reduced motion on: ' . $describe( $reduced ) . '.' )
+		. mb_self_check_paragraph( 'Coloured blocks are the animated ones under test. To check the whole page, run: await motionBlocksSelfCheck( { sweep: true } )' );
+
+	return mb_self_check_group( $inner, array(), MB_SELF_CHECK_COLORS['callout'] );
 }
 
 function mb_self_check_spacer( $px ) {
@@ -134,7 +203,7 @@ function mb_self_check_cover( $image, $attrs ) {
 		. "<img class=\"wp-block-cover__image-background wp-image-{$image['id']}\" alt=\"\" src=\"{$url}\" data-object-fit=\"cover\"/>"
 		. '<span aria-hidden="true" class="wp-block-cover__background has-background-dim-0 has-background-dim"></span>'
 		. '<div class="wp-block-cover__inner-container">'
-		. mb_self_check_paragraph( 'Cover with Image Zoom (looping)' )
+		. mb_self_check_paragraph( 'Cover · Page Load · Image Zoom (looping)' )
 		. '</div></div>';
 	return mb_self_check_block( 'cover', $attrs, $html );
 }
@@ -143,8 +212,8 @@ function mb_self_check_cover( $image, $attrs ) {
  * Lead-in so the animated blocks start below the fold and the page has
  * room to scroll past them in both directions.
  */
-function mb_self_check_frame( $intro, $body ) {
-	return mb_self_check_paragraph( $intro )
+function mb_self_check_frame( $body ) {
+	return mb_self_check_paragraph( '↓ Scroll down: the blocks under test start below the fold.' )
 		. mb_self_check_spacer( 900 )
 		. $body
 		. mb_self_check_spacer( 1200 );
@@ -185,28 +254,28 @@ function mb_self_check_fixtures( $image ) {
 	$fixtures = array(
 		'clean'           => array(
 			'title'   => 'Clean (control)',
-			'note'    => 'Everyday settings that must never trip a check.',
+			'note'    => 'Everyday settings that must never trip a check: a Page Load fade (green), a Scroll Appear fade that repeats (blue), and a short staggered list (purple).',
 			'content' => mb_self_check_frame(
-				'Control page: nothing here should be reported.',
-				mb_self_check_paragraph( 'Page Load fade', $page_load_fade )
+				mb_self_check_paragraph( 'Paragraph · Page Load · Fade', $page_load_fade, MB_SELF_CHECK_COLORS['paragraph'] )
 				. mb_self_check_group(
-					mb_self_check_paragraph( 'Scroll Appear fade, Entry Replay = Repeat, no Exit' ),
-					array_merge( $scroll_fade, array( 'animationEntryReplay' => 'repeat' ) )
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Repeat) · no Exit' ),
+					array_merge( $scroll_fade, array( 'animationEntryReplay' => 'repeat' ) ),
+					MB_SELF_CHECK_COLORS['group']
 				)
-				. mb_self_check_list( 5, $stagger_list )
+				. mb_self_check_list( 5, $stagger_list, MB_SELF_CHECK_COLORS['list'] )
 			),
 			'expect'  => array(),
 		),
 		'tall-block'      => array(
 			'title'   => 'Tall block',
-			'note'    => 'A Scroll Appear group far taller than the screen never reaches the trigger ratio.',
+			'note'    => 'A Scroll Appear group (blue) about 9000px tall. It can never overlap the trigger zone by 10% of its height, so it never fades in: scroll into it and the blue area stays blank.',
 			'content' => mb_self_check_frame(
-				'A 9000px Scroll Appear group follows.',
 				mb_self_check_group(
-					mb_self_check_paragraph( 'Tall group: top' )
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade — top of the tall group' )
 					. mb_self_check_spacer( 9000 )
-					. mb_self_check_paragraph( 'Tall group: bottom' ),
-					$scroll_fade
+					. mb_self_check_paragraph( 'Bottom of the tall group' ),
+					$scroll_fade,
+					MB_SELF_CHECK_COLORS['group']
 				)
 			),
 			'expect'                => array( 'can-never-play#23', 'invisible-on-screen' ),
@@ -214,18 +283,18 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'entry-once-exit' => array(
 			'title'   => 'Entry once + Exit',
-			'note'    => 'Entry Replay "Once" stops watching the block, so its Exit never plays.',
+			'note'    => 'A Scroll Appear group (blue) with Entry Replay "Once" and an Exit slot. It fades in, but when you scroll past it the Exit never plays, because "Once" stops watching the block.',
 			'content' => mb_self_check_frame(
-				'A Scroll Appear group with Entry Replay "Once" and an Exit slot follows.',
 				mb_self_check_group(
-					mb_self_check_paragraph( 'Entry fade (Once), Exit fade' ),
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Once) · Exit: Fade' ),
 					array_merge(
 						$scroll_fade,
 						array(
 							'animationEntryReplay' => 'once',
 							'animationExitType'    => 'fade',
 						)
-					)
+					),
+					MB_SELF_CHECK_COLORS['group']
 				)
 			),
 			'expect'                => array( 'can-never-play#39' ),
@@ -233,46 +302,44 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'stagger-limit'   => array(
 			'title'   => 'Stagger limit',
-			'note'    => 'Stagger delays stop at 30 children.',
+			'note'    => 'A staggered list (purple) with 35 items. Stagger delays stop at 30, so items 31–35 all appear at the same moment.',
 			'content' => mb_self_check_frame(
-				'A 35-item staggered list follows.',
-				mb_self_check_list( 35, $stagger_list )
+				mb_self_check_list( 35, $stagger_list, MB_SELF_CHECK_COLORS['list'] )
 			),
 			'expect'  => array( 'stagger-limit' ),
 		),
 		'fixed-trap'      => array(
 			'title'   => 'Fixed-position trap',
-			'note'    => 'A finished slide keeps its transform, so a fixed child is placed relative to the block.',
-			'content' => mb_self_check_paragraph( 'A Page Load slide group with a fixed-position child follows.' )
-				. mb_self_check_group(
-					mb_self_check_paragraph( 'Slide group' )
-					. mb_self_check_block(
-						'html',
-						array(),
-						'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:12px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child</div>'
-					),
-					array(
-						'animationMode'      => 'page-load',
-						'animationType'      => 'slide',
-						'animationDirection' => 'btt',
-						'animationDuration'  => 0.3,
-						'animationDelay'     => 0,
-					)
+			'note'    => 'A Page Load slide group (orange) containing a dark "Fixed child" that should sit in the bottom-right corner of the screen. After the slide finishes it keeps a transform, so the fixed child is placed inside the orange group instead.',
+			'content' => mb_self_check_group(
+				mb_self_check_paragraph( 'Group · Page Load · Slide up' )
+				. mb_self_check_block(
+					'html',
+					array(),
+					'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:12px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child (should be in the screen corner)</div>'
 				),
+				array(
+					'animationMode'      => 'page-load',
+					'animationType'      => 'slide',
+					'animationDirection' => 'btt',
+					'animationDuration'  => 0.3,
+					'animationDelay'     => 0,
+				),
+				MB_SELF_CHECK_COLORS['slide']
+			),
 			'expect'                => array( 'fixed-trap' ),
 			'expect_reduced_motion' => array(),
 		),
 		'late-injected'   => array(
 			'title'   => 'Injected after load',
-			'note'    => 'A Scroll Appear block added after DOMContentLoaded is never wired up.',
-			'content' => mb_self_check_paragraph( 'A script on this page adds a Scroll Appear paragraph shortly after load.' )
-				. mb_self_check_block(
-					'html',
-					array(),
-					// Mirrors the markup motion_blocks_render_block emits
-					// for a Scroll Appear fade paragraph.
-					"<script>window.addEventListener('load',function(){setTimeout(function(){var p=document.createElement('p');p.className='mb-animated mb-mode-scroll-appear mb-enter-fade mb-has-entry';p.setAttribute('data-mb-mode','scroll-appear');p.setAttribute('data-mb-entry-type','fade');p.textContent='Injected after load';var s=document.querySelector('script[data-mb-self-check-inject]');s.parentNode.insertBefore(p,s);},300);});</script><script data-mb-self-check-inject></script>"
-				),
+			'note'    => 'A script adds a Scroll Appear paragraph (pink) shortly after the page loads, like pagination or a popup would. Motion Blocks never sets it up, so it stays invisible: the pink box below this one never shows.',
+			'content' => mb_self_check_block(
+				'html',
+				array(),
+				// Mirrors the markup motion_blocks_render_block emits for
+				// a Scroll Appear fade paragraph, plus a tint.
+				"<script>window.addEventListener('load',function(){setTimeout(function(){var p=document.createElement('p');p.className='mb-animated mb-mode-scroll-appear mb-enter-fade mb-has-entry has-background';p.setAttribute('data-mb-mode','scroll-appear');p.setAttribute('data-mb-entry-type','fade');p.style.cssText='background-color:" . MB_SELF_CHECK_COLORS['injected'] . ";padding:1.5rem';p.textContent='Paragraph · Scroll Appear · Entry: Fade — injected after load';var s=document.querySelector('script[data-mb-self-check-inject]');s.parentNode.insertBefore(p,s);},300);});</script><script data-mb-self-check-inject></script>"
+			),
 			'expect'  => array( 'never-wired#50' ),
 		),
 	);
@@ -280,9 +347,9 @@ function mb_self_check_fixtures( $image ) {
 	if ( $image ) {
 		$fixtures['motion-off'] = array(
 			'title'                 => 'Motion off',
-			'note'                  => 'Animations are disabled on every device for this page, and reduced motion must stop everything. Image targets and stagger children still move.',
+			'note'                  => 'Animations are turned off for this page on every device, so nothing should move. The Cover image still zooms and the staggered list (purple) still fades in item by item. Turn on reduced motion and they should stop too; they don\'t.',
 			'content'               => mb_self_check_cover( $image, $cover_zoom )
-				. mb_self_check_list( 8, $stagger_list ),
+				. mb_self_check_list( 8, $stagger_list, MB_SELF_CHECK_COLORS['list'] ),
 			'meta'                  => array(
 				'mb_disabled_desktop' => '1',
 				'mb_disabled_tablet'  => '1',
@@ -333,7 +400,7 @@ foreach ( mb_self_check_fixtures( mb_self_check_image() ) as $key => $fixture ) 
 		'post_status'  => 'publish',
 		'post_name'    => $slug,
 		'post_title'   => 'MB self-check: ' . $fixture['title'],
-		'post_content' => $fixture['content'],
+		'post_content' => mb_self_check_callout( $fixture ) . $fixture['content'],
 	);
 	$post_id = $post_id ? wp_update_post( wp_slash( $postarr ), true ) : wp_insert_post( wp_slash( $postarr ), true );
 	if ( is_wp_error( $post_id ) ) {

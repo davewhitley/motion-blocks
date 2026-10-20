@@ -13,6 +13,7 @@
  *   'data-mb-…' => string  Attribute must equal this value.
  *   'data-mb-…' => null    Attribute must be absent.
  *   'class'     => array   Classes that must be present on the wrapper.
+ *   'no_class'  => array   Classes that must NOT be on the wrapper.
  *   'style'     => string  Substring the wrapper's style attr must contain.
  *   'animated'  => false   Block must not be animated (no data-mb-mode).
  *
@@ -212,6 +213,24 @@ return array(
 		'expect'   => array(
 			'class' => array( 'mb-stagger-parent' ),
 			'style' => '--mb-stagger-step:0.1s',
+		),
+	),
+	array(
+		'label'    => 'Scroll Interactive Group with a leftover Stagger flag',
+		'panel'    => 'Scroll Interactive: Slide In (bottom to top) · no Stagger control',
+		'behavior' => 'The group itself slides in step with the scroll; the leftover Stagger flag is ignored (GH #48).',
+		'block'    => 'core/group',
+		'children' => 3,
+		'attrs'    => array(
+			'animationMode'           => 'scroll-interactive',
+			'animationType'           => 'slide',
+			'animationDirection'      => 'btt',
+			'animationStaggerEnabled' => true,
+		),
+		'expect'   => array(
+			'data-mb-mode' => 'scroll-interactive',
+			'data-mb-type' => 'slide',
+			'no_class'     => array( 'mb-stagger-parent' ),
 		),
 	),
 	array(

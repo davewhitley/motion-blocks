@@ -266,7 +266,7 @@ function mb_self_check_fixtures( $image ) {
 	);
 
 	$fixtures = array(
-		'clean'           => array(
+		'clean'               => array(
 			'title'   => 'Clean (control)',
 			'note'    => 'Everyday settings that must never trip a check: a Page Load fade (green), a Scroll Appear fade that repeats (blue), and a short staggered list (purple).',
 			'content' => mb_self_check_frame(
@@ -280,7 +280,7 @@ function mb_self_check_fixtures( $image ) {
 			),
 			'expect'  => array(),
 		),
-		'tall-block'      => array(
+		'tall-block'          => array(
 			'title'   => 'Tall block',
 			'note'    => 'A Scroll Appear group (blue) about 9000px tall. It can never overlap the trigger zone by 10% of its height, so it never fades in: scroll into it and the blue area stays blank.',
 			'content' => mb_self_check_frame(
@@ -295,7 +295,7 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array( 'can-never-play#23', 'invisible-on-screen' ),
 			'expect_reduced_motion' => array(),
 		),
-		'entry-once-exit' => array(
+		'entry-once-exit'     => array(
 			'title'   => 'Entry once + Exit',
 			'note'    => 'A Scroll Appear group (blue) with Entry Replay "Once" and an Exit slot. It fades in once; scroll past it and it fades out, scroll back up and it fades back in. Scrolling down to it again must not replay the fade-in.',
 			'content' => mb_self_check_frame(
@@ -314,7 +314,7 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
-		'stagger-limit'   => array(
+		'stagger-limit'       => array(
 			'title'   => 'Stagger limit',
 			'note'    => 'A staggered list (purple) with 35 items. Stagger delays stop at 30, so items 31–35 all appear at the same moment.',
 			'content' => mb_self_check_frame(
@@ -322,7 +322,26 @@ function mb_self_check_fixtures( $image ) {
 			),
 			'expect'  => array( 'stagger-limit' ),
 		),
-		'fixed-trap'      => array(
+		'si-stagger-leftover' => array(
+			'title'   => 'Scroll Interactive + leftover stagger',
+			'note'    => 'A Scroll Interactive slide group (purple) whose Stagger flag was left on from another mode. Stagger isn\'t offered in Scroll Interactive, so the group itself should slide with the scroll (GH #48).',
+			'content' => mb_self_check_frame(
+				mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Interactive · Slide up · leftover Stagger flag' )
+					. mb_self_check_paragraph( 'Child 2' )
+					. mb_self_check_paragraph( 'Child 3' ),
+					array(
+						'animationMode'           => 'scroll-interactive',
+						'animationType'           => 'slide',
+						'animationDirection'      => 'btt',
+						'animationStaggerEnabled' => true,
+					),
+					MB_SELF_CHECK_COLORS['scroll-interactive']
+				)
+			),
+			'expect'  => array(),
+		),
+		'fixed-trap'          => array(
 			'title'   => 'Fixed-position trap',
 			'note'    => 'A Page Load slide group (orange) containing a dark "Fixed child" that should sit in the bottom-right corner of the screen. After the slide finishes it keeps a transform, so the fixed child is placed inside the orange group instead.',
 			'content' => mb_self_check_group(
@@ -344,7 +363,7 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array( 'fixed-trap' ),
 			'expect_reduced_motion' => array(),
 		),
-		'late-injected'   => array(
+		'late-injected'       => array(
 			'title'   => 'Injected after load',
 			'note'    => 'A script adds a Scroll Appear paragraph (pink) shortly after the page loads, like pagination or a popup would. Motion Blocks never sets it up, so it stays invisible: the pink box below this one never shows.',
 			'content' => mb_self_check_block(

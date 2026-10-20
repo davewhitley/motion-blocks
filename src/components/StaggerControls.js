@@ -3,7 +3,8 @@
  *
  * Lives inside the Timing section of the mode panels (PageLoad,
  * ScrollAppear) for supported parent block types. Hidden completely
- * for blocks that aren't on the stagger whitelist, for animation
+ * in Scroll Interactive (via isStaggerCompatible, GH #48), for
+ * blocks that aren't on the stagger whitelist, for animation
  * types that don't compose with the cascade (Custom, Image Move),
  * or for parent blocks that have fewer than two inner blocks
  * (staggering one — or zero — children is incoherent).

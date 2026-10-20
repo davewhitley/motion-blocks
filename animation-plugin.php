@@ -1299,8 +1299,17 @@ function motion_blocks_fixtures_script_path() {
  * line.
  */
 function motion_blocks_render_test_pages_field() {
-    $script   = motion_blocks_fixtures_script_path();
-    $commands = array(
+    // Shown relative to the site folder (e.g. wp-content/plugins/…), so
+    // it reads the same on any install and matches "run from the site's
+    // folder". Built from the plugins dir rather than __FILE__, which
+    // resolves symlinks to wherever the plugin really lives.
+    $plugins_dir = wp_normalize_path( WP_PLUGIN_DIR );
+    $site_dir    = wp_normalize_path( ABSPATH );
+    $relative    = 0 === strpos( $plugins_dir, $site_dir )
+        ? substr( $plugins_dir, strlen( $site_dir ) )
+        : $plugins_dir;
+    $script      = $relative . '/' . dirname( plugin_basename( __FILE__ ) ) . '/tests/self-check/fixtures.php';
+    $commands    = array(
         'smoke'  => __( 'Build or refresh the smoke page: every effect in every mode, set up correctly. Run this after every update.', 'motion-blocks' ),
         ''       => __( 'Build the smoke page plus one page per known problem, each saying what the self-check should report.', 'motion-blocks' ),
         'delete' => __( 'Delete all test pages.', 'motion-blocks' ),

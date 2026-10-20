@@ -194,10 +194,12 @@ export function isImageTargetUnavailable( blockName, attributes ) {
  * mirror picked yet another order). Now everything routes through
  * the same predicate.
  *
- * For Page Load and Scroll Interactive: checks the shared
- * `animationType`. For Scroll Appear: checks both slots — if EITHER
- * slot is incompatible, the cascade can't apply across the round
- * trip, so stagger is hidden.
+ * Only Page Load and Scroll Appear can stagger (Scroll Interactive
+ * has no Stagger control) — mirrors the PHP predicate
+ * `motion_blocks_is_stagger_compatible()`. For Page Load: checks the
+ * shared `animationType`. For Scroll Appear: checks both slots — if
+ * EITHER slot is incompatible, the cascade can't apply across the
+ * round trip, so stagger is hidden.
  *
  * @param {Object} attrs Block attributes.
  * @return {boolean}
@@ -206,7 +208,14 @@ export function isStaggerCompatible( attrs ) {
 	if ( ! attrs ) {
 		return true;
 	}
-	if ( attrs.animationMode === 'scroll-appear' ) {
+	// Allowlist: a leftover flag on a Scroll Interactive block must not
+	// add mb-stagger-parent, which suppresses the wrapper's animation on
+	// the front end (GH #48). New modes have to opt in.
+	const mode = attrs.animationMode;
+	if ( mode !== 'page-load' && mode !== 'scroll-appear' ) {
+		return false;
+	}
+	if ( mode === 'scroll-appear' ) {
 		const entryType = attrs.animationEntryType || '';
 		const exitType = attrs.animationExitType || '';
 		if ( entryType && STAGGER_INCOMPATIBLE_TYPES.includes( entryType ) ) {
@@ -1715,7 +1724,9 @@ export const MODE_ORDER = [ 'page-load', 'scroll-appear', 'scroll-interactive' ]
  * defaults for a fresh animation).
  *
  * Mode-agnostic attributes (effect, direction, timing, From/To
- * values, stagger, blur, rotate, clip-overflow…) are preserved
+ * values, stagger — except when switching into Scroll Interactive,
+ * which has no stagger and clears the toggle — blur, rotate,
+ * clip-overflow…) are preserved
  * by simply omitting them from the output — `setAttributes` only
  * touches keys present in the partial. Mode-specific attributes
  * for the OLD mode get reset to defaults so they don't linger
@@ -1758,6 +1769,18 @@ export function switchModeAttributes( attributes, newMode ) {
 	if ( oldMode === 'scroll-interactive' ) {
 		out.animationRangeStart = DEFAULT_ATTRIBUTES.animationRangeStart;
 		out.animationRangeEnd = DEFAULT_ATTRIBUTES.animationRangeEnd;
+	}
+
+	// The Scroll Interactive panel offers no Stagger control, so a
+	// flag carried over from Page Load / Scroll Appear would linger
+	// invisibly (GH #48). Clear it on the way in, like
+	// ScrollInteractiveControls' handleTypeChange does for
+	// incompatible types. The step value is inert, so it stays.
+	if (
+		newMode === 'scroll-interactive' &&
+		attributes?.animationStaggerEnabled
+	) {
+		out.animationStaggerEnabled = false;
 	}
 
 	// Bridge shared <-> slot attrs across mode switches so the user's

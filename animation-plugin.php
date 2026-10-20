@@ -794,6 +794,7 @@ function motion_blocks_render_block( $block_content, $block ) {
     // server-rendered output matches what the editor save filter
     // produced. Whitelisted parent block types come from
     // shared-constants.json (same source as JS STAGGER_PARENT_BLOCKS).
+    // Page Load / Scroll Appear only (GH #48).
     $stagger_parent_blocks = motion_blocks_shared_constants()['staggerParentBlocks'] ?? array();
     $stagger_enabled       = ! empty( $attrs['animationStaggerEnabled'] );
     if (
@@ -833,7 +834,8 @@ function motion_blocks_render_block( $block_content, $block ) {
  *
  * Mirrors `isStaggerCompatible()` in src/components/constants.js so
  * server-rendered output matches the editor's stagger decisions.
- * For Page Load / Scroll Interactive: checks the shared
+ * Only Page Load and Scroll Appear can stagger (Scroll Interactive
+ * has no Stagger control). For Page Load: checks the shared
  * `animationType`. For Scroll Appear: checks both slots — if EITHER
  * slot is incompatible, the cascade can't apply meaningfully across
  * the round trip and stagger is suppressed.
@@ -841,6 +843,15 @@ function motion_blocks_render_block( $block_content, $block ) {
 function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type, $exit_type = '' ) {
     // Mirrors STAGGER_INCOMPATIBLE_TYPES in constants.js (same JSON).
     $incompatible = motion_blocks_shared_constants()['staggerIncompatibleTypes'] ?? array();
+    // Stagger is only offered in the Page Load / Scroll Appear panels,
+    // and animations.css has no scroll-driven child bindings. A flag
+    // left over on a Scroll Interactive block would otherwise add
+    // mb-stagger-parent, whose `.mb-stagger-parent.mb-animated
+    // { animation: none !important }` rule suppresses the wrapper's
+    // own animation (GH #48). Allowlist, so new modes opt in.
+    if ( $mode !== 'page-load' && $mode !== 'scroll-appear' ) {
+        return false;
+    }
     if ( $mode === 'scroll-appear' ) {
         if ( $entry_type !== '' && in_array( $entry_type, $incompatible, true ) ) {
             return false;

@@ -119,6 +119,12 @@ function mb_test_compare( $html, $expect ) {
 					$errors[] = "missing class {$class}";
 				}
 			}
+		} elseif ( 'no_class' === $key ) {
+			foreach ( $want as $class ) {
+				if ( $p->has_class( $class ) ) {
+					$errors[] = "unexpected class {$class}";
+				}
+			}
 		} elseif ( 'style' === $key ) {
 			$style = (string) $p->get_attribute( 'style' );
 			if ( false === strpos( $style, $want ) ) {
@@ -236,6 +242,8 @@ if ( 'page' === $mb_mode ) {
 				if (got !== want) { errs.push('animated: want ' + want + ', got ' + got); }
 			} else if (k === 'class') {
 				want.forEach(function (cl) { if (!el.classList.contains(cl)) { errs.push('missing class ' + cl); } });
+			} else if (k === 'no_class') {
+				want.forEach(function (cl) { if (el.classList.contains(cl)) { errs.push('unexpected class ' + cl); } });
 			} else if (k === 'style') {
 				got = el.getAttribute('style') || '';
 				if (got.indexOf(want) === -1) { errs.push('style lacks ' + want); }

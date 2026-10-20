@@ -323,6 +323,37 @@
 	}
 
 	/**
+	 * Entry Replay 'once' means the Entry plays once. With an Exit slot
+	 * the block stays observed (GH #39), so coming back to it after an
+	 * Exit round trip must not play the Entry again.
+	 */
+	function checkEntryOnceReplayed( api ) {
+		var found = [];
+		api.scrollAppear.forEach( function ( state ) {
+			if (
+				state.entryReplay !== 'once' ||
+				! state.hasEntry ||
+				! ( state.entryPlays > 1 )
+			) {
+				return;
+			}
+			found.push(
+				issue(
+					'entry-once-replayed',
+					'warning',
+					state.el,
+					blockLabel( state.el ) +
+						'’s Entry is set to play once but has played ' +
+						state.entryPlays +
+						' times.',
+					39
+				)
+			);
+		} );
+		return found;
+	}
+
+	/**
 	 * Everything got wired: an animated block the runtime never set up
 	 * stays at its hidden start state.
 	 */
@@ -591,6 +622,7 @@
 			.concat( hasViewport ? checkInvisibleOnScreen( api, stuckAfterMs ) : [] )
 			.concat( hasViewport ? checkCanNeverPlay( api ) : [] )
 			.concat( checkNeverWired( api ) )
+			.concat( checkEntryOnceReplayed( api ) )
 			.concat( checkReducedMotion() )
 			.concat( checkDisabledDevice() )
 			.concat( checkNeverAnimated( api ) )
@@ -904,8 +936,9 @@
 	 * Sweep
 	 *
 	 * Most problems only show at some scroll position, so a sweep
-	 * scrolls down the whole page in steps, lets the runtime react at
-	 * each one, and keeps every issue seen on the way. This is what a
+	 * scrolls down the whole page in steps, back up, and down again,
+	 * lets the runtime react at each one, and keeps every issue seen on
+	 * the way. This is what a
 	 * test runner calls; it's also the quickest way to check a page by
 	 * hand.
 	 * ------------------------------------------------------------- */
@@ -943,6 +976,7 @@
 		// still hidden and untriggered after `settleMs` is stuck.
 		var step = options.step || 0.5;
 		var settleMs = options.settleMs || 500;
+		var roundTrip = options.roundTrip !== false;
 		var startY = window.scrollY;
 		var merged = [];
 		// Element → keys already recorded for it, so a block seen at
@@ -987,6 +1021,15 @@
 					positions.push( Math.round( y ) );
 				}
 				positions.push( maxScroll );
+				// Then back up and down again, so the scroll-up
+				// handlers (Exit reverse / repeat, Entry reverse) and a
+				// second pass down (Entry Replay 'once' after an Exit
+				// round trip, GH #39) are checked too.
+				if ( roundTrip ) {
+					var down = positions.slice();
+					var up = down.slice( 0, -1 ).reverse();
+					positions = down.concat( up, down.slice( 1 ) );
+				}
 
 				return positions.reduce( function ( chain, y ) {
 					return chain.then( function () {
@@ -1018,9 +1061,10 @@
 	 *     that only just became hidden on screen isn't included until it
 	 *     has stayed that way for STUCK_AFTER_MS.
 	 *
-	 *   motionBlocksSelfCheck( { sweep: true, step?, settleMs? } )
+	 *   motionBlocksSelfCheck( { sweep: true, step?, settleMs?, roundTrip? } )
 	 *     Promise of every issue found while scrolling through the whole
-	 *     page. The badge shows the sweep's results until the next
+	 *     page (down, up and down again; `roundTrip: false` scrolls down
+	 *     only). The badge shows the sweep's results until the next
 	 *     scroll.
 	 */
 	window.motionBlocksSelfCheck = function ( options ) {

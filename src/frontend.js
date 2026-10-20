@@ -1184,6 +1184,9 @@ import SHARED from '../shared-constants.json';
 				inZone: false,
 				inViewport: false,
 				hasEntered: false,
+				// How many times the Entry has played (read by the
+				// self-check: Entry Replay 'once' must stay at 1).
+				entryPlays: 0,
 				unobserved: false,
 				pageTop: 0,
 				pageBottom: 0,
@@ -1372,6 +1375,37 @@ import SHARED from '../shared-constants.json';
 	}
 
 	/**
+	 * Put a Scroll Appear block straight into its entered state without
+	 * playing the Entry: bind the Entry keyframe via `mb-triggered`,
+	 * then jump its animations (the wrapper's, plus staggered children
+	 * or an img-target image) to their end, which fill-mode holds at
+	 * the natural state. Nested animated blocks are left alone.
+	 *
+	 * Browsers without `getAnimations()` replay the Entry instead,
+	 * which still ends visible.
+	 */
+	function showEntered( state ) {
+		var el = state.el;
+		applySlotVars( el, state.entry );
+		el.style.setProperty( '--mb-direction', 'normal' );
+		el.classList.add( 'mb-triggered' );
+		if ( typeof el.getAnimations !== 'function' ) {
+			return;
+		}
+		el.getAnimations( { subtree: true } ).forEach( function ( anim ) {
+			var target = anim.effect && anim.effect.target;
+			if ( ! target || target.closest( '.mb-animated' ) !== el ) {
+				return;
+			}
+			try {
+				anim.finish();
+			} catch ( e ) {
+				// Infinite iteration count: can't finish, leave it running.
+			}
+		} );
+	}
+
+	/**
 	 * Slot ownership of the four GSAP-style positions:
 	 *
 	 *   onEnter     — Entry slot, bottom edge (element enters from below)
@@ -1430,6 +1464,7 @@ import SHARED from '../shared-constants.json';
 			return;
 		}
 
+		state.entryPlays++;
 		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-exit-triggered' );
@@ -1490,6 +1525,13 @@ import SHARED from '../shared-constants.json';
 				if ( inExited ) {
 					el.classList.remove( 'mb-exit-triggered' );
 					el.style.removeProperty( '--mb-direction' );
+					// With an Entry slot, a class-less block matches the
+					// Scroll Appear initial-hide rule and would sit blank
+					// in the zone. Snap it back to its entered state
+					// instead (GH #39 follow-up).
+					if ( state.hasEntry ) {
+						showEntered( state );
+					}
 				}
 				return;
 			}

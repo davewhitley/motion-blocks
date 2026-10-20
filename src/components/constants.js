@@ -671,7 +671,9 @@ export const BLUR_SETTINGS = {
  *     onEnterBack (cross top downward, element re-entering from above) → action per Replay.
  *
  * Replay values:
- *   - 'once':    animation plays forward once, observer detaches.
+ *   - 'once':    animation plays forward once. Entry 'once' stops observing
+ *                only when the Exit slot is empty; with an Exit slot the
+ *                Exit keeps working and the Entry never replays (GH #39).
  *   - 'repeat':  animation plays forward on each pass; reset state on the
  *                back-direction crossing (off-screen cleanup).
  *   - 'reverse': animation plays forward on each pass; plays in reverse

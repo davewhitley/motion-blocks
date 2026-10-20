@@ -1246,6 +1246,18 @@ function motion_blocks_register_settings_ui() {
         'motion_blocks_debug_section'
     );
 
+    // Only on installs that have the test fixtures (a git checkout); the
+    // release zip leaves tests/ out, so there'd be nothing to run.
+    if ( file_exists( motion_blocks_fixtures_script_path() ) ) {
+        add_settings_field(
+            'mb_test_pages',
+            __( 'Test pages', 'motion-blocks' ),
+            'motion_blocks_render_test_pages_field',
+            'motion-blocks',
+            'motion_blocks_debug_section'
+        );
+    }
+
     add_settings_section(
         'motion_blocks_beta_section',
         __( 'Beta features', 'motion-blocks' ),
@@ -1272,6 +1284,77 @@ function motion_blocks_render_debug_section() {
         <?php esc_html_e( 'Tools for checking how animations behave on the published site.', 'motion-blocks' ); ?>
     </p>
     <?php
+}
+
+/**
+ * WP-CLI script that builds the self-check test pages and smoke page.
+ */
+function motion_blocks_fixtures_script_path() {
+    return plugin_dir_path( __FILE__ ) . 'tests/self-check/fixtures.php';
+}
+
+/**
+ * "Test pages" row: how to build the self-check pages with WP-CLI and
+ * check them. Instructions only; the pages are made from the command
+ * line.
+ */
+function motion_blocks_render_test_pages_field() {
+    $script   = motion_blocks_fixtures_script_path();
+    $commands = array(
+        'smoke'  => __( 'Build or refresh the smoke page: every effect in every mode, set up correctly. Run this after every update.', 'motion-blocks' ),
+        ''       => __( 'Build the smoke page plus one page per known problem, each saying what the self-check should report.', 'motion-blocks' ),
+        'delete' => __( 'Delete all test pages.', 'motion-blocks' ),
+    );
+    ?>
+    <p>
+        <?php esc_html_e( 'Run from the site’s folder with WP-CLI (on WordPress Studio, use studio wp instead of wp):', 'motion-blocks' ); ?>
+    </p>
+    <ul>
+        <?php foreach ( $commands as $mode => $what ) : ?>
+            <li>
+                <code><?php echo esc_html( trim( 'wp eval-file ' . $script . ' ' . $mode ) ); ?></code><br />
+                <span class="description"><?php echo esc_html( $what ); ?></span>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+    <p>
+        <?php esc_html_e( 'Then, with Self-check on and while logged in:', 'motion-blocks' ); ?>
+    </p>
+    <ol>
+        <li>
+            <?php esc_html_e( 'Open a test page and run this in the browser console. It scrolls through the page and lists any problems (the smoke page should list none):', 'motion-blocks' ); ?><br />
+            <code>await motionBlocksSelfCheck( { sweep: true } )</code>
+        </li>
+        <li>
+            <?php esc_html_e( 'Open the same page in the block editor and run this in the console. It lists invalid blocks and errors (should be none):', 'motion-blocks' ); ?><br />
+            <code>await motionBlocksEditorCheck()</code>
+        </li>
+    </ol>
+    <?php
+    $pages = get_posts(
+        array(
+            'post_type'      => 'page',
+            'post_status'    => 'any',
+            'posts_per_page' => -1,
+            'meta_key'       => '_mb_self_check_fixture',
+            'orderby'        => 'ID',
+            'order'          => 'ASC',
+        )
+    );
+    if ( $pages ) :
+        ?>
+        <p><?php esc_html_e( 'Test pages on this site:', 'motion-blocks' ); ?></p>
+        <ul>
+            <?php foreach ( $pages as $page ) : ?>
+                <li>
+                    <?php echo esc_html( get_the_title( $page ) ); ?> —
+                    <a href="<?php echo esc_url( get_permalink( $page ) ); ?>"><?php esc_html_e( 'View', 'motion-blocks' ); ?></a> ·
+                    <a href="<?php echo esc_url( get_edit_post_link( $page ) ); ?>"><?php esc_html_e( 'Edit', 'motion-blocks' ); ?></a>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php
+    endif;
 }
 
 /**

@@ -7,37 +7,76 @@
 import SHARED from '../../shared-constants.json';
 
 /**
+ * Dropdown labels per effect value. The values themselves (and their
+ * order) come from shared-constants.json so PHP can enumerate them for
+ * the smoke-test page; only the wording lives here.
+ */
+const TYPE_LABELS = {
+	fade: 'Fade In',
+	'fade-out': 'Fade Out',
+	slide: 'Slide In',
+	'slide-out': 'Slide Out',
+	wipe: 'Wipe',
+	// "Curtain Open" in Page Load, Scroll Interactive and the Scroll
+	// Appear Entry slot. The Exit slot labels the same `'curtain'`
+	// value "Curtain Close" (EXIT_TYPE_LABELS) because the slot's class
+	// prefix (`mb-exit-`) binds to the `mbCurtainClose` keyframe.
+	curtain: 'Curtain Open',
+	'curtain-out': 'Curtain Close',
+	flip: 'Flip',
+	scale: 'Scale In',
+	'scale-out': 'Scale Out',
+	blur: 'Blur In',
+	'blur-out': 'Blur Out',
+	rotate: 'Rotate In',
+	'rotate-out': 'Rotate Out',
+	'image-move': 'Image Move (Beta)',
+	'image-zoom': 'Image Zoom (Beta)',
+	custom: 'Custom',
+};
+
+/**
+ * Exit-slot wording where it differs from TYPE_LABELS: the slot stores
+ * the base value, and `mb-exit-` binds it to the Out keyframe.
+ */
+const EXIT_TYPE_LABELS = {
+	...TYPE_LABELS,
+	fade: 'Fade Out',
+	slide: 'Slide Out',
+	scale: 'Scale Out',
+	blur: 'Blur Out',
+	rotate: 'Rotate Out',
+	flip: 'Flip Out',
+	curtain: 'Curtain Close',
+};
+
+const DIRECTION_LABELS = {
+	btt: 'Bottom to top',
+	ttb: 'Top to bottom',
+	ltr: 'Left to right',
+	rtl: 'Right to left',
+	horizontal: 'Horizontal',
+	vertical: 'Vertical',
+};
+
+function toOptions( values, labels ) {
+	return values.map( ( value ) => ( {
+		label: labels[ value ] || value,
+		value,
+	} ) );
+}
+
+/**
  * Animation type options for the type dropdown.
  *
  * `custom` is a special type that exposes the From/To state editor.
  * Existing preset types animate via fixed @keyframes; `custom` animates
  * via a generic keyframe parameterized by CSS custom properties.
  */
-export const ANIMATION_TYPE_OPTIONS = [
-	{ label: 'Fade In', value: 'fade' },
-	{ label: 'Fade Out', value: 'fade-out' },
-	{ label: 'Slide In', value: 'slide' },
-	{ label: 'Slide Out', value: 'slide-out' },
-	{ label: 'Wipe', value: 'wipe' },
-	// "Curtain Open" in Page Load and Scroll Interactive (the only
-	// directions those modes expose). Scroll Appear's Entry slot uses
-	// ENTRY_TYPE_OPTIONS which also labels it "Curtain Open"; its Exit
-	// slot uses EXIT_TYPE_OPTIONS which labels the same `'curtain'`
-	// value as "Curtain Close" because the slot's class prefix
-	// (`mb-exit-`) binds to the `mbCurtainClose` keyframe.
-	{ label: 'Curtain Open', value: 'curtain' },
-	{ label: 'Curtain Close', value: 'curtain-out' },
-	{ label: 'Flip', value: 'flip' },
-	{ label: 'Scale In', value: 'scale' },
-	{ label: 'Scale Out', value: 'scale-out' },
-	{ label: 'Blur In', value: 'blur' },
-	{ label: 'Blur Out', value: 'blur-out' },
-	{ label: 'Rotate In', value: 'rotate' },
-	{ label: 'Rotate Out', value: 'rotate-out' },
-	{ label: 'Image Move (Beta)', value: 'image-move' },
-	{ label: 'Image Zoom (Beta)', value: 'image-zoom' },
-	{ label: 'Custom', value: 'custom' },
-];
+export const ANIMATION_TYPE_OPTIONS = toOptions(
+	SHARED.animationTypes,
+	TYPE_LABELS
+);
 
 /**
  * Image-bound effects that always animate the first `<img>` descendant
@@ -225,45 +264,17 @@ export function staggerStepSeconds( raw ) {
  * animation," whether that's "starts below, ends at rest" (slide-in)
  * or "starts at rest, ends above" (slide-out).
  */
-const FOUR_AXIS_OPTIONS = [
-	{ label: 'Bottom to top', value: 'btt' },
-	{ label: 'Top to bottom', value: 'ttb' },
-	{ label: 'Left to right', value: 'ltr' },
-	{ label: 'Right to left', value: 'rtl' },
-];
-
-export const DIRECTION_OPTIONS = {
-	slide: FOUR_AXIS_OPTIONS,
-	'slide-out': FOUR_AXIS_OPTIONS,
-	wipe: [
-		{ label: 'Left to right', value: 'ltr' },
-		{ label: 'Right to left', value: 'rtl' },
-		{ label: 'Top to bottom', value: 'ttb' },
-		{ label: 'Bottom to top', value: 'btt' },
-	],
-	curtain: [
-		{ label: 'Horizontal', value: 'horizontal' },
-		{ label: 'Vertical', value: 'vertical' },
-	],
-	'curtain-out': [
-		{ label: 'Horizontal', value: 'horizontal' },
-		{ label: 'Vertical', value: 'vertical' },
-	],
-	flip: [
-		{ label: 'Left to right', value: 'ltr' },
-		{ label: 'Right to left', value: 'rtl' },
-		{ label: 'Top to bottom', value: 'ttb' },
-		{ label: 'Bottom to top', value: 'btt' },
-	],
-	scale: FOUR_AXIS_OPTIONS,
-	'scale-out': FOUR_AXIS_OPTIONS,
-	'image-move': FOUR_AXIS_OPTIONS,
-};
+export const DIRECTION_OPTIONS = Object.fromEntries(
+	Object.entries( SHARED.directions ).map( ( [ type, values ] ) => [
+		type,
+		toOptions( values, DIRECTION_LABELS ),
+	] )
+);
 
 /**
  * Types that show a direction control.
  */
-export const TYPES_WITH_DIRECTION = [ 'slide', 'slide-out', 'wipe', 'curtain', 'curtain-out', 'flip', 'scale', 'scale-out', 'image-move' ];
+export const TYPES_WITH_DIRECTION = Object.keys( SHARED.directions );
 
 /**
  * Default direction when a directional type is first selected.
@@ -415,19 +426,7 @@ export function normalizeScrollTrigger( raw ) {
  * entry — that's UI state for "this slot is empty" and lives in
  * the component, not the constants list.
  */
-export const ENTRY_TYPE_OPTIONS = [
-	{ label: 'Fade In', value: 'fade' },
-	{ label: 'Slide In', value: 'slide' },
-	{ label: 'Scale In', value: 'scale' },
-	{ label: 'Blur In', value: 'blur' },
-	{ label: 'Rotate In', value: 'rotate' },
-	{ label: 'Wipe', value: 'wipe' },
-	{ label: 'Curtain Open', value: 'curtain' },
-	{ label: 'Flip', value: 'flip' },
-	{ label: 'Image Move (Beta)', value: 'image-move' },
-	{ label: 'Image Zoom (Beta)', value: 'image-zoom' },
-	{ label: 'Custom', value: 'custom' },
-];
+export const ENTRY_TYPE_OPTIONS = toOptions( SHARED.entryTypes, TYPE_LABELS );
 
 /**
  * Effect dropdown options for the Scroll Appear Exit slot.
@@ -436,19 +435,10 @@ export const ENTRY_TYPE_OPTIONS = [
  * entrance: flat → 90° flipped away). Wipe and Curtain are symmetric
  * (no In/Out direction to distinguish via label).
  */
-export const EXIT_TYPE_OPTIONS = [
-	{ label: 'Fade Out', value: 'fade' },
-	{ label: 'Slide Out', value: 'slide' },
-	{ label: 'Scale Out', value: 'scale' },
-	{ label: 'Blur Out', value: 'blur' },
-	{ label: 'Rotate Out', value: 'rotate' },
-	{ label: 'Flip Out', value: 'flip' },
-	{ label: 'Wipe', value: 'wipe' },
-	{ label: 'Curtain Close', value: 'curtain' },
-	{ label: 'Image Move (Beta)', value: 'image-move' },
-	{ label: 'Image Zoom (Beta)', value: 'image-zoom' },
-	{ label: 'Custom', value: 'custom' },
-];
+export const EXIT_TYPE_OPTIONS = toOptions(
+	SHARED.exitTypes,
+	EXIT_TYPE_LABELS
+);
 
 /**
  * Read-time migration shim. Maps legacy Scroll Appear attributes

@@ -4,7 +4,7 @@
  *
  * Deletes all site data the plugin ever writes:
  *   - Options: the saved-animation library + seeder bookkeeping + the
- *     debug-markers toggle.
+ *     self-check (debug) toggle.
  *   - Post meta: the three per-device disable flags written by the
  *     editor's Page Settings panel.
  *

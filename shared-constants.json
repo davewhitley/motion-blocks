@@ -19,6 +19,68 @@
 		"image-zoom"
 	],
 
+	"_README_effects": "Effect values offered by the Motion Effects panel, in dropdown order. Labels live in src/components/constants.js (TYPE_LABELS / EXIT_TYPE_LABELS / DIRECTION_LABELS), keyed by these values. PHP reads the lists to build the smoke-test page (tests/self-check/fixtures.php), so a new effect added here is tested automatically. animationTypes is the Scroll Interactive list; Page Load shows the same list minus the -out variants and Scroll Appear uses entryTypes / exitTypes. Image effect types are only offered on imageEffect blocks.",
+
+	"animationTypes": [
+		"fade",
+		"fade-out",
+		"slide",
+		"slide-out",
+		"wipe",
+		"curtain",
+		"curtain-out",
+		"flip",
+		"scale",
+		"scale-out",
+		"blur",
+		"blur-out",
+		"rotate",
+		"rotate-out",
+		"image-move",
+		"image-zoom",
+		"custom"
+	],
+
+	"entryTypes": [
+		"fade",
+		"slide",
+		"scale",
+		"blur",
+		"rotate",
+		"wipe",
+		"curtain",
+		"flip",
+		"image-move",
+		"image-zoom",
+		"custom"
+	],
+
+	"exitTypes": [
+		"fade",
+		"slide",
+		"scale",
+		"blur",
+		"rotate",
+		"flip",
+		"wipe",
+		"curtain",
+		"image-move",
+		"image-zoom",
+		"custom"
+	],
+
+	"directions": {
+		"slide": [ "btt", "ttb", "ltr", "rtl" ],
+		"slide-out": [ "btt", "ttb", "ltr", "rtl" ],
+		"wipe": [ "ltr", "rtl", "ttb", "btt" ],
+		"curtain": [ "horizontal", "vertical" ],
+		"curtain-out": [ "horizontal", "vertical" ],
+		"flip": [ "ltr", "rtl", "ttb", "btt" ],
+		"scale": [ "btt", "ttb", "ltr", "rtl" ],
+		"scale-out": [ "btt", "ttb", "ltr", "rtl" ],
+		"image-move": [ "btt", "ttb", "ltr", "rtl" ]
+	},
+
 	"propertyCssVar": {
 		"opacity": "opacity",
 		"translateX": "translate-x",

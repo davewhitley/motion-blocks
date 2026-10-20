@@ -297,7 +297,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'entry-once-exit'     => array(
 			'title'   => 'Entry once + Exit',
-			'note'    => 'A Scroll Appear group (blue) with Entry Replay "Once" and an Exit slot. It fades in once; scroll past it and it fades out, scroll back up and it fades back in. Scrolling down to it again must not replay the fade-in.',
+			'note'    => 'Two Scroll Appear groups (blue) with Entry Replay "Once" and an Exit slot. Each fades in once; scroll past it and it fades out. Scroll back up and the first fades back in (Exit Replay "Reverse"), the second snaps back (Exit Replay "Repeat"); neither is blank on screen. Scrolling down to them again must not replay the fade-in.',
 			'content' => mb_self_check_frame(
 				mb_self_check_group(
 					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Once) · Exit: Fade' ),
@@ -306,6 +306,18 @@ function mb_self_check_fixtures( $image ) {
 						array(
 							'animationEntryReplay' => 'once',
 							'animationExitType'    => 'fade',
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Once) · Exit: Fade (Replay: Repeat)' ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+							'animationExitReplay'  => 'repeat',
 						)
 					),
 					MB_SELF_CHECK_COLORS['group']
@@ -545,6 +557,9 @@ function mb_self_check_smoke( $image ) {
 		array( 'Entry Replay: reverse (no Exit)', array( 'animationEntryReplay' => 'reverse' ) ),
 		array( 'Entry Replay: once (no Exit)', array( 'animationEntryReplay' => 'once' ) ),
 		array( 'Entry Replay: once + Exit', array( 'animationEntryReplay' => 'once', 'animationExitType' => 'fade' ) ),
+		// Scrolling back up must snap it back to visible, not leave it
+		// blank in the zone (GH #39 follow-up).
+		array( 'Entry Replay: once + Exit Replay: repeat', array( 'animationEntryReplay' => 'once', 'animationExitType' => 'fade', 'animationExitReplay' => 'repeat' ) ),
 		array( 'Exit Replay: once', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'once' ) ),
 		array( 'Exit Replay: repeat', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'repeat' ) ),
 		array( 'Exit only (no Entry)', array( 'animationEntryType' => '', 'animationExitType' => 'fade' ) ),
@@ -642,7 +657,22 @@ function mb_self_check_smoke( $image ) {
 					),
 					$colors['stagger']
 				);
-				$count += 3;
+				// Same with Entry Replay 'once' (the default): the block
+				// stays observed for its Exit, and the children must come
+				// back after an Exit round trip (GH #39, #51).
+				$inner .= mb_self_check_group(
+					mb_self_check_paragraph( 'Stagger · Group · Scroll Appear · Entry: fade (Replay: Once) · Exit: fade (Replay: Reverse)' ) . $children( 3, 'Child' ),
+					array(
+						'animationMode'           => 'scroll-appear',
+						'animationEntryType'      => 'fade',
+						'animationEntryDelay'     => 0,
+						'animationEntryReplay'    => 'once',
+						'animationExitType'       => 'fade',
+						'animationStaggerEnabled' => true,
+					),
+					$colors['stagger']
+				);
+				$count += 4;
 				break;
 			case 'core/columns':
 				$columns = '';

@@ -141,12 +141,14 @@ html:has(body.mb-clip-page-overflow) {
  * when the element scrolls out of view (the enter delay was a one-
  * shot pre-roll, not part of the loop).
  *
- * `animation-direction` is consumed here so `custom` / `image-move`
- * types can reverse-play their per-block enter keyframe on exit
- * (set by frontend.js handleScrollExit). For non-custom types the
+ * `animation-direction` is consumed here so the Exit keyframe can
+ * play both ways. For non-custom types the
  * `.mb-exit-{type}.mb-exit-triggered` rules below swap in a
- * pre-reversed `mbXxxOut` keyframe, so `--mb-direction` stays at
- * normal and the Out keyframe runs forward.
+ * pre-reversed `mbXxxOut` keyframe: it runs forward on onLeave
+ * (frontend.js handleSlotExit sets `--mb-direction: normal`) and in
+ * reverse on the Exit Replay = 'reverse' round trip at onEnterBack
+ * (handleSlotEnterBack sets `--mb-direction: reverse`). Stagger
+ * children consume the same variable in their own exit rule below.
  * -------------------------------------------------------------- */
 .mb-animated.mb-exit-triggered {
     animation-duration: var(--mb-duration);
@@ -911,12 +913,20 @@ html:has(body.mb-clip-page-overflow) {
 }
 
 /* Exit-phase timing — inner blocks pick up the same vars as the
-   parent's exit-triggered state (delay 0, otherwise inherits). */
+   parent's exit-triggered state (delay 0, otherwise inherits).
+   `--mb-direction` must be consumed here too: Exit Replay = 'reverse'
+   (frontend.js handleSlotEnterBack) sets it to `reverse` on the
+   parent and restarts `mb-exit-triggered`. The parent itself doesn't
+   animate (see the stagger-parent suppression above), so without
+   this the children replayed the Out keyframe forward on the way
+   back up and stayed hidden (GH #51). */
 .mb-stagger-parent.mb-exit-triggered > * {
     animation-duration: var(--mb-duration);
     animation-fill-mode: both;
     animation-timing-function: var(--mb-timing);
     animation-delay: 0s;
+    animation-iteration-count: var(--mb-iteration-count, 1);
+    animation-direction: var(--mb-direction, normal);
 }
 
 /* Stepped delay per child. CSS doesn't have a `for` so we list 30

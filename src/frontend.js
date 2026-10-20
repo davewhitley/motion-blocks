@@ -10,18 +10,70 @@
 ( function () {
 	'use strict';
 
-	// Scroll Appear trigger-zone geometry. Shared by tick() (the real
-	// trigger math) and initDebugMarkers() (the visual overlay) so the
-	// drawn lines can never drift from where blocks actually fire.
+	// Scroll Appear trigger-zone geometry. Used by zoneOverlap() /
+	// isInZone() below, which both tick() and the developer self-check
+	// call, so the check can never drift from where blocks actually fire.
 	var TRIGGER_ZONE_TOP_PCT = 0.15;
 	var TRIGGER_ZONE_BOTTOM_PCT = 0.85;
 	var TRIGGER_OVERLAP_RATIO = 0.1;
+
+	/**
+	 * How much of an element (page-relative layout bounds) overlaps the
+	 * Scroll Appear trigger zone at a given scroll position, in px.
+	 */
+	function zoneOverlap( pageTop, pageBottom, scrollY, vh ) {
+		var triggerTop = scrollY + vh * TRIGGER_ZONE_TOP_PCT;
+		var triggerBottom = scrollY + vh * TRIGGER_ZONE_BOTTOM_PCT;
+		return Math.max(
+			0,
+			Math.min( pageBottom, triggerBottom ) -
+				Math.max( pageTop, triggerTop )
+		);
+	}
+
+	/**
+	 * The trigger decision: is `overlap` px enough for an element
+	 * `pageHeight` px tall to count as in the zone? Must match IO's
+	 * `threshold: 0.1` — see the CRITICAL note in tick().
+	 */
+	function isInZone( overlap, pageHeight ) {
+		var ratio = pageHeight > 0 ? overlap / pageHeight : 0;
+		return ratio >= TRIGGER_OVERLAP_RATIO;
+	}
+
+	// Developer self-check (GH #60). When the opt-in debug setting is
+	// on, PHP sets `window.motionBlocksDebug` before this script runs
+	// and enqueues build/self-check.js after it. The runtime then
+	// exposes read-only internals on `window.__motionBlocks` so the
+	// check inspects real trigger state instead of re-deriving it. With
+	// the flag off nothing is exposed and nothing else changes.
+	var DEBUG = window.motionBlocksDebug === true;
+	var debugApi = null;
+	if ( DEBUG ) {
+		debugApi = {
+			// Every element a mode's init loop wired up.
+			wired: new WeakSet(),
+			// Scroll Appear trigger states (same objects tick() reads).
+			scrollAppear: [],
+			zoneOverlap: zoneOverlap,
+			isInZone: isInZone,
+			zone: {
+				top: TRIGGER_ZONE_TOP_PCT,
+				bottom: TRIGGER_ZONE_BOTTOM_PCT,
+				ratio: TRIGGER_OVERLAP_RATIO,
+			},
+			ready: false,
+		};
+		window.__motionBlocks = debugApi;
+	}
 
 	function init() {
 		initPageLoadAnimations();
 		initScrollAppearAnimations();
 		initScrollInteractiveAnimations();
-		initDebugMarkers();
+		if ( DEBUG ) {
+			debugApi.ready = true;
+		}
 	}
 
 	/* ---------------------------------------------------------------
@@ -765,6 +817,9 @@
 
 			// Trigger the animation.
 			el.classList.add( 'mb-triggered' );
+			if ( DEBUG ) {
+				debugApi.wired.add( el );
+			}
 
 			// Pause off-screen only applies to looping animations.
 			// Pausing a one-shot while off-screen would freeze it at
@@ -994,17 +1049,15 @@
 			// that moment, tick no-ops and the exit handler never
 			// fires — then IO stops firing because its intersection
 			// state has settled at false, leaving the element stuck.
-			var triggerTop = currentScrollY + vh * TRIGGER_ZONE_TOP_PCT;
 			var triggerBottom =
 				currentScrollY + vh * TRIGGER_ZONE_BOTTOM_PCT;
-			var overlap = Math.max(
-				0,
-				Math.min( state.pageBottom, triggerBottom ) -
-					Math.max( state.pageTop, triggerTop )
+			var overlap = zoneOverlap(
+				state.pageTop,
+				state.pageBottom,
+				currentScrollY,
+				vh
 			);
-			var ratio =
-				state.pageHeight > 0 ? overlap / state.pageHeight : 0;
-			var inZone = ratio >= TRIGGER_OVERLAP_RATIO;
+			var inZone = isInZone( overlap, state.pageHeight );
 			if ( inZone === state.inZone ) {
 				// No flip. Bbox-bounce IO callbacks land here and
 				// silently no-op.
@@ -1134,6 +1187,10 @@
 			io.observe( el );
 
 			states.push( state );
+			if ( DEBUG ) {
+				debugApi.wired.add( el );
+				debugApi.scrollAppear.push( state );
+			}
 		} );
 
 		// Recompute every element's cached bounds, then re-tick. Shared
@@ -1547,80 +1604,10 @@
 			el.style.setProperty( '--mb-range-start', rangeStart );
 			el.style.setProperty( '--mb-range-end', rangeEnd );
 
+			if ( DEBUG ) {
+				debugApi.wired.add( el );
+			}
 		} );
-	}
-
-	/* ---------------------------------------------------------------
-	 * Debug: Scroll Appear trigger lines (GSAP `markers` analog)
-	 *
-	 * Draws two fixed horizontal lines at the trigger-zone edges so you
-	 * can see where Scroll Appear blocks fire. Opt-in via the
-	 * `mb_debug_markers` admin setting, which sets
-	 * `window.motionBlocksDebugMarkers` before this script runs.
-	 * Frontend-only (enqueue is gated on `! is_admin`) and
-	 * scroll-appear-only (Page Load / Scroll Interactive have no zone).
-	 * Lines are `position: fixed` with vh-relative offsets, so they
-	 * track the viewport and self-adjust on resize — no listeners.
-	 * ------------------------------------------------------------- */
-
-	function initDebugMarkers() {
-		if ( window.motionBlocksDebugMarkers !== true ) {
-			return;
-		}
-		// Don't clutter pages that have no Scroll Appear blocks.
-		if ( ! document.querySelector( '.mb-mode-scroll-appear' ) ) {
-			return;
-		}
-
-		var topPct = TRIGGER_ZONE_TOP_PCT * 100;
-		var bottomPct = TRIGGER_ZONE_BOTTOM_PCT * 100;
-		var overlapPct = TRIGGER_OVERLAP_RATIO * 100;
-
-		var style = document.createElement( 'style' );
-		style.textContent =
-			'.mb-debug-marker{position:fixed;left:0;right:0;height:0;' +
-			'z-index:2147483646;pointer-events:none;}' +
-			'.mb-debug-marker__label{position:absolute;right:8px;top:0;' +
-			'transform:translateY(-50%);padding:2px 6px;border-radius:3px;' +
-			'color:#fff;white-space:nowrap;font:600 11px/1.4 -apple-system,' +
-			'BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}' +
-			'.mb-debug-marker--start{border-top:1px dashed #0a8a3f;}' +
-			'.mb-debug-marker--start .mb-debug-marker__label' +
-			'{background:#0a8a3f;}' +
-			'.mb-debug-marker--end{border-top:1px dashed #c0392b;}' +
-			'.mb-debug-marker--end .mb-debug-marker__label' +
-			'{background:#c0392b;}';
-		document.head.appendChild( style );
-
-		function makeLine( modifier, topVh, text ) {
-			var line = document.createElement( 'div' );
-			line.className = 'mb-debug-marker mb-debug-marker--' + modifier;
-			line.style.top = topVh + 'vh';
-			var label = document.createElement( 'span' );
-			label.className = 'mb-debug-marker__label';
-			label.textContent = text;
-			line.appendChild( label );
-			document.body.appendChild( line );
-		}
-
-		// Element enters the zone from the bottom on scroll-down, so the
-		// lower line (at bottomPct) is the "start" edge and the upper
-		// line (at topPct) is the "end" edge — matching GSAP markers,
-		// where green/start sits below red/end.
-		makeLine(
-			'start',
-			bottomPct,
-			'Motion Blocks — Scroll Appear trigger start (' +
-				bottomPct +
-				'%) — fires at ' +
-				overlapPct +
-				'% overlap'
-		);
-		makeLine(
-			'end',
-			topPct,
-			'trigger end (' + topPct + '%)'
-		);
 	}
 
 	/* ---------------------------------------------------------------

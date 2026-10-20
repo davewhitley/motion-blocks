@@ -202,15 +202,34 @@ function motion_blocks_enqueue_block_assets() {
                 true
             );
 
-            // Opt-in debug overlay: when the admin setting is on, draw
-            // the Scroll Appear trigger lines on the front end. Limited
-            // to logged-in users so it stays a dev aid, never shown to
-            // public visitors. Off by default.
-            if ( get_option( 'mb_debug_markers' ) && is_user_logged_in() ) {
+            // Opt-in developer self-check (GH #60): when the admin
+            // setting is on, flag the runtime into debug mode (it then
+            // exposes its trigger state) and load the checker after it.
+            // Limited to logged-in users so visitors never load it. Off
+            // by default. The option key predates the self-check; it
+            // used to toggle the trigger-line overlay it replaced.
+            $self_check_asset_file = plugin_dir_path( __FILE__ ) . 'build/self-check.asset.php';
+            if (
+                get_option( 'mb_debug_markers' )
+                && is_user_logged_in()
+                && file_exists( $self_check_asset_file )
+            ) {
+                $self_check_asset = include $self_check_asset_file;
+
                 wp_add_inline_script(
                     'motion-blocks-frontend',
-                    'window.motionBlocksDebugMarkers = true;',
+                    'window.motionBlocksDebug = true;',
                     'before'
+                );
+                wp_enqueue_script(
+                    'motion-blocks-self-check',
+                    plugins_url( 'build/self-check.js', __FILE__ ),
+                    array_merge(
+                        $self_check_asset['dependencies'],
+                        array( 'motion-blocks-frontend' )
+                    ),
+                    $self_check_asset['version'],
+                    true
                 );
             }
         }
@@ -1129,7 +1148,8 @@ function motion_blocks_register_settings() {
         )
     );
 
-    // Debug-markers toggle. Registered into the `motion_blocks_settings`
+    // Self-check toggle (GH #60; the key predates it — it used to show
+    // trigger lines). Registered into the `motion_blocks_settings`
     // group so the Settings → Motion Blocks form (Settings API) can save
     // it via options.php. `manage_options` gates writes; the value is a
     // plain boolean coerced through rest_sanitize_boolean.
@@ -1138,7 +1158,7 @@ function motion_blocks_register_settings() {
         'mb_debug_markers',
         array(
             'type'              => 'boolean',
-            'description'       => __( 'Show Scroll Appear trigger lines on the front end.', 'motion-blocks' ),
+            'description'       => __( 'Run the animation self-check on the front end.', 'motion-blocks' ),
             'default'           => false,
             'sanitize_callback' => 'rest_sanitize_boolean',
             'show_in_rest'      => true,
@@ -1168,7 +1188,7 @@ add_action( 'init', 'motion_blocks_register_settings' );
 /**
  * Settings → Motion Blocks admin page.
  *
- * One toggle for now: the Scroll Appear debug trigger lines. The page is
+ * Two toggles: the front-end self-check and the beta live preview. The page is
  * structured with the Settings API (section + field) so more options can
  * slot in later without restructuring. `manage_options` gates the whole
  * page, matching the setting's own write cap.
@@ -1197,7 +1217,7 @@ function motion_blocks_register_settings_ui() {
 
     add_settings_field(
         'mb_debug_markers',
-        __( 'Trigger lines', 'motion-blocks' ),
+        __( 'Self-check', 'motion-blocks' ),
         'motion_blocks_render_debug_markers_field',
         'motion-blocks',
         'motion_blocks_debug_section'
@@ -1221,18 +1241,18 @@ function motion_blocks_register_settings_ui() {
 add_action( 'admin_init', 'motion_blocks_register_settings_ui' );
 
 /**
- * Section intro: warn that the lines are public on the front end.
+ * Debugging section intro.
  */
 function motion_blocks_render_debug_section() {
     ?>
     <p class="description">
-        <?php esc_html_e( 'Visual aids for working with Scroll Appear animations.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Tools for checking how animations behave on the published site.', 'motion-blocks' ); ?>
     </p>
     <?php
 }
 
 /**
- * The single checkbox field.
+ * Self-check checkbox.
  */
 function motion_blocks_render_debug_markers_field() {
     $value = (bool) get_option( 'mb_debug_markers', false );
@@ -1244,10 +1264,10 @@ function motion_blocks_render_debug_markers_field() {
             value="1"
             <?php checked( $value ); ?>
         />
-        <?php esc_html_e( 'Show Scroll Appear trigger lines on the front end', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Check animated blocks on the front end and report problems', 'motion-blocks' ); ?>
     </label>
     <p class="description">
-        <?php esc_html_e( 'The lines are only shown to logged-in users, so visitors never see them.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only logged-in users see it, so visitors are never affected.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

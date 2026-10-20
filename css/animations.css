@@ -67,9 +67,19 @@ html:has(body.mb-clip-page-overflow) {
  * below keep winning unchanged. The editor canvas is unaffected
  * either way: it never carries `mb-mode-*` classes (the preview HOC
  * deliberately omits them — see src/index.js withAnimationPreview).
+ *
+ * Reduced-motion contract (GH #26): every HIDE rule also sits inside
+ * `@media (prefers-reduced-motion: no-preference)`, so nothing is
+ * pre-hidden when the visitor asks for reduced motion. frontend.js
+ * still wires every block, so if the OS setting flips mid-visit the
+ * hide rules re-apply and the triggers reveal / animate the blocks
+ * as usual. Don't add a JS reduced-motion bail-out instead: blocks
+ * would stay blank once the hide rules match again.
  * -------------------------------------------------------------- */
-:where(html.mb-js) .mb-mode-page-load:not(.mb-triggered) {
-    opacity: 0;
+@media (prefers-reduced-motion: no-preference) {
+    :where(html.mb-js) .mb-mode-page-load:not(.mb-triggered) {
+        opacity: 0;
+    }
 }
 
 /* Scroll Appear initial-hide (slot model): hide the element only
@@ -77,8 +87,10 @@ html:has(body.mb-clip-page-overflow) {
    class is active. An Exit-only block (`.mb-has-entry` absent)
    starts visible — its exit animation hides it via forwards fill
    when the user scrolls past. */
-:where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) {
-    opacity: 0;
+@media (prefers-reduced-motion: no-preference) {
+    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) {
+        opacity: 0;
+    }
 }
 /* img-target Custom: the wrapper never animates — only the first
    img descendant does. Keep the figure / caption visible by opting
@@ -671,18 +683,41 @@ html:has(body.mb-clip-page-overflow) {
 
 /* ----------------------------------------------------------------
  * Accessibility: Reduced Motion
+ *
+ * Pins everything Motion Blocks can animate at its visible rest
+ * state: block wrappers, Scroll Interactive wrappers, Stagger
+ * children (the parent hands its animation down to them) and the
+ * Cover's inner image (Image Zoom / Image Move and every "Animate
+ * image only" effect run on `img:first-of-type`, not the wrapper).
+ *
+ * This selector list MUST stay identical to the three per-device
+ * blocks below (GH #26 / #44 — the lists used to drift apart and
+ * each missed a different target).
+ *
+ * `!important` stays: Out presets and Custom effects that end at
+ * opacity 0 would otherwise finish hidden through fill-mode, and the
+ * runtime-injected Custom / image-effect CSS must not out-rank it.
+ *
+ * `filter` is reset in a separate rule that never reaches the Cover
+ * image: core duotone sets `filter: url(#wp-duotone-…)` on
+ * `.wp-block-cover__image-background`, and with `animation: none`
+ * there is no keyframe filter left on the img to clear anyway.
  * -------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-    .mb-animated,
-    .mb-animated.mb-triggered,
-    .mb-animated.mb-exit-triggered,
-    .mb-mode-scroll-interactive {
+    :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > *,
+        [data-mb-target="img"] img:first-of-type
+    ) {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
         transform: none !important;
-        filter: none !important;
         clip-path: none !important;
+    }
+    :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+        filter: none !important;
     }
 }
 
@@ -696,49 +731,64 @@ html:has(body.mb-clip-page-overflow) {
  * Three non-overlapping ranges so a viewport falls into exactly
  * one bucket. Disabling all three is "off everywhere".
  *
- * Each rule pins the element to its visible state so a disabled
- * animation doesn't leave the block stuck at its hidden start
- * frame.
+ * Each rule pins the wrapper, Stagger children and the Cover image
+ * at their visible rest state, using the same list as Reduced Motion
+ * above, so a disabled animation doesn't play or leave the block
+ * stuck at its hidden start frame. The initial-hide rules still
+ * match on a disabled device; the `opacity: 1 !important` here is
+ * what keeps the block (and each Stagger child) visible.
  * -------------------------------------------------------------- */
 @media (min-width: 1024px) {
-    body.mb-disabled-desktop .mb-animated,
-    body.mb-disabled-desktop .mb-animated.mb-triggered,
-    body.mb-disabled-desktop .mb-animated.mb-exit-triggered,
-    body.mb-disabled-desktop .mb-mode-scroll-interactive {
+    body.mb-disabled-desktop :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > *,
+        [data-mb-target="img"] img:first-of-type
+    ) {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
         transform: none !important;
-        filter: none !important;
         clip-path: none !important;
+    }
+    body.mb-disabled-desktop :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+        filter: none !important;
     }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-    body.mb-disabled-tablet .mb-animated,
-    body.mb-disabled-tablet .mb-animated.mb-triggered,
-    body.mb-disabled-tablet .mb-animated.mb-exit-triggered,
-    body.mb-disabled-tablet .mb-mode-scroll-interactive {
+    body.mb-disabled-tablet :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > *,
+        [data-mb-target="img"] img:first-of-type
+    ) {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
         transform: none !important;
-        filter: none !important;
         clip-path: none !important;
+    }
+    body.mb-disabled-tablet :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+        filter: none !important;
     }
 }
 
 @media (max-width: 767px) {
-    body.mb-disabled-mobile .mb-animated,
-    body.mb-disabled-mobile .mb-animated.mb-triggered,
-    body.mb-disabled-mobile .mb-animated.mb-exit-triggered,
-    body.mb-disabled-mobile .mb-mode-scroll-interactive {
+    body.mb-disabled-mobile :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > *,
+        [data-mb-target="img"] img:first-of-type
+    ) {
         animation: none !important;
         animation-timeline: none !important;
         opacity: 1 !important;
         transform: none !important;
-        filter: none !important;
         clip-path: none !important;
+    }
+    body.mb-disabled-mobile :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+        filter: none !important;
     }
 }
 
@@ -769,10 +819,13 @@ html:has(body.mb-clip-page-overflow) {
 /* Initial hidden state for children — mirrors the parent's
    "before triggered" rule but applied to the kids. Scroll Appear
    gates on `.mb-has-entry` (slot model) so Exit-only blocks don't
-   hide their kids before the entry animation has anything to do. */
-:where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
-:where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > * {
-    opacity: 0;
+   hide their kids before the entry animation has anything to do.
+   Not armed under reduced motion (see Initial Hidden States). */
+@media (prefers-reduced-motion: no-preference) {
+    :where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
+    :where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > * {
+        opacity: 0;
+    }
 }
 
 /* Page Load "Out" preset inner blocks start visible — invert the
@@ -899,15 +952,4 @@ html:has(body.mb-clip-page-overflow) {
 .mb-stagger-parent.mb-triggered > *:nth-child(28) { animation-delay: calc(var(--mb-delay, 0s) + 27 * var(--mb-stagger-step, 0.1s)); }
 .mb-stagger-parent.mb-triggered > *:nth-child(29) { animation-delay: calc(var(--mb-delay, 0s) + 28 * var(--mb-stagger-step, 0.1s)); }
 .mb-stagger-parent.mb-triggered > *:nth-child(30) { animation-delay: calc(var(--mb-delay, 0s) + 29 * var(--mb-stagger-step, 0.1s)); }
-
-/* Reduced motion override — children also need to ignore the cascade. */
-@media (prefers-reduced-motion: reduce) {
-    .mb-stagger-parent > * {
-        animation: none !important;
-        opacity: 1 !important;
-        transform: none !important;
-        filter: none !important;
-        clip-path: none !important;
-    }
-}
 

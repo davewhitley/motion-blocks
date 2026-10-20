@@ -1015,7 +1015,10 @@
 			// desirable for downstream consistency.
 			//
 			// Gated on Entry Replay so `once` blocks (which want to
-			// stay entered forever) aren't reset. For empty Entry +
+			// stay entered forever) aren't reset. A `once` block with
+			// an Exit slot relies on this too: its reverse-played exit
+			// state must survive off-screen so handleSlotEnter's once
+			// guard can skip the Entry replay (GH #39). For empty Entry +
 			// Exit Replay = 'reverse' (today's Exit-only default), the
 			// reverse-played state is held by fill-mode; the next
 			// forward leave detects wasReversed and force-restarts.
@@ -1356,6 +1359,9 @@
 	 * triggered terminal state, do nothing. Geometry-changing
 	 * animations (rotate, scale, slide) shift the bbox mid-animation;
 	 * the guard keeps redundant IO events silent.
+	 *
+	 * Entry Replay 'once' + an Exit slot never replays the Entry: the
+	 * block resumes from the reverse-played Exit instead (GH #39).
 	 */
 	function handleSlotEnter( state ) {
 		if ( state.entry.type === '' ) {
@@ -1377,6 +1383,19 @@
 			return;
 		}
 
+		// Entry Replay = 'once' with an Exit slot: the block stays
+		// observed (see below) but the Entry never replays. After an
+		// Exit round-trip the reverse-played exit holds the block at its
+		// natural, visible state, so re-entering from below leaves it
+		// alone (restarting mb-triggered would snap it to the Entry's
+		// hidden "from" and fade it in again). Any other state (exit
+		// played forward and then jumped past, or classes cleared by
+		// Exit Replay 'repeat') falls through, so the block is never
+		// left invisible in the zone.
+		if ( state.entryReplay === 'once' && inExited && wasReversed ) {
+			return;
+		}
+
 		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.remove( 'mb-exit-triggered' );
@@ -1386,8 +1405,11 @@
 			el.classList.add( 'mb-triggered' );
 		}
 
-		// Entry Replay = 'once': fire once and stop observing.
-		if ( state.entryReplay === 'once' ) {
+		// Entry Replay = 'once' with no Exit slot: nothing else can ever
+		// play, so stop observing. With an Exit slot the block stays
+		// observed so onLeave / onEnterBack still fire (GH #39); the
+		// guard above keeps the Entry from replaying.
+		if ( state.entryReplay === 'once' && ! state.hasExit ) {
 			state.unobserved = true;
 			if ( state.io ) {
 				state.io.unobserve( el );
@@ -1527,7 +1549,8 @@
 		// Fires at the trigger-zone bottom edge while scrolling up — the
 		// element is leaving at the bottom of the viewport. Entry-owned.
 		//
-		//   'once':    no-op (stays entered forever).
+		//   'once':    no-op (stays entered forever, or holds the
+		//              reverse-played Exit when an Exit slot is filled).
 		//   'repeat':  no-op here. Clearing the trigger classes at this
 		//              edge would snap the element to its hidden state
 		//              while still partly on-screen (a visible flash);

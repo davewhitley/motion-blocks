@@ -297,7 +297,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'entry-once-exit' => array(
 			'title'   => 'Entry once + Exit',
-			'note'    => 'A Scroll Appear group (blue) with Entry Replay "Once" and an Exit slot. It fades in, but when you scroll past it the Exit never plays, because "Once" stops watching the block.',
+			'note'    => 'A Scroll Appear group (blue) with Entry Replay "Once" and an Exit slot. It fades in once; scroll past it and it fades out, scroll back up and it fades back in. Scrolling down to it again must not replay the fade-in.',
 			'content' => mb_self_check_frame(
 				mb_self_check_group(
 					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Once) · Exit: Fade' ),
@@ -311,7 +311,7 @@ function mb_self_check_fixtures( $image ) {
 					MB_SELF_CHECK_COLORS['group']
 				)
 			),
-			'expect'                => array( 'can-never-play#39' ),
+			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
 		'stagger-limit'   => array(
@@ -509,8 +509,8 @@ function mb_self_check_smoke( $image ) {
 			'animationMode'          => 'scroll-appear',
 			'animationEntryType'     => 'fade',
 			'animationEntryDelay'    => 0,
-			// "Once" + Exit can't play yet (GH #39); Repeat keeps
-			// both slots live.
+			// Repeat keeps Entry-repeat + Exit covered for every exit
+			// effect; Entry once + Exit has its own rows below.
 			'animationEntryReplay'   => 'repeat',
 			'animationExitType'      => $type,
 			'animationExitDirection' => $direction,
@@ -524,6 +524,8 @@ function mb_self_check_smoke( $image ) {
 	}
 	$replays = array(
 		array( 'Entry Replay: reverse (no Exit)', array( 'animationEntryReplay' => 'reverse' ) ),
+		array( 'Entry Replay: once (no Exit)', array( 'animationEntryReplay' => 'once' ) ),
+		array( 'Entry Replay: once + Exit', array( 'animationEntryReplay' => 'once', 'animationExitType' => 'fade' ) ),
 		array( 'Exit Replay: once', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'once' ) ),
 		array( 'Exit Replay: repeat', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'repeat' ) ),
 		array( 'Exit only (no Entry)', array( 'animationEntryType' => '', 'animationExitType' => 'fade' ) ),

@@ -302,27 +302,6 @@
 					)
 				);
 			}
-
-			// Remove once GH #39 is fixed: Entry Replay "Once" stops
-			// watching the block, so a filled Exit slot never fires.
-			// With no Entry slot the Entry handler never runs, so it
-			// never stops watching.
-			if (
-				state.hasEntry &&
-				state.hasExit &&
-				state.entryReplay === 'once'
-			) {
-				found.push(
-					issue(
-						'can-never-play',
-						'warning',
-						el,
-						blockLabel( el ) +
-							'’s Exit will never play: Entry Replay is “Once”, which stops watching the block after it enters.',
-						39
-					)
-				);
-			}
 		} );
 		return found;
 	}

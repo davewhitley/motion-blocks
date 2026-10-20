@@ -5,8 +5,8 @@
   "license": "GPL-2.0-or-later",
   "author": "Dave Whitley",
   "scripts": {
-    "build": "wp-scripts build src/index.js src/frontend.js src/self-check.js",
-    "start": "wp-scripts start src/index.js src/frontend.js src/self-check.js"
+    "build": "wp-scripts build src/index.js src/frontend.js src/self-check.js src/editor-check.js",
+    "start": "wp-scripts start src/index.js src/frontend.js src/self-check.js src/editor-check.js"
   },
   "devDependencies": {
     "@babel/runtime": "^7.28.6",

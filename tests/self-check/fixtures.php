@@ -16,8 +16,16 @@
  * Modes (optional positional arg):
  *   (none)  Create or update the fixture pages and print a table of URLs
  *           and expected checks.
- *   json    Same, but print a JSON manifest instead (for a test runner).
+ *   smoke   Only the smoke page: every effect in every mode, set up
+ *           correctly. Run it after every update (see below).
+ *   json    Same as (none), but print a JSON manifest instead (for a
+ *           test runner), including each page's editor URL.
  *   delete  Remove every fixture page.
+ *
+ * Smoke test after an update: run `smoke`, open the page while logged in
+ * and sweep it (expect no issues), then open it in the editor and run
+ * `await motionBlocksEditorCheck()` in the console (expect no invalid
+ * blocks, warnings or errors).
  *
  * Then turn on Settings → Motion Blocks → Self-check, open a page while
  * logged in, and run `await motionBlocksSelfCheck( { sweep: true } )` in
@@ -106,6 +114,12 @@ const MB_SELF_CHECK_COLORS = array(
 	'list'      => '#ede9fe',
 	'slide'     => '#ffedd5',
 	'injected'  => '#fce7f3',
+	// Smoke page: one tint per mode.
+	'page-load'          => '#dcfce7',
+	'scroll-appear'      => '#dbeafe',
+	'scroll-interactive' => '#ede9fe',
+	'stagger'            => '#ffedd5',
+	'recipe'             => '#fce7f3',
 );
 
 /**
@@ -189,7 +203,7 @@ function mb_self_check_spacer( $px ) {
 	);
 }
 
-function mb_self_check_cover( $image, $attrs ) {
+function mb_self_check_cover( $image, $attrs, $label = 'Cover · Page Load · Image Zoom (looping)' ) {
 	$attrs = array_merge(
 		array(
 			'url'      => $image['url'],
@@ -203,7 +217,7 @@ function mb_self_check_cover( $image, $attrs ) {
 		. "<img class=\"wp-block-cover__image-background wp-image-{$image['id']}\" alt=\"\" src=\"{$url}\" data-object-fit=\"cover\"/>"
 		. '<span aria-hidden="true" class="wp-block-cover__background has-background-dim-0 has-background-dim"></span>'
 		. '<div class="wp-block-cover__inner-container">'
-		. mb_self_check_paragraph( 'Cover · Page Load · Image Zoom (looping)' )
+		. mb_self_check_paragraph( $label )
 		. '</div></div>';
 	return mb_self_check_block( 'cover', $attrs, $html );
 }
@@ -365,6 +379,328 @@ function mb_self_check_fixtures( $image ) {
 	return $fixtures;
 }
 
+/**
+ * The smoke page: every effect in every mode, set up correctly, on one
+ * page. Run it after any update; it should come back clean on the front
+ * end (self-check sweep) and in the editor (motionBlocksEditorCheck).
+ *
+ * Effect values come from shared-constants.json, the same lists the
+ * Motion Effects panel offers, so a new effect lands here automatically.
+ */
+function mb_self_check_smoke( $image ) {
+	$shared     = motion_blocks_shared_constants();
+	$image_only = $shared['imageEffectTypes'];
+	$colors     = MB_SELF_CHECK_COLORS;
+
+	// Custom From/To values that visibly move, per attribute prefix.
+	$custom = function ( $from_prefix, $to_prefix ) {
+		return array(
+			"{$from_prefix}Opacity"    => 0,
+			"{$from_prefix}TranslateY" => '40px',
+			"{$from_prefix}Rotate"     => '-8deg',
+			"{$to_prefix}Opacity"      => 1,
+			"{$to_prefix}TranslateY"   => '0px',
+			"{$to_prefix}Rotate"       => '0deg',
+		);
+	};
+
+	// One entry per effect × direction (or just the effect when it has
+	// no direction control).
+	$variants = function ( $types ) use ( $shared, $image_only ) {
+		$out = array();
+		foreach ( $types as $type ) {
+			if ( in_array( $type, $image_only, true ) ) {
+				continue;
+			}
+			$directions = isset( $shared['directions'][ $type ] ) ? $shared['directions'][ $type ] : array( '' );
+			foreach ( $directions as $direction ) {
+				$out[] = array( $type, $direction );
+			}
+		}
+		return $out;
+	};
+
+	// Drop unset directions so the block saves like the editor would.
+	$clean = function ( $attrs ) {
+		return array_filter(
+			$attrs,
+			function ( $v ) {
+				return '' !== $v;
+			}
+		);
+	};
+	$label = function ( $parts ) {
+		return implode( ' · ', array_filter( $parts ) );
+	};
+	$heading = function ( $text ) {
+		return mb_self_check_block( 'heading', array(), '<h2 class="wp-block-heading">' . esc_html( $text ) . '</h2>' );
+	};
+	// Each section is a group with a gap, so tinted blocks don't touch.
+	$section = function ( $title, $inner ) use ( $heading ) {
+		return $heading( $title )
+			. mb_self_check_block(
+				'group',
+				array(
+					'style'  => array( 'spacing' => array( 'blockGap' => '0.75rem' ) ),
+					'layout' => array( 'type' => 'constrained' ),
+				),
+				"<div class=\"wp-block-group\">\n{$inner}</div>"
+			);
+	};
+
+	$body  = '';
+	$count = 0;
+
+	// --- Page Load: the panel offers every type except the -out variants.
+	$inner = '';
+	$page_load_types = array_values(
+		array_filter(
+			$shared['animationTypes'],
+			function ( $type ) {
+				return '-out' !== substr( $type, -4 );
+			}
+		)
+	);
+	foreach ( $variants( $page_load_types ) as list( $type, $direction ) ) {
+		$attrs = array(
+			'animationMode'      => 'page-load',
+			'animationType'      => $type,
+			'animationDirection' => $direction,
+			'animationDelay'     => 0,
+		);
+		if ( 'custom' === $type ) {
+			$attrs = array_merge( $attrs, $custom( 'animationFrom', 'animationTo' ) );
+		}
+		$inner .= mb_self_check_paragraph( $label( array( 'Page Load', $type, $direction ) ), $clean( $attrs ), $colors['page-load'] );
+		$count++;
+	}
+	foreach ( array( 'loop', 'alternate' ) as $repeat ) {
+		$inner .= mb_self_check_paragraph(
+			$label( array( 'Page Load', 'fade', "Repeat: {$repeat}" ) ),
+			array(
+				'animationMode'   => 'page-load',
+				'animationType'   => 'fade',
+				'animationDelay'  => 0,
+				'animationRepeat' => $repeat,
+			),
+			$colors['page-load']
+		);
+		$count++;
+	}
+	$body .= $section( 'Page Load', $inner );
+
+	// --- Scroll Appear: every Entry effect, every Exit effect, Replay modes.
+	$inner = '';
+	foreach ( $variants( $shared['entryTypes'] ) as list( $type, $direction ) ) {
+		$attrs = array(
+			'animationMode'           => 'scroll-appear',
+			'animationEntryType'      => $type,
+			'animationEntryDirection' => $direction,
+			'animationEntryDelay'     => 0,
+			'animationEntryReplay'    => 'repeat',
+		);
+		if ( 'custom' === $type ) {
+			$attrs = array_merge( $attrs, $custom( 'animationEntryFrom', 'animationEntryTo' ) );
+		}
+		$inner .= mb_self_check_paragraph( $label( array( 'Scroll Appear', "Entry: {$type}", $direction ) ), $clean( $attrs ), $colors['scroll-appear'] );
+		$count++;
+	}
+	foreach ( $variants( $shared['exitTypes'] ) as list( $type, $direction ) ) {
+		$attrs = array(
+			'animationMode'          => 'scroll-appear',
+			'animationEntryType'     => 'fade',
+			'animationEntryDelay'    => 0,
+			// "Once" + Exit can't play yet (GH #39); Repeat keeps
+			// both slots live.
+			'animationEntryReplay'   => 'repeat',
+			'animationExitType'      => $type,
+			'animationExitDirection' => $direction,
+		);
+		if ( 'custom' === $type ) {
+			// Exit runs visible → hidden, so the "from" values go on To.
+			$attrs = array_merge( $attrs, $custom( 'animationExitTo', 'animationExitFrom' ) );
+		}
+		$inner .= mb_self_check_paragraph( $label( array( 'Scroll Appear', 'Entry: fade', "Exit: {$type}", $direction ) ), $clean( $attrs ), $colors['scroll-appear'] );
+		$count++;
+	}
+	$replays = array(
+		array( 'Entry Replay: reverse (no Exit)', array( 'animationEntryReplay' => 'reverse' ) ),
+		array( 'Exit Replay: once', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'once' ) ),
+		array( 'Exit Replay: repeat', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'repeat' ) ),
+		array( 'Exit only (no Entry)', array( 'animationEntryType' => '', 'animationExitType' => 'fade' ) ),
+	);
+	foreach ( $replays as list( $text, $extra ) ) {
+		$attrs = array_merge(
+			array(
+				'animationMode'       => 'scroll-appear',
+				'animationEntryType'  => 'fade',
+				'animationEntryDelay' => 0,
+			),
+			$extra
+		);
+		$inner .= mb_self_check_paragraph( $label( array( 'Scroll Appear', $text ) ), $attrs, $colors['scroll-appear'] );
+		$count++;
+	}
+	$body .= $section( 'Scroll Appear', $inner );
+
+	// --- Scroll Interactive: every type, plus a custom range.
+	$inner = '';
+	foreach ( $variants( $shared['animationTypes'] ) as list( $type, $direction ) ) {
+		$attrs = array(
+			'animationMode'      => 'scroll-interactive',
+			'animationType'      => $type,
+			'animationDirection' => $direction,
+		);
+		if ( 'custom' === $type ) {
+			$attrs = array_merge( $attrs, $custom( 'animationFrom', 'animationTo' ) );
+		}
+		$inner .= mb_self_check_paragraph( $label( array( 'Scroll Interactive', $type, $direction ) ), $clean( $attrs ), $colors['scroll-interactive'] );
+		$count++;
+	}
+	$inner .= mb_self_check_paragraph(
+		$label( array( 'Scroll Interactive', 'fade', 'Range: entry 20% → exit 80%' ) ),
+		array(
+			'animationMode'       => 'scroll-interactive',
+			'animationType'       => 'fade',
+			'animationRangeStart' => 'entry 20%',
+			'animationRangeEnd'   => 'exit 80%',
+		),
+		$colors['scroll-interactive']
+	);
+	$count++;
+	$body .= $section( 'Scroll Interactive', $inner );
+
+	// --- Stagger on every container that supports it.
+	$inner     = '';
+	$stagger   = array(
+		'animationMode'           => 'page-load',
+		'animationType'           => 'slide',
+		'animationDirection'      => 'btt',
+		'animationDelay'          => 0,
+		'animationStaggerEnabled' => true,
+		'animationStaggerStep'    => 0.1,
+	);
+	$children  = function ( $n, $what ) {
+		$out = '';
+		for ( $i = 1; $i <= $n; $i++ ) {
+			$out .= mb_self_check_paragraph( "{$what} {$i}" );
+		}
+		return $out;
+	};
+	foreach ( $shared['staggerParentBlocks'] as $parent ) {
+		$name = substr( $parent, 5 );
+		switch ( $parent ) {
+			case 'core/group':
+				$inner .= mb_self_check_group( mb_self_check_paragraph( 'Stagger · Group · Page Load · slide' ) . $children( 3, 'Child' ), $stagger, $colors['stagger'] );
+				$inner .= mb_self_check_group(
+					mb_self_check_paragraph( 'Stagger · Group · Scroll Appear · Entry: scale' ) . $children( 3, 'Child' ),
+					array(
+						'animationMode'           => 'scroll-appear',
+						'animationEntryType'      => 'scale',
+						'animationEntryDelay'     => 0,
+						'animationEntryReplay'    => 'repeat',
+						'animationStaggerEnabled' => true,
+					),
+					$colors['stagger']
+				);
+				$count += 2;
+				break;
+			case 'core/columns':
+				$columns = '';
+				for ( $i = 1; $i <= 3; $i++ ) {
+					$columns .= mb_self_check_block( 'column', array(), '<div class="wp-block-column">' . mb_self_check_paragraph( "Stagger · Columns · column {$i}" ) . '</div>' );
+				}
+				$inner .= mb_self_check_block( 'columns', $stagger, "<div class=\"wp-block-columns\">{$columns}</div>" );
+				$count++;
+				break;
+			case 'core/buttons':
+				$buttons = '';
+				for ( $i = 1; $i <= 3; $i++ ) {
+					$buttons .= mb_self_check_block( 'button', array(), "<div class=\"wp-block-button\"><a class=\"wp-block-button__link wp-element-button\">Stagger · Buttons · {$i}</a></div>" );
+				}
+				$inner .= mb_self_check_block( 'buttons', $stagger, "<div class=\"wp-block-buttons\">{$buttons}</div>" );
+				$count++;
+				break;
+			case 'core/gallery':
+				if ( ! $image ) {
+					break;
+				}
+				$images = '';
+				$url    = esc_url( $image['url'] );
+				for ( $i = 1; $i <= 3; $i++ ) {
+					$images .= mb_self_check_block(
+						'image',
+						array(
+							'id'              => $image['id'],
+							'sizeSlug'        => 'full',
+							'linkDestination' => 'none',
+						),
+						"<figure class=\"wp-block-image size-full\"><img src=\"{$url}\" alt=\"\" class=\"wp-image-{$image['id']}\"/></figure>"
+					);
+				}
+				$inner .= mb_self_check_block(
+					'gallery',
+					array_merge( array( 'linkTo' => 'none' ), $stagger ),
+					"<figure class=\"wp-block-gallery has-nested-images columns-default is-cropped\">{$images}</figure>"
+				);
+				$count++;
+				break;
+			case 'core/list':
+				$inner .= mb_self_check_list( 4, $stagger, $colors['stagger'] );
+				$count++;
+				break;
+			default:
+				// A container added to staggerParentBlocks that this page
+				// doesn't know how to build yet: say so on the page.
+				$inner .= mb_self_check_paragraph( "Not covered yet: stagger on {$parent}" );
+		}
+	}
+	$body .= $section( 'Stagger', $inner );
+
+	// --- Cover image effects and "Animate image only".
+	if ( $image ) {
+		$inner  = '';
+		$covers = array(
+			array( 'Page Load · image-zoom', array( 'animationMode' => 'page-load', 'animationType' => 'image-zoom', 'animationDelay' => 0 ) ),
+			array( 'Page Load · image-move · btt', array( 'animationMode' => 'page-load', 'animationType' => 'image-move', 'animationDirection' => 'btt', 'animationDelay' => 0 ) ),
+			array( 'Page Load · slide · Animate image only', array( 'animationMode' => 'page-load', 'animationType' => 'slide', 'animationDirection' => 'btt', 'animationDelay' => 0, 'animationFromToTarget' => 'img' ) ),
+			array( 'Scroll Appear · Entry: image-zoom', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'image-zoom', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat' ) ),
+			array( 'Scroll Appear · Entry: scale · Animate image only', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'scale', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat', 'animationFromToTarget' => 'img' ) ),
+			array( 'Scroll Interactive · image-move · btt', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'image-move', 'animationDirection' => 'btt' ) ),
+			array( 'Scroll Interactive · image-zoom', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'image-zoom' ) ),
+		);
+		foreach ( $covers as list( $text, $attrs ) ) {
+			$inner .= mb_self_check_cover( $image, $attrs, "Cover · {$text}" );
+			$count++;
+		}
+		$body .= $section( 'Cover image effects', $inner );
+	}
+
+	// --- Bundled recipes, with the exact attributes they apply.
+	$inner = '';
+	foreach ( motion_blocks_bundled_recipes() as $recipe ) {
+		$attrs = array_filter(
+			$recipe['attributes'],
+			function ( $v ) {
+				return null !== $v;
+			}
+		);
+		$inner .= mb_self_check_paragraph( 'Recipe · ' . $recipe['name'], $attrs, $colors['recipe'] );
+		$count++;
+	}
+	$body .= $section( 'Recipes', $inner );
+
+	return array(
+		'title'                 => 'Smoke test',
+		'note'                  => "Every effect in every mode, set up correctly: {$count} animated blocks, tinted by mode (green Page Load, blue Scroll Appear, purple Scroll Interactive, orange Stagger, pink Recipes). Run it after every update. On the front end the sweep should report nothing. Then open this page in the editor and run: await motionBlocksEditorCheck() — it should report no invalid blocks or errors.",
+		'content'               => $body . mb_self_check_spacer( 600 ),
+		'expect'                => array(),
+		// Image-targeted animations ignore reduced motion until GH #26
+		// is fixed.
+		'expect_reduced_motion' => $image ? array( 'reduced-motion-leak#26' ) : array(),
+	);
+}
+
 function mb_self_check_find_page( $slug ) {
 	$page = get_page_by_path( $slug, OBJECT, 'page' );
 	return $page ? (int) $page->ID : 0;
@@ -391,7 +727,11 @@ if ( 'delete' === $mb_mode ) {
 kses_remove_filters();
 
 $mb_manifest = array();
-foreach ( mb_self_check_fixtures( mb_self_check_image() ) as $key => $fixture ) {
+$mb_image    = mb_self_check_image();
+$mb_fixtures = 'smoke' === $mb_mode
+	? array( 'smoke' => mb_self_check_smoke( $mb_image ) )
+	: array_merge( array( 'smoke' => mb_self_check_smoke( $mb_image ) ), mb_self_check_fixtures( $mb_image ) );
+foreach ( $mb_fixtures as $key => $fixture ) {
 	$slug    = MB_SELF_CHECK_SLUG_PREFIX . $key;
 	$post_id = mb_self_check_find_page( $slug );
 	$postarr = array(
@@ -419,6 +759,7 @@ foreach ( mb_self_check_fixtures( mb_self_check_image() ) as $key => $fixture ) 
 	$mb_manifest[] = array(
 		'key'                   => $key,
 		'url'                   => get_permalink( $post_id ),
+		'edit_url'              => admin_url( "post.php?post={$post_id}&action=edit" ),
 		'note'                  => $fixture['note'],
 		'expect'                => $fixture['expect'],
 		'expect_reduced_motion' => isset( $fixture['expect_reduced_motion'] )

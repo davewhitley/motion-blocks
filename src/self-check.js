@@ -305,7 +305,13 @@
 
 			// Remove once GH #39 is fixed: Entry Replay "Once" stops
 			// watching the block, so a filled Exit slot never fires.
-			if ( state.hasExit && state.entryReplay === 'once' ) {
+			// With no Entry slot the Entry handler never runs, so it
+			// never stops watching.
+			if (
+				state.hasEntry &&
+				state.hasExit &&
+				state.entryReplay === 'once'
+			) {
 				found.push(
 					issue(
 						'can-never-play',
@@ -417,6 +423,59 @@
 			'although animations are disabled on ' + device + ' for this page',
 			44
 		);
+	}
+
+	/**
+	 * Triggered but nothing ran: the block got its trigger class (or,
+	 * for Scroll Interactive, its view timeline) yet none of our
+	 * animations exist on it or inside it. That's what a preset whose
+	 * class binding or @keyframes is missing or misspelled looks like —
+	 * CSS fails silently, so this is the only signal.
+	 */
+	function checkNeverAnimated( api ) {
+		var found = [];
+		if ( motionIsOff() ) {
+			return found;
+		}
+		document.querySelectorAll( '.mb-animated' ).forEach( function ( el ) {
+			if ( ! api.wired.has( el ) || ! isRendered( el ) ) {
+				return;
+			}
+			// `.mb-settled` drops a finished one-shot animation on purpose.
+			if ( el.classList.contains( 'mb-settled' ) ) {
+				return;
+			}
+			var isScrollInteractive = el.classList.contains(
+				'mb-mode-scroll-interactive'
+			);
+			var triggered =
+				el.classList.contains( 'mb-triggered' ) ||
+				el.classList.contains( 'mb-exit-triggered' );
+			if ( isScrollInteractive ? ! supportsViewTimeline : ! triggered ) {
+				return;
+			}
+			if ( ourAnimations( el ).length ) {
+				return;
+			}
+			var effectClasses = Array.prototype.filter
+				.call( el.classList, function ( c ) {
+					return /^mb-(enter|exit)-/.test( c );
+				} )
+				.join( ' ' );
+			found.push(
+				issue(
+					'never-animated',
+					'error',
+					el,
+					blockLabel( el ) +
+						' was triggered but no animation ran. The CSS for its effect (' +
+						( effectClasses || 'no mb-enter-/mb-exit- class' ) +
+						') or its @keyframes is probably missing.',
+					null
+				)
+			);
+		} );
+		return found;
 	}
 
 	/**
@@ -539,6 +598,7 @@
 			.concat( checkNeverWired( api ) )
 			.concat( checkReducedMotion() )
 			.concat( checkDisabledDevice() )
+			.concat( checkNeverAnimated( api ) )
 			.concat( checkStaggerLimit() )
 			.concat( checkFixedTrap() );
 	}

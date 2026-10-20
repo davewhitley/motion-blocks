@@ -132,6 +132,29 @@ function motion_blocks_enqueue_editor_assets() {
 add_action( 'enqueue_block_editor_assets', 'motion_blocks_enqueue_editor_assets' );
 
 /**
+ * Editor half of the developer self-check (GH #60): when the Self-check
+ * setting is on, load build/editor-check.js, which exposes
+ * `motionBlocksEditorCheck()` to report invalid blocks, render warnings
+ * and console errors. Loaded in the parent frame, before the editor
+ * mounts, so it captures errors thrown while blocks first render.
+ */
+function motion_blocks_enqueue_editor_check() {
+    $asset_file = plugin_dir_path( __FILE__ ) . 'build/editor-check.asset.php';
+    if ( ! get_option( 'mb_debug_markers' ) || ! file_exists( $asset_file ) ) {
+        return;
+    }
+    $asset = include $asset_file;
+    wp_enqueue_script(
+        'motion-blocks-editor-check',
+        plugins_url( 'build/editor-check.js', __FILE__ ),
+        $asset['dependencies'],
+        $asset['version'],
+        false
+    );
+}
+add_action( 'enqueue_block_editor_assets', 'motion_blocks_enqueue_editor_check', 1 );
+
+/**
  * Enqueue styles that need to load inside the editor iframe AND on the frontend.
  *
  * enqueue_block_assets fires in both contexts, so the animation preview
@@ -1267,7 +1290,7 @@ function motion_blocks_render_debug_markers_field() {
         <?php esc_html_e( 'Check animated blocks on the front end and report problems', 'motion-blocks' ); ?>
     </label>
     <p class="description">
-        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only logged-in users see it, so visitors are never affected.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only logged-in users see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

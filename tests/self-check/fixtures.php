@@ -707,6 +707,7 @@ function mb_self_check_smoke( $image ) {
 			array( 'Scroll Appear · Entry: scale · Animate image only', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'scale', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat', 'animationFromToTarget' => 'img' ) ),
 			array( 'Scroll Interactive · image-move · btt', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'image-move', 'animationDirection' => 'btt' ) ),
 			array( 'Scroll Interactive · image-zoom', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'image-zoom' ) ),
+			array( 'Scroll Interactive · fade-out · Animate image only', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'fade-out', 'animationFromToTarget' => 'img' ) ),
 		);
 		foreach ( $covers as list( $text, $attrs ) ) {
 			$inner .= mb_self_check_cover( $image, $attrs, "Cover · {$text}" );

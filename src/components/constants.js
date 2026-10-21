@@ -798,7 +798,8 @@ export const PROPERTY_DEFINITIONS = [
 		kind: 'number',
 		min: 0,
 		max: 1,
-		step: 0.05,
+		// 1% steps, so values like 0.03 aren't snapped to 0.05.
+		step: 0.01,
 		identity: 1,
 		withSlider: true,
 		// Opacity anchors every From/To animation — almost every preset

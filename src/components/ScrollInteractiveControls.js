@@ -265,15 +265,13 @@ export default function ScrollInteractiveControls( {
 				{ /* Eye toggle: show/hide the scrub preview slider. Off
 				   clears the scrub value, returning the block to its
 				   natural state (same as deselecting). Independent of the
-				   From/To start/end eye icons in the Custom panel. */ }
+				   From/To start/end eye icons in the Custom panel. The
+				   label stays constant; on/off is carried by the pressed
+				   state alone, so screen readers get one signal. */ }
 				{ animationType && (
 					<Button
 						icon={ previewOn ? seen : unseen }
-						label={
-							previewOn
-								? __( 'Hide preview', 'motion-blocks' )
-								: __( 'Show preview', 'motion-blocks' )
-						}
+						label={ __( 'Scroll preview', 'motion-blocks' ) }
 						isPressed={ previewOn }
 						onClick={ () =>
 							setAttributes(

@@ -460,10 +460,11 @@ export default function FromToControls( {
 					icon={ isPreviewing ? seen : unseen }
 					isPressed={ isPreviewing }
 					size="small"
+					// Constant per side: on/off is carried by `isPressed`
+					// alone (the preview follows the active side, see the
+					// effect above), so screen readers get one signal.
 					label={
-						isPreviewing
-							? __( 'Stop previewing', 'motion-blocks' )
-							: side === 'start'
+						side === 'start'
 							? __( 'Preview "from" state', 'motion-blocks' )
 							: __( 'Preview "to" state', 'motion-blocks' )
 					}

@@ -47,7 +47,13 @@ import {
 	Button,
 	ExternalLink,
 } from '@wordpress/components';
-import { createInterpolateElement, useEffect } from '@wordpress/element';
+import {
+	createInterpolateElement,
+	useCallback,
+	useEffect,
+} from '@wordpress/element';
+import { useDispatch } from '@wordpress/data';
+import { store as blockEditorStore } from '@wordpress/block-editor';
 import { __ } from '@wordpress/i18n';
 import { seen, unseen } from '@wordpress/icons';
 
@@ -311,8 +317,21 @@ export default function FromToControls( {
 	// component (e.g. when the Play-preview hack clears animationType
 	// briefly to retrigger CSS animation).
 	const side = attributes.animationFromToActiveSide || 'start';
+
+	// The Start/End switch and the eye preview are UI state, not edits:
+	// write them without adding undo steps (same as Play and the
+	// Entry/Exit tab switch). They still live in block attributes — GH #29.
+	const { __unstableMarkNextChangeAsNotPersistent } =
+		useDispatch( blockEditorStore );
+	const setUiAttributes = useCallback(
+		( attrs ) => {
+			__unstableMarkNextChangeAsNotPersistent();
+			setAttributes( attrs );
+		},
+		[ __unstableMarkNextChangeAsNotPersistent, setAttributes ]
+	);
 	const setSide = ( newSide ) =>
-		setAttributes( { animationFromToActiveSide: newSide } );
+		setUiAttributes( { animationFromToActiveSide: newSide } );
 
 	const { from: fromMap, to: toMap } = slotAttrMaps( slot );
 	const attrMap = side === 'start' ? fromMap : toMap;
@@ -349,7 +368,7 @@ export default function FromToControls( {
 	 * In Scroll Appear (`slot` set) the toggle also records which slot
 	 * is being previewed, so the preview HOC copies that slot's From/To
 	 * values instead of always using Entry's (GH #49). Same
-	 * setAttributes call → one undo step. Page Load / Scroll Interactive
+	 * setAttributes call, marked non-persistent (no undo step). Page Load / Scroll Interactive
 	 * render this without `slot` and are unaffected.
 	 *
 	 * Turning the eye off puts the slot back to its 'entry' default
@@ -368,7 +387,7 @@ export default function FromToControls( {
 		) {
 			slotUpdate = { animationPreviewSlot: 'entry' };
 		}
-		setAttributes( {
+		setUiAttributes( {
 			animationFromToPreviewSide: isPreviewing ? 'off' : side,
 			...slotUpdate,
 		} );
@@ -388,9 +407,9 @@ export default function FromToControls( {
 	 */
 	useEffect( () => {
 		if ( isPreviewing && previewSide !== side ) {
-			setAttributes( { animationFromToPreviewSide: side } );
+			setUiAttributes( { animationFromToPreviewSide: side } );
 		}
-	}, [ side, isPreviewing, previewSide, setAttributes ] );
+	}, [ side, isPreviewing, previewSide, setUiAttributes ] );
 
 
 	// Help text rendered via the ToggleGroupControl's native `help`

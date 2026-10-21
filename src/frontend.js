@@ -1293,6 +1293,28 @@ import SHARED from '../shared-constants.json';
 			document.fonts.ready.then( refreshAll );
 		}
 
+		// Content above a block changing height after load — a Details
+		// block opened or closed, an accordion, a late embed — moves the
+		// block without resizing it, so its own ResizeObserver stays
+		// quiet and the cached bounds go stale: the block fades in
+		// hundreds of pixels early or late, or sits on screen hidden
+		// (GH #52). Such a change resizes the body, so observe that too.
+		// Transforms don't resize the body, so this stays animation-safe;
+		// rAF-throttled so a burst of changes refreshes once per frame.
+		if ( typeof ResizeObserver !== 'undefined' && document.body ) {
+			var bodyResizeScheduled = false;
+			new ResizeObserver( function () {
+				if ( bodyResizeScheduled ) {
+					return;
+				}
+				bodyResizeScheduled = true;
+				requestAnimationFrame( function () {
+					bodyResizeScheduled = false;
+					refreshAll();
+				} );
+			} ).observe( document.body );
+		}
+
 		// Scroll listener safety net.
 		//
 		// IO is the efficient primary wake-up, but it has a known

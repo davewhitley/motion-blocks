@@ -387,6 +387,26 @@ function mb_self_check_fixtures( $image ) {
 			),
 			'expect'  => array( 'never-wired#50' ),
 		),
+		'content-above-changes' => array(
+			'title'   => 'Content above changes height',
+			'note'    => 'A Details block near the top starts open and closes itself shortly after the page loads, like a reader collapsing it, which pulls the Scroll Appear paragraph (blue) about 800px further up. Scroll to the paragraph: it must fade in when it reaches the screen, not 800px later (GH #52).',
+			'content' => mb_self_check_block(
+				'details',
+				array( 'showContent' => true ),
+				'<details class="wp-block-details" open><summary>Details · closes itself after load</summary>'
+				. mb_self_check_spacer( 800 )
+				. '</details>'
+			)
+				. mb_self_check_block(
+					'html',
+					array(),
+					"<script>window.addEventListener('load',function(){setTimeout(function(){document.querySelector('.wp-block-details').open=false;},300);});</script>"
+				)
+				. mb_self_check_frame(
+					mb_self_check_paragraph( 'Paragraph · Scroll Appear · Entry: Fade — below the Details block', $scroll_fade, MB_SELF_CHECK_COLORS['group'] )
+				),
+			'expect'  => array(),
+		),
 	);
 
 	if ( $image ) {
@@ -802,8 +822,9 @@ if ( 'delete' === $mb_mode ) {
 	return;
 }
 
-// The late-injected fixture needs a <script>; WP-CLI runs without a
-// user, so kses would otherwise strip it.
+// The late-injected and content-above-changes fixtures need a
+// <script>; WP-CLI runs without a user, so kses would otherwise
+// strip it.
 kses_remove_filters();
 
 $mb_manifest = array();

@@ -351,41 +351,46 @@ export default function FromToControls( {
 	 * values instead of always using Entry's (GH #49). Same
 	 * setAttributes call → one undo step. Page Load / Scroll Interactive
 	 * render this without `slot` and are unaffected.
+	 *
+	 * Turning the eye off puts the slot back to its 'entry' default
+	 * (unless Play is running and still needs it), so a look at the
+	 * Exit preview doesn't leave a transient value in the saved block
+	 * comment.
 	 */
 	const togglePreview = () => {
+		let slotUpdate = {};
+		if ( slot && ! isPreviewing ) {
+			slotUpdate = { animationPreviewSlot: slot };
+		} else if (
+			slot &&
+			! attributes.animationPreviewPlaying &&
+			attributes.animationPreviewSlot !== 'entry'
+		) {
+			slotUpdate = { animationPreviewSlot: 'entry' };
+		}
 		setAttributes( {
 			animationFromToPreviewSide: isPreviewing ? 'off' : side,
-			...( slot ? { animationPreviewSlot: slot } : {} ),
+			...slotUpdate,
 		} );
 	};
 
 	/**
-	 * Keep the preview synced to whichever side (and, in Scroll Appear,
-	 * slot) the user is editing. If they flip the Start/End toggle while
-	 * preview is on, follow. Writes only on a mismatch, so it can't loop.
+	 * Keep the preview synced to whichever side the user is editing.
+	 * If they flip the Start/End toggle while preview is on, follow.
+	 *
+	 * Deliberately does NOT sync `animationPreviewSlot`: the active
+	 * Entry/Exit tab is local state, not an attribute, so Undo can
+	 * restore a slot that doesn't match the tab on screen. A sync here
+	 * would write it straight back as a new undo level, wiping the redo
+	 * stack and trapping Undo while the eye is on. The eye toggle above
+	 * and ScrollAppearControls' tab switch (incl. TabPanel's mount-time
+	 * select) already keep the slot in step on every user action.
 	 */
 	useEffect( () => {
-		if ( ! isPreviewing ) {
-			return;
+		if ( isPreviewing && previewSide !== side ) {
+			setAttributes( { animationFromToPreviewSide: side } );
 		}
-		const updates = {};
-		if ( previewSide !== side ) {
-			updates.animationFromToPreviewSide = side;
-		}
-		if ( slot && attributes.animationPreviewSlot !== slot ) {
-			updates.animationPreviewSlot = slot;
-		}
-		if ( Object.keys( updates ).length ) {
-			setAttributes( updates );
-		}
-	}, [
-		side,
-		slot,
-		isPreviewing,
-		previewSide,
-		attributes.animationPreviewSlot,
-		setAttributes,
-	] );
+	}, [ side, isPreviewing, previewSide, setAttributes ] );
 
 
 	// Help text rendered via the ToggleGroupControl's native `help`

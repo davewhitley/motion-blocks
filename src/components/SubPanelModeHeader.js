@@ -21,7 +21,9 @@ import {
 	Dropdown,
 	MenuGroup,
 	MenuItem,
+	VisuallyHidden,
 } from '@wordpress/components';
+import { useInstanceId } from '@wordpress/compose';
 import { __ } from '@wordpress/i18n';
 import { desktop, seen, chevronDown } from '@wordpress/icons';
 
@@ -74,6 +76,15 @@ export default function SubPanelModeHeader( {
 	onReset,
 	onRemove,
 } ) {
+	// The toggle's accessible name is its visible text (the current
+	// mode), so voice-control users can say what they see (WCAG 2.5.3).
+	// Its purpose is attached as a description instead of an
+	// aria-label, which would replace the visible text in the name.
+	const descriptionId = useInstanceId(
+		SubPanelModeHeader,
+		'mb-mode-picker-description'
+	);
+
 	return (
 		<div className="mb-sub-panel-header">
 			<div className="mb-sub-panel-title-row">
@@ -86,10 +97,7 @@ export default function SubPanelModeHeader( {
 							size="compact"
 							className="mb-mode-picker__toggle"
 							aria-expanded={ isOpen }
-							aria-label={ __(
-								'Change animation mode',
-								'motion-blocks'
-							) }
+							aria-describedby={ descriptionId }
 							onClick={ onToggle }
 						>
 							<Icon icon={ getIcon( mode ) } size={ 18 } />
@@ -122,6 +130,9 @@ export default function SubPanelModeHeader( {
 						</MenuGroup>
 					) }
 				/>
+				<VisuallyHidden as="span" id={ descriptionId }>
+					{ __( 'Change animation mode', 'motion-blocks' ) }
+				</VisuallyHidden>
 				<AnimationOptionsMenu
 					attributes={ attributes }
 					blockName={ blockName }

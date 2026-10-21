@@ -170,8 +170,8 @@ export default function AnimationOptionsMenu( {
 			sprintf(
 				/* translators: 1: block count, 2: block-type label */
 				_n(
-					'Animation applied to %1$d %2$s block.',
-					'Animation applied to %1$d %2$s blocks.',
+					'Animation applied to %1$d other %2$s block.',
+					'Animation applied to %1$d other %2$s blocks.',
 					matchingIds.length,
 					'motion-blocks'
 				),
@@ -279,8 +279,8 @@ export default function AnimationOptionsMenu( {
 			: sprintf(
 					/* translators: 1: count, 2: block type label */
 					_n(
-						'Apply to all %1$d %2$s block',
-						'Apply to all %1$d %2$s blocks',
+						'Apply to %1$d other %2$s block',
+						'Apply to %1$d other %2$s blocks',
 						matchingIds.length,
 						'motion-blocks'
 					),
@@ -457,16 +457,33 @@ export default function AnimationOptionsMenu( {
 				onCancel={ () => setConfirmOpen( false ) }
 				confirmButtonText={ __( 'Apply', 'motion-blocks' ) }
 			>
-				{ sprintf(
-					/* translators: 1: target count, 2: count of targets that already have animations, 3: block-type label */
+				{ [
+					sprintf(
+						/* translators: 1: target count, 2: block-type label */
+						_n(
+							'Apply this animation to %1$d other %2$s block?',
+							'Apply this animation to %1$d other %2$s blocks?',
+							matchingIds.length,
+							'motion-blocks'
+						),
+						matchingIds.length,
+						typeLabel
+					),
+					sprintf(
+						/* translators: %d: how many of those blocks already have an animation */
+						_n(
+							'%d already has an animation and will be overwritten.',
+							'%d already have animations and will be overwritten.',
+							existingCount,
+							'motion-blocks'
+						),
+						existingCount
+					),
 					__(
-						'Apply this animation to %1$d %3$s blocks? %2$d already have animations and will be overwritten. This can be reversed using the Undo button.',
+						'This can be reversed using the Undo button.',
 						'motion-blocks'
 					),
-					matchingIds.length,
-					existingCount,
-					typeLabel
-				) }
+				].join( ' ' ) }
 			</ConfirmDialog>
 
 			{ /* Save modal — name prompt */ }

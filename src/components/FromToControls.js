@@ -345,22 +345,47 @@ export default function FromToControls( {
 	 * - Previewing the current side → off
 	 * - Previewing the other side → switch to the current side
 	 *   (handled implicitly by the side-sync effect below)
+	 *
+	 * In Scroll Appear (`slot` set) the toggle also records which slot
+	 * is being previewed, so the preview HOC copies that slot's From/To
+	 * values instead of always using Entry's (GH #49). Same
+	 * setAttributes call → one undo step. Page Load / Scroll Interactive
+	 * render this without `slot` and are unaffected.
 	 */
 	const togglePreview = () => {
 		setAttributes( {
 			animationFromToPreviewSide: isPreviewing ? 'off' : side,
+			...( slot ? { animationPreviewSlot: slot } : {} ),
 		} );
 	};
 
 	/**
-	 * Keep the preview synced to whichever side the user is editing.
-	 * If they flip the Start/End toggle while preview is on, follow.
+	 * Keep the preview synced to whichever side (and, in Scroll Appear,
+	 * slot) the user is editing. If they flip the Start/End toggle while
+	 * preview is on, follow. Writes only on a mismatch, so it can't loop.
 	 */
 	useEffect( () => {
-		if ( isPreviewing && previewSide !== side ) {
-			setAttributes( { animationFromToPreviewSide: side } );
+		if ( ! isPreviewing ) {
+			return;
 		}
-	}, [ side, isPreviewing, previewSide, setAttributes ] );
+		const updates = {};
+		if ( previewSide !== side ) {
+			updates.animationFromToPreviewSide = side;
+		}
+		if ( slot && attributes.animationPreviewSlot !== slot ) {
+			updates.animationPreviewSlot = slot;
+		}
+		if ( Object.keys( updates ).length ) {
+			setAttributes( updates );
+		}
+	}, [
+		side,
+		slot,
+		isPreviewing,
+		previewSide,
+		attributes.animationPreviewSlot,
+		setAttributes,
+	] );
 
 
 	// Help text rendered via the ToggleGroupControl's native `help`

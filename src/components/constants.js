@@ -852,6 +852,93 @@ export const TO_ATTR = {
 };
 
 /**
+ * For Scroll Appear blocks, map the active slot's per-slot attrs
+ * onto the shared `animationType` / `animationDuration` / etc.
+ * names the preview HOC reads. Lets the rest of the HOC stay
+ * mode-agnostic.
+ *
+ * Slot selection: `animationPreviewSlot` picks Entry or Exit while
+ * the slot's Play preview is running (`animationPreviewPlaying`) OR
+ * the From/To eye preview is on (`animationFromToPreviewSide` other
+ * than 'off'). Both the Play button and the eye toggle write it, so
+ * the canvas previews the slot the user is editing (GH #49). Otherwise
+ * — at rest, eye off — the Entry slot is used: that's the slot whose
+ * initial state is most relevant for the editor-at-rest visual (the
+ * Exit slot's initial state IS the natural "visible" state of the
+ * element). A stale 'exit' left behind by an earlier Play / eye
+ * preview therefore has no effect at rest.
+ *
+ * Also copies the chosen slot's Custom From/To values onto the
+ * shared `animationFrom*` / `animationTo*` keys so the custom
+ * keyframe builder (which still reads the shared keys) can pick
+ * them up unchanged.
+ *
+ * Returns the same `attrs` reference unchanged when the chosen
+ * slot is empty — the preview branch will see `animationType === ''`
+ * and skip animating.
+ */
+export function aliasSlotForPreview( attrs ) {
+	const eyeOn =
+		!! attrs?.animationFromToPreviewSide &&
+		attrs.animationFromToPreviewSide !== 'off';
+	const previewSlot =
+		attrs?.animationPreviewSlot === 'exit' &&
+		( attrs?.animationPreviewPlaying || eyeOn )
+			? 'exit'
+			: 'entry';
+	const slotPrefix = previewSlot === 'exit' ? 'Exit' : 'Entry';
+	const slotType = attrs?.[ `animation${ slotPrefix }Type` ] || '';
+	if ( ! slotType ) {
+		// Chosen slot is empty — preview shows nothing. Keep the
+		// wrapper attrs as-is so the HOC's "no animationType" guard
+		// fires. Also tag the preview slot so downstream code knows
+		// which set of classes to emit even when there's no animation.
+		return { ...attrs, animationType: '', __mbPreviewSlot: previewSlot };
+	}
+	const aliased = {
+		...attrs,
+		animationType: slotType,
+		animationDirection: attrs[ `animation${ slotPrefix }Direction` ] || '',
+		animationDuration:
+			attrs[ `animation${ slotPrefix }Duration` ] ?? attrs.animationDuration,
+		animationDelay:
+			attrs[ `animation${ slotPrefix }Delay` ] ?? attrs.animationDelay,
+		animationAcceleration:
+			attrs[ `animation${ slotPrefix }Acceleration` ] ||
+			attrs.animationAcceleration,
+		animationCustomTimingFunction:
+			attrs[ `animation${ slotPrefix }CustomTimingFunction` ] ||
+			attrs.animationCustomTimingFunction,
+		animationBlurAmount:
+			attrs[ `animation${ slotPrefix }BlurAmount` ] ??
+			attrs.animationBlurAmount,
+		animationRotateAngle:
+			attrs[ `animation${ slotPrefix }RotateAngle` ] ??
+			attrs.animationRotateAngle,
+		__mbPreviewSlot: previewSlot,
+	};
+	if ( slotType === 'custom' ) {
+		// Copy the active slot's Custom From/To values onto the
+		// shared keys that getCustomKeyframe / attrsToBag read.
+		for ( const prop of Object.keys( FROM_ATTR ) ) {
+			const sharedFrom = FROM_ATTR[ prop ];
+			const sharedTo = TO_ATTR[ prop ];
+			const slotFrom = sharedFrom.replace(
+				/^animationFrom/,
+				`animation${ slotPrefix }From`
+			);
+			const slotTo = sharedTo.replace(
+				/^animationTo/,
+				`animation${ slotPrefix }To`
+			);
+			aliased[ sharedFrom ] = attrs[ slotFrom ] ?? null;
+			aliased[ sharedTo ] = attrs[ slotTo ] ?? null;
+		}
+	}
+	return aliased;
+}
+
+/**
  * Seed applied the first time the user picks "Custom" from the
  * effect dropdown. Just opacity (0 → 1) — the simplest possible
  * Custom default. Opacity has `isShownByDefault: true` in

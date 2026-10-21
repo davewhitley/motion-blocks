@@ -20,6 +20,8 @@
  */
 
 import { useState } from '@wordpress/element';
+import { useDispatch } from '@wordpress/data';
+import { store as blockEditorStore } from '@wordpress/block-editor';
 import {
 	TabPanel,
 	Button,
@@ -63,6 +65,31 @@ export default function ScrollAppearControls( props ) {
 		hasEntry || ! exitType ? 'entry' : 'exit'
 	);
 
+	// While the From/To eye preview is on, switching tabs points the
+	// preview at the newly selected slot so it always follows the slot
+	// being edited (GH #49). On a tab whose effect isn't Custom the
+	// canvas shows its normal state; going back to a Custom tab brings
+	// the frozen preview back. The `!== name` guard skips the call
+	// TabPanel makes on mount. Marked non-persistent: a tab switch is
+	// UI navigation, not an edit, so it shouldn't add an undo step.
+	const { __unstableMarkNextChangeAsNotPersistent } =
+		useDispatch( blockEditorStore );
+	const onSelectSlot = ( name ) => {
+		if ( ! name ) {
+			return;
+		}
+		setActiveSlot( name );
+		const previewSide = attributes.animationFromToPreviewSide;
+		if (
+			previewSide &&
+			previewSide !== 'off' &&
+			attributes.animationPreviewSlot !== name
+		) {
+			__unstableMarkNextChangeAsNotPersistent();
+			setAttributes( { animationPreviewSlot: name } );
+		}
+	};
+
 	// Stagger should be hidden whenever EITHER slot uses an
 	// incompatible type (currently 'image-move' / 'image-zoom').
 	// Stagger's CSS rules apply to the parent's class set; if any
@@ -95,7 +122,7 @@ export default function ScrollAppearControls( props ) {
 			<TabPanel
 				className="mb-slot-tabs"
 				initialTabName={ activeSlot }
-				onSelect={ ( name ) => name && setActiveSlot( name ) }
+				onSelect={ onSelectSlot }
 				tabs={ [
 					{
 						name: 'entry',

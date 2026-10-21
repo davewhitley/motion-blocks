@@ -65,20 +65,12 @@ export default function AnimationPanel( {
 			),
 		[ clientId ]
 	);
-	const { selectBlock, __unstableMarkNextChangeAsNotPersistent } =
-		useDispatch( blockEditorStore );
+	const { selectBlock } = useDispatch( blockEditorStore );
 
-	// Play / Stop only flip preview UI state, so they must not add undo
-	// steps (each Play used to add two: on, then the timer's off). Same
-	// pattern as the Entry/Exit tab switch in ScrollAppearControls. The
-	// state still lives in block attributes for now — GH #29.
-	const setPreviewAttributes = useCallback(
-		( attrs ) => {
-			__unstableMarkNextChangeAsNotPersistent();
-			setAttributes( attrs );
-		},
-		[ __unstableMarkNextChangeAsNotPersistent, setAttributes ]
-	);
+	// Play / Stop only flip preview state. `setAttributes` here is the
+	// router in withAnimationControls (src/index.js): it sends the
+	// preview keys to the motion-blocks/editor-preview store, so they
+	// add no undo step and never reach the block (GH #29).
 	const {
 		animationMode,
 		animationType,
@@ -107,6 +99,10 @@ export default function AnimationPanel( {
 	const [ isPlayPending, setIsPlayPending ] = useState( false );
 	const playTimeoutRef = useRef( null );
 	const playFrameRef = useRef( null );
+	// The pending timer's stop call, bound at click time to the
+	// router of that render, so it stops exactly the blocks that
+	// started playing (all of a multi-selection).
+	const playStopRef = useRef( null );
 
 	const clearPlayTimers = useCallback( () => {
 		if ( playTimeoutRef.current !== null ) {
@@ -117,13 +113,21 @@ export default function AnimationPanel( {
 			cancelAnimationFrame( playFrameRef.current );
 			playFrameRef.current = null;
 		}
+		playStopRef.current = null;
 	}, [] );
 
 	// Cancel any pending preview when the component unmounts or the
 	// selected block changes. Otherwise a stale setTimeout could fire
-	// against a different block's setAttributes.
+	// against a different block's setAttributes. A one-shot Play cut
+	// short this way is stopped now instead of left running.
 	useEffect( () => {
-		return clearPlayTimers;
+		return () => {
+			const stop = playStopRef.current;
+			clearPlayTimers();
+			if ( stop ) {
+				stop();
+			}
+		};
 	}, [ clearPlayTimers, clientId ] );
 
 	/**
@@ -184,7 +188,7 @@ export default function AnimationPanel( {
 				baseAttrs.animationPreviewSlot = slot;
 			}
 			if ( isLoopingMode ) {
-				setPreviewAttributes( {
+				setAttributes( {
 					...baseAttrs,
 					animationPreviewPlaying: true,
 				} );
@@ -223,14 +227,18 @@ export default function AnimationPanel( {
 			// state never reached the DOM and the animation didn't
 			// restart. Direct DOM manipulation inside the HOC is
 			// reliable regardless of React commit timing.
-			setPreviewAttributes( {
+			setAttributes( {
 				...baseAttrs,
 				animationPreviewPlaying: true,
 			} );
+			const stop = () =>
+				setAttributes( { animationPreviewPlaying: false } );
+			playStopRef.current = stop;
 			playTimeoutRef.current = setTimeout( () => {
-				setPreviewAttributes( { animationPreviewPlaying: false } );
+				stop();
 				setIsPlayPending( false );
 				playTimeoutRef.current = null;
+				playStopRef.current = null;
 			}, totalMs + 100 );
 		},
 		[
@@ -238,7 +246,7 @@ export default function AnimationPanel( {
 			animationMode,
 			animationType,
 			animationFromToPreviewSide,
-			setPreviewAttributes,
+			setAttributes,
 			isLoopingMode,
 			isPlayPending,
 			animationDuration,
@@ -251,8 +259,8 @@ export default function AnimationPanel( {
 	 * Stop a looping preview.
 	 */
 	const stopPreview = useCallback( () => {
-		setPreviewAttributes( { animationPreviewPlaying: false } );
-	}, [ setPreviewAttributes ] );
+		setAttributes( { animationPreviewPlaying: false } );
+	}, [ setAttributes ] );
 
 	/**
 	 * Set animation mode and initialize defaults.

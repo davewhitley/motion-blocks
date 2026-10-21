@@ -361,3 +361,91 @@ describe( 'resetPreviewUiAttributes', () => {
 		expect( resetPreviewUiAttributes( attrs, {} ) ).toBe( attrs );
 	} );
 } );
+
+/**
+ * The editor flows withAnimationControls drives (router + selection
+ * cleanup), replayed against the pure reducer.
+ */
+describe( 'editor flows', () => {
+	// What routedSetAttributes does with one patch: preview keys to the
+	// store for the target ids, the rest returned for the block.
+	function route( state, patch, ids ) {
+		const { preview, rest } = splitPreviewPatch( patch );
+		return {
+			state: preview ? reducer( state, setPreview( ids, preview ) ) : state,
+			rest,
+		};
+	}
+
+	it( 'Play on a multi-selection stops on every block when they leave it', () => {
+		let { state, rest } = route(
+			{},
+			{ animationPreviewPlaying: true },
+			[ 'a', 'b' ]
+		);
+		expect( rest ).toBeNull();
+		expect( getBlockPreview( state, 'a' ).animationPreviewPlaying ).toBe(
+			true
+		);
+		expect( getBlockPreview( state, 'b' ).animationPreviewPlaying ).toBe(
+			true
+		);
+		// Each block's own inSelection effect fires on deselect.
+		state = reducer( state, clearPreview( 'a', { keepPrefs: true } ) );
+		state = reducer( state, clearPreview( 'b', { keepPrefs: true } ) );
+		expect( state ).toEqual( {} );
+	} );
+
+	it( 'a late Play timer stop does not recreate cleared or removed entries', () => {
+		let { state } = route(
+			{},
+			{ animationPreviewPlaying: true, animationPreviewSlot: 'exit' },
+			[ 'a', 'b' ]
+		);
+		state = reducer( state, clearPreview( 'a' ) ); // unmount (undo of insert)
+		state = reducer( state, clearPreview( 'b', { keepPrefs: true } ) );
+		const before = state;
+		( { state } = route(
+			state,
+			{ animationPreviewPlaying: false },
+			[ 'a', 'b' ]
+		) );
+		expect( state ).toBe( before );
+		expect( hasPreview( state, 'a' ) ).toBe( false );
+		expect( hasPreview( state, 'b' ) ).toBe( false );
+	} );
+
+	it( 'deselect keeps the side and the Scroll Interactive eye only', () => {
+		let { state } = route(
+			{},
+			{
+				animationFromToActiveSide: 'end',
+				animationFromToPreviewSide: 'end',
+				animationPreviewSlot: 'exit',
+				animationPreviewEnabled: true,
+				animationScrubPosition: 30,
+			},
+			[ 'a' ]
+		);
+		state = reducer( state, clearPreview( 'a', { keepPrefs: true } ) );
+		expect( getBlockPreview( state, 'a' ) ).toEqual( {
+			...PREVIEW_DEFAULTS,
+			animationFromToActiveSide: 'end',
+			animationPreviewEnabled: true,
+		} );
+	} );
+
+	it( 'a mixed patch sends only real attributes to the block', () => {
+		const { state, rest } = route(
+			{ a: { ...PREVIEW_DEFAULTS, animationPreviewPlaying: true } },
+			{
+				animationType: '',
+				animationPreviewPlaying: false,
+				animationPreviewSlot: 'entry',
+			},
+			[ 'a' ]
+		);
+		expect( rest ).toEqual( { animationType: '' } );
+		expect( state ).toEqual( {} );
+	} );
+} );

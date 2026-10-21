@@ -12,7 +12,7 @@ import {
 } from '@wordpress/block-editor';
 import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { addFilter } from '@wordpress/hooks';
-import { useEffect, useCallback, useRef } from '@wordpress/element';
+import { useEffect, useCallback, useMemo, useRef } from '@wordpress/element';
 
 import AnimationPanel from './components/AnimationPanel';
 import {
@@ -45,7 +45,11 @@ import {
 import '../css/editor.scss';
 
 // Editor preview state store (GH #29) — registers itself on import.
-import './components/previewStore';
+import { store as previewStore } from './components/previewStore';
+import {
+	splitPreviewPatch,
+	overlayPreviewState,
+} from './components/previewState';
 
 // Page-level settings panel — registers itself via registerPlugin
 // on import. Lives in the Document/Page tab of the inspector.
@@ -638,8 +642,7 @@ addFilter(
  */
 const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 	return ( props ) => {
-		const { attributes, setAttributes, isSelected, name, clientId } =
-			props;
+		const { attributes, setAttributes, name, clientId } = props;
 
 		// Read the full selection from the store. Two reasons:
 		//   1. To fan attribute updates across all selected blocks
@@ -655,25 +658,46 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// only primitives plus the store's own memoized id array. Building
 		// a fresh array here re-rendered every block on every keystroke
 		// (GH #27).
-		const { multiSelectedClientIds, isMultiSelecting, shouldRenderPanel } =
-			useSelect(
-				( select ) => {
-					const sel = select( blockEditorStore );
-					const multi = sel.getMultiSelectedBlockClientIds();
-					const isMulti = multi.length > 1;
-					// Render only one copy of the panel: for single
-					// selection use the selected block; for multi,
-					// render on the first selected block.
-					return {
-						multiSelectedClientIds: multi,
-						isMultiSelecting: isMulti,
-						shouldRenderPanel: isMulti
-							? multi[ 0 ] === clientId
-							: sel.getSelectedBlockClientId() === clientId,
-					};
-				},
-				[ clientId ]
-			);
+		//
+		// `inSelection` (single- or multi-selected) drives the preview
+		// cleanup below. `isSelected` can't: it is false on every block
+		// during a multi-selection, so a deselect never showed up there.
+		const {
+			multiSelectedClientIds,
+			isMultiSelecting,
+			shouldRenderPanel,
+			inSelection,
+		} = useSelect(
+			( select ) => {
+				const sel = select( blockEditorStore );
+				const multi = sel.getMultiSelectedBlockClientIds();
+				const isMulti = multi.length > 1;
+				const isSingle = sel.getSelectedBlockClientId() === clientId;
+				// Render only one copy of the panel: for single
+				// selection use the selected block; for multi,
+				// render on the first selected block.
+				return {
+					multiSelectedClientIds: multi,
+					isMultiSelecting: isMulti,
+					shouldRenderPanel: isMulti
+						? multi[ 0 ] === clientId
+						: isSingle,
+					inSelection:
+						isSingle || sel.isBlockMultiSelected( clientId ),
+				};
+			},
+			[ clientId ]
+		);
+		// This block's editor preview state (GH #29): Play, the From/To
+		// eye, the Start/End side, the preview slot, the Scroll
+		// Interactive eye and the scrubber. A separate subscription so
+		// the GH #27 select above stays untouched; `getBlockPreview`
+		// returns the same object until this block's entry changes.
+		const preview = useSelect(
+			( select ) => select( previewStore ).getBlockPreview( clientId ),
+			[ clientId ]
+		);
+		const { setPreview, clearPreview } = useDispatch( previewStore );
 		const { updateBlockAttributes } = useDispatch( blockEditorStore );
 		// Read at write time only — `registry.select` inside a callback
 		// adds no store subscription, so it doesn't undo GH #27.
@@ -737,67 +761,72 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			]
 		);
 
-		// Safety net: when the block deselects, turn off the From/To
-		// preview. Otherwise a user who previewed a side that moved
-		// the block far off-screen would be unable to click it again
-		// to disable the preview — the click target is wherever the
-		// transform put it. Also puts the Scroll Appear preview slot
-		// back to its 'entry' default (the eye on the Exit tab sets it
-		// to 'exit'), so the transient value stays out of saved content.
-		// Play is stopped on deselect too (next effect), so nothing
-		// still needs the slot.
+		// Read/write router for the panel (GH #29). The panel and every
+		// control in it see the block's attributes with its preview state
+		// laid over them, and write through `routedSetAttributes`: preview
+		// keys go to the motion-blocks/editor-preview store (no undo step,
+		// no dirty flag, never saved), everything else goes to the block
+		// as before. Hand children these two, never `props.attributes` /
+		// `props.setAttributes`, or preview state leaks back into the
+		// saved block. Writes that bypass the router (`updateBlockAttributes`
+		// on other blocks) must leave the preview keys out themselves.
+		const panelAttributes = useMemo(
+			() => overlayPreviewState( attributes, preview ),
+			[ attributes, preview ]
+		);
+		const routedSetAttributes = useCallback(
+			( newAttrs ) => {
+				const { preview: previewPatch, rest } =
+					splitPreviewPatch( newAttrs );
+				if ( previewPatch ) {
+					setPreview(
+						isMultiSelecting ? multiSelectedClientIds : [ clientId ],
+						previewPatch
+					);
+				}
+				if ( rest ) {
+					fanSetAttributes( rest );
+				}
+			},
+			[
+				clientId,
+				isMultiSelecting,
+				multiSelectedClientIds,
+				setPreview,
+				fanSetAttributes,
+			]
+		);
+
+		// Safety net: when the block leaves the selection (single or
+		// multi), stop Play, turn off the From/To eye, put the preview
+		// slot back to Entry and drop the scrubber. A looping Play
+		// would otherwise keep running with no way to stop it short of
+		// reselecting the block, and an eye preview that moved the
+		// block off-screen would leave nothing to click. The Start/End
+		// side and the Scroll Interactive eye are kept for the session.
+		// Each block sees itself leave, so this covers every block of a
+		// multi-selection. `hasPreview` keeps editor load free of no-op
+		// dispatches; `registry.select` adds no subscription (GH #27).
 		useEffect( () => {
 			if (
-				! isSelected &&
-				attributes.animationFromToPreviewSide &&
-				attributes.animationFromToPreviewSide !== 'off'
+				! inSelection &&
+				registry.select( previewStore ).hasPreview( clientId )
 			) {
-				setAttributes( {
-					animationFromToPreviewSide: 'off',
-					...( attributes.animationPreviewSlot &&
-					attributes.animationPreviewSlot !== 'entry'
-						? { animationPreviewSlot: 'entry' }
-						: {} ),
-				} );
+				clearPreview( clientId, { keepPrefs: true } );
 			}
-			// Only react to selection changes — running this on every
-			// attribute change would clear the preview as soon as the
-			// user toggles it on.
+			// Only react to selection changes.
 			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [ isSelected ] );
+		}, [ inSelection ] );
 
-		// Same safety net for the Play preview itself. Looping
-		// animations (Repeat = Loop / Back-and-forth) keep running
-		// indefinitely after the user clicks Play; if they then
-		// click another block on the page the loop would otherwise
-		// keep animating in the canvas with no way to halt it short
-		// of re-selecting the original block and pressing Stop.
-		// Non-looping previews auto-clear after duration+delay
-		// anyway, but turning them off on deselect is harmless and
-		// keeps the behavior consistent across Repeat options.
+		// Drop the block's preview state when it unmounts (removed,
+		// or moved to a new parent).
 		useEffect( () => {
-			if ( ! isSelected && attributes.animationPreviewPlaying ) {
-				setAttributes( {
-					animationPreviewPlaying: false,
-				} );
-			}
-			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [ isSelected ] );
-
-		// Clear the Scroll Interactive scrubber when the block deselects.
-		// Unsetting it (rather than parking it at an end value) returns
-		// the block to its natural, un-animated state — a custom effect's
-		// end frame can be off-screen, so "end" is not "natural." Also
-		// keeps the transient value out of serialized content.
-		useEffect( () => {
-			if (
-				! isSelected &&
-				typeof attributes.animationScrubPosition === 'number'
-			) {
-				setAttributes( { animationScrubPosition: undefined } );
-			}
-			// eslint-disable-next-line react-hooks/exhaustive-deps
-		}, [ isSelected ] );
+			return () => {
+				if ( registry.select( previewStore ).hasPreview( clientId ) ) {
+					clearPreview( clientId );
+				}
+			};
+		}, [ registry, clientId, clearPreview ] );
 
 		return (
 			<>
@@ -805,8 +834,8 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				{ shouldRenderPanel && (
 					<InspectorControls>
 						<AnimationPanel
-							attributes={ attributes }
-							setAttributes={ fanSetAttributes }
+							attributes={ panelAttributes }
+							setAttributes={ routedSetAttributes }
 							blockName={ name }
 							clientId={ clientId }
 							multiSelectCount={
@@ -839,6 +868,18 @@ const withAnimationPreview = createHigherOrderComponent(
 	( BlockListBlock ) => {
 		return ( props ) => {
 			const { wrapperProps = {}, clientId } = props;
+			// Editor preview state (GH #29) lives in the
+			// motion-blocks/editor-preview store, not in attributes. Lay
+			// it over the attributes so everything below reads it under
+			// the old attribute names; values saved in older posts are
+			// replaced by the store's (or the defaults). Must stay above
+			// every early return (hook order).
+			const preview = useSelect(
+				( select ) =>
+					select( previewStore ).getBlockPreview( clientId ),
+				[ clientId ]
+			);
+			const baseAttrs = overlayPreviewState( props.attributes, preview );
 			// For Scroll Appear, normalize legacy attrs into slot form
 			// then alias one slot's per-slot attrs onto the shared
 			// `animationType` / `animationDuration` / etc. names that
@@ -851,11 +892,9 @@ const withAnimationPreview = createHigherOrderComponent(
 			// Custom From/To unit-bearing values (rotate / blur from
 			// bare numbers to canonical strings).
 			const attributes =
-				props.attributes?.animationMode === 'scroll-appear'
-					? aliasSlotForPreview(
-							migrateScrollAppearAttrs( props.attributes )
-					  )
-					: migrateScrollAppearAttrs( props.attributes );
+				baseAttrs.animationMode === 'scroll-appear'
+					? aliasSlotForPreview( migrateScrollAppearAttrs( baseAttrs ) )
+					: migrateScrollAppearAttrs( baseAttrs );
 
 			// DOM-side animation restart on each Play click.
 			//
@@ -884,12 +923,9 @@ const withAnimationPreview = createHigherOrderComponent(
 			// `document.querySelector` from here searches the parent
 			// doc, which doesn't contain the block. We fall through to
 			// the editor iframe's document if the parent search misses.
-			const prevPlayingRef = useRef(
-				!! props.attributes?.animationPreviewPlaying
-			);
+			const prevPlayingRef = useRef( !! preview.animationPreviewPlaying );
 			useEffect( () => {
-				const currentPlaying =
-					!! props.attributes?.animationPreviewPlaying;
+				const currentPlaying = !! preview.animationPreviewPlaying;
 				const wasPlaying = prevPlayingRef.current;
 				prevPlayingRef.current = currentPlaying;
 				if ( ! currentPlaying || wasPlaying ) {
@@ -930,7 +966,7 @@ const withAnimationPreview = createHigherOrderComponent(
 					return;
 				}
 				const previewSlot =
-					props.attributes?.animationPreviewSlot === 'exit'
+					preview.animationPreviewSlot === 'exit'
 						? 'exit'
 						: 'entry';
 				const triggerClass =
@@ -1031,7 +1067,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				void blockEl.offsetWidth;
 				cls.add( triggerClass );
 				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [ props.attributes?.animationPreviewPlaying ] );
+			}, [ preview.animationPreviewPlaying ] );
 			const {
 				animationMode,
 				animationType,

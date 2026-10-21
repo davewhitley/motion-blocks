@@ -95,6 +95,13 @@ import SHARED from '../shared-constants.json';
 		initPageLoadAnimations();
 		initScrollAppearAnimations();
 		initScrollInteractiveAnimations();
+		// Read by the head failsafe on `load` (GH #57,
+		// motion_blocks_print_js_marker): set only once every mode is
+		// wired, so a throw above still reveals the content. Re-assert
+		// the marker too, in case an optimiser delayed this script past
+		// `load` and the failsafe already removed it (no-op otherwise).
+		window.motionBlocksReady = true;
+		document.documentElement.classList.add( 'mb-js' );
 		if ( DEBUG ) {
 			debugApi.ready = true;
 		}

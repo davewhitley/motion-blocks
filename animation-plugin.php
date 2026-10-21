@@ -276,10 +276,23 @@ add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
  * `mb-mode-*` classes these rules key on (the preview HOC manages
  * its own classes — see `withAnimationPreview` in src/index.js), so
  * the scoped rules are inert there by design.
+ *
+ * Failsafe (GH #57): the marker only proves *some* JS ran, not that
+ * build/frontend.js did. If the bundle 404s, is blocked, or throws
+ * (e.g. inside an optimiser's combined bundle), nothing ever adds
+ * `.mb-triggered` and every hidden block stays at opacity 0. So
+ * frontend.js sets `window.motionBlocksReady` once its init has
+ * finished, and on window `load` the marker drops `mb-js` again if
+ * that flag is missing. Footer and async scripts all run before
+ * `load`, so this is not a timing guess. frontend.js re-adds `mb-js`
+ * in init, for scripts an optimiser delays until after `load`.
  */
 function motion_blocks_print_js_marker() {
     wp_print_inline_script_tag(
-        "document.documentElement.classList.add('mb-js');",
+        '(function(h){h.classList.add("mb-js");'
+            . 'window.addEventListener("load",function(){'
+            . 'if(!window.motionBlocksReady){h.classList.remove("mb-js");}'
+            . '});})(document.documentElement);',
         array( 'id' => 'motion-blocks-js-marker' )
     );
 }

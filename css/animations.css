@@ -74,8 +74,10 @@
  * No-JS contract: every HIDE rule (opacity: 0) is scoped under
  * `:where(html.mb-js)` — the marker class a synchronous head script
  * adds on the frontend (motion_blocks_print_js_marker). If JS never
- * runs, the rules don't match and content stays visible. `:where()`
- * adds ZERO specificity, so all the `opacity: 1` override rules
+ * runs, the rules don't match and content stays visible; the same
+ * script drops the class on `load` if frontend.js never finished
+ * init (GH #57), so a broken bundle also leaves content visible.
+ * `:where()` adds ZERO specificity, so all the `opacity: 1` override rules
  * below keep winning unchanged. The editor canvas is unaffected
  * either way: it never carries `mb-mode-*` classes (the preview HOC
  * deliberately omits them — see src/index.js withAnimationPreview).

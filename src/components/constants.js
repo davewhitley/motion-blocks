@@ -1540,6 +1540,51 @@ export function presetToSlotFromToAttributes( type, direction, options, slot ) {
 }
 
 /**
+ * Attribute patch for the "Edit" button in the Page Load panel:
+ * converts the block's current preset into Custom with the
+ * equivalent From/To values filled in.
+ *
+ * When converting from an image effect (image-move, image-zoom) the
+ * patch also sets `animationFromToTarget: 'img'`, so the converted
+ * Custom keeps animating the inner img like the original preset did.
+ *
+ * Deliberately leaves `animationStaggerEnabled` alone: Custom is
+ * stagger-compatible (it composes via `--mb-stagger-anim-name`, see
+ * STAGGER_INCOMPATIBLE_TYPES), so clearing the flag here silently
+ * turned off the cascade on Columns / Group / List blocks (GH #64).
+ * Scroll Interactive can't stagger at all, so its own Edit handler
+ * clears the flag separately (GH #48).
+ *
+ * @param {Object} attributes Block attributes.
+ * @return {Object|null} Attributes for setAttributes(), or null when
+ *                       the current type has no From/To equivalent.
+ */
+export function editPresetAttributes( attributes ) {
+	const {
+		animationType: type,
+		animationDirection: direction,
+		animationRotateAngle: rotateAngle,
+		animationBlurAmount: blurAmount,
+	} = attributes || {};
+	const seed = presetToFromToAttributes( type, direction, {
+		rotateAngle,
+		blurAmount,
+	} );
+	if ( ! seed ) {
+		return null;
+	}
+	const out = {
+		animationType: 'custom',
+		animationDirection: '',
+		...seed,
+	};
+	if ( IMAGE_EFFECT_TYPES.includes( type ) ) {
+		out.animationFromToTarget = 'img';
+	}
+	return out;
+}
+
+/**
  * Test whether a value counts as "added" for the From/To editor.
  * `null`, `undefined`, and empty string all mean "not added".
  */

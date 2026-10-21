@@ -42,6 +42,7 @@ import {
 	isImageTargetUnavailable,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
+	editPresetAttributes,
 } from './constants';
 import FromToControls from './FromToControls';
 import StaggerControls from './StaggerControls';
@@ -149,8 +150,10 @@ export default function PageLoadControls( {
 		if ( value === 'custom' && ! hasAnyCustomFromToSet( attributes ) ) {
 			Object.assign( newAttrs, CUSTOM_DEFAULT_FROM_TO );
 		}
-		// Stagger isn't supported on custom / image-move (each block
-		// needs its own keyframe — see STAGGER_INCOMPATIBLE_TYPES).
+		// Stagger isn't supported on image-move / image-zoom (each
+		// block needs its own img-scoped keyframe — see
+		// STAGGER_INCOMPATIBLE_TYPES; Custom composes via
+		// --mb-stagger-anim-name, so it stays compatible).
 		// StaggerControls already hides the toggle for those types,
 		// but the attribute would silently persist as `true`, which
 		// is confusing: switch to a preset later and the cascade
@@ -180,32 +183,14 @@ export default function PageLoadControls( {
 	 * targeting the inner img (matches the original visual; the user
 	 * can flip the "Animate image only" toggle off if they want to
 	 * animate the whole wrapper instead).
+	 *
+	 * Stagger is left as-is: Custom can cascade too (GH #64). The
+	 * patch itself lives in editPresetAttributes so it can be tested.
 	 */
 	const handleEditPreset = () => {
-		const seed = presetToFromToAttributes(
-			animationType,
-			animationDirection,
-			{
-				rotateAngle: animationRotateAngle,
-				blurAmount: animationBlurAmount,
-			}
-		);
-		if ( ! seed ) {
+		const newAttrs = editPresetAttributes( attributes );
+		if ( ! newAttrs ) {
 			return;
-		}
-		const fromImageEffect =
-			animationType === 'image-move' ||
-			animationType === 'image-zoom';
-		const newAttrs = {
-			animationType: 'custom',
-			animationDirection: '',
-			...seed,
-		};
-		if ( fromImageEffect ) {
-			newAttrs.animationFromToTarget = 'img';
-		}
-		if ( attributes.animationStaggerEnabled ) {
-			newAttrs.animationStaggerEnabled = false;
 		}
 		setAttributes( newAttrs );
 	};

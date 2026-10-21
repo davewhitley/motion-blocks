@@ -509,7 +509,10 @@ export default function SlotControls( {
 						label={ __( 'Duration', 'motion-blocks' ) }
 						value={ animationDuration }
 						min={ 0 }
-						step={ 0.1 }
+						step={ 0.01 }
+						// Keep two decimals (0.25) when typed; +/- and arrow keys
+						// still move by 0.1 (step × spinFactor).
+						spinFactor={ 10 }
 						spinControls="custom"
 						suffix={ <SecondsSuffix /> }
 						onChange={ ( value ) =>
@@ -526,7 +529,8 @@ export default function SlotControls( {
 						label={ __( 'Delay', 'motion-blocks' ) }
 						value={ animationDelay }
 						min={ 0 }
-						step={ 0.1 }
+						step={ 0.01 }
+						spinFactor={ 10 }
 						spinControls="custom"
 						suffix={ <SecondsSuffix /> }
 						onChange={ ( value ) =>

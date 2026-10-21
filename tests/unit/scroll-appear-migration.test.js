@@ -10,7 +10,9 @@ import {
 	DEFAULT_ATTRIBUTES,
 	migrateScrollAppearAttrs,
 	materializeScrollAppearPatch,
+	switchModeAttributes,
 } from '../../src/components/constants';
+import { attrsForCategory } from '../../src/components/AutoAnimate/plan';
 
 // Editor attributes always carry the schema defaults.
 const legacy = ( attrs ) => ( {
@@ -163,5 +165,92 @@ describe( 'materializeScrollAppearPatch', () => {
 		const view = applyAndView( attrs, edit );
 		expect( view.animationEntryType ).toBe( '' );
 		expect( view.animationExitType ).toBe( 'scale' );
+	} );
+
+	describe( 'None, then another edit', () => {
+		// Each step writes what the editor would: the materialized patch.
+		const write = ( attrs, patch ) => ( {
+			...attrs,
+			...materializeScrollAppearPatch( attrs, patch ),
+		} );
+		const none = { animationEntryType: '', animationEntryDirection: '' };
+		const fade = {
+			animationEntryType: 'fade',
+			animationEntryDirection: '',
+		};
+		const timing = ( view ) => [
+			view.animationEntryDuration,
+			view.animationEntryDelay,
+			view.animationEntryAcceleration,
+		];
+
+		it( 'keeps the slot timing when an effect is picked again', () => {
+			let a = legacy( {
+				animationEntryType: 'fade',
+				animationEntryDuration: 1.5,
+				animationEntryDelay: 0.3,
+				animationEntryAcceleration: 'ease-in',
+				animationExitType: '',
+				animationDelay: 0,
+			} );
+			a = write( a, none );
+			expect( a.animationType ).toBe( '' );
+			// Nothing legacy left to materialize: the patch passes through.
+			expect( materializeScrollAppearPatch( a, fade ) ).toBe( fade );
+			a = write( a, fade );
+			expect( timing( migrateScrollAppearAttrs( a ) ) ).toEqual( [
+				1.5,
+				0.3,
+				'ease-in',
+			] );
+		} );
+
+		it( 'keeps Auto-animate timing on a None round trip', () => {
+			let a = {
+				...SCHEMA_DEFAULTS,
+				...attrsForCategory( 'CTA', 'bold' ),
+			};
+			const entryDelay = a.animationEntryDelay;
+			a = write( a, { animationEntryDuration: 1.5 } );
+			a = write( a, none );
+			a = write( a, {
+				animationEntryType: 'scale',
+				animationEntryDirection: '',
+			} );
+			const view = migrateScrollAppearAttrs( a );
+			expect( view.animationEntryType ).toBe( 'scale' );
+			expect( view.animationEntryDuration ).toBe( 1.5 );
+			expect( view.animationEntryDelay ).toBe( entryDelay );
+		} );
+
+		it.each( [ 'page-load', 'scroll-interactive' ] )(
+			'gives %s a real effect after Entry None',
+			( mode ) => {
+				let a = {
+					...SCHEMA_DEFAULTS,
+					...attrsForCategory( 'SECTION', 'smooth' ),
+				};
+				a = write( a, none );
+				expect( a.animationType ).toBe( '' );
+				a = { ...a, ...switchModeAttributes( a, mode ) };
+				expect( a.animationMode ).toBe( mode );
+				expect( a.animationType ).toBe(
+					DEFAULT_ATTRIBUTES.animationType
+				);
+				expect( a.animationDirection ).toBe(
+					DEFAULT_ATTRIBUTES.animationDirection
+				);
+			}
+		);
+
+		it( 'keeps the shared type when leaving with only Exit set', () => {
+			const a = legacy( {
+				animationType: 'scale',
+				animationEntryType: '',
+				animationExitType: 'fade',
+			} );
+			const out = switchModeAttributes( a, 'page-load' );
+			expect( out ).not.toHaveProperty( 'animationType' );
+		} );
 	} );
 } );

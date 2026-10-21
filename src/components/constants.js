@@ -605,8 +605,16 @@ export function materializeScrollAppearPatch( attrs, patch ) {
 	}
 	let out = patch;
 	const isLegacy = ! attrs.animationEntryType && ! attrs.animationExitType;
-	if ( isLegacy ) {
-		const migrated = migrateScrollAppearAttrs( attrs );
+	const migrated = isLegacy ? migrateScrollAppearAttrs( attrs ) : attrs;
+	// Only materialize when the shim actually derived a filled slot. A
+	// block whose shared type is '' (the "None" state written below)
+	// derives empty slots padded with the shared timing keys; writing
+	// those would replace the user's own slot timing when they pick an
+	// effect again.
+	if (
+		isLegacy &&
+		( migrated.animationEntryType || migrated.animationExitType )
+	) {
 		const base = {};
 		for ( const k of Object.keys( migrated ) ) {
 			if ( SLOT_KEY_RE.test( k ) && migrated[ k ] !== attrs[ k ] ) {
@@ -2033,6 +2041,14 @@ export function switchModeAttributes( attributes, newMode ) {
 		// user configured. Exit-slot config is not surfaced in the
 		// other modes (no concept of exit there) and is left behind.
 		const entryType = attributes?.animationEntryType || '';
+		if ( ! entryType && ! attributes?.animationType ) {
+			// Entry "None" with no Exit clears the shared type (see
+			// `materializeScrollAppearPatch`). Page Load and Scroll
+			// Interactive have no empty Effect option, so '' would show
+			// as Fade while nothing animates; give them a real effect.
+			out.animationType = DEFAULT_ATTRIBUTES.animationType;
+			out.animationDirection = DEFAULT_ATTRIBUTES.animationDirection;
+		}
 		if ( entryType ) {
 			out.animationType = entryType;
 			out.animationDirection = attributes.animationEntryDirection || '';

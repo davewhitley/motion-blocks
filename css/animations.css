@@ -750,7 +750,8 @@ html:has(body.mb-clip-page-overflow) {
     :is(
         .mb-animated,
         .mb-mode-scroll-interactive,
-        .mb-stagger-parent > *,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
         [data-mb-target="img"] img:first-of-type
     ) {
         animation: none !important;
@@ -759,7 +760,12 @@ html:has(body.mb-clip-page-overflow) {
         transform: none !important;
         clip-path: none !important;
     }
-    :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+    :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *
+    ) {
         filter: none !important;
     }
 }
@@ -785,7 +791,8 @@ html:has(body.mb-clip-page-overflow) {
     body.mb-disabled-desktop :is(
         .mb-animated,
         .mb-mode-scroll-interactive,
-        .mb-stagger-parent > *,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
         [data-mb-target="img"] img:first-of-type
     ) {
         animation: none !important;
@@ -794,7 +801,12 @@ html:has(body.mb-clip-page-overflow) {
         transform: none !important;
         clip-path: none !important;
     }
-    body.mb-disabled-desktop :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+    body.mb-disabled-desktop :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *
+    ) {
         filter: none !important;
     }
 }
@@ -803,7 +815,8 @@ html:has(body.mb-clip-page-overflow) {
     body.mb-disabled-tablet :is(
         .mb-animated,
         .mb-mode-scroll-interactive,
-        .mb-stagger-parent > *,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
         [data-mb-target="img"] img:first-of-type
     ) {
         animation: none !important;
@@ -812,7 +825,12 @@ html:has(body.mb-clip-page-overflow) {
         transform: none !important;
         clip-path: none !important;
     }
-    body.mb-disabled-tablet :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+    body.mb-disabled-tablet :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *
+    ) {
         filter: none !important;
     }
 }
@@ -821,7 +839,8 @@ html:has(body.mb-clip-page-overflow) {
     body.mb-disabled-mobile :is(
         .mb-animated,
         .mb-mode-scroll-interactive,
-        .mb-stagger-parent > *,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
         [data-mb-target="img"] img:first-of-type
     ) {
         animation: none !important;
@@ -830,7 +849,12 @@ html:has(body.mb-clip-page-overflow) {
         transform: none !important;
         clip-path: none !important;
     }
-    body.mb-disabled-mobile :is(.mb-animated, .mb-mode-scroll-interactive, .mb-stagger-parent > *) {
+    body.mb-disabled-mobile :is(
+        .mb-animated,
+        .mb-mode-scroll-interactive,
+        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
+        .mb-stagger-parent > :where(.wp-block-group__inner-container) > *
+    ) {
         filter: none !important;
     }
 }
@@ -847,6 +871,25 @@ html:has(body.mb-clip-page-overflow) {
  *
  * Pure CSS. The existing IntersectionObserver still adds `.mb-triggered`
  * to the parent; the rules below propagate that trigger to the children.
+ *
+ * Classic-theme Group wrapper (GH #66). In themes without theme.json,
+ * core wraps a default / constrained Group's children in
+ * `div.wp-block-group__inner-container` (front end and editor alike),
+ * and Groups saved before WordPress 5.9 keep that wrapper in their
+ * content on any theme. A bare `> *` then matches only the wrapper,
+ * which animates as one unit while the real children never stagger.
+ * So every "child" selector below comes in two forms:
+ *
+ *   X > :where(:not(.wp-block-group__inner-container))
+ *   X > :where(.wp-block-group__inner-container) > *
+ *
+ * The first is the old `> *` minus the wrapper. Excluding the wrapper
+ * matters: if it also matched, it would animate as "child 1" on top of
+ * its own children and the two opacities would multiply. The second
+ * reaches through the wrapper, so its children count from 1 for the
+ * `:nth-child()` delays. `:where()` adds no specificity, so both forms
+ * weigh exactly what `> *` did and block-theme output is unchanged.
+ * The Reduced Motion and per-device lists above use the same pair.
  * -------------------------------------------------------------- */
 
 /* Suppress the parent's own animation. Stays visible from frame 0 so
@@ -865,8 +908,10 @@ html:has(body.mb-clip-page-overflow) {
    hide their kids before the entry animation has anything to do.
    Not armed under reduced motion (see Initial Hidden States). */
 @media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > *,
-    :where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > * {
+    :where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > :where(:not(.wp-block-group__inner-container)),
+    :where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > :where(.wp-block-group__inner-container) > *,
+    :where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > :where(:not(.wp-block-group__inner-container)),
+    :where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > :where(.wp-block-group__inner-container) > * {
         opacity: 0;
     }
 }
@@ -881,7 +926,14 @@ html:has(body.mb-clip-page-overflow) {
         .mb-enter-scale-out,
         .mb-enter-blur-out,
         .mb-enter-rotate-out
-    ).mb-mode-page-load:not(.mb-triggered) > * {
+    ).mb-mode-page-load:not(.mb-triggered) > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent:is(
+        .mb-enter-fade-out,
+        .mb-enter-slide-out,
+        .mb-enter-scale-out,
+        .mb-enter-blur-out,
+        .mb-enter-rotate-out
+    ).mb-mode-page-load:not(.mb-triggered) > :where(.wp-block-group__inner-container) > * {
     opacity: 1;
 }
 
@@ -892,7 +944,8 @@ html:has(body.mb-clip-page-overflow) {
    them as CSS custom properties (frontend.js sets `--mb-iteration-
    count: infinite` on loop / alternate). These inherit down the
    cascade so staggered inner blocks loop in sync with the parent. */
-.mb-stagger-parent.mb-triggered > * {
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > * {
     animation-duration: var(--mb-duration);
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-timing);
@@ -909,25 +962,40 @@ html:has(body.mb-clip-page-overflow) {
    inherits down the cascade to inner blocks, which read it back
    here. `image-move` is excluded — it's a scroll-interactive
    parallax preset which doesn't use the `.mb-triggered` toggle. */
-.mb-stagger-parent.mb-enter-fade.mb-triggered       > * { animation-name: mbFadeIn; }
-.mb-stagger-parent.mb-enter-fade-out.mb-triggered   > * { animation-name: mbFadeOut; }
-.mb-stagger-parent.mb-enter-slide.mb-triggered      > * { animation-name: mbSlideIn; }
-.mb-stagger-parent.mb-enter-slide-out.mb-triggered  > * { animation-name: mbSlideOut; }
-.mb-stagger-parent.mb-enter-scale.mb-triggered      > * { animation-name: mbScaleIn; }
-.mb-stagger-parent.mb-enter-scale-out.mb-triggered  > * { animation-name: mbScaleOut; }
-.mb-stagger-parent.mb-enter-rotate.mb-triggered     > * { animation-name: mbRotateIn; }
-.mb-stagger-parent.mb-enter-rotate-out.mb-triggered > * { animation-name: mbRotateOut; }
-.mb-stagger-parent.mb-enter-blur.mb-triggered       > * { animation-name: mbBlurIn; }
-.mb-stagger-parent.mb-enter-blur-out.mb-triggered   > * { animation-name: mbBlurOut; }
-.mb-stagger-parent.mb-enter-wipe.mb-triggered       > * { animation-name: mbWipeIn; }
-.mb-stagger-parent.mb-enter-curtain.mb-triggered    > * { animation-name: mbCurtainReveal; }
-.mb-stagger-parent.mb-enter-curtain-out.mb-triggered > * { animation-name: mbCurtainClose; }
-.mb-stagger-parent.mb-enter-flip.mb-triggered    > * {
+.mb-stagger-parent.mb-enter-fade.mb-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-fade.mb-triggered       > :where(.wp-block-group__inner-container) > * { animation-name: mbFadeIn; }
+.mb-stagger-parent.mb-enter-fade-out.mb-triggered   > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-fade-out.mb-triggered   > :where(.wp-block-group__inner-container) > * { animation-name: mbFadeOut; }
+.mb-stagger-parent.mb-enter-slide.mb-triggered      > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-slide.mb-triggered      > :where(.wp-block-group__inner-container) > * { animation-name: mbSlideIn; }
+.mb-stagger-parent.mb-enter-slide-out.mb-triggered  > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-slide-out.mb-triggered  > :where(.wp-block-group__inner-container) > * { animation-name: mbSlideOut; }
+.mb-stagger-parent.mb-enter-scale.mb-triggered      > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-scale.mb-triggered      > :where(.wp-block-group__inner-container) > * { animation-name: mbScaleIn; }
+.mb-stagger-parent.mb-enter-scale-out.mb-triggered  > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-scale-out.mb-triggered  > :where(.wp-block-group__inner-container) > * { animation-name: mbScaleOut; }
+.mb-stagger-parent.mb-enter-rotate.mb-triggered     > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-rotate.mb-triggered     > :where(.wp-block-group__inner-container) > * { animation-name: mbRotateIn; }
+.mb-stagger-parent.mb-enter-rotate-out.mb-triggered > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-rotate-out.mb-triggered > :where(.wp-block-group__inner-container) > * { animation-name: mbRotateOut; }
+.mb-stagger-parent.mb-enter-blur.mb-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-blur.mb-triggered       > :where(.wp-block-group__inner-container) > * { animation-name: mbBlurIn; }
+.mb-stagger-parent.mb-enter-blur-out.mb-triggered   > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-blur-out.mb-triggered   > :where(.wp-block-group__inner-container) > * { animation-name: mbBlurOut; }
+.mb-stagger-parent.mb-enter-wipe.mb-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-wipe.mb-triggered       > :where(.wp-block-group__inner-container) > * { animation-name: mbWipeIn; }
+.mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(.wp-block-group__inner-container) > * { animation-name: mbCurtainReveal; }
+.mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(.wp-block-group__inner-container) > * { animation-name: mbCurtainClose; }
+.mb-stagger-parent.mb-enter-flip.mb-triggered    > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-flip.mb-triggered    > :where(.wp-block-group__inner-container) > * {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
-.mb-stagger-parent.mb-enter-custom.mb-triggered  > * {
+.mb-stagger-parent.mb-enter-custom.mb-triggered  > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-custom.mb-triggered  > :where(.wp-block-group__inner-container) > * {
     animation-name: var(--mb-stagger-anim-name, none);
 }
 
@@ -935,21 +1003,30 @@ html:has(body.mb-clip-page-overflow) {
    Exit slot filled, inner blocks need their own animation-name on
    `.mb-exit-triggered`. Mirrors the enter-phase bindings above —
    one rule per type. */
-.mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > * { animation-name: mbFadeOut; }
-.mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > * { animation-name: mbSlideOut; }
-.mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > * { animation-name: mbScaleOut; }
-.mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > * { animation-name: mbRotateOut; }
-.mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > * { animation-name: mbBlurOut; }
-.mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > * { animation-name: mbWipeOut; }
-.mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > * { animation-name: mbCurtainClose; }
+.mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > :where(.wp-block-group__inner-container) > * { animation-name: mbFadeOut; }
+.mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > :where(.wp-block-group__inner-container) > * { animation-name: mbSlideOut; }
+.mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > :where(.wp-block-group__inner-container) > * { animation-name: mbScaleOut; }
+.mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > :where(.wp-block-group__inner-container) > * { animation-name: mbRotateOut; }
+.mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > :where(.wp-block-group__inner-container) > * { animation-name: mbBlurOut; }
+.mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > :where(.wp-block-group__inner-container) > * { animation-name: mbWipeOut; }
+.mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > :where(.wp-block-group__inner-container) > * { animation-name: mbCurtainClose; }
 /* Flip needs the 3D context on each child, like the enter-phase
    stagger rule above — a plain one-liner would squash instead. */
-.mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > * {
+.mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > :where(.wp-block-group__inner-container) > * {
     animation-name: mbFlipOut;
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
-.mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > * {
+.mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > :where(.wp-block-group__inner-container) > * {
     animation-name: var(--mb-exit-anim-name, none);
 }
 
@@ -961,7 +1038,8 @@ html:has(body.mb-clip-page-overflow) {
    animate (see the stagger-parent suppression above), so without
    this the children replayed the Out keyframe forward on the way
    back up and stayed hidden (GH #51). */
-.mb-stagger-parent.mb-exit-triggered > * {
+.mb-stagger-parent.mb-exit-triggered > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-exit-triggered > :where(.wp-block-group__inner-container) > * {
     animation-duration: var(--mb-duration);
     animation-fill-mode: both;
     animation-timing-function: var(--mb-timing);
@@ -973,34 +1051,64 @@ html:has(body.mb-clip-page-overflow) {
 /* Stepped delay per child. CSS doesn't have a `for` so we list 30
    nth-child rules. Each one adds (n-1) * --mb-stagger-step to the
    parent's --mb-delay. */
-.mb-stagger-parent.mb-triggered > *:nth-child(1)  { animation-delay: calc(var(--mb-delay, 0s) +  0 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(2)  { animation-delay: calc(var(--mb-delay, 0s) +  1 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(3)  { animation-delay: calc(var(--mb-delay, 0s) +  2 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(4)  { animation-delay: calc(var(--mb-delay, 0s) +  3 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(5)  { animation-delay: calc(var(--mb-delay, 0s) +  4 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(6)  { animation-delay: calc(var(--mb-delay, 0s) +  5 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(7)  { animation-delay: calc(var(--mb-delay, 0s) +  6 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(8)  { animation-delay: calc(var(--mb-delay, 0s) +  7 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(9)  { animation-delay: calc(var(--mb-delay, 0s) +  8 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(10) { animation-delay: calc(var(--mb-delay, 0s) +  9 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(11) { animation-delay: calc(var(--mb-delay, 0s) + 10 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(12) { animation-delay: calc(var(--mb-delay, 0s) + 11 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(13) { animation-delay: calc(var(--mb-delay, 0s) + 12 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(14) { animation-delay: calc(var(--mb-delay, 0s) + 13 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(15) { animation-delay: calc(var(--mb-delay, 0s) + 14 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(16) { animation-delay: calc(var(--mb-delay, 0s) + 15 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(17) { animation-delay: calc(var(--mb-delay, 0s) + 16 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(18) { animation-delay: calc(var(--mb-delay, 0s) + 17 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(19) { animation-delay: calc(var(--mb-delay, 0s) + 18 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(20) { animation-delay: calc(var(--mb-delay, 0s) + 19 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(21) { animation-delay: calc(var(--mb-delay, 0s) + 20 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(22) { animation-delay: calc(var(--mb-delay, 0s) + 21 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(23) { animation-delay: calc(var(--mb-delay, 0s) + 22 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(24) { animation-delay: calc(var(--mb-delay, 0s) + 23 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(25) { animation-delay: calc(var(--mb-delay, 0s) + 24 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(26) { animation-delay: calc(var(--mb-delay, 0s) + 25 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(27) { animation-delay: calc(var(--mb-delay, 0s) + 26 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(28) { animation-delay: calc(var(--mb-delay, 0s) + 27 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(29) { animation-delay: calc(var(--mb-delay, 0s) + 28 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > *:nth-child(30) { animation-delay: calc(var(--mb-delay, 0s) + 29 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(1),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(1)  { animation-delay: calc(var(--mb-delay, 0s) +  0 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(2),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(2)  { animation-delay: calc(var(--mb-delay, 0s) +  1 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(3),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(3)  { animation-delay: calc(var(--mb-delay, 0s) +  2 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(4),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(4)  { animation-delay: calc(var(--mb-delay, 0s) +  3 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(5),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(5)  { animation-delay: calc(var(--mb-delay, 0s) +  4 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(6),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(6)  { animation-delay: calc(var(--mb-delay, 0s) +  5 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(7),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(7)  { animation-delay: calc(var(--mb-delay, 0s) +  6 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(8),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(8)  { animation-delay: calc(var(--mb-delay, 0s) +  7 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(9),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(9)  { animation-delay: calc(var(--mb-delay, 0s) +  8 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(10),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(10) { animation-delay: calc(var(--mb-delay, 0s) +  9 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(11),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(11) { animation-delay: calc(var(--mb-delay, 0s) + 10 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(12),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(12) { animation-delay: calc(var(--mb-delay, 0s) + 11 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(13),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(13) { animation-delay: calc(var(--mb-delay, 0s) + 12 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(14),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(14) { animation-delay: calc(var(--mb-delay, 0s) + 13 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(15),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(15) { animation-delay: calc(var(--mb-delay, 0s) + 14 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(16),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(16) { animation-delay: calc(var(--mb-delay, 0s) + 15 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(17),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(17) { animation-delay: calc(var(--mb-delay, 0s) + 16 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(18),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(18) { animation-delay: calc(var(--mb-delay, 0s) + 17 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(19),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(19) { animation-delay: calc(var(--mb-delay, 0s) + 18 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(20),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(20) { animation-delay: calc(var(--mb-delay, 0s) + 19 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(21),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(21) { animation-delay: calc(var(--mb-delay, 0s) + 20 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(22),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(22) { animation-delay: calc(var(--mb-delay, 0s) + 21 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(23),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(23) { animation-delay: calc(var(--mb-delay, 0s) + 22 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(24),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(24) { animation-delay: calc(var(--mb-delay, 0s) + 23 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(25),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(25) { animation-delay: calc(var(--mb-delay, 0s) + 24 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(26),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(26) { animation-delay: calc(var(--mb-delay, 0s) + 25 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(27),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(27) { animation-delay: calc(var(--mb-delay, 0s) + 26 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(28),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(28) { animation-delay: calc(var(--mb-delay, 0s) + 27 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(29),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(29) { animation-delay: calc(var(--mb-delay, 0s) + 28 * var(--mb-stagger-step, 0.1s)); }
+.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(30),
+.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(30) { animation-delay: calc(var(--mb-delay, 0s) + 29 * var(--mb-stagger-step, 0.1s)); }
 

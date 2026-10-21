@@ -1039,9 +1039,16 @@ const withAnimationPreview = createHigherOrderComponent(
 				// often optimize the "change" away and don't restart.
 				// Hard-reset `animation` inline first to force the
 				// engine to genuinely re-evaluate when the class comes
-				// back. For staggered parents the cascade lives on
-				// direct children, so reset there too.
+				// back. For staggered parents the cascade lives on the
+				// children, so reset there too. In classic themes a
+				// Group's children sit one level down, inside
+				// `.wp-block-group__inner-container` (GH #66).
 				const isStaggerParent = cls.contains( 'mb-stagger-parent' );
+				const staggerInner = isStaggerParent
+					? blockEl.querySelector(
+							':scope > .wp-block-group__inner-container'
+					  )
+					: null;
 				// Img-target effects (Cover + image-move / image-zoom, or any
 				// preset with "Animate image only") run their animation on the
 				// inner <img>, not the wrapper. Image Move / Image Zoom bind via
@@ -1054,7 +1061,11 @@ const withAnimationPreview = createHigherOrderComponent(
 					? blockEl.querySelector( 'img:first-of-type' )
 					: null;
 				const restartTargets = isStaggerParent
-					? [ blockEl, ...blockEl.children ]
+					? [
+							blockEl,
+							...blockEl.children,
+							...( staggerInner ? staggerInner.children : [] ),
+					  ]
 					: innerImg
 					? [ blockEl, innerImg ]
 					: [ blockEl ];

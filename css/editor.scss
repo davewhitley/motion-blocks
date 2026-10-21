@@ -589,6 +589,14 @@
 	margin-bottom: 0;
 }
 
+// Unit suffix fallback (UnitSuffix.js) for cores without
+// InputControlSuffixWrapper: keeps the "s" / "°" off the spin buttons.
+.mb-unit-suffix {
+	display: flex;
+	align-items: center;
+	padding-inline-end: vars.$grid-unit-10;
+}
+
 // Custom (Start / End) editor wrapper. Spacing only — the inner
 // ToolsPanel handles its own header, dropdown, and grid layout.
 //

@@ -33,6 +33,7 @@ import {
 	isStaggerCompatible,
 	staggerStepSeconds,
 } from './constants';
+import { SecondsSuffix } from './UnitSuffix';
 
 export default function StaggerControls( {
 	attributes,
@@ -118,6 +119,7 @@ export default function StaggerControls( {
 					max={ 5 }
 					step={ 0.05 }
 					spinControls="custom"
+					suffix={ <SecondsSuffix /> }
 					__next40pxDefaultSize
 				/>
 			) }

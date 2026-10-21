@@ -59,6 +59,7 @@ import {
 	hasAnyCustomFromToSet,
 	presetToSlotFromToAttributes,
 } from './constants';
+import { SecondsSuffix, DegreesSuffix, longTimingHelp } from './UnitSuffix';
 import FromToControls from './FromToControls';
 
 const playIcon = (
@@ -481,6 +482,7 @@ export default function SlotControls( {
 					value={ animationRotateAngle ?? 90 }
 					step={ 1 }
 					spinControls="custom"
+					suffix={ <DegreesSuffix /> }
 					onChange={ ( value ) =>
 						setAttributes( {
 							[ attrName( 'RotateAngle' ) ]:
@@ -501,7 +503,7 @@ export default function SlotControls( {
 				{ __( 'Timing', 'motion-blocks' ) }
 			</h2>
 
-			<HStack spacing={ 3 }>
+			<HStack spacing={ 3 } alignment="top">
 				<FlexBlock>
 					<NumberControl
 						label={ __( 'Duration', 'motion-blocks' ) }
@@ -509,6 +511,8 @@ export default function SlotControls( {
 						min={ 0 }
 						step={ 0.1 }
 						spinControls="custom"
+						suffix={ <SecondsSuffix /> }
+						help={ longTimingHelp( animationDuration ) }
 						onChange={ ( value ) =>
 							setAttributes( {
 								[ attrName( 'Duration' ) ]:
@@ -525,6 +529,8 @@ export default function SlotControls( {
 						min={ 0 }
 						step={ 0.1 }
 						spinControls="custom"
+						suffix={ <SecondsSuffix /> }
+						help={ longTimingHelp( animationDelay ) }
 						onChange={ ( value ) =>
 							setAttributes( {
 								[ attrName( 'Delay' ) ]:

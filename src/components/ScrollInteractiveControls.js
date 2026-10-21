@@ -47,6 +47,7 @@ import {
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 } from './constants';
+import { DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
 import InfoPopover from './InfoPopover';
 import SubPanelModeHeader from './SubPanelModeHeader';
@@ -510,6 +511,7 @@ export default function ScrollInteractiveControls( {
 					value={ animationRotateAngle ?? 90 }
 					step={ 1 }
 					spinControls="custom"
+					suffix={ <DegreesSuffix /> }
 					onChange={ ( value ) =>
 						setAttributes( {
 							animationRotateAngle:

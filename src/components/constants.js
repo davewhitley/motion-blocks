@@ -717,6 +717,28 @@ export const BLUR_SETTINGS = {
 	step: 1,
 };
 
+/**
+ * Duration / Delay are stored in seconds. A value above this is almost
+ * always milliseconds typed into a seconds field (GH #65), so the panel
+ * shows a soft warning. Deliberately NOT a NumberControl `max`: that
+ * clamps on commit and would silently rewrite intentional long values
+ * (e.g. a slow looping Page Load spin).
+ */
+export const TIMING_SOFT_MAX_SECONDS = 30;
+
+/**
+ * Whether a Duration / Delay value is long enough to warrant the
+ * "seconds, not milliseconds" hint.
+ *
+ * @param {*} value Raw field value (number or numeric string).
+ * @return {boolean} True when the value is a finite number above
+ *                   TIMING_SOFT_MAX_SECONDS.
+ */
+export function isLongTiming( value ) {
+	const n = Number( value );
+	return Number.isFinite( n ) && n > TIMING_SOFT_MAX_SECONDS;
+}
+
 /* ----------------------------------------------------------------
  * Custom (From / To) — Property definitions for the v1 editor.
  *

@@ -145,6 +145,11 @@
        Repeat = Loop / Back-and-forth silently played once. */
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+    /* Page Load "Pause when off-screen" — frontend.js toggles
+       `--mb-play-state` on the wrapper. A custom property (not inline
+       `animation-play-state`) so it also reaches Stagger children and
+       the img-target image, which animate instead of the wrapper. */
+    animation-play-state: var(--mb-play-state, running);
 }
 
 /* ----------------------------------------------------------------
@@ -595,6 +600,7 @@
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+    animation-play-state: var(--mb-play-state, running);
 }
 
 /* Apply scroll-driven props on the inner img for Scroll Interactive.
@@ -965,6 +971,7 @@
     animation-timing-function: var(--mb-timing);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+    animation-play-state: var(--mb-play-state, running);
 }
 
 /* Bind animation-name per enter type. Inner blocks use the same

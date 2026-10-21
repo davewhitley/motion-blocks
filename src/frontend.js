@@ -401,6 +401,8 @@ import SHARED from '../shared-constants.json';
 				'animation-timing-function: var(--mb-timing, ease)',
 				'animation-iteration-count: var(--mb-iteration-count, 1)',
 				'animation-direction: var(--mb-direction, normal)',
+				// Page Load "Pause when off-screen" (setupPauseOffscreen).
+				'animation-play-state: var(--mb-play-state, running)',
 			];
 		}
 
@@ -874,14 +876,22 @@ import SHARED from '../shared-constants.json';
 
 	/**
 	 * Pause/resume animation based on element visibility.
+	 *
+	 * Sets `--mb-play-state` rather than inline `animation-play-state`:
+	 * a Stagger parent's children and an img-target block's image
+	 * animate instead of the wrapper, and only a custom property
+	 * reaches them (the triggered rules in animations.css read it).
+	 * The observer stays connected — a looping animation needs it for
+	 * the life of the page.
 	 */
 	function setupPauseOffscreen( el ) {
 		var observer = new IntersectionObserver(
 			function ( entries ) {
 				entries.forEach( function ( entry ) {
-					el.style.animationPlayState = entry.isIntersecting
-						? 'running'
-						: 'paused';
+					el.style.setProperty(
+						'--mb-play-state',
+						entry.isIntersecting ? 'running' : 'paused'
+					);
 				} );
 			},
 			{ threshold: 0 }

@@ -28,7 +28,7 @@
  * scrollbar — even though the user can't actually scroll anywhere
  * useful, the page just looks broken.
  *
- * Clipping `<html>` at the page level fixes this without disturbing
+ * Clipping `<body>` at the page level fixes this without disturbing
  * any intermediate container's `overflow` — Group blocks, Columns,
  * and Sections keep `overflow: visible`, so animations can still
  * visibly break out of their local box. Only the page boundary
@@ -39,7 +39,19 @@
  * uses `scrollLeft` / `scrollIntoView()` on its own scroll
  * containers (carousels, smooth-scroll libraries) is unaffected.
  * The carousel's scrolling happens inside its own wrapper, not on
- * `<html>`.
+ * the page.
+ *
+ * Why `<body>`, not `<html>`: with `<html>` left at `overflow:
+ * visible`, the browser propagates `<body>`'s overflow to the
+ * viewport (where `clip` is read as `hidden`), so `<body>` never
+ * becomes a scroll container. Clipping `<html>` instead stopped that
+ * propagation, so a theme's own `body { overflow-x: hidden }` turned
+ * `<body>` into a scroll container — breaking `position: sticky`
+ * headers and `body { overflow: hidden }` scroll locks (#32).
+ *
+ * `:where()` keeps the rule at zero specificity, so any theme or
+ * plugin `body` overflow rule (including a modal's scroll lock)
+ * wins outright.
  *
  * Gated on `body.mb-clip-page-overflow`, which the PHP body_class
  * filter emits when `motion_blocks_apply_overflow_clip` resolves
@@ -48,7 +60,7 @@
  *
  *     add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
  * -------------------------------------------------------------- */
-html:has(body.mb-clip-page-overflow) {
+:where(body.mb-clip-page-overflow) {
     overflow-x: clip;
 }
 

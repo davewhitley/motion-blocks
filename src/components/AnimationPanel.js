@@ -18,6 +18,7 @@ import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import { selectAnimatedAncestor } from './selectStable';
 import {
 	DEFAULT_ATTRIBUTES,
 	PROPERTY_DEFINITIONS,
@@ -52,28 +53,16 @@ export default function AnimationPanel( {
 	// If so, the user is editing an inner block of an animated parent
 	// block — the empty mode-selector below would be confusing without
 	// a hint pointing them at the ancestor that owns the animation.
+	// Always a fixed-shape object of primitives (`clientId: null` when
+	// there is none) so `useSelect`'s shallow compare passes and the
+	// panel doesn't re-render on every store change (GH #27).
 	const animatedAncestor = useSelect(
-		( select ) => {
-			if ( ! clientId ) {
-				return null;
-			}
-			const sel = select( blockEditorStore );
-			const blocksSel = select( blocksStore );
-			const parentIds = sel.getBlockParents( clientId );
-			// Walk from nearest ancestor outward — the closest animated
-			// ancestor is the most relevant one to point the user at.
-			for ( let i = parentIds.length - 1; i >= 0; i-- ) {
-				const id = parentIds[ i ];
-				const block = sel.getBlock( id );
-				if ( block?.attributes?.animationMode ) {
-					const title =
-						blocksSel.getBlockType( block.name )?.title ||
-						block.name;
-					return { clientId: id, title };
-				}
-			}
-			return null;
-		},
+		( select ) =>
+			selectAnimatedAncestor(
+				select( blockEditorStore ),
+				select( blocksStore ),
+				clientId
+			),
 		[ clientId ]
 	);
 	const { selectBlock } = useDispatch( blockEditorStore );
@@ -382,7 +371,7 @@ export default function AnimationPanel( {
 				</div>
 			) }
 
-			{ ! animationMode && animatedAncestor && (
+			{ ! animationMode && animatedAncestor.clientId && (
 				<div className="mb-panel-notice">
 					<Notice
 						status="warning"

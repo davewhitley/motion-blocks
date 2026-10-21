@@ -1893,6 +1893,81 @@ export const DEFAULT_ATTRIBUTES = {
 };
 
 /**
+ * Editor preview state (GH #29): Play, the From/To eye, the Start/End
+ * side, the Entry/Exit preview slot, the Scroll Interactive eye and
+ * the scrubber. None of it is part of the animation. It lives in the
+ * `motion-blocks/editor-preview` store (see previewState.js), keyed
+ * by the attribute names below so the panel can read it as if it were
+ * attributes.
+ *
+ * Values match the registered schema defaults of the legacy
+ * attributes in `addAnimationAttributes`. `animationScrubPosition`
+ * has no schema default on purpose (undefined = not scrubbing).
+ * Frozen, so `getBlockPreview` can hand back this exact object for
+ * every block with no preview state.
+ */
+export const PREVIEW_DEFAULTS = Object.freeze( {
+	animationPreviewPlaying: false,
+	animationPreviewSlot: 'entry',
+	animationPreviewEnabled: false,
+	animationFromToPreviewSide: 'off',
+	animationFromToActiveSide: 'start',
+	animationScrubPosition: undefined,
+} );
+
+/**
+ * The six preview-state keys. Never part of a saved animation.
+ */
+export const PREVIEW_UI_KEYS = Object.freeze( Object.keys( PREVIEW_DEFAULTS ) );
+
+/**
+ * Reset any preview-state values saved in a block's attributes to
+ * their registered defaults (GH #29). Older posts may carry them
+ * because the editor used to store preview state as attributes.
+ *
+ * Only touches keys the block type registers. A key registered with
+ * no default (`animationScrubPosition`) is removed; the others are set
+ * back to the registered default, so WordPress leaves them out of the
+ * block comment on the next save.
+ *
+ * Pure: returns the same `attrs` object when nothing needs resetting,
+ * otherwise a new object.
+ *
+ * @param {Object} attrs     Parsed block attributes.
+ * @param {Object} blockType Block type settings (`attributes` schema).
+ * @return {Object} `attrs`, or a reset copy.
+ */
+export function resetPreviewUiAttributes( attrs, blockType ) {
+	const schema = blockType?.attributes;
+	if ( ! attrs || typeof attrs !== 'object' || ! schema ) {
+		return attrs;
+	}
+	let out = attrs;
+	for ( const key of PREVIEW_UI_KEYS ) {
+		const def = schema[ key ];
+		if ( ! def || ! Object.prototype.hasOwnProperty.call( attrs, key ) ) {
+			continue;
+		}
+		const hasDefault = Object.prototype.hasOwnProperty.call(
+			def,
+			'default'
+		);
+		if ( attrs[ key ] === ( hasDefault ? def.default : undefined ) ) {
+			continue;
+		}
+		if ( out === attrs ) {
+			out = { ...attrs };
+		}
+		if ( hasDefault ) {
+			out[ key ] = def.default;
+		} else {
+			delete out[ key ];
+		}
+	}
+	return out;
+}
+
+/**
  * Mode metadata for the in-place mode picker in the sub-panel
  * header. Icon imports live in the consumer (SubPanelModeHeader)
  * because constants.js shouldn't pull React/JSX. We only carry the

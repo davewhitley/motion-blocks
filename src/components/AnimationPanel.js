@@ -65,7 +65,20 @@ export default function AnimationPanel( {
 			),
 		[ clientId ]
 	);
-	const { selectBlock } = useDispatch( blockEditorStore );
+	const { selectBlock, __unstableMarkNextChangeAsNotPersistent } =
+		useDispatch( blockEditorStore );
+
+	// Play / Stop only flip preview UI state, so they must not add undo
+	// steps (each Play used to add two: on, then the timer's off). Same
+	// pattern as the Entry/Exit tab switch in ScrollAppearControls. The
+	// state still lives in block attributes for now — GH #29.
+	const setPreviewAttributes = useCallback(
+		( attrs ) => {
+			__unstableMarkNextChangeAsNotPersistent();
+			setAttributes( attrs );
+		},
+		[ __unstableMarkNextChangeAsNotPersistent, setAttributes ]
+	);
 	const {
 		animationMode,
 		animationType,
@@ -171,7 +184,7 @@ export default function AnimationPanel( {
 				baseAttrs.animationPreviewSlot = slot;
 			}
 			if ( isLoopingMode ) {
-				setAttributes( {
+				setPreviewAttributes( {
 					...baseAttrs,
 					animationPreviewPlaying: true,
 				} );
@@ -210,12 +223,12 @@ export default function AnimationPanel( {
 			// state never reached the DOM and the animation didn't
 			// restart. Direct DOM manipulation inside the HOC is
 			// reliable regardless of React commit timing.
-			setAttributes( {
+			setPreviewAttributes( {
 				...baseAttrs,
 				animationPreviewPlaying: true,
 			} );
 			playTimeoutRef.current = setTimeout( () => {
-				setAttributes( { animationPreviewPlaying: false } );
+				setPreviewAttributes( { animationPreviewPlaying: false } );
 				setIsPlayPending( false );
 				playTimeoutRef.current = null;
 			}, totalMs + 100 );
@@ -225,7 +238,7 @@ export default function AnimationPanel( {
 			animationMode,
 			animationType,
 			animationFromToPreviewSide,
-			setAttributes,
+			setPreviewAttributes,
 			isLoopingMode,
 			isPlayPending,
 			animationDuration,
@@ -238,8 +251,8 @@ export default function AnimationPanel( {
 	 * Stop a looping preview.
 	 */
 	const stopPreview = useCallback( () => {
-		setAttributes( { animationPreviewPlaying: false } );
-	}, [ setAttributes ] );
+		setPreviewAttributes( { animationPreviewPlaying: false } );
+	}, [ setPreviewAttributes ] );
 
 	/**
 	 * Set animation mode and initialize defaults.

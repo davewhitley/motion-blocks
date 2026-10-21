@@ -25,6 +25,7 @@ import {
 	PROPERTY_DEFINITIONS,
 	FROM_ATTR,
 	TO_ATTR,
+	adaptAnimationToBlock,
 	normalizeCustomFromToAttrs,
 	migrateScrollAppearAttrs,
 } from './constants';
@@ -310,13 +311,19 @@ export default function AnimationPanel( {
 	 * recipe or a copy from a stale clipboard) are upgraded on apply.
 	 * Preview keys are stripped first (GH #29): the router would send
 	 * them to the preview store anyway, but pasted data should only
-	 * ever carry the animation.
+	 * ever carry the animation. Image-only settings copied from a Cover
+	 * fall back to block-level ones on other block types (GH #30).
 	 */
 	const pasteAnimation = useCallback(
 		( data ) => {
-			setAttributes( normalizeCustomFromToAttrs( stripUiState( data ) ) );
+			setAttributes(
+				adaptAnimationToBlock(
+					normalizeCustomFromToAttrs( stripUiState( data ) ),
+					blockName
+				)
+			);
 		},
-		[ setAttributes ]
+		[ setAttributes, blockName ]
 	);
 
 	/**

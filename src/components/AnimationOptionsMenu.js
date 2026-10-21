@@ -34,7 +34,7 @@ import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
-import { normalizeCustomFromToAttrs } from './constants';
+import { adaptAnimationToBlock, normalizeCustomFromToAttrs } from './constants';
 import {
 	generateUid,
 	pickAnimationAttributes,
@@ -230,9 +230,14 @@ export default function AnimationOptionsMenu( {
 		}
 		// Saved entries from before GH #29 and theme.json recipes may
 		// carry preview keys or unit-less From/To values; clean both.
+		// Image-only settings fall back to block-level ones on block
+		// types that have no image target (GH #30).
 		updateBlockAttributes(
 			clientId,
-			normalizeCustomFromToAttrs( stripUiState( saved.attributes ) )
+			adaptAnimationToBlock(
+				normalizeCustomFromToAttrs( stripUiState( saved.attributes ) ),
+				blockName
+			)
 		);
 		createSuccessNotice(
 			sprintf(

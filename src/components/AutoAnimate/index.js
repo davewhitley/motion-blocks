@@ -16,7 +16,12 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import { useSelect, useDispatch } from '@wordpress/data';
+import {
+	useSelect,
+	useDispatch,
+	useRegistry,
+	select as dataSelect,
+} from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
 import { store as noticesStore } from '@wordpress/notices';
@@ -29,60 +34,65 @@ import {
 	computeAutoAnimatePlan,
 	summarizeByBlockType,
 } from './plan';
+import { countDescendantsIn } from '../selectStable';
 
+// Module-level so it is the same reference on every render (GH #27).
+const getBlockTypeTitle = ( name ) =>
+	dataSelect( blocksStore ).getBlockType( name )?.title;
+
+/**
+ * Keeps the modal's hooks unmounted while it is closed: the component
+ * is always mounted from the Document panel, and running the plan
+ * against the whole block tree on every store change while nobody can
+ * see it was wasted work (GH #27). The style preset lives here so the
+ * choice still survives closing and reopening.
+ *
+ * @param {Object}   props             Component props.
+ * @param {boolean}  props.isOpen      Whether the modal is shown.
+ * @param {Function} props.onClose     Close handler.
+ * @param {string}   props.contextNoun Editor context noun (page, template…).
+ */
 export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
 	const [ stylePreset, setStylePreset ] = useState( 'smooth' );
+	if ( ! isOpen ) {
+		return null;
+	}
+	return (
+		<AutoAnimateModalContent
+			onClose={ onClose }
+			contextNoun={ contextNoun }
+			stylePreset={ stylePreset }
+			setStylePreset={ setStylePreset }
+		/>
+	);
+}
 
-	// Pull what we need from the store. `getBlocks()` returns top-level
-	// only; descendants are queried via `getClientIdsWithDescendants`
-	// passed as a callback into the pure planner so the planner stays
-	// store-free.
-	const { topLevelBlocks, countDescendants, getBlockTypeTitle } = useSelect(
-		( select ) => {
-			const sel = select( blockEditorStore );
-			const blocksSel = select( blocksStore );
-			return {
-				topLevelBlocks: sel.getBlocks(),
-				// For a given parent clientId, count how many blocks
-				// are nested below it (not including itself).
-				countDescendants: ( clientId ) => {
-					const tree = sel.getClientIdsOfDescendants
-						? sel.getClientIdsOfDescendants( [ clientId ] )
-						: sel
-								.getClientIdsWithDescendants()
-								.filter( ( id ) => {
-									if ( id === clientId ) {
-										return false;
-									}
-									let parent =
-										sel.getBlockRootClientId( id );
-									while ( parent ) {
-										if ( parent === clientId ) {
-											return true;
-										}
-										parent =
-											sel.getBlockRootClientId(
-												parent
-											);
-									}
-									return false;
-								} );
-					return Array.isArray( tree ) ? tree.length : 0;
-				},
-				getBlockTypeTitle: ( name ) =>
-					blocksSel.getBlockType( name )?.title,
-			};
-		},
+function AutoAnimateModalContent( {
+	onClose,
+	contextNoun,
+	stylePreset,
+	setStylePreset,
+} ) {
+	// `getBlocks()` returns top-level only, memoized by the store.
+	// Descendants are counted via a callback passed into the pure
+	// planner so the planner stays store-free. The callback is built
+	// in the useMemo below rather than returned from useSelect, so the
+	// selector result stays stable between store changes (GH #27).
+	const topLevelBlocks = useSelect(
+		( select ) => select( blockEditorStore ).getBlocks(),
 		[]
 	);
+	const registry = useRegistry();
 
 	// Recompute the plan whenever the block tree changes (or the modal
 	// reopens). Style preset doesn't affect the plan, only the dispatched
 	// attributes — so no need to rerun on preset change.
-	const plan = useMemo(
-		() => computeAutoAnimatePlan( topLevelBlocks, countDescendants ),
-		[ topLevelBlocks, countDescendants ]
-	);
+	const plan = useMemo( () => {
+		const sel = registry.select( blockEditorStore );
+		return computeAutoAnimatePlan( topLevelBlocks, ( id ) =>
+			countDescendantsIn( sel, id )
+		);
+	}, [ topLevelBlocks, registry ] );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );
@@ -97,7 +107,7 @@ export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
 
 	const applySummary = useMemo(
 		() => summarizeByBlockType( plan.apply, getBlockTypeTitle ),
-		[ plan.apply, getBlockTypeTitle ]
+		[ plan.apply ]
 	);
 
 	const handleApply = () => {
@@ -142,10 +152,6 @@ export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
 		);
 		onClose();
 	};
-
-	if ( ! isOpen ) {
-		return null;
-	}
 
 	return (
 		<Modal

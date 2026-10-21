@@ -30,7 +30,7 @@ import { store as blocksStore } from '@wordpress/blocks';
 import { store as coreStore } from '@wordpress/core-data';
 import { store as noticesStore } from '@wordpress/notices';
 import { useEntityProp } from '@wordpress/core-data';
-import { useState } from '@wordpress/element';
+import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
@@ -42,6 +42,7 @@ import {
 	stripUiState,
 } from './savedAnimations';
 import SavedAnimationsModal from './SavedAnimationsModal';
+import { selectSameTypeInfo } from './selectStable';
 
 const ANIMATION_KEYS = Object.keys( DEFAULT_ATTRIBUTES );
 
@@ -84,35 +85,25 @@ export default function AnimationOptionsMenu( {
 		[ blockName ]
 	);
 
-	// Walk every block on the page, find ones of the same type as
-	// the current block (excluding the current block itself), and
-	// note how many of those already have an animation configured.
-	// `getClientIdsWithDescendants()` returns the flattened tree —
-	// nested matches (e.g. an Image inside a Group) are included.
-	const { matchingIds, existingCount } = useSelect(
-		( select ) => {
-			if ( ! blockName || ! clientId ) {
-				return { matchingIds: [], existingCount: 0 };
-			}
-			const sel = select( blockEditorStore );
-			const ids = [];
-			let existing = 0;
-			for ( const id of sel.getClientIdsWithDescendants() ) {
-				if ( id === clientId ) {
-					continue;
-				}
-				const block = sel.getBlock( id );
-				if ( ! block || block.name !== blockName ) {
-					continue;
-				}
-				ids.push( id );
-				if ( block.attributes?.animationMode ) {
-					existing++;
-				}
-			}
-			return { matchingIds: ids, existingCount: existing };
-		},
-		[ blockName, clientId ]
+	// Every block of the same type on the page (nested matches, e.g. an
+	// Image inside a Group, included) and how many of the others
+	// already have an animation. `getBlocksByName` is memoized on block
+	// order and identity but not attributes, so it returns the same
+	// array while the user types and this result stays shallow-equal
+	// between store changes (GH #27). Paste-only menus skip it.
+	const { sameTypeIds, existingCount } = useSelect(
+		( select ) =>
+			selectSameTypeInfo(
+				select( blockEditorStore ),
+				blockName,
+				clientId,
+				pasteOnly
+			),
+		[ blockName, clientId, pasteOnly ]
+	);
+	const matchingIds = useMemo(
+		() => sameTypeIds.filter( ( id ) => id !== clientId ),
+		[ sameTypeIds, clientId ]
 	);
 
 	// User saved-animation library (site option, exposed via REST).

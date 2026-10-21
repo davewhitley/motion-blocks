@@ -44,6 +44,9 @@ import {
 
 import '../css/editor.scss';
 
+// Editor preview state store (GH #29) — registers itself on import.
+import './components/previewStore';
+
 // Page-level settings panel — registers itself via registerPlugin
 // on import. Lives in the Document/Page tab of the inspector.
 import './components/PageSettingsPanel';

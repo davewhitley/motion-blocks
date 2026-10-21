@@ -34,6 +34,22 @@
 	// stagger children.
 	var STAGGER_RULE_LIMIT = 30;
 
+	/**
+	 * The elements a stagger parent animates. Classic themes (and
+	 * Groups saved before WordPress 5.9) wrap a Group's children in
+	 * `.wp-block-group__inner-container`; animations.css skips that
+	 * wrapper and staggers its children instead (GH #66).
+	 *
+	 * @param {Element} el Stagger parent.
+	 * @return {HTMLCollection} Its staggered children.
+	 */
+	function staggerChildren( el ) {
+		var inner = el.querySelector(
+			':scope > .wp-block-group__inner-container'
+		);
+		return inner ? inner.children : el.children;
+	}
+
 	// Cap on descendants scanned per block for the fixed-position check.
 	var FIXED_SCAN_LIMIT = 1500;
 
@@ -195,7 +211,7 @@
 			// A stagger parent stays at opacity 1; its children carry
 			// the hidden state.
 			var target = el.classList.contains( 'mb-stagger-parent' )
-				? el.firstElementChild || el
+				? staggerChildren( el )[ 0 ] || el
 				: el;
 			if ( getComputedStyle( target ).opacity !== '0' ) {
 				return;
@@ -513,7 +529,7 @@
 		document
 			.querySelectorAll( '.mb-stagger-parent' )
 			.forEach( function ( el ) {
-				var count = el.children.length;
+				var count = staggerChildren( el ).length;
 				if ( count <= STAGGER_RULE_LIMIT ) {
 					return;
 				}

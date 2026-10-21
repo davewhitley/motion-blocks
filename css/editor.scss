@@ -730,12 +730,20 @@
 // file is now editor-only (`is_admin()` gate in the enqueue), but
 // the guard stays as defense in depth.
 //
+// In classic themes (no theme.json) the Group edit wraps its children
+// in `.wp-block-group__inner-container`, and the appender sits inside
+// that wrapper, where the cascade now reaches too (GH #66). The second
+// selector covers it; the first already pins the wrapper itself, which
+// has no `data-type` either.
+//
 // Three classes (mb-stagger-parent + mb-animated + mb-triggered) +
-// one attribute (`[data-block]`) + one `:not()` give this rule
-// specificity (0,4,2) — comfortably above the per-type cascade
-// `.mb-stagger-parent.mb-enter-X.mb-triggered > *` (0,3,0) and the
-// nth-child delay rule (0,2,1) without needing !important.
-.mb-stagger-parent.mb-animated.mb-triggered[data-block] > :not([data-type]) {
+// one attribute (`[data-block]`) + `:not([data-type])` give this rule
+// specificity (0,5,0), (0,6,0) for the wrapper form — comfortably above
+// the per-type cascade `.mb-stagger-parent.mb-enter-X.mb-triggered > …`
+// (0,3,0) and the nth-child delay rule (0,3,0) without needing
+// !important.
+.mb-stagger-parent.mb-animated.mb-triggered[data-block] > :not([data-type]),
+.mb-stagger-parent.mb-animated.mb-triggered[data-block] > .wp-block-group__inner-container > :not([data-type]) {
 	animation: none;
 	opacity: 1;
 	transform: none;

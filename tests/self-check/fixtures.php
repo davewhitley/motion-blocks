@@ -672,7 +672,20 @@ function mb_self_check_smoke( $image ) {
 					),
 					$colors['stagger']
 				);
-				$count += 4;
+				// Legacy markup: Groups saved before WordPress 5.9 keep
+				// the `wp-block-group__inner-container` wrapper in their
+				// content, on every theme. Classic themes add the same
+				// wrapper at render time. The children inside it must
+				// still stagger, and the wrapper must not animate (#66).
+				$inner .= mb_self_check_block(
+					'group',
+					$stagger,
+					'<div class="wp-block-group"><div class="wp-block-group__inner-container">' .
+						mb_self_check_paragraph( 'Stagger · Group (legacy inner-container markup) · Page Load · slide' ) .
+						$children( 3, 'Child' ) .
+						'</div></div>'
+				);
+				$count += 5;
 				break;
 			case 'core/columns':
 				$columns = '';

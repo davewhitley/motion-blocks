@@ -1024,11 +1024,14 @@
 				// Then back up and down again, so the scroll-up
 				// handlers (Exit reverse / repeat, Entry reverse) and a
 				// second pass down (Entry Replay 'once' after an Exit
-				// round trip, GH #39) are checked too.
+				// round trip, GH #39) are checked too. Finally jump
+				// straight back to the top and go down once more: a jump
+				// skips the scroll-up handlers entirely (Home key, a
+				// "back to top" link), which is its own code path.
 				if ( roundTrip ) {
 					var down = positions.slice();
 					var up = down.slice( 0, -1 ).reverse();
-					positions = down.concat( up, down.slice( 1 ) );
+					positions = down.concat( up, down.slice( 1 ), down );
 				}
 
 				return positions.reduce( function ( chain, y ) {
@@ -1063,8 +1066,8 @@
 	 *
 	 *   motionBlocksSelfCheck( { sweep: true, step?, settleMs?, roundTrip? } )
 	 *     Promise of every issue found while scrolling through the whole
-	 *     page (down, up and down again; `roundTrip: false` scrolls down
-	 *     only). The badge shows the sweep's results until the next
+	 *     page (down, up and down again, then a jump to the top and down
+	 *     once more; `roundTrip: false` scrolls down only). The badge shows the sweep's results until the next
 	 *     scroll.
 	 */
 	window.motionBlocksSelfCheck = function ( options ) {

@@ -738,7 +738,11 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// preview. Otherwise a user who previewed a side that moved
 		// the block far off-screen would be unable to click it again
 		// to disable the preview — the click target is wherever the
-		// transform put it.
+		// transform put it. Also puts the Scroll Appear preview slot
+		// back to its 'entry' default (the eye on the Exit tab sets it
+		// to 'exit'), so the transient value stays out of saved content.
+		// Play is stopped on deselect too (next effect), so nothing
+		// still needs the slot.
 		useEffect( () => {
 			if (
 				! isSelected &&
@@ -747,6 +751,10 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			) {
 				setAttributes( {
 					animationFromToPreviewSide: 'off',
+					...( attributes.animationPreviewSlot &&
+					attributes.animationPreviewSlot !== 'entry'
+						? { animationPreviewSlot: 'entry' }
+						: {} ),
 				} );
 			}
 			// Only react to selection changes — running this on every

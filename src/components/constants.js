@@ -2013,6 +2013,40 @@ export const PREVIEW_DEFAULTS = Object.freeze( {
 export const PREVIEW_UI_KEYS = Object.freeze( Object.keys( PREVIEW_DEFAULTS ) );
 
 /**
+ * The payload for "Reset settings" (GH #56): every animation attribute
+ * (the keys of DEFAULT_ATTRIBUTES minus the preview-state keys) back
+ * at its new-block value, with the block kept in `mode`.
+ *
+ * Covers the Scroll Appear slot keys, Stagger, "Animate image only",
+ * the rotate angle and the custom timing function too. Resetting only
+ * the shared keys left a Scroll Appear block's Entry / Exit effects
+ * exactly as they were.
+ *
+ * For Scroll Appear the Entry slot is seeded with the default effect,
+ * as picking the mode does (`selectMode` in AnimationPanel.js), so the
+ * panel lands on Entry: Fade rather than an empty slot.
+ *
+ * Carries `animationMode`, so `materializeScrollAppearPatch` passes it
+ * through untouched, like the other full-shape writes.
+ *
+ * @param {string} mode The block's current animation mode.
+ * @return {Object} Partial attribute payload ready for setAttributes().
+ */
+export function resetAnimationAttributes( mode ) {
+	const out = {};
+	for ( const key of Object.keys( DEFAULT_ATTRIBUTES ) ) {
+		if ( ! PREVIEW_UI_KEYS.includes( key ) ) {
+			out[ key ] = DEFAULT_ATTRIBUTES[ key ];
+		}
+	}
+	out.animationMode = mode;
+	if ( mode === 'scroll-appear' ) {
+		out.animationEntryType = DEFAULT_ATTRIBUTES.animationType;
+	}
+	return out;
+}
+
+/**
  * Reset any preview-state values saved in a block's attributes to
  * their registered defaults (GH #29). Older posts may carry them
  * because the editor used to store preview state as attributes.

@@ -453,9 +453,10 @@ export const EXIT_TYPE_OPTIONS = toOptions(
  * Read-time migration shim. Maps legacy Scroll Appear attributes
  * (`animationType` + `animationScrollTrigger` + `animationFrom*`/
  * `animationTo*`) onto the slot model. Idempotent: runs in O(1) if
- * the block has already been migrated (writes happen on the next
- * user edit; this shim only normalizes the in-memory attrs that
- * downstream code consumes).
+ * the block has already been migrated. This shim only normalizes the
+ * in-memory attrs that downstream code consumes; the derived slot
+ * values are written to the block on its first slot edit by
+ * `materializeScrollAppearPatch()` (GH #25).
  *
  * Returns a NEW object when migration is needed, or the same
  * `attrs` reference unchanged when nothing applies — cheap to call
@@ -561,6 +562,74 @@ export function migrateScrollAppearAttrs( attrs ) {
 		fillSlot( 'Exit' );
 	}
 
+	return out;
+}
+
+const SLOT_KEY_RE = /^animation(Entry|Exit)[A-Z]/;
+
+/**
+ * Prepare a Scroll Appear slot edit for writing (GH #25).
+ *
+ * A block whose Entry and Exit types are both empty is "legacy" to
+ * `migrateScrollAppearAttrs()`: on every render it re-derives the whole
+ * slot config from the shared `animationType` / `animationScrollTrigger`
+ * keys. Writing a single slot key to such a block either gets thrown
+ * away on the next render (a Duration edit snaps back) or stops the
+ * shim mid-way (setting only the Entry type drops the derived Exit
+ * slot). So the first slot edit writes the derived slot values along
+ * with the user's change; the shim then leaves the block alone.
+ *
+ * Also: when the patch empties the last filled slot, `animationType`
+ * is cleared too, so the shim derives an empty slot instead of
+ * reviving the shared type ('None' stays None).
+ *
+ * Returns `patch` unchanged (same reference) when nothing applies:
+ * non-Scroll-Appear blocks, patches that set `animationMode` (mode
+ * switch, paste, remove and recipes write full shapes themselves),
+ * and patches with no slot keys (preview / UI-state toggles), so
+ * selecting or previewing a legacy block never dirties the post.
+ *
+ * @param {Object} attrs Current raw block attributes.
+ * @param {Object} patch Attributes about to be written.
+ * @return {Object} The patch to write.
+ */
+export function materializeScrollAppearPatch( attrs, patch ) {
+	if (
+		! attrs ||
+		! patch ||
+		attrs.animationMode !== 'scroll-appear' ||
+		Object.prototype.hasOwnProperty.call( patch, 'animationMode' ) ||
+		! Object.keys( patch ).some( ( k ) => SLOT_KEY_RE.test( k ) )
+	) {
+		return patch;
+	}
+	let out = patch;
+	const isLegacy = ! attrs.animationEntryType && ! attrs.animationExitType;
+	if ( isLegacy ) {
+		const migrated = migrateScrollAppearAttrs( attrs );
+		const base = {};
+		for ( const k of Object.keys( migrated ) ) {
+			if ( SLOT_KEY_RE.test( k ) && migrated[ k ] !== attrs[ k ] ) {
+				base[ k ] = migrated[ k ];
+			}
+		}
+		out = { ...base, ...patch };
+	}
+	const clearsSlot =
+		patch.animationEntryType === '' || patch.animationExitType === '';
+	if ( clearsSlot ) {
+		const entryType =
+			'animationEntryType' in out
+				? out.animationEntryType
+				: attrs.animationEntryType;
+		const exitType =
+			'animationExitType' in out
+				? out.animationExitType
+				: attrs.animationExitType;
+		if ( ! entryType && ! exitType ) {
+			out = { ...out, animationType: '' };
+		}
+	}
 	return out;
 }
 

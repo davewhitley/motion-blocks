@@ -199,6 +199,43 @@ return array(
 		),
 	),
 	array(
+		'label'    => 'Auto-animate Section (slot shape, GH #25)',
+		'panel'    => 'Entry: Fade In · Duration 0.7s · Delay 0s · Replay: Once',
+		'behavior' => 'Fades in the first time it scrolls into view, then stays put.',
+		'attrs'    => array(
+			'animationMode'          => 'scroll-appear',
+			'animationEntryType'     => 'fade',
+			'animationEntryDuration' => 0.7,
+			'animationEntryDelay'    => 0,
+		),
+		'expect'   => array(
+			'data-mb-entry-type'     => 'fade',
+			'data-mb-entry-duration' => '0.7',
+			'data-mb-entry-delay'    => '0',
+			'data-mb-entry-replay'   => 'once',
+			'data-mb-exit-type'      => null,
+		),
+	),
+	array(
+		'label'    => 'Legacy mirror Scale after one Entry edit (GH #25)',
+		'panel'    => 'Entry: Slide In (bottom to top) · Exit: Scale Out · Replay: Reverse',
+		'behavior' => 'Slides in; scales out when scrolled past and back in on scroll-back.',
+		'attrs'    => array(
+			'animationMode'           => 'scroll-appear',
+			'animationType'           => 'scale',
+			'animationScrollTrigger'  => 'mirror',
+			'animationEntryType'      => 'slide',
+			'animationEntryDirection' => 'btt',
+			'animationExitType'       => 'scale',
+		),
+		'expect'   => array(
+			'data-mb-entry-type'  => 'slide',
+			'data-mb-exit-type'   => 'scale',
+			'data-mb-exit-replay' => 'reverse',
+			'data-mb-exit-delay'  => '0',
+		),
+	),
+	array(
 		'label'    => 'Stagger on a Group, step left at 0.1s',
 		'panel'    => 'Entry: Fade In · Stagger on · Step 0.1s',
 		'behavior' => 'Each child fades in 0.1s after the previous one.',

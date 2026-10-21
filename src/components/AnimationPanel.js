@@ -348,11 +348,19 @@ export default function AnimationPanel( {
 		} );
 	}, [ setAttributes ] );
 
+	/**
+	 * Remove animation — clear the mode and the shared settings.
+	 *
+	 * Also resets "Animate image only" (GH #56): left at 'img', it came
+	 * back the next time a mode was picked, and a block that isn't a
+	 * Cover (no toggle to turn it off) stayed unable to animate.
+	 */
 	const removeAnimation = () => {
 		setAttributes( {
 			animationMode: '',
 			animationType: '',
 			animationDirection: '',
+			animationFromToTarget: DEFAULT_ATTRIBUTES.animationFromToTarget,
 			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
 			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
 			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,

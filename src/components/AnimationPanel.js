@@ -28,11 +28,12 @@ import {
 	adaptAnimationToBlock,
 	normalizeCustomFromToAttrs,
 	migrateScrollAppearAttrs,
+	resetAnimationAttributes,
 } from './constants';
 
 /**
  * Reset all custom From/To attributes to their identity defaults.
- * Used by selectMode / resetSettings / removeAnimation so the custom
+ * Used by selectMode / removeAnimation so the custom
  * editor starts fresh whenever the animation is reconfigured.
  */
 function customFromToDefaults() {
@@ -328,25 +329,16 @@ export default function AnimationPanel( {
 
 	/**
 	 * Reset settings — revert properties to defaults, keep the current mode.
+	 *
+	 * Resets every animation attribute, the Scroll Appear Entry / Exit
+	 * slots included (GH #56).
 	 */
 	const resetSettings = useCallback( () => {
 		setAttributes( {
-			animationType: DEFAULT_ATTRIBUTES.animationType,
-			animationDirection: DEFAULT_ATTRIBUTES.animationDirection,
-			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
-			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
-			animationRepeat: DEFAULT_ATTRIBUTES.animationRepeat,
-			animationPauseOffscreen: DEFAULT_ATTRIBUTES.animationPauseOffscreen,
-			animationPlayOnce: DEFAULT_ATTRIBUTES.animationPlayOnce,
-			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
-			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
-			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
-			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
+			...resetAnimationAttributes( animationMode ),
 			animationPreviewPlaying: false,
-			...customFromToDefaults(),
 		} );
-	}, [ setAttributes ] );
+	}, [ setAttributes, animationMode ] );
 
 	/**
 	 * Remove animation — clear the mode and the shared settings.

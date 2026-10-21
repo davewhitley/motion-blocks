@@ -972,7 +972,7 @@ add_action( 'init', 'motion_blocks_register_meta' );
  * Two independent groups of classes:
  *
  * 1. `mb-clip-page-overflow` — applied on EVERY page (not just
- *    singular). Triggers a CSS rule that clips `<html>`'s
+ *    singular). Triggers a CSS rule that clips `<body>`'s
  *    horizontal overflow, preventing off-screen animation
  *    transforms (slide-in from the left, large translates, etc.)
  *    from extending the document width and creating a horizontal

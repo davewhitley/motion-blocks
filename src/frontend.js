@@ -1071,6 +1071,27 @@ import SHARED from '../shared-constants.json';
 					state.inZone = false;
 				}
 			}
+			// Entry Replay 'once' + Exit, jumped back above the block.
+			// A scroll that skips the zone on the way up (Home key, a
+			// "back to top" link, an anchor) never fires onEnterBack, so
+			// the block keeps its forward-played Exit — hidden — and the
+			// next onEnter would have to replay the Entry to show it.
+			// While it's fully below the screen, put it back in its
+			// entered state instead: the same end state a normal scroll
+			// back up produces, applied where nobody sees the snap.
+			if (
+				! inViewport &&
+				state.pageTop >= viewportBottom &&
+				state.hasEntry &&
+				state.hasExit &&
+				state.entryReplay === 'once' &&
+				state.el.classList.contains( 'mb-exit-triggered' ) &&
+				state.el.style.getPropertyValue( '--mb-direction' ) !==
+					'reverse'
+			) {
+				state.el.classList.remove( 'mb-exit-triggered' );
+				showEntered( state );
+			}
 			state.inViewport = inViewport;
 
 			// Match the previous IO config (`-15% 0px -15% 0px`

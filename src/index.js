@@ -37,6 +37,7 @@ import {
 	isPropertyAdded,
 	isImageTargetUnavailable,
 	migrateScrollAppearAttrs,
+	aliasSlotForPreview,
 	resolveTimingFunction,
 } from './components/constants';
 
@@ -775,85 +776,6 @@ addFilter(
 );
 
 /**
- * For Scroll Appear blocks, map the active slot's per-slot attrs
- * onto the shared `animationType` / `animationDuration` / etc.
- * names the preview HOC reads. Lets the rest of the HOC stay
- * mode-agnostic.
- *
- * Slot selection: when `animationPreviewPlaying` is true the HOC
- * uses `animationPreviewSlot` (set by ScrollAppearControls' Play
- * button) to pick Entry or Exit. At rest the HOC defaults to the
- * Entry slot — that's the slot whose initial-state is most
- * relevant for the editor-at-rest visual (Exit slot's initial
- * state IS the natural "visible" state of the element).
- *
- * Also copies the chosen slot's Custom From/To values onto the
- * shared `animationFrom*` / `animationTo*` keys so the custom
- * keyframe builder (which still reads the shared keys) can pick
- * them up unchanged.
- *
- * Returns the same `attrs` reference unchanged when the chosen
- * slot is empty — the preview branch will see `animationType === ''`
- * and skip animating.
- */
-function aliasSlotForPreview( attrs ) {
-	const previewSlot =
-		attrs?.animationPreviewPlaying && attrs?.animationPreviewSlot === 'exit'
-			? 'exit'
-			: 'entry';
-	const slotPrefix = previewSlot === 'exit' ? 'Exit' : 'Entry';
-	const slotType = attrs?.[ `animation${ slotPrefix }Type` ] || '';
-	if ( ! slotType ) {
-		// Chosen slot is empty — preview shows nothing. Keep the
-		// wrapper attrs as-is so the HOC's "no animationType" guard
-		// fires. Also tag the preview slot so downstream code knows
-		// which set of classes to emit even when there's no animation.
-		return { ...attrs, animationType: '', __mbPreviewSlot: previewSlot };
-	}
-	const aliased = {
-		...attrs,
-		animationType: slotType,
-		animationDirection: attrs[ `animation${ slotPrefix }Direction` ] || '',
-		animationDuration:
-			attrs[ `animation${ slotPrefix }Duration` ] ?? attrs.animationDuration,
-		animationDelay:
-			attrs[ `animation${ slotPrefix }Delay` ] ?? attrs.animationDelay,
-		animationAcceleration:
-			attrs[ `animation${ slotPrefix }Acceleration` ] ||
-			attrs.animationAcceleration,
-		animationCustomTimingFunction:
-			attrs[ `animation${ slotPrefix }CustomTimingFunction` ] ||
-			attrs.animationCustomTimingFunction,
-		animationBlurAmount:
-			attrs[ `animation${ slotPrefix }BlurAmount` ] ??
-			attrs.animationBlurAmount,
-		animationRotateAngle:
-			attrs[ `animation${ slotPrefix }RotateAngle` ] ??
-			attrs.animationRotateAngle,
-		__mbPreviewSlot: previewSlot,
-	};
-	if ( slotType === 'custom' ) {
-		// Copy the active slot's Custom From/To values onto the
-		// shared keys that getCustomKeyframe / attrsToBag read.
-		for ( const prop of Object.keys( FROM_ATTR ) ) {
-			const sharedFrom = FROM_ATTR[ prop ];
-			const sharedTo = TO_ATTR[ prop ];
-			const slotFrom = sharedFrom.replace(
-				/^animationFrom/,
-				`animation${ slotPrefix }From`
-			);
-			const slotTo = sharedTo.replace(
-				/^animationTo/,
-				`animation${ slotPrefix }To`
-			);
-			aliased[ sharedFrom ] = attrs[ slotFrom ] ?? null;
-			aliased[ sharedTo ] = attrs[ slotTo ] ?? null;
-		}
-	}
-	return aliased;
-}
-
-/**
  * Apply animation preview via BlockListBlock className.
  *
  * The toolbar lives in the parent document while blocks render inside
@@ -865,10 +787,12 @@ const withAnimationPreview = createHigherOrderComponent(
 		return ( props ) => {
 			const { wrapperProps = {}, clientId } = props;
 			// For Scroll Appear, normalize legacy attrs into slot form
-			// then alias the Entry slot's per-slot attrs onto the shared
+			// then alias one slot's per-slot attrs onto the shared
 			// `animationType` / `animationDuration` / etc. names that
-			// the rest of this HOC reads. The preview only ever shows
-			// the Entry phase — exit previewing is out of scope today.
+			// the rest of this HOC reads. The slot is
+			// `animationPreviewSlot` while Play runs or the From/To eye
+			// preview is on, and Entry otherwise (see
+			// aliasSlotForPreview in constants.js).
 			// `migrateScrollAppearAttrs` runs for every mode now —
 			// in addition to the slot-model migration, it normalizes
 			// Custom From/To unit-bearing values (rotate / blur from

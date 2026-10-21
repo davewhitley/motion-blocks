@@ -23,8 +23,6 @@
  */
 
 import { useState } from '@wordpress/element';
-import { useDispatch } from '@wordpress/data';
-import { store as blockEditorStore } from '@wordpress/block-editor';
 import {
 	TabPanel,
 	Button,
@@ -75,10 +73,9 @@ export default function ScrollAppearControls( props ) {
 	// being edited (GH #49). On a tab whose effect isn't Custom the
 	// canvas shows its normal state; going back to a Custom tab brings
 	// the frozen preview back. The `!== name` guard skips the call
-	// TabPanel makes on mount. Marked non-persistent: a tab switch is
-	// UI navigation, not an edit, so it shouldn't add an undo step.
-	const { __unstableMarkNextChangeAsNotPersistent } =
-		useDispatch( blockEditorStore );
+	// TabPanel makes on mount. `setAttributes` is the panel's router,
+	// so the slot goes to the editor preview store, not the block: a
+	// tab switch is UI navigation, not an edit (GH #29).
 	const onSelectSlot = ( name ) => {
 		if ( ! name ) {
 			return;
@@ -90,7 +87,6 @@ export default function ScrollAppearControls( props ) {
 			previewSide !== 'off' &&
 			attributes.animationPreviewSlot !== name
 		) {
-			__unstableMarkNextChangeAsNotPersistent();
 			setAttributes( { animationPreviewSlot: name } );
 		}
 	};

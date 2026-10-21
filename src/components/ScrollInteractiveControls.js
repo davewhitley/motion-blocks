@@ -22,8 +22,6 @@ import {
 	Notice,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import { useDispatch } from '@wordpress/data';
-import { store as blockEditorStore } from '@wordpress/block-editor';
 import {
 	seen,
 	unseen,
@@ -90,10 +88,10 @@ export default function ScrollInteractiveControls( {
 		animationScrubPosition,
 	} = attributes;
 
-	// Scrub updates fire on every drag step; mark them non-persistent so
-	// dragging the preview slider doesn't flood the editor undo stack.
-	const { __unstableMarkNextChangeAsNotPersistent } =
-		useDispatch( blockEditorStore );
+	// The eye and the scrubber are editor preview state. `setAttributes`
+	// is the panel's router, which sends them to the
+	// motion-blocks/editor-preview store, so neither the eye nor a drag
+	// adds undo steps or reaches the saved block (GH #29).
 	const scrubValue =
 		typeof animationScrubPosition === 'number'
 			? animationScrubPosition
@@ -326,7 +324,6 @@ export default function ScrollInteractiveControls( {
 						className="mb-scrub-range"
 						value={ scrubValue }
 						onChange={ ( v ) => {
-							__unstableMarkNextChangeAsNotPersistent();
 							setAttributes( {
 								animationScrubPosition:
 									typeof v === 'number' ? v : 100,

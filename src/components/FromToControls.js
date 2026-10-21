@@ -47,13 +47,7 @@ import {
 	Button,
 	ExternalLink,
 } from '@wordpress/components';
-import {
-	createInterpolateElement,
-	useCallback,
-	useEffect,
-} from '@wordpress/element';
-import { useDispatch } from '@wordpress/data';
-import { store as blockEditorStore } from '@wordpress/block-editor';
+import { createInterpolateElement, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { seen, unseen } from '@wordpress/icons';
 
@@ -313,25 +307,17 @@ export default function FromToControls( {
 	blockName,
 	slot,
 } ) {
-	// `side` lives in an attribute so it survives remounts of this
-	// component (e.g. when the Play-preview hack clears animationType
-	// briefly to retrigger CSS animation).
+	// `side` lives in the editor preview store (read here under its old
+	// attribute name) so it survives remounts of this component.
 	const side = attributes.animationFromToActiveSide || 'start';
 
-	// The Start/End switch and the eye preview are UI state, not edits:
-	// write them without adding undo steps (same as Play and the
-	// Entry/Exit tab switch). They still live in block attributes — GH #29.
-	const { __unstableMarkNextChangeAsNotPersistent } =
-		useDispatch( blockEditorStore );
-	const setUiAttributes = useCallback(
-		( attrs ) => {
-			__unstableMarkNextChangeAsNotPersistent();
-			setAttributes( attrs );
-		},
-		[ __unstableMarkNextChangeAsNotPersistent, setAttributes ]
-	);
+	// The Start/End switch and the eye preview are UI state, not edits.
+	// `setAttributes` is the panel's router (withAnimationControls in
+	// src/index.js), which sends these keys to the
+	// motion-blocks/editor-preview store: no undo step, never saved
+	// (GH #29).
 	const setSide = ( newSide ) =>
-		setUiAttributes( { animationFromToActiveSide: newSide } );
+		setAttributes( { animationFromToActiveSide: newSide } );
 
 	const { from: fromMap, to: toMap } = slotAttrMaps( slot );
 	const attrMap = side === 'start' ? fromMap : toMap;
@@ -368,8 +354,9 @@ export default function FromToControls( {
 	 * In Scroll Appear (`slot` set) the toggle also records which slot
 	 * is being previewed, so the preview HOC copies that slot's From/To
 	 * values instead of always using Entry's (GH #49). Same
-	 * setAttributes call, marked non-persistent (no undo step). Page Load / Scroll Interactive
-	 * render this without `slot` and are unaffected.
+	 * setAttributes call, routed to the preview store (no undo step).
+	 * Page Load / Scroll Interactive render this without `slot` and are
+	 * unaffected.
 	 *
 	 * Turning the eye off puts the slot back to its 'entry' default
 	 * (unless Play is running and still needs it), so a look at the
@@ -387,7 +374,7 @@ export default function FromToControls( {
 		) {
 			slotUpdate = { animationPreviewSlot: 'entry' };
 		}
-		setUiAttributes( {
+		setAttributes( {
 			animationFromToPreviewSide: isPreviewing ? 'off' : side,
 			...slotUpdate,
 		} );
@@ -397,19 +384,15 @@ export default function FromToControls( {
 	 * Keep the preview synced to whichever side the user is editing.
 	 * If they flip the Start/End toggle while preview is on, follow.
 	 *
-	 * Deliberately does NOT sync `animationPreviewSlot`: the active
-	 * Entry/Exit tab is local state, not an attribute, so Undo can
-	 * restore a slot that doesn't match the tab on screen. A sync here
-	 * would write it straight back as a new undo level, wiping the redo
-	 * stack and trapping Undo while the eye is on. The eye toggle above
-	 * and ScrollAppearControls' tab switch (incl. TabPanel's mount-time
+	 * Doesn't sync `animationPreviewSlot`: the eye toggle above and
+	 * ScrollAppearControls' tab switch (incl. TabPanel's mount-time
 	 * select) already keep the slot in step on every user action.
 	 */
 	useEffect( () => {
 		if ( isPreviewing && previewSide !== side ) {
-			setUiAttributes( { animationFromToPreviewSide: side } );
+			setAttributes( { animationFromToPreviewSide: side } );
 		}
-	}, [ side, isPreviewing, previewSide, setUiAttributes ] );
+	}, [ side, isPreviewing, previewSide, setAttributes ] );
 
 
 	// Help text rendered via the ToggleGroupControl's native `help`

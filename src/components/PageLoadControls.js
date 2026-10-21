@@ -44,6 +44,7 @@ import {
 	presetToFromToAttributes,
 	editPresetAttributes,
 } from './constants';
+import { SecondsSuffix, DegreesSuffix, longTimingHelp } from './UnitSuffix';
 import FromToControls from './FromToControls';
 import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';
@@ -430,6 +431,7 @@ export default function PageLoadControls( {
 					value={ animationRotateAngle ?? 90 }
 					step={ 1 }
 					spinControls="custom"
+					suffix={ <DegreesSuffix /> }
 					onChange={ ( value ) =>
 						setAttributes( {
 							animationRotateAngle:
@@ -456,7 +458,7 @@ export default function PageLoadControls( {
 				clientId={ clientId }
 			/>
 
-			<HStack spacing={ 3 }>
+			<HStack spacing={ 3 } alignment="top">
 				<FlexBlock>
 					<NumberControl
 						label={ __( 'Duration', 'motion-blocks' ) }
@@ -464,6 +466,8 @@ export default function PageLoadControls( {
 						min={ 0 }
 						step={ 0.1 }
 						spinControls="custom"
+						suffix={ <SecondsSuffix /> }
+						help={ longTimingHelp( animationDuration ) }
 						onChange={ ( value ) =>
 							setAttributes( {
 								animationDuration: parseFloat( value ) || 0,
@@ -479,6 +483,8 @@ export default function PageLoadControls( {
 						min={ 0 }
 						step={ 0.1 }
 						spinControls="custom"
+						suffix={ <SecondsSuffix /> }
+						help={ longTimingHelp( animationDelay ) }
 						onChange={ ( value ) =>
 							setAttributes( {
 								animationDelay: parseFloat( value ) || 0,

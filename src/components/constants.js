@@ -1805,9 +1805,10 @@ export const SCHEMA_DEFAULTS = SHARED.schemaDefaults;
  * Starts from the schema defaults and overrides the keys where the
  * preferred new-block value differs. Those overrides are written
  * explicitly, and since they differ from the schema default they
- * serialize into the block comment. JS-only keys (editor preview
- * state, From/To `null` sentinels) are added on top — PHP doesn't
- * need them at render time.
+ * serialize into the block comment. JS-only keys (the From/To `null`
+ * sentinels) are added on top — PHP doesn't need them at render time.
+ * Editor preview state is NOT an animation attribute and must stay out
+ * of this object (see PREVIEW_DEFAULTS below).
  */
 export const DEFAULT_ATTRIBUTES = {
 	...SCHEMA_DEFAULTS,
@@ -1881,15 +1882,9 @@ export const DEFAULT_ATTRIBUTES = {
 	animationToRotateY: null,
 	animationToBlur: null,
 	animationToClipPath: null,
-	// Which side the user is editing (Start or End). Hoisted to an
-	// attribute so it survives remounts of FromToControls — e.g. when
-	// the Play-preview hack briefly clears animationType to retrigger
-	// CSS animation.
-	animationFromToActiveSide: 'start',
-	// Eye-icon preview in the From/To panel: 'off' shows the live
-	// animation; 'start' or 'end' freezes the editor block at the
-	// chosen side's static values (no animation).
-	animationFromToPreviewSide: 'off',
+	// No editor preview state here (the Start/End side, the eye, …):
+	// it lives in the motion-blocks/editor-preview store, and
+	// pickAnimationAttributes copies every key of this object (GH #29).
 };
 
 /**

@@ -47,25 +47,56 @@
  * All the React/store glue lives in AnimationOptionsMenu.
  */
 
-/**
- * UI-only attributes that should never be persisted. They're the
- * editor's ephemeral state (which side is being edited, whether the
- * preview is on) and would surprise users if restored on apply.
- */
-const STRIP_KEYS = [
-	'animationFromToActiveSide',
-	'animationFromToPreviewSide',
-];
+import { DEFAULT_ATTRIBUTES, PREVIEW_UI_KEYS } from './constants';
 
 /**
- * Filter out UI-state keys from a picked animation-attributes bag.
+ * Editor preview state (GH #29): Play, the From/To eye, the Start/End
+ * side, the Entry/Exit preview slot, the Scroll Interactive eye and
+ * the scrubber. Never part of an animation, so never copied, pasted,
+ * applied or saved. Older library entries, theme.json recipes and
+ * clipboard blobs may still carry some of these keys; every way in
+ * strips them.
+ */
+const STRIP_KEYS = PREVIEW_UI_KEYS;
+
+/**
+ * Every attribute that makes up a block's animation: the keys of
+ * DEFAULT_ATTRIBUTES minus the preview-state keys.
+ */
+const ANIMATION_KEYS = Object.keys( DEFAULT_ATTRIBUTES ).filter(
+	( key ) => ! STRIP_KEYS.includes( key )
+);
+
+/**
+ * Extract only the animation attributes from a full attributes object,
+ * for Copy, Apply to other blocks and Save. Preview-state keys are
+ * never included, even when the panel's (store-overlaid) attributes
+ * carry a non-default value for one.
  *
- * @param {Object} picked Output of pickAnimationAttributes(attributes).
- * @return {Object}
+ * @param {Object} attributes Block attributes.
+ * @return {Object} Defined animation attributes.
+ */
+export function pickAnimationAttributes( attributes ) {
+	const picked = {};
+	ANIMATION_KEYS.forEach( ( key ) => {
+		if ( attributes?.[ key ] !== undefined ) {
+			picked[ key ] = attributes[ key ];
+		}
+	} );
+	return picked;
+}
+
+/**
+ * Filter out preview-state keys from an animation-attributes bag.
+ * Used on everything that comes in from outside the block: pasted
+ * clipboard data, saved and theme.json animations.
+ *
+ * @param {Object} picked Animation attributes.
+ * @return {Object} The bag without preview keys.
  */
 export function stripUiState( picked ) {
 	const out = {};
-	Object.keys( picked ).forEach( ( key ) => {
+	Object.keys( picked || {} ).forEach( ( key ) => {
 		if ( ! STRIP_KEYS.includes( key ) ) {
 			out[ key ] = picked[ key ];
 		}

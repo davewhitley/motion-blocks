@@ -40,6 +40,7 @@ import {
 import { desktop, tablet, mobile } from '@wordpress/icons';
 
 import AutoAnimateModal from './AutoAnimate';
+import { store as previewStore } from './previewStore';
 
 const DEVICE_OPTIONS = [
 	{
@@ -83,14 +84,14 @@ const editorContextNoun = ( postType ) =>
  * "Remove all animations". `animationMode: ''` is the kill switch
  * (no class is emitted, no `data-mb-*` attrs); we also clear the
  * From/To bag so a future re-enable doesn't surprise the user with
- * stale values.
+ * stale values. Editor preview state (the eye, Play, …) is not an
+ * attribute; it is cleared in the preview store instead (GH #29).
  */
 const CLEAR_ATTRS = {
 	animationMode: '',
 	animationType: 'fade',
 	animationDirection: '',
 	animationFromToTarget: 'block',
-	animationFromToPreviewSide: 'off',
 	animationFromOpacity: null,
 	animationFromTranslateX: null,
 	animationFromTranslateY: null,
@@ -149,6 +150,7 @@ function MotionBlocksPagePanel() {
 	}, [] );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
+	const { clearPreview } = useDispatch( previewStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );
 
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
@@ -174,6 +176,8 @@ function MotionBlocksPagePanel() {
 		// Single dispatch, batched: one undo step covers the whole
 		// remove operation.
 		updateBlockAttributes( ids, CLEAR_ATTRS );
+		// Stop any Play loop or eye preview on the cleared blocks.
+		clearPreview( ids );
 		createSuccessNotice(
 			sprintf(
 				/* translators: %d: number of blocks animations were removed from */

@@ -34,9 +34,10 @@ import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
-import { DEFAULT_ATTRIBUTES } from './constants';
+import { normalizeCustomFromToAttrs } from './constants';
 import {
 	generateUid,
+	pickAnimationAttributes,
 	sortLibrary,
 	sortThemeLibrary,
 	stripUiState,
@@ -44,26 +45,17 @@ import {
 import SavedAnimationsModal from './SavedAnimationsModal';
 import { selectSameTypeInfo } from './selectStable';
 
-const ANIMATION_KEYS = Object.keys( DEFAULT_ATTRIBUTES );
-
 /**
  * Module-level clipboard — persists across block selections
  * within the current editor session.
+ *
+ * `attributes` here is the panel's view: block attributes with the
+ * block's editor preview state laid over them (GH #29). Copy, Apply to
+ * other blocks and Save all go through `pickAnimationAttributes`,
+ * which leaves the preview keys out, so a block previewed with the eye
+ * on never hands a frozen state to another block.
  */
 let copiedAnimation = null;
-
-/**
- * Extract only animation attributes from a full attributes object.
- */
-function pickAnimationAttributes( attributes ) {
-	const picked = {};
-	ANIMATION_KEYS.forEach( ( key ) => {
-		if ( attributes[ key ] !== undefined ) {
-			picked[ key ] = attributes[ key ];
-		}
-	} );
-	return picked;
-}
 
 export default function AnimationOptionsMenu( {
 	attributes,
@@ -210,7 +202,7 @@ export default function AnimationOptionsMenu( {
 
 	const handleSaveSubmit = async ( name ) => {
 		const uid = generateUid();
-		const cleaned = stripUiState( pickAnimationAttributes( attributes ) );
+		const cleaned = pickAnimationAttributes( attributes );
 		const next = {
 			...( savedAnimations || {} ),
 			[ uid ]: {
@@ -236,7 +228,12 @@ export default function AnimationOptionsMenu( {
 			onClose();
 			return;
 		}
-		updateBlockAttributes( clientId, saved.attributes );
+		// Saved entries from before GH #29 and theme.json recipes may
+		// carry preview keys or unit-less From/To values; clean both.
+		updateBlockAttributes(
+			clientId,
+			normalizeCustomFromToAttrs( stripUiState( saved.attributes ) )
+		);
 		createSuccessNotice(
 			sprintf(
 				/* translators: %s: user-supplied animation name */

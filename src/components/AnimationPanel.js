@@ -19,6 +19,7 @@ import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import { selectAnimatedAncestor } from './selectStable';
+import { stripUiState } from './savedAnimations';
 import {
 	DEFAULT_ATTRIBUTES,
 	PROPERTY_DEFINITIONS,
@@ -307,10 +308,13 @@ export default function AnimationPanel( {
 	 * Routes through `normalizeCustomFromToAttrs` so pasted blobs that
 	 * predate the unit-bearing storage convention (e.g. an old saved
 	 * recipe or a copy from a stale clipboard) are upgraded on apply.
+	 * Preview keys are stripped first (GH #29): the router would send
+	 * them to the preview store anyway, but pasted data should only
+	 * ever carry the animation.
 	 */
 	const pasteAnimation = useCallback(
 		( data ) => {
-			setAttributes( normalizeCustomFromToAttrs( data ) );
+			setAttributes( normalizeCustomFromToAttrs( stripUiState( data ) ) );
 		},
 		[ setAttributes ]
 	);

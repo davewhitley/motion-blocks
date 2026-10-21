@@ -1571,11 +1571,13 @@ add_action( 'admin_init', function () {
  * recipes stay in sync as new attributes land — they're added here
  * once, not in each recipe.
  *
- * UI-state keys (`animationFromToActiveSide`,
- * `animationFromToPreviewSide`, `animationPreviewSlot`,
- * `animationPreviewEnabled`, `animationPreviewPlaying`) are
- * intentionally omitted — `stripUiState` in savedAnimations.js strips
- * them on the JS save path too, so a seed matches what a user save
+ * Editor preview-state keys (`animationPreviewPlaying`,
+ * `animationPreviewSlot`, `animationPreviewEnabled`,
+ * `animationFromToPreviewSide`, `animationFromToActiveSide`,
+ * `animationScrubPosition`) are intentionally omitted. They are not
+ * part of an animation (GH #29): the editor keeps them in its own
+ * store, and `stripUiState` in savedAnimations.js strips all six on
+ * every JS save and apply path, so a seed matches what a user save
  * would produce.
  */
 function motion_blocks_base_recipe_attributes() {

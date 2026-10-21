@@ -950,6 +950,12 @@ export const TO_ATTR = {
  * keyframe builder (which still reads the shared keys) can pick
  * them up unchanged.
  *
+ * The preview keys read here are editor preview state (GH #29): the
+ * caller passes attributes with the motion-blocks/editor-preview
+ * store's values laid over them (overlayPreviewState). The matching
+ * block attributes are legacy only — never written, reset on parse —
+ * so a value saved by an older version can't pick the slot.
+ *
  * Returns the same `attrs` reference unchanged when the chosen
  * slot is empty — the preview branch will see `animationType === ''`
  * and skip animating.
@@ -1885,6 +1891,8 @@ export const DEFAULT_ATTRIBUTES = {
 	// No editor preview state here (the Start/End side, the eye, …):
 	// it lives in the motion-blocks/editor-preview store, and
 	// pickAnimationAttributes copies every key of this object (GH #29).
+	// The attributes of the same name are legacy only: kept so old
+	// posts parse, never written, reset on parse.
 };
 
 /**
@@ -2012,8 +2020,12 @@ export const MODE_ORDER = [ 'page-load', 'scroll-appear', 'scroll-interactive' ]
  * `slide` when leaving scroll-interactive mode, but they're now
  * exposed across all three modes — no coercion needed.
  *
- * Also resets `animationPreviewPlaying` so a preview running on
- * the old mode's branch doesn't auto-resume on the new mode.
+ * Also resets `animationPreviewPlaying` / `animationPreviewSlot` so a
+ * preview running on the old mode's branch doesn't auto-resume on the
+ * new mode. Those two are editor preview state, not attributes (GH
+ * #29): the panel's setAttributes routes them to the
+ * motion-blocks/editor-preview store, and the block attributes of the
+ * same name are legacy only (never written, reset on parse).
  *
  * @param {Object} attributes Current block attributes.
  * @param {string} newMode    One of 'page-load' | 'scroll-appear' |
@@ -2029,6 +2041,7 @@ export function switchModeAttributes( attributes, newMode ) {
 	// consulted for Scroll Appear blocks. 'entry' or 'exit'. Lets
 	// the preview HOC know whether to fire `mb-triggered` (Entry) or
 	// `mb-exit-triggered` (Exit) and which slot's attrs to source.
+	// Preview state: routed to the editor-preview store (GH #29).
 	animationPreviewSlot: 'entry',
 	};
 

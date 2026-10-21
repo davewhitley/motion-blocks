@@ -360,6 +360,60 @@ describe( 'resetPreviewUiAttributes', () => {
 		);
 		expect( resetPreviewUiAttributes( attrs, {} ) ).toBe( attrs );
 	} );
+
+	it( 'resets only the stale keys and keeps every other value', () => {
+		const attrs = {
+			animationType: 'custom',
+			animationFromOpacity: 0,
+			animationFromToPreviewSide: 'start',
+			animationPreviewSlot: 'entry',
+		};
+		const out = resetPreviewUiAttributes( attrs, blockType );
+		expect( out ).not.toBe( attrs );
+		expect( out ).toEqual( {
+			animationType: 'custom',
+			animationFromOpacity: 0,
+			animationFromToPreviewSide: 'off',
+			animationPreviewSlot: 'entry',
+		} );
+	} );
+
+	it( 'does not add keys that were absent', () => {
+		const attrs = { animationScrubPosition: 40 };
+		const out = resetPreviewUiAttributes( attrs, blockType );
+		expect( out ).toEqual( {} );
+	} );
+
+	it( 'works with the blocks.getBlockAttributes filter arguments', () => {
+		// ( attributes, blockType, innerHTML, rawAttributes )
+		const attrs = { animationPreviewPlaying: true };
+		const out = resetPreviewUiAttributes( attrs, blockType, '<p>Hi</p>', {
+			animationPreviewPlaying: true,
+		} );
+		expect( out ).toEqual( { animationPreviewPlaying: false } );
+	} );
+
+	it( 'passes non-object attributes through', () => {
+		expect( resetPreviewUiAttributes( undefined, blockType ) ).toBe(
+			undefined
+		);
+		expect( resetPreviewUiAttributes( null, blockType ) ).toBe( null );
+	} );
+
+	it( 'resets to exactly PREVIEW_DEFAULTS for the registered schema', () => {
+		const stale = {
+			animationPreviewPlaying: true,
+			animationPreviewSlot: 'exit',
+			animationPreviewEnabled: true,
+			animationFromToPreviewSide: 'end',
+			animationFromToActiveSide: 'end',
+			animationScrubPosition: 75,
+		};
+		const out = resetPreviewUiAttributes( stale, blockType );
+		PREVIEW_UI_KEYS.forEach( ( key ) => {
+			expect( out[ key ] ).toBe( PREVIEW_DEFAULTS[ key ] );
+		} );
+	} );
 } );
 
 /**

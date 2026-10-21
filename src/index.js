@@ -40,6 +40,7 @@ import {
 	materializeScrollAppearPatch,
 	aliasSlotForPreview,
 	resolveTimingFunction,
+	resetPreviewUiAttributes,
 } from './components/constants';
 
 import '../css/editor.scss';
@@ -399,32 +400,35 @@ function addAnimationAttributes( settings ) {
 				type: 'string',
 				default: SCHEMA_DEFAULTS.animationRangeEnd,
 			},
+			// Editor preview state, legacy only (GH #29): kept so old
+			// posts parse; never written; reset on parse by the
+			// `motion-blocks/reset-preview-ui` filter below; preview
+			// state lives in the motion-blocks/editor-preview store.
+			// The panel and the preview HOC read the store's values
+			// laid over these keys (overlayPreviewState), so a saved
+			// value never reaches the editor.
+			//
 			// Scroll Interactive preview eye toggle. Default OFF so a
-			// freshly selected block doesn't auto-run a preview (and,
-			// with the beta live preview on, doesn't start a real view()
-			// animation the moment it's selected). Read everywhere via
-			// `!== false`, so `false` here = off until the user opts in.
+			// freshly selected block doesn't auto-run a preview.
 			animationPreviewEnabled: {
 				type: 'boolean',
 				default: false,
 			},
+			// Legacy only (GH #29): Play preview running. See above.
 			animationPreviewPlaying: {
 				type: 'boolean',
 				default: false,
 			},
+			// Legacy only (GH #29): Scroll Appear slot (Entry / Exit)
+			// being previewed. See above.
 			animationPreviewSlot: {
 				type: 'string',
 				default: 'entry',
 			},
-			// Scroll Interactive editor scrubber position (0–100).
-			// Transient UI state with NO default on purpose: when unset
-			// (undefined), the block renders its natural, un-animated
-			// state. Only once the user drags the scrubber does it hold a
-			// number, at which point the HOC freezes the effect at that
-			// percentage (paused animation seeked via negative delay — no
-			// view() timeline, which OOMs Chrome). Cleared on deselect so
-			// the block returns to its natural state. Validation-safe to
-			// add — save() no longer depends on any animation attribute.
+			// Legacy only (GH #29): Scroll Interactive scrubber
+			// position (0–100). NO default on purpose: undefined = not
+			// scrubbing, so the block renders its natural state. The
+			// parse-time reset removes a saved value.
 			animationScrubPosition: {
 				type: 'number',
 			},
@@ -513,15 +517,19 @@ function addAnimationAttributes( settings ) {
 				type: [ 'string', 'null' ],
 				default: null,
 			},
-			// Which side the user is editing — saved as attribute so
-			// it survives remounts of FromToControls.
+			// Legacy only (GH #29): kept so old posts parse; never
+			// written; reset on parse; preview state lives in the
+			// motion-blocks/editor-preview store. Which From/To side
+			// (Start / End) the user is editing.
 			animationFromToActiveSide: {
 				type: 'string',
 				default: 'start',
 			},
-			// Eye-icon preview side. When set to 'start' or 'end',
-			// the editor freezes the block at that side's static
-			// values instead of running the keyframe animation.
+			// Legacy only (GH #29): kept so old posts parse; never
+			// written; reset on parse; preview state lives in the
+			// motion-blocks/editor-preview store. Eye-icon preview
+			// side: 'start' / 'end' freezes the block at that side's
+			// static values instead of running the keyframe animation.
 			animationFromToPreviewSide: {
 				type: 'string',
 				default: 'off',
@@ -635,6 +643,29 @@ addFilter(
 	'blocks.registerBlockType',
 	'motion-blocks/add-attributes',
 	addAnimationAttributes
+);
+
+/**
+ * Reset editor preview values saved by older versions (GH #29).
+ *
+ * The editor used to keep preview state (Play, the eye, the Start/End
+ * side, the preview slot, the scrubber) in block attributes, so older
+ * posts, patterns and template parts can carry it in their block
+ * comments. This runs inside the block parser, so every way content
+ * comes in (post load, paste, patterns, synced patterns, template
+ * parts) gets the registered defaults back. Parsed blocks enter the
+ * editor without marking the post dirty; the stale keys drop out of
+ * post_content on the next real save because they now equal their
+ * defaults.
+ *
+ * Defense in depth: overlayPreviewState already hides saved values
+ * from the editor. Cheap by design — returns the same object when
+ * there is nothing to reset and skips block types without our keys.
+ */
+addFilter(
+	'blocks.getBlockAttributes',
+	'motion-blocks/reset-preview-ui',
+	resetPreviewUiAttributes
 );
 
 /**

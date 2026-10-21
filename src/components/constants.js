@@ -1129,8 +1129,13 @@ function customFromToKeysForSlot( slot ) {
  *
  * Null (property not added) is copied as null, so stale values on
  * the destination are cleared rather than resurfacing the next time
- * the user picks Custom. Values are coerced to the canonical shape
- * per the Custom From/To storage invariant (`45` → `"45deg"`).
+ * the user picks Custom. Callers skip the bridge when the source bag
+ * is entirely empty, so it never wipes the only populated copy.
+ * Runs for every effect type, not only Custom, so a stale bag from
+ * an earlier Custom session travels with the switch, the same way
+ * the shared bag already keeps it. Values are coerced to the
+ * canonical shape per the Custom From/To storage invariant
+ * (`45` → `"45deg"`).
  *
  * @param {Object} attributes Source block attributes.
  * @param {string} srcPrefix  Prefix to read from.
@@ -2029,11 +2034,19 @@ export function switchModeAttributes( attributes, newMode ) {
 				DEFAULT_ATTRIBUTES.animationEntryReplay;
 			// Carry the Custom From/To bag onto the Entry slot. Writing
 			// `animationEntryType` short-circuits the migration shim, so
-			// it won't copy these for us.
-			Object.assign(
-				out,
-				bridgeCustomFromTo( attributes, 'animation', 'animationEntry' )
-			);
+			// it won't copy these for us. Only when the shared bag has
+			// values: an empty one would wipe the slot, and blocks saved
+			// before this bridge existed can hold their only copy there.
+			if ( hasAnyCustomFromToSet( attributes ) ) {
+				Object.assign(
+					out,
+					bridgeCustomFromTo(
+						attributes,
+						'animation',
+						'animationEntry'
+					)
+				);
+			}
 		}
 	} else if ( newMode !== 'scroll-appear' && oldMode === 'scroll-appear' ) {
 		// Switching OUT OF Scroll Appear: copy Entry slot back onto the
@@ -2070,10 +2083,19 @@ export function switchModeAttributes( attributes, newMode ) {
 			out.animationRotateAngle =
 				attributes.animationEntryRotateAngle ??
 				DEFAULT_ATTRIBUTES.animationRotateAngle;
-			Object.assign(
-				out,
-				bridgeCustomFromTo( attributes, 'animationEntry', 'animation' )
-			);
+			// Same guard in reverse: an empty Entry bag (e.g. a block
+			// switched in before the bridge existed) leaves the shared
+			// bag, which is then the best surviving copy, untouched.
+			if ( hasAnyCustomFromToSet( attributes, 'entry' ) ) {
+				Object.assign(
+					out,
+					bridgeCustomFromTo(
+						attributes,
+						'animationEntry',
+						'animation'
+					)
+				);
+			}
 		}
 	}
 

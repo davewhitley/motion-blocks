@@ -6,6 +6,8 @@
  */
 import {
 	DEFAULT_ATTRIBUTES,
+	hasAnyCustomFromToSet,
+	migrateScrollAppearAttrs,
 	switchModeAttributes,
 } from '../../src/components/constants';
 
@@ -148,6 +150,50 @@ describe( 'switchModeAttributes Custom From/To bridge', () => {
 		expect( out.animationEntryFromRotate ).toBeNull();
 	} );
 
+	// Blocks saved before the bridge existed: one side holds the only
+	// copy of the user's values and the other is empty. Switching must
+	// not wipe the populated side with the empty one.
+	it( 'keeps the shared bag when switching out with an empty Entry bag', () => {
+		const raw = {
+			animationMode: 'scroll-appear',
+			animationType: 'custom',
+			animationEntryType: 'custom',
+			animationFromOpacity: 0,
+			animationToOpacity: 1,
+			animationFromTranslateY: '40px',
+			animationToTranslateY: '0px',
+		};
+		for ( const k of ENTRY_KEYS ) {
+			raw[ k ] = null;
+		}
+		const attrs = migrateScrollAppearAttrs( block( raw ) );
+		const out = switchModeAttributes( attrs, 'page-load' );
+		expect( out.animationType ).toBe( 'custom' );
+		expect( fromToKeysIn( out ) ).toEqual( [] );
+		const after = { ...attrs, ...out };
+		expect( hasAnyCustomFromToSet( after ) ).toBe( true );
+		expect( after.animationFromTranslateY ).toBe( '40px' );
+		expect( after.animationToOpacity ).toBe( 1 );
+	} );
+
+	it( 'keeps the Entry bag when switching in with an empty shared bag', () => {
+		const attrs = block( {
+			animationMode: 'page-load',
+			animationType: 'custom',
+			animationEntryType: 'custom',
+			animationEntryFromOpacity: 0,
+			animationEntryToOpacity: 1,
+			animationEntryFromScale: 0.5,
+			animationEntryToScale: 1,
+		} );
+		const out = switchModeAttributes( attrs, 'scroll-appear' );
+		expect( out.animationEntryType ).toBe( 'custom' );
+		expect( fromToKeysIn( out ) ).toEqual( [] );
+		const after = { ...attrs, ...out };
+		expect( hasAnyCustomFromToSet( after, 'entry' ) ).toBe( true );
+		expect( after.animationEntryFromScale ).toBe( 0.5 );
+	} );
+
 	it( 'emits no From/To keys when the bridge does not apply', () => {
 		const pl = block( {
 			animationMode: 'page-load',
@@ -189,13 +235,18 @@ describe( 'switchModeAttributes Custom From/To bridge', () => {
 	it( 'writes exactly 18 known From/To keys and never touches the Exit slot', () => {
 		const cases = [
 			switchModeAttributes(
-				block( { animationMode: 'page-load', animationType: 'fade' } ),
+				block( {
+					animationMode: 'page-load',
+					animationType: 'fade',
+					animationFromTranslateY: '40px',
+				} ),
 				'scroll-appear'
 			),
 			switchModeAttributes(
 				block( {
 					animationMode: 'scroll-appear',
 					animationEntryType: 'fade',
+					animationEntryFromOpacity: 0,
 					animationExitType: 'custom',
 					animationExitFromOpacity: 1,
 				} ),

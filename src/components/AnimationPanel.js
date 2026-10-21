@@ -24,6 +24,7 @@ import {
 	FROM_ATTR,
 	TO_ATTR,
 	normalizeCustomFromToAttrs,
+	migrateScrollAppearAttrs,
 } from './constants';
 
 /**
@@ -145,8 +146,14 @@ export default function AnimationPanel( {
 			const slot = slotArg === 'exit' ? 'exit' : 'entry';
 			const isSlotMode = animationMode === 'scroll-appear';
 			const slotPrefix = slot === 'entry' ? 'Entry' : 'Exit';
+			// Read the slot through the migration shim: a legacy-shaped
+			// block (both slot types empty) keeps its effect on the
+			// shared keys until its first slot edit (GH #25).
+			const view = isSlotMode
+				? migrateScrollAppearAttrs( attributes )
+				: attributes;
 			const current = isSlotMode
-				? attributes[ `animation${ slotPrefix }Type` ] || ''
+				? view[ `animation${ slotPrefix }Type` ] || ''
 				: animationType;
 			if ( ! current ) {
 				return;
@@ -188,14 +195,11 @@ export default function AnimationPanel( {
 			const sharedDuration = parseFloat( animationDuration ) || 0.6;
 			const sharedDelay = parseFloat( animationDelay ) || 0;
 			const duration = isSlotMode
-				? parseFloat(
-						attributes[ `animation${ slotPrefix }Duration` ]
-				  ) || 0.6
+				? parseFloat( view[ `animation${ slotPrefix }Duration` ] ) ||
+				  0.6
 				: sharedDuration;
 			const delay = isSlotMode
-				? parseFloat(
-						attributes[ `animation${ slotPrefix }Delay` ]
-				  ) || 0
+				? parseFloat( view[ `animation${ slotPrefix }Delay` ] ) || 0
 				: sharedDelay;
 			const totalMs = ( duration + delay ) * 1000;
 

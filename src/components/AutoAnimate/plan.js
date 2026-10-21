@@ -176,6 +176,30 @@ export function classifyBlock( block, heroSoFar = 0 ) {
 }
 
 /**
+ * Scroll Appear payload with only the Entry slot filled. Replay and
+ * an empty Exit type are written explicitly so a block that carries
+ * stale slot config (e.g. from an earlier "Remove animation") starts
+ * clean.
+ *
+ * @param {string} type      Entry effect.
+ * @param {string} direction Entry direction ('' for non-directional).
+ * @param {number} duration  Entry duration in seconds.
+ * @return {Object} Attribute payload.
+ */
+function scrollAppearEntry( type, direction, duration ) {
+	return {
+		animationMode: 'scroll-appear',
+		animationEntryType: type,
+		animationEntryDirection: direction,
+		animationEntryDuration: duration,
+		animationEntryDelay: 0,
+		animationEntryAcceleration: 'ease',
+		animationEntryReplay: 'once',
+		animationExitType: '',
+	};
+}
+
+/**
  * Get the attribute payload for a category, parameterized by the
  * chosen style preset and (optionally) the block itself. Each call
  * returns a fresh object so callers can safely mutate (e.g., to add
@@ -185,6 +209,13 @@ export function classifyBlock( block, heroSoFar = 0 ) {
  * block's own attributes — currently used by MEDIA to pick the slide
  * direction from `block.attributes.align` (left/right). Other
  * categories ignore it for now.
+ *
+ * The Scroll Appear payloads use the slot model (`animationEntry*`),
+ * not the legacy `animationType` + `animationScrollTrigger` shape.
+ * A block with both slot types empty is treated as legacy by the
+ * read-time migration shim, which re-derives the Entry slot from the
+ * shared keys on every render — so timing edits snapped back and
+ * Preview did nothing on auto-animated blocks (GH #25).
  *
  * @param {string} category
  * @param {string} stylePreset One of 'subtle' | 'smooth' | 'bold'.
@@ -218,16 +249,7 @@ export function attrsForCategory( category, stylePreset = 'smooth', block = null
 					: align === 'right'
 					? 'rtl'
 					: 'btt';
-			return {
-				animationMode: 'scroll-appear',
-				animationType: 'slide',
-				animationDirection: direction,
-				animationDuration: style.duration,
-				animationDelay: 0,
-				animationAcceleration: 'ease',
-				animationScrollTrigger: 'enter',
-				animationPlayOnce: true,
-			};
+			return scrollAppearEntry( 'slide', direction, style.duration );
 		}
 		case 'STAGGER_ROW':
 			// Columns block animates as one unit with the plugin's
@@ -236,38 +258,14 @@ export function attrsForCategory( category, stylePreset = 'smooth', block = null
 			// `animationStaggerStep` is in seconds (post-cedf2ed unit
 			// change); preset.sequenceStep is already in seconds.
 			return {
-				animationMode: 'scroll-appear',
-				animationType: 'slide',
-				animationDirection: 'btt',
-				animationDuration: style.duration,
-				animationDelay: 0,
-				animationAcceleration: 'ease',
-				animationScrollTrigger: 'enter',
-				animationPlayOnce: true,
+				...scrollAppearEntry( 'slide', 'btt', style.duration ),
 				animationStaggerEnabled: true,
 				animationStaggerStep: style.sequenceStep,
 			};
 		case 'SECTION':
-			return {
-				animationMode: 'scroll-appear',
-				animationType: 'fade',
-				animationDuration: style.duration,
-				animationDelay: 0,
-				animationAcceleration: 'ease',
-				animationScrollTrigger: 'enter',
-				animationPlayOnce: true,
-			};
+			return scrollAppearEntry( 'fade', '', style.duration );
 		case 'CTA':
-			return {
-				animationMode: 'scroll-appear',
-				animationType: 'scale',
-				animationDirection: 'none',
-				animationDuration: style.ctaDuration,
-				animationDelay: 0,
-				animationAcceleration: 'ease',
-				animationScrollTrigger: 'enter',
-				animationPlayOnce: true,
-			};
+			return scrollAppearEntry( 'scale', 'none', style.ctaDuration );
 		default:
 			return null;
 	}

@@ -10,7 +10,7 @@ import {
 	InspectorControls,
 	store as blockEditorStore,
 } from '@wordpress/block-editor';
-import { useSelect, useDispatch } from '@wordpress/data';
+import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { addFilter } from '@wordpress/hooks';
 import { useEffect, useCallback, useRef } from '@wordpress/element';
 
@@ -37,6 +37,7 @@ import {
 	isPropertyAdded,
 	isImageTargetUnavailable,
 	migrateScrollAppearAttrs,
+	materializeScrollAppearPatch,
 	aliasSlotForPreview,
 	resolveTimingFunction,
 } from './components/constants';
@@ -671,20 +672,61 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				[ clientId ]
 			);
 		const { updateBlockAttributes } = useDispatch( blockEditorStore );
+		// Read at write time only — `registry.select` inside a callback
+		// adds no store subscription, so it doesn't undo GH #27.
+		const registry = useRegistry();
 
 		// When multi-selecting, route attribute updates through the
 		// store dispatch so they apply to every selected block at
 		// once. Single-selection falls through to the standard
 		// per-block setAttributes for parity with everything else.
+		//
+		// Each write goes through `materializeScrollAppearPatch` with
+		// the block's own current attributes: the first slot edit on a
+		// legacy-shaped Scroll Appear block also writes the slot values
+		// the migration shim derived, so the edit sticks (GH #25).
 		const fanSetAttributes = useCallback(
 			( newAttrs ) => {
+				const { getBlockAttributes } =
+					registry.select( blockEditorStore );
 				if ( isMultiSelecting ) {
-					updateBlockAttributes( multiSelectedClientIds, newAttrs );
+					let differs = false;
+					const byId = {};
+					for ( const id of multiSelectedClientIds ) {
+						byId[ id ] = materializeScrollAppearPatch(
+							getBlockAttributes( id ),
+							newAttrs
+						);
+						if ( byId[ id ] !== newAttrs ) {
+							differs = true;
+						}
+					}
+					if ( differs ) {
+						// Per-block payloads in one action (one undo
+						// step): `uniqueByBlock`.
+						updateBlockAttributes(
+							multiSelectedClientIds,
+							byId,
+							true
+						);
+					} else {
+						updateBlockAttributes(
+							multiSelectedClientIds,
+							newAttrs
+						);
+					}
 				} else {
-					setAttributes( newAttrs );
+					setAttributes(
+						materializeScrollAppearPatch(
+							getBlockAttributes( clientId ),
+							newAttrs
+						)
+					);
 				}
 			},
 			[
+				registry,
+				clientId,
 				isMultiSelecting,
 				multiSelectedClientIds,
 				setAttributes,

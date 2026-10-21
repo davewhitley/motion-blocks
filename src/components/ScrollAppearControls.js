@@ -12,8 +12,11 @@
  *
  * The legacy `animationScrollTrigger` attribute is migrated to slot
  * config at read-time by `migrateScrollAppearAttrs()` in
- * constants.js. The migration is idempotent and runs every render;
- * the next user edit writes the canonical slot attrs back to storage.
+ * constants.js. The migration is idempotent and runs every render.
+ * The first slot edit writes the derived slot attrs back to storage
+ * along with the change (`materializeScrollAppearPatch()`, applied in
+ * `fanSetAttributes` in src/index.js), so later edits aren't
+ * overwritten by the shim (GH #25).
  *
  * Cross-cutting controls (Stagger, Play once, Remove) render below
  * the slot tabs, always visible regardless of which tab is active.
@@ -50,7 +53,9 @@ export default function ScrollAppearControls( props ) {
 
 	// Normalize legacy `animationScrollTrigger` + `animationType` into
 	// the slot model on read. Idempotent — no-op when the block already
-	// has Entry/Exit slot attrs set.
+	// has Entry/Exit slot attrs set. The panel's `setAttributes` (the
+	// HOC's `fanSetAttributes`) writes these derived values on the
+	// first slot edit, so the shim stops re-deriving them (GH #25).
 	const attributes = migrateScrollAppearAttrs( props.attributes );
 
 	const entryType = attributes.animationEntryType || '';

@@ -1113,6 +1113,39 @@ function customFromToKeysForSlot( slot ) {
 }
 
 /**
+ * Copy the Custom From/To bag (all 9 properties × From and To) from
+ * one attribute prefix to another — `'animation'` for the shared
+ * keys (Page Load / Scroll Interactive), `'animationEntry'` for the
+ * Scroll Appear Entry slot. Used by `switchModeAttributes` so a
+ * Custom animation keeps its values across a mode switch (GH #7, #30).
+ *
+ * Null (property not added) is copied as null, so stale values on
+ * the destination are cleared rather than resurfacing the next time
+ * the user picks Custom. Values are coerced to the canonical shape
+ * per the Custom From/To storage invariant (`45` → `"45deg"`).
+ *
+ * @param {Object} attributes Source block attributes.
+ * @param {string} srcPrefix  Prefix to read from.
+ * @param {string} dstPrefix  Prefix to write to.
+ * @return {Object} Partial attribute payload with all 18 keys.
+ */
+function bridgeCustomFromTo( attributes, srcPrefix, dstPrefix ) {
+	const out = {};
+	for ( const def of PROPERTY_DEFINITIONS ) {
+		const Cap = def.id.charAt( 0 ).toUpperCase() + def.id.slice( 1 );
+		for ( const side of [ 'From', 'To' ] ) {
+			const val =
+				attributes?.[ `${ srcPrefix }${ side }${ Cap }` ] ?? null;
+			out[ `${ dstPrefix }${ side }${ Cap }` ] =
+				val !== null && def.unitSuffix
+					? coerceWithUnit( val, def.unitSuffix )
+					: val;
+		}
+	}
+	return out;
+}
+
+/**
  * Map property id → CSS-friendly kebab name. Used for generating
  * `data-mb-from-{cssVar}` / `data-mb-to-{cssVar}` data attributes
  * the frontend reads.
@@ -1884,11 +1917,13 @@ export const MODE_ORDER = [ 'page-load', 'scroll-appear', 'scroll-interactive' ]
  * Mode-agnostic attributes (effect, direction, timing, From/To
  * values, stagger — except when switching into Scroll Interactive,
  * which has no stagger and clears the toggle — blur, rotate,
- * clip-overflow…) are preserved
- * by simply omitting them from the output — `setAttributes` only
- * touches keys present in the partial. Mode-specific attributes
- * for the OLD mode get reset to defaults so they don't linger
- * on a block that no longer supports them.
+ * clip-overflow…) are preserved between Page Load and Scroll
+ * Interactive by simply omitting them from the output —
+ * `setAttributes` only touches keys present in the partial. Scroll
+ * Appear stores effect, timing and From/To values on its Entry slot
+ * instead, so those are bridged to and from the slot keys below.
+ * Mode-specific attributes for the OLD mode get reset to defaults
+ * so they don't linger on a block that no longer supports them.
  *
  * Image effects (`image-move`, `image-zoom`) used to be coerced to
  * `slide` when leaving scroll-interactive mode, but they're now
@@ -1942,10 +1977,11 @@ export function switchModeAttributes( attributes, newMode ) {
 	}
 
 	// Bridge shared <-> slot attrs across mode switches so the user's
-	// effect + timing carry over. Page Load / Scroll Interactive read
-	// shared keys (animationType, animationDuration, …); Scroll Appear
-	// reads per-slot keys (animationEntryType, animationEntryDuration,
-	// …). Without this seeding, switching to Scroll Appear left the
+	// effect, timing and Custom From/To values carry over (GH #7,
+	// #30). Page Load / Scroll Interactive read shared keys
+	// (animationType, animationDuration, …); Scroll Appear reads
+	// per-slot keys (animationEntryType, animationEntryDuration, …).
+	// Without this seeding, switching to Scroll Appear left the
 	// Entry slot at schema defaults, and `migrateScrollAppearAttrs`
 	// produced a "virtual" view derived from the shared attrs. The UI
 	// showed those derived values, but UI edits wrote to slot attrs
@@ -1983,6 +2019,13 @@ export function switchModeAttributes( attributes, newMode ) {
 				DEFAULT_ATTRIBUTES.animationEntryRotateAngle;
 			out.animationEntryReplay =
 				DEFAULT_ATTRIBUTES.animationEntryReplay;
+			// Carry the Custom From/To bag onto the Entry slot. Writing
+			// `animationEntryType` short-circuits the migration shim, so
+			// it won't copy these for us.
+			Object.assign(
+				out,
+				bridgeCustomFromTo( attributes, 'animation', 'animationEntry' )
+			);
 		}
 	} else if ( newMode !== 'scroll-appear' && oldMode === 'scroll-appear' ) {
 		// Switching OUT OF Scroll Appear: copy Entry slot back onto the
@@ -2011,6 +2054,10 @@ export function switchModeAttributes( attributes, newMode ) {
 			out.animationRotateAngle =
 				attributes.animationEntryRotateAngle ??
 				DEFAULT_ATTRIBUTES.animationRotateAngle;
+			Object.assign(
+				out,
+				bridgeCustomFromTo( attributes, 'animationEntry', 'animation' )
+			);
 		}
 	}
 

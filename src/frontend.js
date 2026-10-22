@@ -1103,12 +1103,26 @@ import SHARED from '../shared-constants.json';
 			// "back to top" link, an anchor) never fires onEnterBack, so
 			// the block keeps its forward-played Exit — hidden — and the
 			// next onEnter would have to replay the Entry to show it.
-			// While it's fully below the screen, put it back in its
-			// entered state instead: the same end state a normal scroll
-			// back up produces, applied where nobody sees the snap.
+			// As soon as it's out of the zone on the low side (its top
+			// below the zone's top, so it isn't leaving upwards), put it
+			// back in its entered state instead: the same end state a
+			// normal scroll back up produces. Not just "fully below the
+			// screen": after a jump the block can sit visible near the
+			// bottom of the screen, or just inside the zone short of
+			// the 10% overlap, and the Entry would replay as it scrolls
+			// in. A forward-played Exit can only be found there after a
+			// jump, so the snap never interrupts a normal scroll.
 			if (
-				! inViewport &&
-				state.pageTop >= viewportBottom &&
+				state.pageTop > currentScrollY + vh * TRIGGER_ZONE_TOP_PCT &&
+				! isInZone(
+					zoneOverlap(
+						state.pageTop,
+						state.pageBottom,
+						currentScrollY,
+						vh
+					),
+					state.pageHeight
+				) &&
 				state.hasEntry &&
 				state.hasExit &&
 				state.entryReplay === 'once' &&

@@ -25,7 +25,8 @@ import {
 	VisuallyHidden,
 } from '@wordpress/components';
 import { useInstanceId } from '@wordpress/compose';
-import { __ } from '@wordpress/i18n';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
 import { desktop, seen, chevronDown } from '@wordpress/icons';
 
 import AnimationOptionsMenu from './AnimationOptionsMenu';
@@ -138,6 +139,16 @@ export default function SubPanelModeHeader( {
 												switchModeAttributes(
 													attributes,
 													m
+												)
+											);
+											speak(
+												sprintf(
+													/* translators: %s: animation mode, e.g. "Appear on scroll" */
+													__(
+														'Mode changed to %s.',
+														'motion-blocks'
+													),
+													getLabel( m )
 												)
 											);
 											onClose();

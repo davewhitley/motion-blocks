@@ -8,6 +8,7 @@
 import { PanelBody, Icon, Notice } from '@wordpress/components';
 import { useRef, useCallback, useState, useEffect } from '@wordpress/element';
 import { useSelect, useDispatch } from '@wordpress/data';
+import { speak } from '@wordpress/a11y';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
 import { __, sprintf } from '@wordpress/i18n';
@@ -374,6 +375,7 @@ export default function AnimationPanel( {
 			animationPreviewPlaying: false,
 			...customFromToDefaults(),
 		} );
+		speak( __( 'Animation settings reset.', 'motion-blocks' ) );
 	}, [ setAttributes ] );
 
 	const removeAnimation = () => {
@@ -401,6 +403,7 @@ export default function AnimationPanel( {
 	const handleRemove = ( event ) => {
 		requestFocusRestore( event );
 		removeAnimation();
+		speak( __( 'Animation removed.', 'motion-blocks' ) );
 	};
 
 	// A paste that changes the mode remounts the panel the same way.
@@ -409,6 +412,7 @@ export default function AnimationPanel( {
 			requestFocusRestore();
 		}
 		pasteAnimation( data );
+		speak( __( 'Animation pasted.', 'motion-blocks' ) );
 	};
 
 	const panelTitle = animationMode ? (

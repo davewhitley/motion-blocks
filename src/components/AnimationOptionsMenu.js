@@ -23,6 +23,7 @@ import {
 } from '@wordpress/components';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { useInstanceId } from '@wordpress/compose';
+import { speak } from '@wordpress/a11y';
 import {
 	store as blockEditorStore,
 	useSetting,
@@ -156,6 +157,8 @@ export default function AnimationOptionsMenu( {
 
 	const handleCopy = ( onClose ) => {
 		copiedAnimation = pickAnimationAttributes( attributes );
+		// Copy changes nothing on screen, so tell screen readers it worked.
+		speak( __( 'Animation copied.', 'motion-blocks' ) );
 		onClose();
 	};
 

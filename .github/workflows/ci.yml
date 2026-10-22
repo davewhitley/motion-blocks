@@ -147,3 +147,8 @@ jobs:
           name: page-checks
           path: ci-output/
           if-no-files-found: ignore
+
+      - name: Stop WordPress
+        # Shut the background server down so the job can finish cleanly.
+        if: always()
+        run: pkill -f wp-playground || true

@@ -8,6 +8,7 @@
  */
 
 import SHARED from '../shared-constants.json';
+import { isValidFromToValue } from './css-values';
 
 ( function () {
 	'use strict';
@@ -290,7 +291,12 @@ import SHARED from '../shared-constants.json';
 				key = sideKey === 'from' ? p.dataFrom : p.dataTo;
 			}
 			var raw = el.dataset[ key ];
-			if ( isAddedDatasetVal( raw ) ) {
+			// These values become @keyframes text: malformed values are
+			// dropped (see css-values.js).
+			if (
+				isAddedDatasetVal( raw ) &&
+				isValidFromToValue( p.id, raw )
+			) {
 				bag[ p.id ] = raw;
 			}
 		} );

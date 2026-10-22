@@ -299,6 +299,60 @@ function motion_blocks_print_js_marker() {
 add_action( 'wp_head', 'motion_blocks_print_js_marker', 0 );
 
 /**
+ * Whether a Custom From/To value is safe and well-formed for its property.
+ *
+ * The front end and the editor write these values as text into
+ * `@keyframes` rules. Each property only accepts the shapes the panel
+ * produces, so malformed input can't break the generated CSS; anything
+ * else is treated as "not set". Mirrors
+ * isValidFromToValue() in src/css-values.js — keep the two in step.
+ *
+ * @param string $prop_id Property id (opacity, translateX, …, clipPath).
+ * @param mixed  $value   Raw attribute value.
+ * @return bool True when the value may be emitted.
+ */
+function motion_blocks_valid_from_to_value( $prop_id, $value ) {
+    if ( null === $value || '' === $value || is_bool( $value ) || is_array( $value ) || is_object( $value ) ) {
+        return false;
+    }
+    $s = trim( (string) $value );
+    if ( strlen( $s ) > 2000 ) {
+        return false;
+    }
+    $num    = '-?(?:\d+(?:\.\d+)?|\.\d+)';
+    $length = 'px|%|em|rem|vw|vh|vmin|vmax|svw|svh|lvw|lvh|dvw|dvh|ch|ex';
+    $angle  = 'deg|turn|rad|grad';
+    switch ( $prop_id ) {
+        case 'opacity':
+        case 'scale':
+            $pattern = "/^{$num}$/";
+            break;
+        case 'translateX':
+        case 'translateY':
+            $pattern = "/^{$num}(?:{$length})?$/i";
+            break;
+        case 'blur':
+            $pattern = "/^{$num}(?:px|em|rem)?$/i";
+            break;
+        case 'rotate':
+        case 'rotateX':
+        case 'rotateY':
+            $pattern = "/^{$num}(?:{$angle})?$/i";
+            break;
+        case 'clipPath':
+            $pattern = '/^(?:none'
+                . '|(?:inset|circle|ellipse|polygon|rect|xywh)\([a-z0-9\s.,%+\-\/]*\)'
+                . '|path\(\s*(?:(?:nonzero|evenodd)\s*,\s*)?'
+                . '(?:"[a-z0-9\s.,+\-]*"|\'[a-z0-9\s.,+\-]*\')\s*\)'
+                . ')$/i';
+            break;
+        default:
+            return false;
+    }
+    return 1 === preg_match( $pattern, $s );
+}
+
+/**
  * Add animation classes and data attributes to rendered block HTML.
  *
  * As of the render-time-only refactor this is the SOLE authority for
@@ -531,7 +585,7 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     // --- Data attributes ---
-    $processor->set_attribute( 'data-mb-mode', esc_attr( $mode ) );
+    $processor->set_attribute( 'data-mb-mode', (string) $mode );
 
     // Mirrors PROPERTY_CSS_VAR in src/components/constants.js —
     // loaded from shared-constants.json so the lists can't drift.
@@ -561,7 +615,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         $play_once = $attrs['animationPlayOnce'] ?? motion_blocks_attr_default( 'animationPlayOnce' );
         $processor->set_attribute(
             'data-mb-play-once',
-            esc_attr( $play_once ? 'true' : 'false' )
+            (string) ( $play_once ? 'true' : 'false' )
         );
 
         // Per-slot Replay attrs. Only emit when the corresponding slot
@@ -571,7 +625,7 @@ function motion_blocks_render_block( $block_content, $block ) {
                 ?? motion_blocks_attr_default( 'animationEntryReplay' );
             $processor->set_attribute(
                 'data-mb-entry-replay',
-                esc_attr( $entry_replay )
+                (string) $entry_replay
             );
         }
         if ( $exit_type !== '' ) {
@@ -579,7 +633,7 @@ function motion_blocks_render_block( $block_content, $block ) {
                 ?? motion_blocks_attr_default( 'animationExitReplay' );
             $processor->set_attribute(
                 'data-mb-exit-replay',
-                esc_attr( $exit_replay )
+                (string) $exit_replay
             );
         }
 
@@ -607,7 +661,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             $slot_type = $slot['type'];
             $processor->set_attribute(
                 "{$slot['data']}-type",
-                esc_attr( $slot_type )
+                (string) $slot_type
             );
 
             $slot_dir = $attrs[ "{$slot['prefix']}Direction" ]
@@ -615,19 +669,19 @@ function motion_blocks_render_block( $block_content, $block ) {
             if ( $slot_dir ) {
                 $processor->set_attribute(
                     "{$slot['data']}-direction",
-                    esc_attr( $slot_dir )
+                    (string) $slot_dir
                 );
             }
 
             $processor->set_attribute(
                 "{$slot['data']}-duration",
-                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Duration" ]
-                    ?? motion_blocks_attr_default( "{$slot['prefix']}Duration" ) ) )
+                (string) ( $attrs[ "{$slot['prefix']}Duration" ]
+                    ?? motion_blocks_attr_default( "{$slot['prefix']}Duration" ) )
             );
             $processor->set_attribute(
                 "{$slot['data']}-delay",
-                esc_attr( (string) ( $attrs[ "{$slot['prefix']}Delay" ]
-                    ?? motion_blocks_attr_default( "{$slot['prefix']}Delay" ) ) )
+                (string) ( $attrs[ "{$slot['prefix']}Delay" ]
+                    ?? motion_blocks_attr_default( "{$slot['prefix']}Delay" ) )
             );
 
             $slot_accel = $attrs[ "{$slot['prefix']}Acceleration" ]
@@ -646,7 +700,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             if ( $slot_accel !== 'ease' ) {
                 $processor->set_attribute(
                     "{$slot['data']}-acceleration",
-                    esc_attr( $slot_accel )
+                    (string) $slot_accel
                 );
             }
 
@@ -656,7 +710,7 @@ function motion_blocks_render_block( $block_content, $block ) {
                 if ( (int) $blur_amount !== (int) $blur_default ) {
                     $processor->set_attribute(
                         "{$slot['data']}-blur-amount",
-                        esc_attr( (string) $blur_amount )
+                        (string) $blur_amount
                     );
                 }
             }
@@ -667,7 +721,7 @@ function motion_blocks_render_block( $block_content, $block ) {
                 if ( (int) $rotate_angle !== (int) $rotate_default ) {
                     $processor->set_attribute(
                         "{$slot['data']}-rotate-angle",
-                        esc_attr( (string) $rotate_angle )
+                        (string) $rotate_angle
                     );
                 }
             }
@@ -678,16 +732,22 @@ function motion_blocks_render_block( $block_content, $block ) {
                     $to_key   = "{$slot['prefix']}To" . ucfirst( $prop_id );
                     $from_val = $attrs[ $from_key ] ?? null;
                     $to_val   = $attrs[ $to_key ] ?? null;
+                    if ( ! motion_blocks_valid_from_to_value( $prop_id, $from_val ) ) {
+                        $from_val = null;
+                    }
+                    if ( ! motion_blocks_valid_from_to_value( $prop_id, $to_val ) ) {
+                        $to_val = null;
+                    }
                     if ( $from_val !== null && $from_val !== '' ) {
                         $processor->set_attribute(
                             "{$slot['data']}-from-{$css_name}",
-                            esc_attr( (string) $from_val )
+                            (string) $from_val
                         );
                     }
                     if ( $to_val !== null && $to_val !== '' ) {
                         $processor->set_attribute(
                             "{$slot['data']}-to-{$css_name}",
-                            esc_attr( (string) $to_val )
+                            (string) $to_val
                         );
                     }
                 }
@@ -695,7 +755,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         }
     } else {
         // Page Load + Scroll Interactive — shared attribute emission.
-        $processor->set_attribute( 'data-mb-type', esc_attr( $type ) );
+        $processor->set_attribute( 'data-mb-type', (string) $type );
 
         // img-target — mirrors the old `addAnimationSaveProps` JS logic
         // (now removed). Image effects always imply img target; any
@@ -722,20 +782,20 @@ function motion_blocks_render_block( $block_content, $block ) {
                 : motion_blocks_attr_default( 'animationCustomTimingFunction' );
         }
         if ( $acceleration !== 'ease' ) {
-            $processor->set_attribute( 'data-mb-acceleration', esc_attr( $acceleration ) );
+            $processor->set_attribute( 'data-mb-acceleration', (string) $acceleration );
         }
 
         $direction = $attrs['animationDirection']
             ?? motion_blocks_attr_default( 'animationDirection' );
         if ( $direction ) {
-            $processor->set_attribute( 'data-mb-direction', esc_attr( $direction ) );
+            $processor->set_attribute( 'data-mb-direction', (string) $direction );
         }
 
         if ( $type === 'blur' ) {
             $blur_default = motion_blocks_attr_default( 'animationBlurAmount' );
             $blur_amount  = $attrs['animationBlurAmount'] ?? $blur_default;
             if ( (int) $blur_amount !== (int) $blur_default ) {
-                $processor->set_attribute( 'data-mb-blur-amount', esc_attr( (string) $blur_amount ) );
+                $processor->set_attribute( 'data-mb-blur-amount', (string) $blur_amount );
             }
         }
 
@@ -743,7 +803,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             $rotate_default = motion_blocks_attr_default( 'animationRotateAngle' );
             $rotate_angle   = $attrs['animationRotateAngle'] ?? $rotate_default;
             if ( (int) $rotate_angle !== (int) $rotate_default ) {
-                $processor->set_attribute( 'data-mb-rotate-angle', esc_attr( (string) $rotate_angle ) );
+                $processor->set_attribute( 'data-mb-rotate-angle', (string) $rotate_angle );
             }
         }
 
@@ -753,16 +813,22 @@ function motion_blocks_render_block( $block_content, $block ) {
                 $to_key   = 'animationTo' . ucfirst( $prop_id );
                 $from_val = $attrs[ $from_key ] ?? null;
                 $to_val   = $attrs[ $to_key ] ?? null;
+                if ( ! motion_blocks_valid_from_to_value( $prop_id, $from_val ) ) {
+                    $from_val = null;
+                }
+                if ( ! motion_blocks_valid_from_to_value( $prop_id, $to_val ) ) {
+                    $to_val = null;
+                }
                 if ( $from_val !== null && $from_val !== '' ) {
                     $processor->set_attribute(
                         "data-mb-from-{$css_name}",
-                        esc_attr( (string) $from_val )
+                        (string) $from_val
                     );
                 }
                 if ( $to_val !== null && $to_val !== '' ) {
                     $processor->set_attribute(
                         "data-mb-to-{$css_name}",
-                        esc_attr( (string) $to_val )
+                        (string) $to_val
                     );
                 }
             }
@@ -771,33 +837,33 @@ function motion_blocks_render_block( $block_content, $block ) {
         if ( $mode === 'page-load' ) {
             $processor->set_attribute(
                 'data-mb-duration',
-                esc_attr( (string) ( $attrs['animationDuration']
-                    ?? motion_blocks_attr_default( 'animationDuration' ) ) )
+                (string) ( $attrs['animationDuration']
+                    ?? motion_blocks_attr_default( 'animationDuration' ) )
             );
             $processor->set_attribute(
                 'data-mb-delay',
-                esc_attr( (string) ( $attrs['animationDelay']
-                    ?? motion_blocks_attr_default( 'animationDelay' ) ) )
+                (string) ( $attrs['animationDelay']
+                    ?? motion_blocks_attr_default( 'animationDelay' ) )
             );
             $processor->set_attribute(
                 'data-mb-repeat',
-                esc_attr( $attrs['animationRepeat']
+                (string) ( $attrs['animationRepeat']
                     ?? motion_blocks_attr_default( 'animationRepeat' ) )
             );
             $pause = $attrs['animationPauseOffscreen']
                 ?? motion_blocks_attr_default( 'animationPauseOffscreen' );
-            $processor->set_attribute( 'data-mb-pause-offscreen', esc_attr( $pause ? 'true' : 'false' ) );
+            $processor->set_attribute( 'data-mb-pause-offscreen', (string) ( $pause ? 'true' : 'false' ) );
         }
 
         if ( $mode === 'scroll-interactive' ) {
             $processor->set_attribute(
                 'data-mb-range-start',
-                esc_attr( $attrs['animationRangeStart']
+                (string) ( $attrs['animationRangeStart']
                     ?? motion_blocks_attr_default( 'animationRangeStart' ) )
             );
             $processor->set_attribute(
                 'data-mb-range-end',
-                esc_attr( $attrs['animationRangeEnd']
+                (string) ( $attrs['animationRangeEnd']
                     ?? motion_blocks_attr_default( 'animationRangeEnd' ) )
             );
         }
@@ -836,7 +902,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             $existing_style .= ';';
         }
         $existing_style .= '--mb-stagger-step:' . $step . 's;';
-        $processor->set_attribute( 'style', $existing_style );
+        $processor->set_attribute( 'style', (string) $existing_style );
     }
 
     return $processor->get_updated_html();
@@ -1066,8 +1132,8 @@ add_filter( 'body_class', 'motion_blocks_body_class' );
  * Deliberately NOT sanitize_text_field(): its percent-octet stripping
  * (`%[a-f0-9]{2}`) would corrupt space-less CSS values like
  * `polygon(50%50%,...)`. These values are never echoed raw — the render
- * filter passes everything through esc_attr() — so this is defense in
- * depth: strip tags, control characters, and absurd lengths while
+ * filter writes them with WP_HTML_Tag_Processor::set_attribute(), which
+ * escapes them — so this is defense in depth: strip tags, control characters, and absurd lengths while
  * leaving legitimate CSS strings (clip-paths, cubic-beziers, unit
  * values) byte-identical.
  *
@@ -1142,6 +1208,15 @@ function motion_blocks_sanitize_saved_animations( $value ) {
                     $attrs[ $key ] = $attr_value;
                 } elseif ( is_string( $attr_value ) ) {
                     $attrs[ $key ] = motion_blocks_scrub_recipe_string( $attr_value );
+                }
+                // Custom From/To values end up in @keyframes text: keep
+                // only well-formed values for their property.
+                if (
+                    null !== $attrs[ $key ] &&
+                    preg_match( '/^animation(?:Entry|Exit)?(?:From|To)(Opacity|TranslateX|TranslateY|Scale|Rotate|RotateX|RotateY|Blur|ClipPath)$/', $key, $m ) &&
+                    ! motion_blocks_valid_from_to_value( lcfirst( $m[1] ), $attrs[ $key ] )
+                ) {
+                    $attrs[ $key ] = null;
                 }
                 // Arrays / objects: dropped.
             }

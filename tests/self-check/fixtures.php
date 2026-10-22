@@ -953,6 +953,13 @@ function mb_self_check_smoke( $image ) {
 			array( 'Page Load · slide · Animate image only', array( 'animationMode' => 'page-load', 'animationType' => 'slide', 'animationDirection' => 'btt', 'animationDelay' => 0, 'animationFromToTarget' => 'img' ) ),
 			array( 'Scroll Appear · Entry: image-zoom', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'image-zoom', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat' ) ),
 			array( 'Scroll Appear · Entry: scale · Animate image only', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'scale', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat', 'animationFromToTarget' => 'img' ) ),
+			// The image is pre-hidden until the Entry fires, so it fades in
+			// without first showing at full opacity (GH #53 image flash).
+			array( 'Scroll Appear · Entry: fade · Animate image only', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'fade', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat', 'animationFromToTarget' => 'img' ) ),
+			// Exit only: no pre-hide, the image stays visible until it leaves.
+			array( 'Scroll Appear · Exit: fade · Animate image only', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => '', 'animationExitType' => 'fade', 'animationExitReplay' => 'reverse', 'animationFromToTarget' => 'img' ) ),
+			// Image Move starts from a visible image, so it is not pre-hidden.
+			array( 'Scroll Appear · Entry: image-move · btt', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'image-move', 'animationEntryDirection' => 'btt', 'animationEntryDelay' => 0, 'animationEntryReplay' => 'repeat' ) ),
 			array( 'Scroll Interactive · image-move · btt', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'image-move', 'animationDirection' => 'btt' ) ),
 			array( 'Scroll Interactive · image-zoom', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'image-zoom' ) ),
 			array( 'Scroll Interactive · fade-out · Animate image only', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'fade-out', 'animationFromToTarget' => 'img' ) ),

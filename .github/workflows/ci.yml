@@ -1,0 +1,67 @@
+# Continuous integration for Motion Blocks.
+#
+# GitHub runs this file automatically: on every pull request (and every
+# new push to one), and on every push to main. Each "job" below runs on
+# a fresh Ubuntu machine, step by step; if any step fails, the job fails
+# and the PR shows a red cross next to it. Click "Details" on the cross
+# to see the log, then expand the step with the red mark.
+#
+# Build & unit tests (~1 min): the JavaScript builds, the built files
+# in build/ are committed, and the Jest unit tests pass.
+#
+# Run the same things locally: see "Tests" in README.md.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same PR/branch cancels the run still in progress,
+# so you only wait for the latest one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The jobs only read the repository.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js (LTS)
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          # Reuses downloaded npm packages between runs (keyed on
+          # package-lock.json), which makes `npm ci` much faster.
+          cache: npm
+
+      - name: Install dependencies
+        # `npm ci` installs exactly what package-lock.json lists.
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Check that build/ is up to date
+        # The plugin ships the compiled files in build/, so they are
+        # committed. If building from the source in this PR changes
+        # them, someone forgot to run `npm run build` and commit.
+        run: |
+          if ! git diff --exit-code --stat -- build/; then
+            echo "::error::build/ is out of date. Run 'npm run build' and commit the changes in build/."
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: npm run test:unit
+

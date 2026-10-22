@@ -612,11 +612,9 @@ function motion_blocks_render_block( $block_content, $block ) {
             $processor->set_attribute( 'data-mb-target', 'img' );
         }
 
-        $play_once = $attrs['animationPlayOnce'] ?? motion_blocks_attr_default( 'animationPlayOnce' );
-        $processor->set_attribute(
-            'data-mb-play-once',
-            (string) ( $play_once ? 'true' : 'false' )
-        );
+        // animationPlayOnce is legacy (the pre-slot "Play once" toggle):
+        // it stays in the schema so old posts parse, but Replay is per
+        // slot below and nothing reads it, so it is not emitted.
 
         // Per-slot Replay attrs. Only emit when the corresponding slot
         // is filled — empty slots have no replay behavior to control.

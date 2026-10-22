@@ -35,6 +35,7 @@ return array(
 			'data-mb-entry-type'   => 'fade',
 			'data-mb-entry-replay' => 'once',
 			'data-mb-entry-delay'  => '0',
+			'data-mb-play-once'    => null,
 		),
 	),
 	array(
@@ -214,6 +215,22 @@ return array(
 			'data-mb-entry-delay'    => '0',
 			'data-mb-entry-replay'   => 'once',
 			'data-mb-exit-type'      => null,
+		),
+	),
+	array(
+		'label'    => 'Legacy Scroll Appear saved with Play once off (GH #33)',
+		'panel'    => 'Entry: Fade In · Delay 0s · Replay: Once',
+		'behavior' => 'Fades in the first time it scrolls into view, then stays put (the retired Play once flag is ignored).',
+		'attrs'    => array(
+			'animationMode'       => 'scroll-appear',
+			'animationEntryType'  => 'fade',
+			'animationEntryDelay' => 0,
+			'animationPlayOnce'   => false,
+		),
+		'expect'   => array(
+			'data-mb-entry-type'   => 'fade',
+			'data-mb-entry-replay' => 'once',
+			'data-mb-play-once'    => null,
 		),
 	),
 	array(

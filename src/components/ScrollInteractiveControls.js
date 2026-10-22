@@ -73,6 +73,7 @@ export default function ScrollInteractiveControls( {
 	blockName,
 	clientId,
 	onRemove,
+	onBeforeModeSwitch,
 	onPaste,
 	onReset,
 } ) {
@@ -224,6 +225,7 @@ export default function ScrollInteractiveControls( {
 				onPaste={ onPaste }
 				onReset={ onReset }
 				onRemove={ onRemove }
+				onBeforeModeSwitch={ onBeforeModeSwitch }
 				helpText={ __(
 					'Ties animation progress directly to scroll position.',
 					'motion-blocks'

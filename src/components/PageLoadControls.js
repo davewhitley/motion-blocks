@@ -74,6 +74,7 @@ export default function PageLoadControls( {
 	blockName,
 	clientId,
 	onRemove,
+	onBeforeModeSwitch,
 	onPreview,
 	onStopPreview,
 	isLoopRunning,
@@ -219,6 +220,7 @@ export default function PageLoadControls( {
 				onPaste={ onPaste }
 				onReset={ onReset }
 				onRemove={ onRemove }
+				onBeforeModeSwitch={ onBeforeModeSwitch }
 				helpText={ __(
 					'Plays once (or loops continuously) when the page first loads.',
 					'motion-blocks'

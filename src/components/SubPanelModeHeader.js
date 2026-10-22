@@ -76,6 +76,7 @@ export default function SubPanelModeHeader( {
 	onPaste,
 	onReset,
 	onRemove,
+	onBeforeModeSwitch,
 } ) {
 	// The toggle's accessible name is its visible text (the current
 	// mode), so voice-control users can say what they see (WCAG 2.5.3).
@@ -126,7 +127,13 @@ export default function SubPanelModeHeader( {
 										key={ m }
 										icon={ getIcon( m ) }
 										disabled={ m === mode }
-										onClick={ () => {
+										onClick={ ( event ) => {
+											// Switching remounts the whole
+											// sub-panel; lets the parent put
+											// keyboard focus back on the toggle.
+											if ( onBeforeModeSwitch ) {
+												onBeforeModeSwitch( event );
+											}
 											setAttributes(
 												switchModeAttributes(
 													attributes,

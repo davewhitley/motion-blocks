@@ -44,6 +44,7 @@ import {
 } from './savedAnimations';
 import SavedAnimationsModal from './SavedAnimationsModal';
 import { selectSameTypeInfo } from './selectStable';
+import { useFocusAfterDialog } from './keyboardFocus';
 
 /**
  * Module-level clipboard — persists across block selections
@@ -124,6 +125,13 @@ export default function AnimationOptionsMenu( {
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
 	const [ saveModalOpen, setSaveModalOpen ] = useState( false );
 	const [ deletePending, setDeletePending ] = useState( null ); // { uid, name }
+
+	// The menu item that opens a dialog unmounts with the menu, so the
+	// dialog can have nowhere to return focus to. After a keyboard-
+	// opened dialog closes, focus goes back to the Options toggle.
+	const { ref: toggleRef, noteOpener } = useFocusAfterDialog(
+		confirmOpen || saveModalOpen || !! deletePending
+	);
 
 	const hasAnimation = !! attributes?.animationMode;
 	const canApplyToAll =
@@ -291,7 +299,7 @@ export default function AnimationOptionsMenu( {
 				icon={ moreVertical }
 				label={ __( 'Options', 'motion-blocks' ) }
 				className="mb-options-button"
-				toggleProps={ { size: 'small' } }
+				toggleProps={ { size: 'small', ref: toggleRef } }
 			>
 				{ ( { onClose } ) => (
 					<>
@@ -313,9 +321,10 @@ export default function AnimationOptionsMenu( {
 							{ ! pasteOnly && blockName && (
 								<MenuItem
 									disabled={ ! canApplyToAll }
-									onClick={ () =>
-										handleApplyClick( onClose )
-									}
+									onClick={ ( event ) => {
+										noteOpener( event );
+										handleApplyClick( onClose );
+									} }
 								>
 									{ applyLabel }
 								</MenuItem>
@@ -326,7 +335,8 @@ export default function AnimationOptionsMenu( {
 							<MenuGroup>
 								<MenuItem
 									disabled={ ! canSave }
-									onClick={ () => {
+									onClick={ ( event ) => {
+										noteOpener( event );
 										setSaveModalOpen( true );
 										onClose();
 									} }
@@ -404,7 +414,8 @@ export default function AnimationOptionsMenu( {
 												),
 												saved.name || uid
 											) }
-											onClick={ () => {
+											onClick={ ( event ) => {
+												noteOpener( event );
 												setDeletePending( {
 													uid,
 													name: saved.name,

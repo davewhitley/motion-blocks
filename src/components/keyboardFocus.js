@@ -15,6 +15,8 @@
  * without the event, fall back to the last input seen on the page.
  */
 
+import { useCallback, useEffect, useRef } from '@wordpress/element';
+
 let lastInput = null;
 
 if ( typeof document !== 'undefined' ) {
@@ -46,4 +48,61 @@ export function isKeyboardActivation( event ) {
 		return event.detail === 0;
 	}
 	return lastInput === 'keyboard';
+}
+
+/**
+ * Puts keyboard focus back in the panel when a dialog closes.
+ *
+ * A Modal returns focus to whatever had it when the Modal opened. For
+ * a dialog opened from the Options menu that can be a menu item, which
+ * unmounted with the menu; for "Remove all animations" it is a button
+ * that the removal just disabled. Focus then falls to <body>. When the
+ * dialog was opened from the keyboard and focus did fall to <body>,
+ * this focuses the element on `ref` instead. Mouse users keep today's
+ * behaviour (no focus ring appears).
+ *
+ * @param {boolean} isOpen Whether the dialog is open.
+ * @return {{ref: Object, noteOpener: Function}} `ref` goes on the
+ *     element to focus; call `noteOpener( event )` from the click
+ *     that opens the dialog.
+ */
+export function useFocusAfterDialog( isOpen ) {
+	const ref = useRef( null );
+	const openedByKeyboard = useRef( false );
+	const wasOpen = useRef( isOpen );
+
+	useEffect( () => {
+		const closed = wasOpen.current && ! isOpen;
+		wasOpen.current = isOpen;
+		if ( ! closed || ! openedByKeyboard.current ) {
+			return;
+		}
+		openedByKeyboard.current = false;
+
+		// ConfirmDialog unmounts its Modal a render after `isOpen`
+		// turns false, so give focus a moment to leave the dialog.
+		let timer;
+		let triesLeft = 30;
+		const check = () => {
+			const target = ref.current;
+			const doc = target?.ownerDocument;
+			if ( ! doc ) {
+				return;
+			}
+			const active = doc.activeElement;
+			if ( ! active || active === doc.body ) {
+				target.focus();
+			} else if ( active.closest( '[role="dialog"]' ) && triesLeft-- ) {
+				timer = setTimeout( check, 16 );
+			}
+		};
+		check();
+		return () => clearTimeout( timer );
+	}, [ isOpen ] );
+
+	const noteOpener = useCallback( ( event ) => {
+		openedByKeyboard.current = isKeyboardActivation( event );
+	}, [] );
+
+	return { ref, noteOpener };
 }

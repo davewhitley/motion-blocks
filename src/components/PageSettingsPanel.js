@@ -41,6 +41,7 @@ import { desktop, tablet, mobile } from '@wordpress/icons';
 
 import AutoAnimateModal from './AutoAnimate';
 import { store as previewStore } from './previewStore';
+import { useFocusAfterDialog } from './keyboardFocus';
 
 const DEVICE_OPTIONS = [
 	{
@@ -156,6 +157,12 @@ function MotionBlocksPagePanel() {
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
 	const [ autoAnimateOpen, setAutoAnimateOpen ] = useState( false );
 
+	// Confirming "Remove all animations" disables the button that
+	// opened the dialog, so the dialog can't return focus to it. After
+	// a keyboard-opened dialog, focus goes to "Auto-animate this …".
+	const { ref: autoAnimateRef, noteOpener } =
+		useFocusAfterDialog( confirmOpen );
+
 	const setMetaValue = ( key, value ) => {
 		setMeta( { ...meta, [ key ]: value } );
 	};
@@ -204,6 +211,7 @@ function MotionBlocksPagePanel() {
 				{ /* Primary action: walk the page and apply tasteful
 				   animations in one click. */ }
 				<Button
+					ref={ autoAnimateRef }
 					variant="primary"
 					className="mb-auto-animate-button"
 					onClick={ () => setAutoAnimateOpen( true ) }
@@ -251,7 +259,10 @@ function MotionBlocksPagePanel() {
 						variant="secondary"
 						isDestructive
 						className="mb-remove-button"
-						onClick={ () => setConfirmOpen( true ) }
+						onClick={ ( event ) => {
+							noteOpener( event );
+							setConfirmOpen( true );
+						} }
 						disabled={ animatedCount === 0 }
 						__next40pxDefaultSize
 					>

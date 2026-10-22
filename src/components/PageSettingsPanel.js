@@ -29,6 +29,7 @@ import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
 import { useEntityProp } from '@wordpress/core-data';
 import { useState } from '@wordpress/element';
+import { useInstanceId } from '@wordpress/compose';
 import {
 	CheckboxControl,
 	Button,
@@ -41,6 +42,7 @@ import { desktop, tablet, mobile } from '@wordpress/icons';
 
 import AutoAnimateModal from './AutoAnimate';
 import { store as previewStore } from './previewStore';
+import { useFocusAfterDialog } from './keyboardFocus';
 
 const DEVICE_OPTIONS = [
 	{
@@ -156,6 +158,19 @@ function MotionBlocksPagePanel() {
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
 	const [ autoAnimateOpen, setAutoAnimateOpen ] = useState( false );
 
+	// Confirming "Remove all animations" disables the button that
+	// opened the dialog, so the dialog can't return focus to it. After
+	// a keyboard-opened dialog, focus goes to "Auto-animate this …".
+	const { ref: autoAnimateRef, noteOpener } =
+		useFocusAfterDialog( confirmOpen );
+
+	// The confirm dialog hides its header, so it gets its name from
+	// `contentLabel` and its question as the description.
+	const removeAllMessageId = useInstanceId(
+		MotionBlocksPagePanel,
+		'mb-remove-all-message'
+	);
+
 	const setMetaValue = ( key, value ) => {
 		setMeta( { ...meta, [ key ]: value } );
 	};
@@ -204,6 +219,7 @@ function MotionBlocksPagePanel() {
 				{ /* Primary action: walk the page and apply tasteful
 				   animations in one click. */ }
 				<Button
+					ref={ autoAnimateRef }
 					variant="primary"
 					className="mb-auto-animate-button"
 					onClick={ () => setAutoAnimateOpen( true ) }
@@ -251,7 +267,10 @@ function MotionBlocksPagePanel() {
 						variant="secondary"
 						isDestructive
 						className="mb-remove-button"
-						onClick={ () => setConfirmOpen( true ) }
+						onClick={ ( event ) => {
+							noteOpener( event );
+							setConfirmOpen( true );
+						} }
 						disabled={ animatedCount === 0 }
 						__next40pxDefaultSize
 					>
@@ -265,18 +284,22 @@ function MotionBlocksPagePanel() {
 				onConfirm={ handleRemoveAll }
 				onCancel={ () => setConfirmOpen( false ) }
 				confirmButtonText={ __( 'Remove', 'motion-blocks' ) }
+				contentLabel={ __( 'Remove all animations', 'motion-blocks' ) }
+				aria={ { describedby: removeAllMessageId } }
 			>
-				{ sprintf(
-					/* translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks */
-					_n(
-						'Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button.',
-						'Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button.',
-						animatedCount,
-						'motion-blocks'
-					),
-					contextNoun,
-					animatedCount
-				) }
+				<span id={ removeAllMessageId }>
+					{ sprintf(
+						/* translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks */
+						_n(
+							'Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button.',
+							'Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button.',
+							animatedCount,
+							'motion-blocks'
+						),
+						contextNoun,
+						animatedCount
+					) }
+				</span>
 			</ConfirmDialog>
 
 			<AutoAnimateModal

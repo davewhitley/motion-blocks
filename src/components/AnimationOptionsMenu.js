@@ -22,6 +22,8 @@ import {
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
 import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
+import { useInstanceId } from '@wordpress/compose';
+import { speak } from '@wordpress/a11y';
 import {
 	store as blockEditorStore,
 	useSetting,
@@ -42,6 +44,7 @@ import {
 } from './savedAnimations';
 import SavedAnimationsModal from './SavedAnimationsModal';
 import { selectSameTypeInfo } from './selectStable';
+import { useFocusAfterDialog } from './keyboardFocus';
 
 /**
  * Module-level clipboard — persists across block selections
@@ -62,6 +65,7 @@ export default function AnimationOptionsMenu( {
 	onPaste,
 	onReset,
 	onRemove,
+	onBeforeModeSwitch,
 	pasteOnly,
 } ) {
 	// Look up the block-type display title (e.g. "Image" for
@@ -125,6 +129,24 @@ export default function AnimationOptionsMenu( {
 	const [ saveModalOpen, setSaveModalOpen ] = useState( false );
 	const [ deletePending, setDeletePending ] = useState( null ); // { uid, name }
 
+	// The menu item that opens a dialog unmounts with the menu, so the
+	// dialog can have nowhere to return focus to. After a keyboard-
+	// opened dialog closes, focus goes back to the Options toggle.
+	const { ref: toggleRef, noteOpener } = useFocusAfterDialog(
+		confirmOpen || saveModalOpen || !! deletePending
+	);
+
+	// The confirm dialogs hide their header, so they get their name
+	// from `contentLabel` and their question as the description.
+	const applyMessageId = useInstanceId(
+		AnimationOptionsMenu,
+		'mb-apply-to-all-message'
+	);
+	const deleteMessageId = useInstanceId(
+		AnimationOptionsMenu,
+		'mb-delete-saved-message'
+	);
+
 	const hasAnimation = !! attributes?.animationMode;
 	const canApplyToAll =
 		! pasteOnly &&
@@ -136,6 +158,8 @@ export default function AnimationOptionsMenu( {
 
 	const handleCopy = ( onClose ) => {
 		copiedAnimation = pickAnimationAttributes( attributes );
+		// Copy changes nothing on screen, so tell screen readers it worked.
+		speak( __( 'Animation copied.', 'motion-blocks' ) );
 		onClose();
 	};
 
@@ -260,6 +284,16 @@ export default function AnimationOptionsMenu( {
 		onClose();
 	};
 
+	// A saved or theme animation in another mode remounts the panel and
+	// drops focus to <body>, like a mode switch, so tell the panel first.
+	const applySaved = ( saved, onClose ) => {
+		const mode = saved?.attributes?.animationMode;
+		if ( onBeforeModeSwitch && mode && mode !== attributes.animationMode ) {
+			onBeforeModeSwitch();
+		}
+		handleApplySaved( saved, onClose );
+	};
+
 	const handleDeleteSaved = async () => {
 		if ( ! deletePending?.uid ) {
 			return;
@@ -306,7 +340,7 @@ export default function AnimationOptionsMenu( {
 				icon={ moreVertical }
 				label={ __( 'Options', 'motion-blocks' ) }
 				className="mb-options-button"
-				toggleProps={ { size: 'small' } }
+				toggleProps={ { size: 'small', ref: toggleRef } }
 			>
 				{ ( { onClose } ) => (
 					<>
@@ -328,9 +362,10 @@ export default function AnimationOptionsMenu( {
 							{ ! pasteOnly && blockName && (
 								<MenuItem
 									disabled={ ! canApplyToAll }
-									onClick={ () =>
-										handleApplyClick( onClose )
-									}
+									onClick={ ( event ) => {
+										noteOpener( event );
+										handleApplyClick( onClose );
+									} }
 								>
 									{ applyLabel }
 								</MenuItem>
@@ -341,7 +376,8 @@ export default function AnimationOptionsMenu( {
 							<MenuGroup>
 								<MenuItem
 									disabled={ ! canSave }
-									onClick={ () => {
+									onClick={ ( event ) => {
+										noteOpener( event );
 										setSaveModalOpen( true );
 										onClose();
 									} }
@@ -365,10 +401,7 @@ export default function AnimationOptionsMenu( {
 									<MenuItem
 										key={ slug }
 										onClick={ () =>
-											handleApplySaved(
-												saved,
-												onClose
-											)
+											applySaved( saved, onClose )
 										}
 									>
 										{ saved.name || slug }
@@ -399,10 +432,7 @@ export default function AnimationOptionsMenu( {
 										<MenuItem
 											className="mb-saved-animation-row__apply"
 											onClick={ () =>
-												handleApplySaved(
-													saved,
-													onClose
-												)
+												applySaved( saved, onClose )
 											}
 										>
 											{ saved.name || uid }
@@ -419,7 +449,8 @@ export default function AnimationOptionsMenu( {
 												),
 												saved.name || uid
 											) }
-											onClick={ () => {
+											onClick={ ( event ) => {
+												noteOpener( event );
 												setDeletePending( {
 													uid,
 													name: saved.name,
@@ -468,34 +499,41 @@ export default function AnimationOptionsMenu( {
 				onConfirm={ onConfirmApplyToAll }
 				onCancel={ () => setConfirmOpen( false ) }
 				confirmButtonText={ __( 'Apply', 'motion-blocks' ) }
+				contentLabel={ __(
+					'Apply animation to other blocks',
+					'motion-blocks'
+				) }
+				aria={ { describedby: applyMessageId } }
 			>
-				{ [
-					sprintf(
-						/* translators: 1: target count, 2: block-type label */
-						_n(
-							'Apply this animation to %1$d other %2$s block?',
-							'Apply this animation to %1$d other %2$s blocks?',
+				<span id={ applyMessageId }>
+					{ [
+						sprintf(
+							/* translators: 1: target count, 2: block-type label */
+							_n(
+								'Apply this animation to %1$d other %2$s block?',
+								'Apply this animation to %1$d other %2$s blocks?',
+								matchingIds.length,
+								'motion-blocks'
+							),
 							matchingIds.length,
+							typeLabel
+						),
+						sprintf(
+							/* translators: %d: how many of those blocks already have an animation */
+							_n(
+								'%d already has an animation and will be overwritten.',
+								'%d already have animations and will be overwritten.',
+								existingCount,
+								'motion-blocks'
+							),
+							existingCount
+						),
+						__(
+							'This can be reversed using the Undo button.',
 							'motion-blocks'
 						),
-						matchingIds.length,
-						typeLabel
-					),
-					sprintf(
-						/* translators: %d: how many of those blocks already have an animation */
-						_n(
-							'%d already has an animation and will be overwritten.',
-							'%d already have animations and will be overwritten.',
-							existingCount,
-							'motion-blocks'
-						),
-						existingCount
-					),
-					__(
-						'This can be reversed using the Undo button.',
-						'motion-blocks'
-					),
-				].join( ' ' ) }
+					].join( ' ' ) }
+				</span>
 			</ConfirmDialog>
 
 			{ /* Save modal — name prompt */ }
@@ -511,15 +549,19 @@ export default function AnimationOptionsMenu( {
 				onConfirm={ handleDeleteSaved }
 				onCancel={ () => setDeletePending( null ) }
 				confirmButtonText={ __( 'Delete', 'motion-blocks' ) }
+				contentLabel={ __( 'Delete saved animation', 'motion-blocks' ) }
+				aria={ { describedby: deleteMessageId } }
 			>
-				{ sprintf(
-					/* translators: %s: saved animation name */
-					__(
-						"Delete '%s'? This won't affect blocks already using it.",
-						'motion-blocks'
-					),
-					deletePending?.name || ''
-				) }
+				<span id={ deleteMessageId }>
+					{ sprintf(
+						/* translators: %s: saved animation name */
+						__(
+							"Delete '%s'? This won't affect blocks already using it.",
+							'motion-blocks'
+						),
+						deletePending?.name || ''
+					) }
+				</span>
 			</ConfirmDialog>
 		</>
 	);

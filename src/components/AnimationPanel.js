@@ -5,9 +5,10 @@
  * or the matching sub-panel when a mode is active.
  */
 
-import { PanelBody, Icon, Notice } from '@wordpress/components';
+import { PanelBody, Icon, Notice, VisuallyHidden } from '@wordpress/components';
 import { useRef, useCallback, useState, useEffect } from '@wordpress/element';
 import { useSelect, useDispatch } from '@wordpress/data';
+import { speak } from '@wordpress/a11y';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
 import { __, sprintf } from '@wordpress/i18n';
@@ -18,6 +19,7 @@ import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import { isKeyboardActivation } from './keyboardFocus';
 import { selectAnimatedAncestor } from './selectStable';
 import { stripUiState } from './savedAnimations';
 import {
@@ -265,6 +267,36 @@ export default function AnimationPanel( {
 		setAttributes( { animationPreviewPlaying: false } );
 	}, [ setAttributes ] );
 
+	// Choosing, switching or pasting a mode and removing the animation
+	// each unmount the control that had focus, which drops focus to
+	// <body>. For keyboard activation only, note the block here; the
+	// effect below then focuses the mode picker toggle (a mode is set)
+	// or the first mode card (removed). Mouse clicks are left alone so
+	// no focus ring appears that a mouse user didn't see before.
+	const panelRef = useRef( null );
+	const pendingFocusRef = useRef( null );
+	const requestFocusRestore = useCallback(
+		( event ) => {
+			pendingFocusRef.current = isKeyboardActivation( event )
+				? clientId
+				: null;
+		},
+		[ clientId ]
+	);
+	useEffect( () => {
+		const pendingClientId = pendingFocusRef.current;
+		pendingFocusRef.current = null;
+		if ( pendingClientId !== clientId || ! panelRef.current ) {
+			return;
+		}
+		const target = panelRef.current.querySelector(
+			animationMode ? '.mb-mode-picker__toggle' : '.mb-mode-card'
+		);
+		if ( target ) {
+			target.focus();
+		}
+	}, [ animationMode, clientId ] );
+
 	/**
 	 * Set animation mode and initialize defaults.
 	 *
@@ -276,8 +308,12 @@ export default function AnimationPanel( {
 	 * that key, only `animationEntryType` / `animationExitType`. The
 	 * `migrateScrollAppearAttrs` shim only kicks in for legacy blocks
 	 * carrying `animationScrollTrigger`, not freshly-created ones.
+	 *
+	 * @param {string} mode    Mode to set.
+	 * @param {Event}  [event] The mode card's click event.
 	 */
-	const selectMode = ( mode ) => {
+	const selectMode = ( mode, event ) => {
+		requestFocusRestore( event );
 		const next = {
 			animationMode: mode,
 			animationType: DEFAULT_ATTRIBUTES.animationType,
@@ -338,6 +374,7 @@ export default function AnimationPanel( {
 			...resetAnimationAttributes( animationMode ),
 			animationPreviewPlaying: false,
 		} );
+		speak( __( 'Animation settings reset.', 'motion-blocks' ) );
 	}, [ setAttributes, animationMode ] );
 
 	/**
@@ -368,16 +405,33 @@ export default function AnimationPanel( {
 		} );
 	};
 
+	// `event` is the click from the bottom Remove button; the kebab's
+	// Remove item calls back without one.
+	const handleRemove = ( event ) => {
+		requestFocusRestore( event );
+		removeAnimation();
+		speak( __( 'Animation removed.', 'motion-blocks' ) );
+	};
+
+	// A paste that changes the mode remounts the panel the same way.
+	const handlePaste = ( data ) => {
+		if ( data?.animationMode && data.animationMode !== animationMode ) {
+			requestFocusRestore();
+		}
+		pasteAnimation( data );
+		speak( __( 'Animation pasted.', 'motion-blocks' ) );
+	};
+
 	const panelTitle = animationMode ? (
 		<span className="mb-panel-title">
 			{ __( 'Motion Effects', 'motion-blocks' ) }
-			<span
-				className="mb-panel-title__dot"
-				aria-label={ __(
+			<span className="mb-panel-title__dot" aria-hidden="true" />
+			<VisuallyHidden as="span">
+				{ __(
 					'Motion effect configured on this block',
 					'motion-blocks'
 				) }
-			/>
+			</VisuallyHidden>
 		</span>
 	) : (
 		__( 'Motion Effects', 'motion-blocks' )
@@ -385,6 +439,7 @@ export default function AnimationPanel( {
 
 	return (
 		<PanelBody
+			ref={ panelRef }
 			title={ panelTitle }
 			initialOpen={ !! animationMode }
 		>
@@ -442,7 +497,8 @@ export default function AnimationPanel( {
 							attributes={ attributes }
 							blockName={ blockName }
 							clientId={ clientId }
-							onPaste={ pasteAnimation }
+							onPaste={ handlePaste }
+							onBeforeModeSwitch={ requestFocusRestore }
 							pasteOnly
 						/>
 					</div>
@@ -450,7 +506,9 @@ export default function AnimationPanel( {
 						<button
 							type="button"
 							className="mb-mode-card"
-							onClick={ () => selectMode( 'page-load' ) }
+							onClick={ ( event ) =>
+								selectMode( 'page-load', event )
+							}
 						>
 							<div className="mb-mode-card__header">
 								<Icon icon={ desktop } size={ 24 } />
@@ -471,7 +529,9 @@ export default function AnimationPanel( {
 						<button
 							type="button"
 							className="mb-mode-card"
-							onClick={ () => selectMode( 'scroll-appear' ) }
+							onClick={ ( event ) =>
+								selectMode( 'scroll-appear', event )
+							}
 						>
 							<div className="mb-mode-card__header">
 								<Icon icon={ seen } size={ 24 } />
@@ -492,8 +552,8 @@ export default function AnimationPanel( {
 						<button
 							type="button"
 							className="mb-mode-card"
-							onClick={ () =>
-								selectMode( 'scroll-interactive' )
+							onClick={ ( event ) =>
+								selectMode( 'scroll-interactive', event )
 							}
 						>
 							<div className="mb-mode-card__header">
@@ -522,14 +582,15 @@ export default function AnimationPanel( {
 					setAttributes={ setAttributes }
 					blockName={ blockName }
 					clientId={ clientId }
-					onRemove={ removeAnimation }
+					onRemove={ handleRemove }
+					onBeforeModeSwitch={ requestFocusRestore }
 					onPreview={ replayPreview }
 					onStopPreview={ stopPreview }
 					isLoopRunning={
 						isLoopingMode && animationPreviewPlaying
 					}
 					isPlayPending={ isPlayPending }
-					onPaste={ pasteAnimation }
+					onPaste={ handlePaste }
 					onReset={ resetSettings }
 				/>
 			) }
@@ -540,10 +601,11 @@ export default function AnimationPanel( {
 					setAttributes={ setAttributes }
 					blockName={ blockName }
 					clientId={ clientId }
-					onRemove={ removeAnimation }
+					onRemove={ handleRemove }
+					onBeforeModeSwitch={ requestFocusRestore }
 					onPreview={ replayPreview }
 					isPlayPending={ isPlayPending }
-					onPaste={ pasteAnimation }
+					onPaste={ handlePaste }
 					onReset={ resetSettings }
 				/>
 			) }
@@ -554,8 +616,9 @@ export default function AnimationPanel( {
 					setAttributes={ setAttributes }
 					blockName={ blockName }
 					clientId={ clientId }
-					onRemove={ removeAnimation }
-					onPaste={ pasteAnimation }
+					onRemove={ handleRemove }
+					onBeforeModeSwitch={ requestFocusRestore }
+					onPaste={ handlePaste }
 					onReset={ resetSettings }
 				/>
 			) }

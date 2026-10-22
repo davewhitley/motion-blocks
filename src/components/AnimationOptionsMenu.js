@@ -67,6 +67,7 @@ export default function AnimationOptionsMenu( {
 	onPaste,
 	onReset,
 	onRemove,
+	onBeforeModeSwitch,
 	pasteOnly,
 } ) {
 	// Look up the block-type display title (e.g. "Image" for
@@ -268,6 +269,16 @@ export default function AnimationOptionsMenu( {
 		onClose();
 	};
 
+	// A saved or theme animation in another mode remounts the panel and
+	// drops focus to <body>, like a mode switch, so tell the panel first.
+	const applySaved = ( saved, onClose ) => {
+		const mode = saved?.attributes?.animationMode;
+		if ( onBeforeModeSwitch && mode && mode !== attributes.animationMode ) {
+			onBeforeModeSwitch();
+		}
+		handleApplySaved( saved, onClose );
+	};
+
 	const handleDeleteSaved = async () => {
 		if ( ! deletePending?.uid ) {
 			return;
@@ -375,10 +386,7 @@ export default function AnimationOptionsMenu( {
 									<MenuItem
 										key={ slug }
 										onClick={ () =>
-											handleApplySaved(
-												saved,
-												onClose
-											)
+											applySaved( saved, onClose )
 										}
 									>
 										{ saved.name || slug }
@@ -409,10 +417,7 @@ export default function AnimationOptionsMenu( {
 										<MenuItem
 											className="mb-saved-animation-row__apply"
 											onClick={ () =>
-												handleApplySaved(
-													saved,
-													onClose
-												)
+												applySaved( saved, onClose )
 											}
 										>
 											{ saved.name || uid }

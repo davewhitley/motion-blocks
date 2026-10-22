@@ -171,6 +171,7 @@ export default function SubPanelModeHeader( {
 					onPaste={ onPaste }
 					onReset={ onReset }
 					onRemove={ onRemove }
+					onBeforeModeSwitch={ onBeforeModeSwitch }
 				/>
 			</div>
 			{ helpText && (

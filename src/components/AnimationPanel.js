@@ -491,6 +491,7 @@ export default function AnimationPanel( {
 							blockName={ blockName }
 							clientId={ clientId }
 							onPaste={ handlePaste }
+							onBeforeModeSwitch={ requestFocusRestore }
 							pasteOnly
 						/>
 					</div>

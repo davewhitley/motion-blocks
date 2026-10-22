@@ -21,10 +21,12 @@ import {
 	Dropdown,
 	MenuGroup,
 	MenuItem,
+	NavigableMenu,
 	VisuallyHidden,
 } from '@wordpress/components';
 import { useInstanceId } from '@wordpress/compose';
-import { __ } from '@wordpress/i18n';
+import { speak } from '@wordpress/a11y';
+import { __, sprintf } from '@wordpress/i18n';
 import { desktop, seen, chevronDown } from '@wordpress/icons';
 
 import AnimationOptionsMenu from './AnimationOptionsMenu';
@@ -75,6 +77,7 @@ export default function SubPanelModeHeader( {
 	onPaste,
 	onReset,
 	onRemove,
+	onBeforeModeSwitch,
 } ) {
 	// The toggle's accessible name is its visible text (the current
 	// mode), so voice-control users can say what they see (WCAG 2.5.3).
@@ -97,6 +100,7 @@ export default function SubPanelModeHeader( {
 							size="compact"
 							className="mb-mode-picker__toggle"
 							aria-expanded={ isOpen }
+							aria-haspopup="true"
 							aria-describedby={ descriptionId }
 							onClick={ onToggle }
 						>
@@ -108,26 +112,53 @@ export default function SubPanelModeHeader( {
 						</Button>
 					) }
 					renderContent={ ( { onClose } ) => (
-						<MenuGroup>
-							{ MODE_ORDER.map( ( m ) => (
-								<MenuItem
-									key={ m }
-									icon={ getIcon( m ) }
-									disabled={ m === mode }
-									onClick={ () => {
-										setAttributes(
-											switchModeAttributes(
-												attributes,
-												m
-											)
-										);
-										onClose();
-									} }
-								>
-									{ getLabel( m ) }
-								</MenuItem>
-							) ) }
-						</MenuGroup>
+						// NavigableMenu supplies the role="menu" parent the
+						// menuitems need and Up/Down arrow-key movement
+						// between them, matching the kebab DropdownMenu.
+						// It renders a plain unstyled div.
+						<NavigableMenu
+							aria-label={ __(
+								'Animation mode',
+								'motion-blocks'
+							) }
+						>
+							<MenuGroup>
+								{ MODE_ORDER.map( ( m ) => (
+									<MenuItem
+										key={ m }
+										icon={ getIcon( m ) }
+										disabled={ m === mode }
+										onClick={ ( event ) => {
+											// Switching remounts the whole
+											// sub-panel; lets the parent put
+											// keyboard focus back on the toggle.
+											if ( onBeforeModeSwitch ) {
+												onBeforeModeSwitch( event );
+											}
+											setAttributes(
+												switchModeAttributes(
+													attributes,
+													m
+												)
+											);
+											speak(
+												sprintf(
+													/* translators: %s: animation mode, e.g. "Appear on scroll" */
+													__(
+														'Mode changed to %s.',
+														'motion-blocks'
+													),
+													getLabel( m )
+												)
+											);
+											onClose();
+										} }
+									>
+										{ getLabel( m ) }
+									</MenuItem>
+								) ) }
+							</MenuGroup>
+						</NavigableMenu>
 					) }
 				/>
 				<VisuallyHidden as="span" id={ descriptionId }>
@@ -140,6 +171,7 @@ export default function SubPanelModeHeader( {
 					onPaste={ onPaste }
 					onReset={ onReset }
 					onRemove={ onRemove }
+					onBeforeModeSwitch={ onBeforeModeSwitch }
 				/>
 			</div>
 			{ helpText && (

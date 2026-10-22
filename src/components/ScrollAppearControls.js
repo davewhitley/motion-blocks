@@ -43,6 +43,7 @@ export default function ScrollAppearControls( props ) {
 		blockName,
 		clientId,
 		onRemove,
+		onBeforeModeSwitch,
 		onPreview,
 		isPlayPending,
 		onPaste,
@@ -110,6 +111,7 @@ export default function ScrollAppearControls( props ) {
 				onPaste={ onPaste }
 				onReset={ onReset }
 				onRemove={ onRemove }
+				onBeforeModeSwitch={ onBeforeModeSwitch }
 				helpText={ __(
 					'Trigger animations when the element enters or exits the screen.',
 					'motion-blocks'

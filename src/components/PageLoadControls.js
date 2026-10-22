@@ -17,6 +17,7 @@ import {
 	Button,
 	Notice,
 } from '@wordpress/components';
+import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -74,6 +75,7 @@ export default function PageLoadControls( {
 	blockName,
 	clientId,
 	onRemove,
+	onBeforeModeSwitch,
 	onPreview,
 	onStopPreview,
 	isLoopRunning,
@@ -93,6 +95,11 @@ export default function PageLoadControls( {
 		animationRepeat,
 		animationPauseOffscreen,
 	} = attributes;
+
+	// True when the last Preview press came from the keyboard. See the
+	// Preview button below.
+	const [ keepFocusWhilePending, setKeepFocusWhilePending ] =
+		useState( false );
 
 	// Filter dropdown options:
 	// - `-out` preset variants (`fade-out`, `slide-out`, etc.) are
@@ -219,6 +226,7 @@ export default function PageLoadControls( {
 				onPaste={ onPaste }
 				onReset={ onReset }
 				onRemove={ onRemove }
+				onBeforeModeSwitch={ onBeforeModeSwitch }
 				helpText={ __(
 					'Plays once (or loops continuously) when the page first loads.',
 					'motion-blocks'
@@ -265,12 +273,39 @@ export default function PageLoadControls( {
 							: __( 'Preview animation', 'motion-blocks' )
 					}
 					variant="secondary"
-					onClick={ isLoopRunning ? onStopPreview : onPreview }
+					onClick={ ( event ) => {
+						// `detail` is 0 for Enter / Space presses.
+						setKeepFocusWhilePending( event.detail === 0 );
+						const handler = isLoopRunning
+							? onStopPreview
+							: onPreview;
+						if ( handler ) {
+							handler( event );
+						}
+					} }
+					onBlur={ ( event ) => {
+						// Ignore the blur the browser sends when the whole
+						// window loses focus (switching apps or tabs mid
+						// preview): focus is still on the button and comes
+						// back to it, so it must stay focusable.
+						if ( event.currentTarget.ownerDocument.hasFocus() ) {
+							setKeepFocusWhilePending( false );
+						}
+					} }
 					// Disable while a one-shot preview is in flight to
 					// prevent jumpy mid-playback restarts. Looping
 					// previews are exempt — the button is a stop
 					// toggle in that mode.
 					disabled={ ! isLoopRunning && isPlayPending }
+					// A natively disabled button drops keyboard focus
+					// to the page. After a keyboard press, disable it
+					// with aria-disabled instead so focus stays put.
+					// Mouse clicks keep the native disable, so the
+					// button still loses focus (and its focus ring)
+					// as before. `__experimentalIsFocusable` is the
+					// pre-6.7 name of the same prop.
+					accessibleWhenDisabled={ keepFocusWhilePending }
+					__experimentalIsFocusable={ keepFocusWhilePending }
 					__next40pxDefaultSize
 				/>
 			</HStack>

@@ -73,6 +73,7 @@ export default function ScrollInteractiveControls( {
 	blockName,
 	clientId,
 	onRemove,
+	onBeforeModeSwitch,
 	onPaste,
 	onReset,
 } ) {
@@ -224,6 +225,7 @@ export default function ScrollInteractiveControls( {
 				onPaste={ onPaste }
 				onReset={ onReset }
 				onRemove={ onRemove }
+				onBeforeModeSwitch={ onBeforeModeSwitch }
 				helpText={ __(
 					'Ties animation progress directly to scroll position.',
 					'motion-blocks'
@@ -320,6 +322,8 @@ export default function ScrollInteractiveControls( {
 						</InfoPopover>
 					</HStack>
 					<RangeControl
+						label={ __( 'Scroll Preview', 'motion-blocks' ) }
+						hideLabelFromVision
 						className="mb-scrub-range"
 						value={ scrubValue }
 						onChange={ ( v ) => {
@@ -555,6 +559,8 @@ export default function ScrollInteractiveControls( {
 					</InfoPopover>
 				</HStack>
 				<RangeControl
+					label={ __( 'Start Offset', 'motion-blocks' ) }
+					hideLabelFromVision
 					value={ startOffset }
 					onChange={ ( value ) =>
 						setAttributes( {
@@ -595,6 +601,8 @@ export default function ScrollInteractiveControls( {
 					</InfoPopover>
 				</HStack>
 				<RangeControl
+					label={ __( 'End Offset', 'motion-blocks' ) }
+					hideLabelFromVision
 					value={ endOffset }
 					onChange={ ( value ) =>
 						setAttributes( {

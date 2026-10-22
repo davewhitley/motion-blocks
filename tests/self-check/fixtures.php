@@ -32,10 +32,55 @@
  * the console. Each result's `id` (plus `#issue`, when it has one)
  * should match the page's `expect` list. When a bug is fixed, delete its
  * expectation here: the page then has to come back clean.
+ *
+ * Automated run (what CI does): `tests/self-check/run.mjs` takes the
+ * `json` manifest and does all of the above in headless Chrome, for
+ * every page, with and without prefers-reduced-motion, plus the editor
+ * check. Locally, against a Studio site with Self-check turned on:
+ *
+ *   studio wp eval-file ../animation-controls-plugin/tests/self-check/fixtures.php json > /tmp/manifest.json
+ *   cd ../animation-controls-plugin
+ *   npm run test:pages -- --manifest /tmp/manifest.json
+ *
+ * (`--login studio`, the default, logs in through Studio's auto-login
+ * URL; `node tests/self-check/run.mjs --help` lists the options.)
+ *
+ * Outside WP-CLI: the script also runs from plain PHP once WordPress is
+ * loaded, with `$args` set by the caller. CI's WordPress Playground
+ * blueprint (tests/self-check/blueprint.json) does exactly that:
+ *
+ *   require '/wordpress/wp-load.php';
+ *   $args = array( 'json' );
+ *   require '.../tests/self-check/fixtures.php';
+ *
+ * WP-CLI's output helpers are used when present; without them messages
+ * go to STDERR (or the PHP error log) and the table is printed as plain
+ * text. Behaviour under WP-CLI is unchanged.
  */
 
+/**
+ * Prints a message for the person running the script: to STDERR, or to
+ * the PHP error log when there is no STDERR (outside the CLI).
+ */
+function mb_self_check_warn( $message ) {
+	if ( defined( 'STDERR' ) ) {
+		fwrite( STDERR, $message . "\n" );
+	} else {
+		error_log( $message );
+	}
+}
+
+/** WP_CLI::error() when available, otherwise warn and exit 1. */
+function mb_self_check_fail( $message ) {
+	if ( class_exists( 'WP_CLI' ) ) {
+		WP_CLI::error( $message );
+	}
+	mb_self_check_warn( 'Error: ' . $message );
+	exit( 1 );
+}
+
 if ( ! function_exists( 'motion_blocks_render_block' ) ) {
-	fwrite( STDERR, "Motion Blocks is not active on this site.\n" );
+	mb_self_check_warn( 'Motion Blocks is not active on this site.' );
 	exit( 1 );
 }
 
@@ -326,6 +371,46 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
+		'once-exit-near-top'  => array(
+			'title'   => 'Entry once + Exit near the top',
+			'note'    => 'Three tall Scroll Appear groups (blue, Entry Replay "Once" + Exit) at the very top of a short page, so after a jump back to the top (Home key, "back to top" link) each one sits partly on screen or just short of the trigger zone. They must come back already shown, not replay their fade-in when you scroll down again.',
+			'content' => mb_self_check_group(
+				mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 1' ) . mb_self_check_spacer( 330 ),
+				array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+						)
+					),
+				MB_SELF_CHECK_COLORS['group']
+			)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 2' ) . mb_self_check_spacer( 330 ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_paragraph( 'Spacer paragraph' )
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 3' ) . mb_self_check_spacer( 330 ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				),
+			'expect'                => array(),
+			'expect_reduced_motion' => array(),
+		),
 		'stagger-limit'       => array(
 			'title'   => 'Stagger limit',
 			'note'    => 'A staggered list (purple) with 35 items. Stagger delays stop at 30, so items 31–35 all appear at the same moment.',
@@ -457,7 +542,7 @@ function mb_self_check_fixtures( $image ) {
 			'expect'  => array(),
 		);
 	} else {
-		fwrite( STDERR, "No image available (empty media library and no GD): skipping the motion-off fixture.\n" );
+		mb_self_check_warn( 'No image available (empty media library and no GD): skipping the motion-off fixture.' );
 	}
 
 	return $fixtures;
@@ -852,7 +937,12 @@ if ( 'delete' === $mb_mode ) {
 	foreach ( $pages as $page ) {
 		wp_delete_post( $page->ID, true );
 	}
-	WP_CLI::success( count( $pages ) . ' fixture page(s) deleted.' );
+	$mb_deleted = count( $pages ) . ' fixture page(s) deleted.';
+	if ( class_exists( 'WP_CLI' ) ) {
+		WP_CLI::success( $mb_deleted );
+	} else {
+		echo 'Success: ' . $mb_deleted . "\n";
+	}
 	return;
 }
 
@@ -878,7 +968,7 @@ foreach ( $mb_fixtures as $key => $fixture ) {
 	);
 	$post_id = $post_id ? wp_update_post( wp_slash( $postarr ), true ) : wp_insert_post( wp_slash( $postarr ), true );
 	if ( is_wp_error( $post_id ) ) {
-		WP_CLI::error( "{$slug}: " . $post_id->get_error_message() );
+		mb_self_check_fail( "{$slug}: " . $post_id->get_error_message() );
 	}
 
 	update_post_meta( $post_id, '_mb_self_check_fixture', $key );
@@ -907,18 +997,23 @@ if ( 'json' === $mb_mode ) {
 	return;
 }
 
-WP_CLI\Utils\format_items(
-	'table',
-	array_map(
-		function ( $row ) {
-			return array(
-				'fixture' => $row['key'],
-				'url'     => $row['url'],
-				'expect'  => $row['expect'] ? implode( ', ', $row['expect'] ) : '(clean)',
-			);
-		},
-		$mb_manifest
-	),
-	array( 'fixture', 'url', 'expect' )
+$mb_rows = array_map(
+	function ( $row ) {
+		return array(
+			'fixture' => $row['key'],
+			'url'     => $row['url'],
+			'expect'  => $row['expect'] ? implode( ', ', $row['expect'] ) : '(clean)',
+		);
+	},
+	$mb_manifest
 );
-WP_CLI::log( 'Turn on Settings → Motion Blocks → Self-check, then run `await motionBlocksSelfCheck( { sweep: true } )` on each page.' );
+$mb_hint = 'Turn on Settings → Motion Blocks → Self-check, then run `await motionBlocksSelfCheck( { sweep: true } )` on each page.';
+if ( class_exists( 'WP_CLI' ) ) {
+	WP_CLI\Utils\format_items( 'table', $mb_rows, array( 'fixture', 'url', 'expect' ) );
+	WP_CLI::log( $mb_hint );
+} else {
+	foreach ( $mb_rows as $row ) {
+		echo implode( "\t", $row ) . "\n";
+	}
+	echo $mb_hint . "\n";
+}

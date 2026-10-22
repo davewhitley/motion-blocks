@@ -11,8 +11,8 @@ import { _x } from '@wordpress/i18n';
 
 /**
  * Wraps a unit label in core's suffix wrapper. Falls back to a plain
- * span on older cores (plugin floor is WP 6.2) where the experimental
- * export may be missing, so the panel never renders `undefined`.
+ * span if a future core drops the experimental export, so the panel
+ * never renders `undefined`.
  *
  * The `control` variant trims the end padding by 4px. Duration and
  * Delay sit side by side in the sidebar, and with the default padding

@@ -3,7 +3,7 @@
  * Plugin Name: Motion Blocks
  * Description: Add CSS animations to any block in the Site Editor
  * Version: 0.2.2
- * Requires at least: 6.2
+ * Requires at least: 6.6
  * Requires PHP: 7.4
  * Author: Dave Whitley
  * License: GPL-2.0-or-later

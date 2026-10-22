@@ -119,7 +119,7 @@ The plugin extends existing blocks via three filters. It doesn't register any ne
 
 ## Requirements
 
-- WordPress 6.4+
+- WordPress 6.6+ (the editor script needs core's `react-jsx-runtime` script and `@wordpress/editor`'s `PluginDocumentSettingPanel`, both added in 6.6)
 - PHP 7.4+
 - Browser: any with CSS animation support. Scroll Interactive mode needs scroll-driven animations (`animation-timeline: view()`); in browsers without them (e.g. Firefox, Safari before 26), Scroll Interactive blocks are shown at rest, without the effect.
 

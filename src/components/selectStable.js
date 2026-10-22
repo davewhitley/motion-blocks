@@ -27,9 +27,9 @@ export const EMPTY_IDS = [];
  *
  * `getBlocksByName` is a store selector memoized on block order and
  * block identity but not on attributes, so it hands back the same
- * array while the user types. Public since WP 6.5; the
- * `__experimental` name covers 6.2–6.4 (the plugin minimum). Checking
- * the public name first avoids the deprecation warning on 6.5+.
+ * array while the user types. The public name exists from WP 6.5; the
+ * `__experimental` name is kept as a fallback for older cores. Checking
+ * the public name first avoids the deprecation warning.
  *
  * Paste-only menus never use the ids, so they skip the lookup.
  *

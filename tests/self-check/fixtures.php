@@ -295,6 +295,12 @@ function mb_self_check_fixtures( $image ) {
 		'animationType'  => 'fade',
 		'animationDelay' => 0,
 	);
+	$page_load_flip = array(
+		'animationMode'     => 'page-load',
+		'animationType'     => 'flip',
+		'animationDuration' => 0.3,
+		'animationDelay'    => 0,
+	);
 	$cover_zoom = array(
 		'animationMode'     => 'page-load',
 		'animationType'     => 'image-zoom',
@@ -504,7 +510,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'fixed-trap'          => array(
 			'title'   => 'Fixed-position trap',
-			'note'    => 'A Page Load slide group (orange) containing a dark "Fixed child" that should sit in the bottom-right corner of the screen. After the slide finishes it keeps a transform, so the fixed child is placed inside the orange group instead.',
+			'note'    => 'A Page Load slide group (orange) and a Page Load flip group (blue), each containing a dark "Fixed child" that should sit in the bottom-right corner of the screen. After the slide finishes it keeps a transform, so its fixed child is placed inside the orange group instead; the flip group keeps its 3D context the same way. With reduced motion on, both fixed children must sit in the screen corner.',
 			'content' => mb_self_check_group(
 				mb_self_check_paragraph( 'Group · Page Load · Slide up' )
 				. mb_self_check_block(
@@ -520,7 +526,17 @@ function mb_self_check_fixtures( $image ) {
 					'animationDelay'     => 0,
 				),
 				MB_SELF_CHECK_COLORS['slide']
-			),
+			)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Page Load · Flip' )
+					. mb_self_check_block(
+						'html',
+						array(),
+						'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:48px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child of the flip group (should be in the screen corner)</div>'
+					),
+					$page_load_flip,
+					MB_SELF_CHECK_COLORS['group']
+				),
 			'expect'                => array( 'fixed-trap' ),
 			'expect_reduced_motion' => array(),
 		),
@@ -595,9 +611,32 @@ function mb_self_check_fixtures( $image ) {
 	if ( $image ) {
 		$fixtures['motion-off'] = array(
 			'title'   => 'Motion off',
-			'note'    => 'Animations are turned off for this page on every device, so nothing should move: the looping Cover image zoom and the staggered list (purple) stay still and fully visible, with or without reduced motion.',
+			'note'    => 'Animations are turned off for this page on every device, so nothing should move: the looping Cover image zoom, the staggered list (purple), the flip group (blue) and the staggered flip group (orange) stay still and fully visible, with or without reduced motion. Both dark "Fixed child" boxes must sit in the bottom-right corner of the screen, not inside their group: Flip\'s 3D context is reset along with the animation.',
 			'content' => mb_self_check_cover( $image, $cover_zoom )
-				. mb_self_check_list( 8, $stagger_list, MB_SELF_CHECK_COLORS['list'] ),
+				. mb_self_check_list( 8, $stagger_list, MB_SELF_CHECK_COLORS['list'] )
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Page Load · Flip' )
+					. mb_self_check_block(
+						'html',
+						array(),
+						'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:12px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child of the flip group (should be in the screen corner)</div>'
+					),
+					$page_load_flip,
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Page Load · Flip · Stagger (child 1)' )
+					. mb_self_check_group(
+						mb_self_check_paragraph( 'Child 2: a group holding a fixed element' )
+						. mb_self_check_block(
+							'html',
+							array(),
+							'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:48px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child of a staggered flip item (should be in the screen corner)</div>'
+						)
+					),
+					array_merge( $page_load_flip, array( 'animationStaggerEnabled' => true ) ),
+					MB_SELF_CHECK_COLORS['stagger']
+				),
 			'meta'    => array(
 				'mb_disabled_desktop' => '1',
 				'mb_disabled_tablet'  => '1',

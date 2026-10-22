@@ -593,14 +593,93 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	}
 
 	/**
+	 * Does this element form a containing block for `position: fixed`
+	 * descendants? Covers the three sources Motion Blocks can set.
+	 */
+	function containsFixed( el ) {
+		var style = getComputedStyle( el );
+		return (
+			style.transform !== 'none' ||
+			style.filter !== 'none' ||
+			style.transformStyle === 'preserve-3d'
+		);
+	}
+
+	/** The first fixed-position descendant of `el`, or null. */
+	function firstFixedDescendant( el ) {
+		var descendants = el.querySelectorAll( '*' );
+		var limit = Math.min( descendants.length, FIXED_SCAN_LIMIT );
+		for ( var i = 0; i < limit; i++ ) {
+			if ( getComputedStyle( descendants[ i ] ).position === 'fixed' ) {
+				return descendants[ i ];
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * What the motion-off CSS pins at rest for one block: the wrapper
+	 * and, on a Stagger parent, each child (both forms, GH #66). The
+	 * Cover's `img:first-of-type` is pinned too but can't hold a fixed
+	 * descendant, so it isn't scanned.
+	 */
+	function restTargets( el ) {
+		var targets = [ el ];
+		if ( el.classList.contains( 'mb-stagger-parent' ) ) {
+			Array.prototype.forEach.call( el.children, function ( child ) {
+				if ( child.classList.contains( 'wp-block-group__inner-container' ) ) {
+					targets = targets.concat(
+						Array.prototype.slice.call( child.children )
+					);
+				} else {
+					targets.push( child );
+				}
+			} );
+		}
+		return targets;
+	}
+
+	/**
 	 * A finished animation that keeps its last frame applied (fill
 	 * forwards/both) still has a transform, even an identity one, so
 	 * fixed-position descendants are laid out relative to the block
 	 * instead of the screen. This is the bug `.mb-settled` exists for.
+	 *
+	 * With motion off (reduced motion or a disabled device) nothing
+	 * runs, so instead every element the CSS pins at rest must be free
+	 * of containing-block sources: Flip's `transform-style: preserve-3d`
+	 * comes from a class rule, not a keyframe, so `animation: none`
+	 * alone doesn't remove it.
 	 */
 	function checkFixedTrap() {
 		var found = [];
+		var off = motionIsOff();
 		document.querySelectorAll( '.mb-animated' ).forEach( function ( el ) {
+			if ( off ) {
+				var targets = restTargets( el );
+				for ( var t = 0; t < targets.length; t++ ) {
+					if ( ! containsFixed( targets[ t ] ) ) {
+						continue;
+					}
+					var trapped = firstFixedDescendant( targets[ t ] );
+					if ( trapped ) {
+						found.push(
+							issue(
+								'fixed-trap',
+								'error',
+								el,
+								blockLabel( targets[ t ] ) +
+									' is pinned at rest because motion is off, but still forms a containing block, so the fixed-position ' +
+									blockLabel( trapped ) +
+									' inside it is placed relative to the block instead of the screen.',
+								null
+							)
+						);
+						return;
+					}
+				}
+				return;
+			}
 			var mine = el.getAnimations().filter( isOurAnimation );
 			if ( ! mine.length ) {
 				return;
@@ -612,35 +691,23 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 					( fill === 'forwards' || fill === 'both' )
 				);
 			} );
-			if ( ! holding ) {
+			if ( ! holding || ! containsFixed( el ) ) {
 				return;
 			}
-			var style = getComputedStyle( el );
-			var containsFixed =
-				style.transform !== 'none' ||
-				style.filter !== 'none' ||
-				style.transformStyle === 'preserve-3d';
-			if ( ! containsFixed ) {
-				return;
-			}
-			var descendants = el.querySelectorAll( '*' );
-			var limit = Math.min( descendants.length, FIXED_SCAN_LIMIT );
-			for ( var i = 0; i < limit; i++ ) {
-				if ( getComputedStyle( descendants[ i ] ).position === 'fixed' ) {
-					found.push(
-						issue(
-							'fixed-trap',
-							'error',
-							el,
-							blockLabel( el ) +
-								' keeps its finished animation applied, so the fixed-position ' +
-								blockLabel( descendants[ i ] ) +
-								' inside it is placed relative to the block instead of the screen (e.g. a mobile menu that renders clipped).',
-							null
-						)
-					);
-					return;
-				}
+			var fixed = firstFixedDescendant( el );
+			if ( fixed ) {
+				found.push(
+					issue(
+						'fixed-trap',
+						'error',
+						el,
+						blockLabel( el ) +
+							' keeps its finished animation applied, so the fixed-position ' +
+							blockLabel( fixed ) +
+							' inside it is placed relative to the block instead of the screen (e.g. a mobile menu that renders clipped).',
+						null
+					)
+				);
 			}
 		} );
 		return found;

@@ -7,6 +7,7 @@
  */
 import {
 	attrsForCategory,
+	buildAutoAnimateUpdates,
 	STYLE_PRESETS,
 } from '../../src/components/AutoAnimate/plan';
 import {
@@ -143,3 +144,83 @@ describe( 'attrsForCategory (Scroll Appear categories)', () => {
 		expect( out ).not.toHaveProperty( 'animationEntryType' );
 	} );
 } );
+
+/**
+ * buildAutoAnimateUpdates — the apply goes out as ONE
+ * updateBlockAttributes action (one undo step, GH #33 / #56), but each
+ * block's payload must stay exactly what attrsForCategory returns.
+ */
+describe("buildAutoAnimateUpdates", () => {
+  const block = (name, attributes = {}) => ({ name, attributes });
+  const APPLY = [
+    { clientId: "hero", category: "HERO", block: block("core/cover") },
+    {
+      clientId: "img-left",
+      category: "MEDIA",
+      block: block("core/image", { align: "left" }),
+    },
+    {
+      clientId: "img-right",
+      category: "MEDIA",
+      block: block("core/image", { align: "right" }),
+    },
+    { clientId: "img-unset", category: "MEDIA", block: block("core/image") },
+    {
+      clientId: "cols",
+      category: "STAGGER_ROW",
+      block: block("core/columns"),
+    },
+    { clientId: "group", category: "SECTION", block: block("core/group") },
+    { clientId: "cta", category: "CTA", block: block("core/buttons") },
+  ];
+
+  for (const preset of PRESETS) {
+    it(`${preset}: same payloads as attrsForCategory, in plan order`, () => {
+      const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
+        APPLY,
+        preset,
+      );
+      expect(clientIds).toEqual(APPLY.map((i) => i.clientId));
+      expect(Object.keys(attributesByClientId)).toHaveLength(APPLY.length);
+      for (const item of APPLY) {
+        expect(attributesByClientId[item.clientId]).toEqual(
+          attrsForCategory(item.category, preset, item.block),
+        );
+      }
+    });
+  }
+
+  it("leaves out items with no payload (unknown category)", () => {
+    const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
+      [
+        APPLY[0],
+        { clientId: "odd", category: "NOPE", block: block("x/y") },
+        APPLY[5],
+      ],
+      "smooth",
+    );
+    expect(clientIds).toEqual(["hero", "group"]);
+    expect(attributesByClientId).not.toHaveProperty("odd");
+  });
+
+  it("empty apply gives empty ids and map", () => {
+    expect(buildAutoAnimateUpdates([], "smooth")).toEqual({
+      clientIds: [],
+      attributesByClientId: {},
+    });
+  });
+
+  it("keeps direction-from-align for MEDIA", () => {
+    const { attributesByClientId } = buildAutoAnimateUpdates(APPLY, "smooth");
+    expect(attributesByClientId["img-left"].animationEntryDirection).toBe(
+      "ltr",
+    );
+    expect(attributesByClientId["img-right"].animationEntryDirection).toBe(
+      "rtl",
+    );
+    expect(attributesByClientId["img-unset"].animationEntryDirection).toBe(
+      "btt",
+    );
+    expect(attributesByClientId.cols.animationStaggerEnabled).toBe(true);
+  });
+});

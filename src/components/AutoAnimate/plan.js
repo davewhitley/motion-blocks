@@ -12,8 +12,10 @@
  *     descendantCount: number,                          // skipped because parent is animating
  *   }
  *
- * The dispatcher in `index.js` calls this and turns `apply` into a
- * batched `updateBlockAttributes` per category.
+ * The dispatcher in `index.js` calls this, turns `apply` into per-block
+ * payloads with `buildAutoAnimateUpdates`, and sends them all in one
+ * `updateBlockAttributes` action (`uniqueByBlock`), so the whole apply
+ * is a single undo step.
  */
 
 /**
@@ -269,6 +271,38 @@ export function attrsForCategory( category, stylePreset = 'smooth', block = null
 		default:
 			return null;
 	}
+}
+
+/**
+ * Turn the plan's `apply` list into the arguments for a single
+ * `updateBlockAttributes( clientIds, attributesByClientId, true )`
+ * call. One action carrying every block's own payload is one undo
+ * step; one call per block would be one undo step per block.
+ *
+ * Keeps plan order and leaves out items `attrsForCategory` has no
+ * payload for (unknown category).
+ *
+ * @param {Array}  apply       `computeAutoAnimatePlan().apply`.
+ * @param {string} stylePreset Key of STYLE_PRESETS.
+ * @return {{clientIds: string[], attributesByClientId: Object}} Ids in
+ *   plan order and each block's attribute payload, keyed by clientId.
+ */
+export function buildAutoAnimateUpdates( apply, stylePreset ) {
+	const clientIds = [];
+	const attributesByClientId = {};
+	for ( const item of apply ) {
+		const attrs = attrsForCategory(
+			item.category,
+			stylePreset,
+			item.block
+		);
+		if ( ! attrs ) {
+			continue;
+		}
+		clientIds.push( item.clientId );
+		attributesByClientId[ item.clientId ] = attrs;
+	}
+	return { clientIds, attributesByClientId };
 }
 
 /**

@@ -9,7 +9,7 @@
 # Two jobs:
 #   1. Build & unit tests   (~1 min)  — the JavaScript builds, the built
 #      files in build/ are committed, and the Jest unit tests pass.
-#   2. Page & editor checks (~5 min)  — starts WordPress (WordPress
+#   2. Page & editor checks (~4-5 min) — starts WordPress (WordPress
 #      Playground), builds the self-check fixture pages, and runs the
 #      self-check on each of them in headless Chrome. Only starts if
 #      job 1 passed.

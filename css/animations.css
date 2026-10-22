@@ -155,10 +155,14 @@
 /* ----------------------------------------------------------------
  * Triggered State — Exit (scroll-appear only)
  *
- * Exit shares duration / timing with enter — v2 dropped the separate
- * exit-* vars. Delay is forced to 0 so the exit fires immediately
- * when the element scrolls out of view (the enter delay was a one-
- * shot pre-roll, not part of the loop).
+ * Exit shares the --mb-* vars with Entry; frontend.js handleSlotExit
+ * writes the Exit slot's own values into them (applySlotVars), so
+ * `--mb-delay` here is the Exit slot's Delay and holds the forward
+ * Exit (GH #33). While it waits, `fill-mode: both` holds the Exit
+ * keyframe's `from`, which is the block's natural state for every
+ * preset Out keyframe. The Exit Replay = 'reverse' round trip doesn't
+ * wait: handleSlotEnterBack zeroes `--mb-delay` before reverse-
+ * playing, so content comes back promptly.
  *
  * `animation-direction` is consumed here so the Exit keyframe can
  * play both ways. For non-custom types the
@@ -171,7 +175,7 @@
  * -------------------------------------------------------------- */
 .mb-animated.mb-exit-triggered {
     animation-duration: var(--mb-duration);
-    animation-delay: 0s;
+    animation-delay: var(--mb-delay, 0s);
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-timing);
     animation-iteration-count: var(--mb-iteration-count, 1);
@@ -696,7 +700,9 @@
 
 /* Apply timed-animation props on the inner img for the exit phase.
    Vars are set on the wrapper (inline) and inherit down; the
-   per-type rules below supply the animation-name. */
+   per-type rules below supply the animation-name. `--mb-delay` is the
+   Exit slot's Delay going forward and 0s on the reverse round trip
+   (frontend.js handleSlotEnterBack). */
 [data-mb-target="img"].mb-animated.mb-exit-triggered img:first-of-type {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
@@ -1052,7 +1058,8 @@
 }
 
 /* Exit-phase timing — inner blocks pick up the same vars as the
-   parent's exit-triggered state (delay 0, otherwise inherits).
+   parent's exit-triggered state (waits for the Exit slot's Delay;
+   inherits the rest). Children exit together, with no per-child step.
    `--mb-direction` must be consumed here too: Exit Replay = 'reverse'
    (frontend.js handleSlotEnterBack) sets it to `reverse` on the
    parent and restarts `mb-exit-triggered`. The parent itself doesn't
@@ -1064,7 +1071,7 @@
     animation-duration: var(--mb-duration);
     animation-fill-mode: both;
     animation-timing-function: var(--mb-timing);
-    animation-delay: 0s;
+    animation-delay: var(--mb-delay, 0s);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
 }

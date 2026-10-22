@@ -371,6 +371,70 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
+		'exit-delay'          => array(
+			'title'   => 'Exit Delay',
+			'note'    => 'Four Scroll Appear blocks with an Exit Fade and a 1s Exit Delay (GH #33): a group with Exit Replay "Reverse", a group with Exit Replay "Repeat" (blue), a staggered group (purple) and a Cover with "Animate image only". Scroll past each one: it stays visible for about a second after leaving, then fades out. Scroll back up: it comes back right away, with no 1s wait. Scroll past and back up within half a second: it never blinks.',
+			'content' => mb_self_check_frame(
+				mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Repeat) · Exit: Fade, Delay 1s (Replay: Reverse)' ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'repeat',
+							'animationExitType'    => 'fade',
+							'animationExitDelay'   => 1,
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_spacer( 300 )
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Replay: Repeat) · Exit: Fade, Delay 1s (Replay: Repeat)' ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'repeat',
+							'animationExitType'    => 'fade',
+							'animationExitDelay'   => 1,
+							'animationExitReplay'  => 'repeat',
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_spacer( 300 )
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Stagger · Exit: Fade, Delay 1s — child 1' )
+					. mb_self_check_paragraph( 'Child 2' )
+					. mb_self_check_paragraph( 'Child 3' ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay'    => 'repeat',
+							'animationStaggerEnabled' => true,
+							'animationExitType'       => 'fade',
+							'animationExitDelay'      => 1,
+						)
+					),
+					MB_SELF_CHECK_COLORS['list']
+				)
+				. mb_self_check_spacer( 300 )
+				. mb_self_check_cover(
+					$image,
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay'  => 'repeat',
+							'animationExitType'     => 'fade',
+							'animationExitDelay'    => 1,
+							'animationFromToTarget' => 'img',
+						)
+					),
+					'Cover · Scroll Appear · Animate image only · Exit: Fade, Delay 1s'
+				)
+			),
+			'expect'                => array(),
+			'expect_reduced_motion' => array(),
+		),
 		'once-exit-near-top'  => array(
 			'title'   => 'Entry once + Exit near the top',
 			'note'    => 'Three tall Scroll Appear groups (blue, Entry Replay "Once" + Exit) at the very top of a short page, so after a jump back to the top (Home key, "back to top" link) each one sits partly on screen or just short of the trigger zone. They must come back already shown, not replay their fade-in when you scroll down again.',
@@ -702,6 +766,8 @@ function mb_self_check_smoke( $image ) {
 		array( 'Exit Replay: once', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'once' ) ),
 		array( 'Exit Replay: repeat', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitReplay' => 'repeat' ) ),
 		array( 'Exit only (no Entry)', array( 'animationEntryType' => '', 'animationExitType' => 'fade' ) ),
+		// GH #33: the forward Exit waits for its Delay.
+		array( 'Exit delay 1s', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitDelay' => 1 ) ),
 		// GH #45: an Exit slot at its defaults must not inherit the
 		// Entry slot's blur / rotate / timing values.
 		array( 'Entry: blur 20 + linear · Exit: blur at defaults (GH #45)', array( 'animationEntryType' => 'blur', 'animationEntryBlurAmount' => 20, 'animationEntryAcceleration' => 'linear', 'animationEntryReplay' => 'repeat', 'animationExitType' => 'blur' ) ),

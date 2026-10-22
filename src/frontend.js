@@ -1255,6 +1255,10 @@ import { isValidFromToValue } from './css-values';
 				// How many times the Entry has played (read by the
 				// self-check: Entry Replay 'once' must stay at 1).
 				entryPlays: 0,
+				// Date.now() until which a forward Exit is still waiting
+				// out its Delay (0 when none is pending). Read by
+				// handleSlotEnterBack to cancel rather than reverse it.
+				exitPendingUntil: 0,
 				unobserved: false,
 				pageTop: 0,
 				pageBottom: 0,
@@ -1649,6 +1653,26 @@ import { isValidFromToValue } from './css-values';
 			if ( alreadyReversedExit ) {
 				return;
 			}
+			// The forward Exit is still waiting out its Delay, so the
+			// block never visibly left. Reverse-playing it with no delay
+			// would start at the Exit's end frame: the block would snap
+			// to hidden and fade back in. Cancel it instead, the way the
+			// 'repeat' branch above does.
+			if ( Date.now() < state.exitPendingUntil ) {
+				state.exitPendingUntil = 0;
+				el.classList.remove( 'mb-exit-triggered' );
+				el.style.removeProperty( '--mb-direction' );
+				if ( state.hasEntry ) {
+					showEntered( state );
+				}
+				return;
+			}
+			// The reverse round trip doesn't wait on the Exit Delay, so
+			// content comes back promptly (GH #33). One write covers the
+			// wrapper, Stagger children (inherited) and the img target;
+			// handleSlotExit restores the Delay through applySlotVars on
+			// the next forward leave.
+			el.style.setProperty( '--mb-delay', '0s' );
 			el.style.setProperty( '--mb-direction', 'reverse' );
 			restartAnimation( el, 'mb-exit-triggered' );
 			return;
@@ -1692,6 +1716,8 @@ import { isValidFromToValue } from './css-values';
 
 		applySlotVars( el, state.exit );
 		el.style.setProperty( '--mb-direction', 'normal' );
+		state.exitPendingUntil =
+			Date.now() + ( parseFloat( state.exit.delay ) || 0 ) * 1000;
 		el.classList.remove( 'mb-triggered' );
 
 		if ( inExited ) {

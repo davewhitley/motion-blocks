@@ -631,6 +631,12 @@
 		width: 100%;
 	}
 
+	// "Add property" sits under the last row, full width of the
+	// ToolsPanel's 2-column grid, left-aligned like the rows above.
+	.mb-from-to__add-property {
+		grid-column: 1 / -1;
+	}
+
 	// ToolsPanel is designed to sit at the sidebar's full width and
 	// applies its own 16px horizontal padding. Here it lives inside
 	// a PanelBody that already supplies 16px padding, so the inner

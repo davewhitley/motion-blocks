@@ -45,6 +45,9 @@ import {
 	TextControl,
 	ToggleControl,
 	Button,
+	Dropdown,
+	MenuGroup,
+	MenuItem,
 	ExternalLink,
 } from '@wordpress/components';
 import { createInterpolateElement, useEffect } from '@wordpress/element';
@@ -435,6 +438,15 @@ export default function FromToControls( {
 		setAttributes( updates );
 	};
 
+	// Properties the "Add property" menu can offer on this side: not
+	// added yet, and not pinned (pinned rows like Opacity are always
+	// visible). Same set the ToolsPanel kebab shows unchecked.
+	const addableProperties = PROPERTY_DEFINITIONS.filter(
+		( def ) =>
+			! def.isShownByDefault &&
+			! isPropertyAdded( attributes[ attrMap[ def.id ] ] )
+	);
+
 	return (
 		<div className="mb-from-to">
 			{ /* The "Animate image only" toggle now lives in the parent
@@ -538,6 +550,46 @@ export default function FromToControls( {
 						</ToolsPanelItem>
 					);
 				} ) }
+
+				{ /* Shortcut for adding a property without finding the
+				   kebab. The ToolsPanel menu can't be opened from outside,
+				   so this is a sibling menu that writes the same identity
+				   value as the kebab's onSelect: the row then appears
+				   because its hasValue() turns true, and the kebab shows
+				   it checked. */ }
+				{ addableProperties.length > 0 && (
+					<Dropdown
+						className="mb-from-to__add-property"
+						popoverProps={ { placement: 'bottom-start' } }
+						renderToggle={ ( { isOpen, onToggle } ) => (
+							<Button
+								variant="link"
+								onClick={ onToggle }
+								aria-expanded={ isOpen }
+							>
+								{ __( 'Add property', 'motion-blocks' ) }
+							</Button>
+						) }
+						renderContent={ ( { onClose } ) => (
+							<MenuGroup>
+								{ addableProperties.map( ( def ) => (
+									<MenuItem
+										key={ def.id }
+										onClick={ () => {
+											setAttributes( {
+												[ attrMap[ def.id ] ]:
+													def.identity,
+											} );
+											onClose();
+										} }
+									>
+										{ __( def.label, 'motion-blocks' ) }
+									</MenuItem>
+								) ) }
+							</MenuGroup>
+						) }
+					/>
+				) }
 			</ToolsPanel>
 			</div>
 

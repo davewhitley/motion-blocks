@@ -17,6 +17,7 @@ import {
 	Button,
 	Notice,
 } from '@wordpress/components';
+import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -94,6 +95,11 @@ export default function PageLoadControls( {
 		animationRepeat,
 		animationPauseOffscreen,
 	} = attributes;
+
+	// True when the last Preview press came from the keyboard. See the
+	// Preview button below.
+	const [ keepFocusWhilePending, setKeepFocusWhilePending ] =
+		useState( false );
 
 	// Filter dropdown options:
 	// - `-out` preset variants (`fade-out`, `slide-out`, etc.) are
@@ -267,12 +273,31 @@ export default function PageLoadControls( {
 							: __( 'Preview animation', 'motion-blocks' )
 					}
 					variant="secondary"
-					onClick={ isLoopRunning ? onStopPreview : onPreview }
+					onClick={ ( event ) => {
+						// `detail` is 0 for Enter / Space presses.
+						setKeepFocusWhilePending( event.detail === 0 );
+						const handler = isLoopRunning
+							? onStopPreview
+							: onPreview;
+						if ( handler ) {
+							handler( event );
+						}
+					} }
+					onBlur={ () => setKeepFocusWhilePending( false ) }
 					// Disable while a one-shot preview is in flight to
 					// prevent jumpy mid-playback restarts. Looping
 					// previews are exempt — the button is a stop
 					// toggle in that mode.
 					disabled={ ! isLoopRunning && isPlayPending }
+					// A natively disabled button drops keyboard focus
+					// to the page. After a keyboard press, disable it
+					// with aria-disabled instead so focus stays put.
+					// Mouse clicks keep the native disable, so the
+					// button still loses focus (and its focus ring)
+					// as before. `__experimentalIsFocusable` is the
+					// pre-6.7 name of the same prop.
+					accessibleWhenDisabled={ keepFocusWhilePending }
+					__experimentalIsFocusable={ keepFocusWhilePending }
 					__next40pxDefaultSize
 				/>
 			</HStack>

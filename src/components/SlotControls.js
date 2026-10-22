@@ -33,6 +33,7 @@ import {
 	Button,
 	Notice,
 } from '@wordpress/components';
+import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import {
 	arrowUp,
@@ -117,6 +118,11 @@ export default function SlotControls( {
 	const isEmpty = animationType === '';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+
+	// True when the last Preview press came from the keyboard. See the
+	// Preview button below.
+	const [ keepFocusWhilePending, setKeepFocusWhilePending ] =
+		useState( false );
 
 	// Build the dropdown options for this slot. Prepend a "None"
 	// entry so the user can clear the slot from the dropdown without
@@ -305,8 +311,24 @@ export default function SlotControls( {
 					icon={ playIcon }
 					label={ __( 'Preview animation', 'motion-blocks' ) }
 					variant="secondary"
-					onClick={ () => onPreview && onPreview( slot ) }
+					onClick={ ( event ) => {
+						// `detail` is 0 for Enter / Space presses.
+						setKeepFocusWhilePending( event.detail === 0 );
+						if ( onPreview ) {
+							onPreview( slot );
+						}
+					} }
+					onBlur={ () => setKeepFocusWhilePending( false ) }
 					disabled={ isPlayPending }
+					// A natively disabled button drops keyboard focus
+					// to the page. After a keyboard press, disable it
+					// with aria-disabled instead so focus stays put.
+					// Mouse clicks keep the native disable, so the
+					// button still loses focus (and its focus ring)
+					// as before. `__experimentalIsFocusable` is the
+					// pre-6.7 name of the same prop.
+					accessibleWhenDisabled={ keepFocusWhilePending }
+					__experimentalIsFocusable={ keepFocusWhilePending }
 					__next40pxDefaultSize
 				/>
 			</HStack>

@@ -320,6 +320,8 @@ export default function ScrollInteractiveControls( {
 						</InfoPopover>
 					</HStack>
 					<RangeControl
+						label={ __( 'Scroll Preview', 'motion-blocks' ) }
+						hideLabelFromVision
 						className="mb-scrub-range"
 						value={ scrubValue }
 						onChange={ ( v ) => {
@@ -555,6 +557,8 @@ export default function ScrollInteractiveControls( {
 					</InfoPopover>
 				</HStack>
 				<RangeControl
+					label={ __( 'Start Offset', 'motion-blocks' ) }
+					hideLabelFromVision
 					value={ startOffset }
 					onChange={ ( value ) =>
 						setAttributes( {
@@ -595,6 +599,8 @@ export default function ScrollInteractiveControls( {
 					</InfoPopover>
 				</HStack>
 				<RangeControl
+					label={ __( 'End Offset', 'motion-blocks' ) }
+					hideLabelFromVision
 					value={ endOffset }
 					onChange={ ( value ) =>
 						setAttributes( {

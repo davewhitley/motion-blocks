@@ -139,6 +139,42 @@ Build output goes to `build/`. Plugin entry is `animation-plugin.php`; symlink t
 wp eval-file path/to/motion-blocks/tests/schema-defaults/check.php
 ```
 
+## Tests
+
+**Unit tests** (Jest, `tests/unit/`), a few seconds:
+
+```bash
+npm run test:unit
+```
+
+**Page & editor checks** (`tests/self-check/`): `fixtures.php` builds a set of published pages, one per self-check scenario plus a smoke page with every effect in every mode, and `run.mjs` opens each one in headless Chrome, runs the self-check sweep with and without reduced motion, compares the result with what the page expects, then opens it in the editor and runs the editor check. It needs Google Chrome (or set `CHROME_PATH`) and Node 22+. Against a local Studio site with the plugin active and Settings → Motion Blocks → Self-check turned on (`studio wp option update mb_debug_markers 1`):
+
+```bash
+cd ~/Studio/<site>
+studio wp eval-file <path-to>/motion-blocks/tests/self-check/fixtures.php json > /tmp/mb-manifest.json
+cd <path-to>/motion-blocks
+npm run test:pages -- --manifest /tmp/mb-manifest.json
+```
+
+It logs in through Studio's auto-login URL; on another local site use `--login form --user <name> --password <pw>`. `node tests/self-check/run.mjs --help` lists every option (Chrome path, number of pages checked at once, `--only smoke,clean`, …).
+
+**CI** (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
+
+1. *Build & unit tests* (about 1 minute): `npm ci`, `npm run build`, fails if the committed `build/` differs from a fresh build (run `npm run build` and commit `build/`), then `npm run test:unit`.
+2. *Page & editor checks* (about 4 minutes, only after job 1 passes): starts WordPress 7.1 in [WordPress Playground](https://wordpress.github.io/wordpress-playground/developers/local-development/wp-playground-cli) with this repo mounted as the plugin. `tests/self-check/blueprint.json` activates the plugin, turns on Self-check and runs `fixtures.php json`; then `run.mjs` checks every page. The output is attached to the run as the `page-checks` artifact.
+
+To run the CI setup itself locally (needs Node 24+ for the Playground CLI), from the repo root:
+
+```bash
+mkdir -p ci-output
+npx @wp-playground/cli@3.1.60 server --port=9400 --wp=7.1 \
+  --mount="$PWD:/wordpress/wp-content/plugins/motion-blocks" \
+  --mount="$PWD/ci-output:/ci-output" \
+  --blueprint=tests/self-check/blueprint.json
+# in another terminal, once it prints "Ready!":
+npm run test:pages -- --manifest ci-output/manifest.json --login form
+```
+
 ## License
 
 GPL-2.0-or-later

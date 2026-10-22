@@ -1,0 +1,26 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Motion Blocks self-check site",
+		"author": "davewhitley",
+		"description": "Used by CI: activates Motion Blocks from the mounted repo, turns on Settings → Motion Blocks → Self-check, builds the self-check fixture pages and writes their manifest to /ci-output/manifest.json."
+	},
+	"landingPage": "/wp-admin/",
+	"steps": [
+		{
+			"step": "activatePlugin",
+			"pluginPath": "motion-blocks/animation-plugin.php"
+		},
+		{
+			"step": "setSiteOptions",
+			"options": {
+				"mb_debug_markers": "1",
+				"permalink_structure": "/%postname%/"
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; flush_rewrite_rules(); $args = array( 'json' ); ob_start(); require '/wordpress/wp-content/plugins/motion-blocks/tests/self-check/fixtures.php'; file_put_contents( '/ci-output/manifest.json', ob_get_clean() );"
+		}
+	]
+}

@@ -7,7 +7,8 @@
   "scripts": {
     "build": "wp-scripts build src/index.js src/frontend.js src/self-check.js src/editor-check.js",
     "start": "wp-scripts start src/index.js src/frontend.js src/self-check.js src/editor-check.js",
-    "test:unit": "wp-scripts test-unit-js tests/unit"
+    "test:unit": "wp-scripts test-unit-js tests/unit",
+    "test:pages": "node tests/self-check/run.mjs"
   },
   "devDependencies": {
     "@babel/runtime": "^7.28.6",

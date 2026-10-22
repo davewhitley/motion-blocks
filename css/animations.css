@@ -789,6 +789,13 @@
  * opacity 0 would otherwise finish hidden through fill-mode, and the
  * runtime-injected Custom / image-effect CSS must not out-rank it.
  *
+ * Flip's 3D context (`transform-style: preserve-3d` +
+ * `backface-visibility: hidden`) is reset too. It comes from class
+ * rules, not the keyframes, so `animation: none` leaves it in place,
+ * and `preserve-3d` alone makes the block a containing block for
+ * `position: fixed` descendants (GH #20 / #33): a Navigation overlay
+ * inside a Flip block stayed trapped even with nothing animating.
+ *
  * `filter` is reset in a separate rule that never reaches the Cover
  * image: core duotone sets `filter: url(#wp-duotone-…)` on
  * `.wp-block-cover__image-background`, and with `animation: none`
@@ -807,6 +814,8 @@
         opacity: 1 !important;
         transform: none !important;
         clip-path: none !important;
+        transform-style: flat !important;
+        backface-visibility: visible !important;
     }
     :is(
         .mb-animated,
@@ -833,7 +842,8 @@
  * above, so a disabled animation doesn't play or leave the block
  * stuck at its hidden start frame. The initial-hide rules still
  * match on a disabled device; the `opacity: 1 !important` here is
- * what keeps the block (and each Stagger child) visible.
+ * what keeps the block (and each Stagger child) visible. The same rest
+ * state flattens Flip's 3D context (see Reduced Motion above).
  * -------------------------------------------------------------- */
 @media (min-width: 1024px) {
     body.mb-disabled-desktop :is(
@@ -848,6 +858,8 @@
         opacity: 1 !important;
         transform: none !important;
         clip-path: none !important;
+        transform-style: flat !important;
+        backface-visibility: visible !important;
     }
     body.mb-disabled-desktop :is(
         .mb-animated,
@@ -872,6 +884,8 @@
         opacity: 1 !important;
         transform: none !important;
         clip-path: none !important;
+        transform-style: flat !important;
+        backface-visibility: visible !important;
     }
     body.mb-disabled-tablet :is(
         .mb-animated,
@@ -896,6 +910,8 @@
         opacity: 1 !important;
         transform: none !important;
         clip-path: none !important;
+        transform-style: flat !important;
+        backface-visibility: visible !important;
     }
     body.mb-disabled-mobile :is(
         .mb-animated,

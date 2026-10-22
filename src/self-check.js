@@ -208,6 +208,31 @@
 			if ( ! onScreen ) {
 				return;
 			}
+			// A Scroll Appear block waits until it overlaps the trigger
+			// zone by the runtime's own rule (10% of its height), so a
+			// sliver at the edge of the zone is still legitimately
+			// hidden. It's stuck only once that rule says "in zone", or
+			// once it covers the whole zone (a block too tall to ever
+			// reach 10% — GH #23).
+			var state = api.scrollAppear.find( function ( st ) {
+				return st.el === el;
+			} );
+			if ( state && state.pageHeight > 0 ) {
+				var scrollY = window.scrollY;
+				var overlap = api.zoneOverlap(
+					state.pageTop,
+					state.pageBottom,
+					scrollY,
+					vh
+				);
+				var band = vh * ( api.zone.bottom - api.zone.top );
+				if (
+					! api.isInZone( overlap, state.pageHeight ) &&
+					overlap < band
+				) {
+					return;
+				}
+			}
 			// A stagger parent stays at opacity 1; its children carry
 			// the hidden state.
 			var target = el.classList.contains( 'mb-stagger-parent' )

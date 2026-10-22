@@ -326,6 +326,46 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
+		'once-exit-near-top'  => array(
+			'title'   => 'Entry once + Exit near the top',
+			'note'    => 'Three tall Scroll Appear groups (blue, Entry Replay "Once" + Exit) at the very top of a short page, so after a jump back to the top (Home key, "back to top" link) each one sits partly on screen or just short of the trigger zone. They must come back already shown, not replay their fade-in when you scroll down again.',
+			'content' => mb_self_check_group(
+				mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 1' ) . mb_self_check_spacer( 330 ),
+				array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+						)
+					),
+				MB_SELF_CHECK_COLORS['group']
+			)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 2' ) . mb_self_check_spacer( 330 ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_paragraph( 'Spacer paragraph' )
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 3' ) . mb_self_check_spacer( 330 ),
+					array_merge(
+						$scroll_fade,
+						array(
+							'animationEntryReplay' => 'once',
+							'animationExitType'    => 'fade',
+						)
+					),
+					MB_SELF_CHECK_COLORS['group']
+				),
+			'expect'                => array(),
+			'expect_reduced_motion' => array(),
+		),
 		'stagger-limit'       => array(
 			'title'   => 'Stagger limit',
 			'note'    => 'A staggered list (purple) with 35 items. Stagger delays stop at 30, so items 31–35 all appear at the same moment.',

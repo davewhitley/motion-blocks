@@ -1005,8 +1005,13 @@ import SHARED from '../shared-constants.json';
 		 * scroll viewport, computes inZone, fires a handler only on
 		 * inZone state flips. Called from IO callbacks and from
 		 * ResizeObserver / window resize.
+		 *
+		 * `layoutDir` (optional): set by refreshAll() when a layout
+		 * change, not a scroll, moved the block. 'up' = the block moved
+		 * down the page (as if the reader scrolled up), 'down' = it moved
+		 * up. It replaces the scroll direction for this tick only.
 		 */
-		function tick( state ) {
+		function tick( state, layoutDir ) {
 			if ( state.unobserved ) {
 				return;
 			}
@@ -1024,7 +1029,12 @@ import SHARED from '../shared-constants.json';
 				scrollDir = 'up';
 			}
 			prevScrollY = currentScrollY;
-			var dir = scrollDir;
+			// A layout change is not a scroll: content above growing
+			// pushes an in-zone block out through the BOTTOM of the zone,
+			// which is onLeaveBack, not the "scrolled past it" onLeave
+			// the last scroll direction would pick — that played the Exit
+			// on a block still on screen (GH #52 follow-up).
+			var dir = layoutDir || scrollDir;
 
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
@@ -1271,11 +1281,22 @@ import SHARED from '../shared-constants.json';
 		} );
 
 		// Recompute every element's cached bounds, then re-tick. Shared
-		// by resize and the late-layout refresh below.
+		// by resize and the late-layout refreshes below. These are layout
+		// changes, not scrolls, so a block that moved picks its handler
+		// from which way it moved rather than from the last scroll
+		// direction (see tick()'s `layoutDir`). A block that didn't move
+		// (e.g. only the viewport resized) keeps the scroll direction.
 		function refreshAll() {
 			states.forEach( function ( state ) {
+				var prevTop = state.pageTop;
 				refreshBounds( state );
-				tick( state );
+				var layoutDir = null;
+				if ( state.pageTop > prevTop ) {
+					layoutDir = 'up';
+				} else if ( state.pageTop < prevTop ) {
+					layoutDir = 'down';
+				}
+				tick( state, layoutDir );
 			} );
 		}
 
@@ -1359,7 +1380,11 @@ import SHARED from '../shared-constants.json';
 				scrollScheduled = true;
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
-					states.forEach( tick );
+					// Not `forEach( tick )`: the index would land in
+					// tick()'s `layoutDir` and override the direction.
+					states.forEach( function ( state ) {
+						tick( state );
+					} );
 				} );
 			},
 			{ passive: true }

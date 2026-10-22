@@ -5,7 +5,7 @@
  * or the matching sub-panel when a mode is active.
  */
 
-import { PanelBody, Icon, Notice } from '@wordpress/components';
+import { PanelBody, Icon, Notice, VisuallyHidden } from '@wordpress/components';
 import { useRef, useCallback, useState, useEffect } from '@wordpress/element';
 import { useSelect, useDispatch } from '@wordpress/data';
 import { speak } from '@wordpress/a11y';
@@ -418,13 +418,13 @@ export default function AnimationPanel( {
 	const panelTitle = animationMode ? (
 		<span className="mb-panel-title">
 			{ __( 'Motion Effects', 'motion-blocks' ) }
-			<span
-				className="mb-panel-title__dot"
-				aria-label={ __(
+			<span className="mb-panel-title__dot" aria-hidden="true" />
+			<VisuallyHidden as="span">
+				{ __(
 					'Motion effect configured on this block',
 					'motion-blocks'
 				) }
-			/>
+			</VisuallyHidden>
 		</span>
 	) : (
 		__( 'Motion Effects', 'motion-blocks' )

@@ -542,14 +542,15 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'late-injected'       => array(
 			'title'   => 'Injected after load',
-			'note'    => 'A script adds a Scroll Appear paragraph (pink) shortly after the page loads, like pagination or a popup would. Motion Blocks never sets it up, so it stays invisible: the pink box below this one never shows.',
-			'content' => mb_self_check_block(
-				'html',
-				array(),
-				// Mirrors the markup motion_blocks_render_block emits for
-				// a Scroll Appear fade paragraph, plus a tint.
-				"<script>window.addEventListener('load',function(){setTimeout(function(){var p=document.createElement('p');p.className='mb-animated mb-mode-scroll-appear mb-enter-fade mb-has-entry has-background';p.setAttribute('data-mb-mode','scroll-appear');p.setAttribute('data-mb-entry-type','fade');p.style.cssText='background-color:" . MB_SELF_CHECK_COLORS['injected'] . ";padding:1.5rem';p.textContent='Paragraph · Scroll Appear · Entry: Fade — injected after load';var s=document.querySelector('script[data-mb-self-check-inject]');s.parentNode.insertBefore(p,s);},300);});</script><script data-mb-self-check-inject></script>"
-			),
+			'note'    => 'A script adds a Scroll Appear paragraph (pink) shortly after the page loads, like pagination or a popup would. Motion Blocks never sets it up, so it stays invisible: the pink box below the fade paragraph never shows. The page has a server-rendered animation (the fade paragraph) so the CSS and JS load; on a page with none, they don\'t load and injected content stays visible instead.',
+			'content' => mb_self_check_paragraph( 'Paragraph · Page Load · Fade (loads the runtime)', $page_load_fade )
+				. mb_self_check_block(
+					'html',
+					array(),
+					// Mirrors the markup motion_blocks_render_block emits for
+					// a Scroll Appear fade paragraph, plus a tint.
+					"<script>window.addEventListener('load',function(){setTimeout(function(){var p=document.createElement('p');p.className='mb-animated mb-mode-scroll-appear mb-enter-fade mb-has-entry has-background';p.setAttribute('data-mb-mode','scroll-appear');p.setAttribute('data-mb-entry-type','fade');p.style.cssText='background-color:" . MB_SELF_CHECK_COLORS['injected'] . ";padding:1.5rem';p.textContent='Paragraph · Scroll Appear · Entry: Fade — injected after load';var s=document.querySelector('script[data-mb-self-check-inject]');s.parentNode.insertBefore(p,s);},300);});</script><script data-mb-self-check-inject></script>"
+				),
 			'expect'  => array( 'never-wired#50' ),
 		),
 		'content-above-changes' => array(
@@ -647,6 +648,15 @@ function mb_self_check_fixtures( $image ) {
 	} else {
 		mb_self_check_warn( 'No image available (empty media library and no GD): skipping the motion-off fixture.' );
 	}
+
+	$fixtures['no-animations'] = array(
+		'title'   => 'No animations',
+		'note'    => 'Plain paragraphs only, no animated blocks. The page must not load the Motion Blocks CSS, JS, self-check or the html.mb-js marker. The runner checks that instead of running the self-check (which isn\'t loaded here). The editor must still load the animation CSS for this page.',
+		'content' => mb_self_check_paragraph( 'A plain paragraph with no animation.' )
+			. mb_self_check_paragraph( 'Another plain paragraph.' ),
+		'assets'  => false,
+		'expect'  => array(),
+	);
 
 	return $fixtures;
 }
@@ -1101,6 +1111,7 @@ foreach ( $mb_fixtures as $key => $fixture ) {
 		'expect_reduced_motion' => isset( $fixture['expect_reduced_motion'] )
 			? $fixture['expect_reduced_motion']
 			: $fixture['expect'],
+		'assets'                => $fixture['assets'] ?? true,
 	);
 }
 

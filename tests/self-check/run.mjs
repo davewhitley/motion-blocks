@@ -16,6 +16,11 @@
  *   3. opens the page in the block editor and runs
  *      `await motionBlocksEditorCheck()`, which must report nothing.
  *
+ * A page with `assets: false` in the manifest has no animated blocks,
+ * so steps 1 and 2 instead check that none of the front-end assets
+ * loaded (stylesheet, runtime, self-check, the html.mb-js marker).
+ * Step 3 still runs: the editor loads its CSS on every post.
+ *
  * The self-check scripts only load for a logged-in user while the
  * `mb_debug_markers` option (Settings → Motion Blocks → Self-check) is
  * on, so the runner logs in first.
@@ -398,6 +403,9 @@ async function pageCheck( tab, fx, reduced ) {
 	await tab.go( fx.url );
 	// Let load-time animations and late layout finish first.
 	await sleep( 1500 );
+	if ( fx.assets === false ) {
+		return assetsAbsentCheck( tab, fx, reduced );
+	}
 	let got;
 	try {
 		got = await tab.evaluate( `(() => {
@@ -420,6 +428,43 @@ async function pageCheck( tab, fx, reduced ) {
 			fx.key
 		}  want=${ JSON.stringify( want ) } got=${ JSON.stringify( gotIds ) }`,
 		details: ok ? [] : got,
+	};
+}
+
+/**
+ * A page with no animated blocks must load none of the front-end
+ * assets, and so has no self-check to run.
+ */
+async function assetsAbsentCheck( tab, fx, reduced ) {
+	let got;
+	try {
+		got = await tab.evaluate( `(() => {
+			const found = [
+				'#motion-blocks-styles-css',
+				'#motion-blocks-frontend-js',
+				'#motion-blocks-self-check-js',
+				'#motion-blocks-js-marker',
+			].filter( ( s ) => document.querySelector( s ) );
+			if ( document.documentElement.classList.contains( 'mb-js' ) ) {
+				found.push( 'html.mb-js' );
+			}
+			if ( typeof motionBlocksSelfCheck !== 'undefined' ) {
+				found.push( 'motionBlocksSelfCheck' );
+			}
+			return found;
+		})()` );
+	} catch ( e ) {
+		got = [ 'EXCEPTION ' + e.message ];
+	}
+	const ok = got.length === 0;
+	return {
+		ok,
+		line: `${ ok ? 'PASS' : 'FAIL' } ${ reduced ? '[reduced] ' : '' }${
+			fx.key
+		}  assets absent, found=${ JSON.stringify( got ) }`,
+		details: ok
+			? []
+			: got.map( ( s ) => `loaded on a page with no animations: ${ s }` ),
 	};
 }
 

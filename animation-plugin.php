@@ -155,12 +155,354 @@ function motion_blocks_enqueue_editor_check() {
 add_action( 'enqueue_block_editor_assets', 'motion_blocks_enqueue_editor_check', 1 );
 
 /**
+ * Whether this request has rendered an animated block.
+ *
+ * Set by motion_blocks_render_block() (via
+ * motion_blocks_note_animated_block()) whenever it writes animation
+ * markup, read by motion_blocks_should_load_frontend_assets().
+ *
+ * @param bool $set Pass true to record that an animated block rendered.
+ * @return bool
+ */
+function motion_blocks_animated_block_seen( $set = false ) {
+    static $seen = false;
+    if ( $set ) {
+        $seen = true;
+    }
+    return $seen;
+}
+
+/**
+ * Whether the page is served through core's block-template canvas.
+ *
+ * template-canvas.php renders the whole block template BEFORE
+ * wp_head() (wp-includes/template-canvas.php), so on those requests
+ * every render_block call for the page has already run by the time the
+ * head decision is made, and the render flag alone is complete. Classic
+ * and hybrid themes, and PHP templates in block themes (e.g. a plugin's
+ * classic template), render their content after wp_head and need the
+ * pre-scan instead. Recorded from the final `template_include` value,
+ * so a later filter that swaps in a PHP template is respected.
+ *
+ * @param string|null $template Final template path (from the filter), or null to read.
+ * @return bool
+ */
+function motion_blocks_uses_block_template_canvas( $template = null ) {
+    static $canvas = false;
+    if ( null !== $template ) {
+        $canvas = is_string( $template )
+            && wp_normalize_path( $template ) === wp_normalize_path( ABSPATH . WPINC . '/template-canvas.php' );
+    }
+    return $canvas;
+}
+
+/**
+ * `template_include` callback (last priority): records whether the
+ * block-template canvas will render the page. Returns the template
+ * unchanged.
+ *
+ * @param string $template Template path.
+ * @return string
+ */
+function motion_blocks_track_template( $template ) {
+    motion_blocks_uses_block_template_canvas( $template );
+    return $template;
+}
+add_filter( 'template_include', 'motion_blocks_track_template', PHP_INT_MAX );
+
+/**
+ * Whether a string of block markup holds a block with an animation mode.
+ *
+ * `animationMode` defaults to '' and WordPress omits default-valued
+ * attributes on save, so any non-empty value in a block comment means
+ * the block is animated. A plain regex keeps ordinary posts to a single
+ * pass; false positives only load the assets, which is harmless.
+ * Mirrored by tests/unit/animated-content-pattern.test.js.
+ *
+ * @param string $content Block markup.
+ * @return bool
+ */
+function motion_blocks_content_has_animation_mode( $content ) {
+    return is_string( $content )
+        && '' !== $content
+        && 1 === preg_match( '/"animationMode"\s*:\s*"[^"]/', $content );
+}
+
+/**
+ * Whether block markup holds an animated block, following synced
+ * patterns (`core/block`) and pattern references (`core/pattern`).
+ *
+ * @param string $content Block markup.
+ * @param array  $visited Already-followed refs, to stop cycles.
+ * @param int    $depth   Current nesting depth.
+ * @return bool
+ */
+function motion_blocks_markup_is_animated( $content, &$visited = array(), $depth = 0 ) {
+    if ( motion_blocks_content_has_animation_mode( $content ) ) {
+        return true;
+    }
+    if (
+        ! is_string( $content )
+        || $depth >= 5
+        || ( ! has_block( 'block', $content ) && ! has_block( 'pattern', $content ) )
+    ) {
+        return false;
+    }
+
+    $stack = parse_blocks( $content );
+    while ( $stack ) {
+        $block = array_shift( $stack );
+        $name  = $block['blockName'] ?? '';
+        $inner = '';
+
+        if ( 'core/block' === $name && ! empty( $block['attrs']['ref'] ) ) {
+            $key = 'block:' . (int) $block['attrs']['ref'];
+            if ( ! isset( $visited[ $key ] ) ) {
+                $visited[ $key ] = true;
+                $ref_post        = get_post( (int) $block['attrs']['ref'] );
+                $inner           = $ref_post ? $ref_post->post_content : '';
+            }
+        } elseif ( 'core/pattern' === $name && ! empty( $block['attrs']['slug'] ) ) {
+            $key = 'pattern:' . $block['attrs']['slug'];
+            if ( ! isset( $visited[ $key ] ) && class_exists( 'WP_Block_Patterns_Registry' ) ) {
+                $visited[ $key ] = true;
+                $pattern         = WP_Block_Patterns_Registry::get_instance()->get_registered( $block['attrs']['slug'] );
+                $inner           = $pattern['content'] ?? '';
+            }
+        }
+
+        if ( '' !== $inner && motion_blocks_markup_is_animated( $inner, $visited, $depth + 1 ) ) {
+            return true;
+        }
+        if ( ! empty( $block['innerBlocks'] ) ) {
+            array_push( $stack, ...$block['innerBlocks'] );
+        }
+    }
+    return false;
+}
+
+/**
+ * Pre-scan for pages whose content renders after wp_head (classic and
+ * hybrid themes, PHP templates): does anything this request is likely
+ * to render hold an animated block?
+ *
+ * Looks at the queried posts (previews already carry the autosave
+ * content), the synced patterns and patterns they reference, block
+ * widgets in active sidebars, and block template parts on themes that
+ * use them. False positives (excerpt archives, password-protected
+ * posts, sidebars the theme doesn't show) only load the assets, as
+ * every page did before. Anything it misses falls back to the late
+ * footer path in motion_blocks_note_animated_block().
+ *
+ * @return bool
+ */
+function motion_blocks_request_has_animated_content() {
+    $visited = array();
+    $query   = $GLOBALS['wp_the_query'] ?? null;
+
+    if ( $query instanceof WP_Query && ! empty( $query->posts ) ) {
+        foreach ( $query->posts as $post ) {
+            if ( isset( $post->post_content ) && motion_blocks_markup_is_animated( $post->post_content, $visited ) ) {
+                return true;
+            }
+        }
+    }
+
+    // Block widgets (classic themes' widget areas).
+    $widget_blocks = get_option( 'widget_block' );
+    if ( is_array( $widget_blocks ) ) {
+        foreach ( wp_get_sidebars_widgets() as $sidebar => $widget_ids ) {
+            if ( 'wp_inactive_widgets' === $sidebar || ! is_array( $widget_ids ) ) {
+                continue;
+            }
+            foreach ( $widget_ids as $widget_id ) {
+                if (
+                    preg_match( '/^block-(\d+)$/', (string) $widget_id, $m )
+                    && isset( $widget_blocks[ (int) $m[1] ]['content'] )
+                    && motion_blocks_markup_is_animated( $widget_blocks[ (int) $m[1] ]['content'], $visited )
+                ) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Block template parts printed by PHP templates (classic themes that
+    // opt in, and PHP templates inside block themes).
+    if ( wp_is_block_theme() || current_theme_supports( 'block-template-parts' ) ) {
+        foreach ( get_block_templates( array(), 'wp_template_part' ) as $part ) {
+            if ( motion_blocks_markup_is_animated( $part->content, $visited ) ) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Whether this front-end page loads the animation CSS, the runtime and
+ * the html.mb-js marker in <head>.
+ *
+ * One decision for all three, so the marker can never be printed
+ * without the stylesheet it scopes. Detection: on block-template pages
+ * the template has already rendered before wp_head, so the render flag
+ * is complete; everywhere else the content renders later, so the
+ * request is pre-scanned (see motion_blocks_request_has_animated_content()).
+ *
+ * The result is memoized once wp_head has started: the marker
+ * (wp_head priority 0) and the enqueue (wp_enqueue_scripts, wp_head
+ * priority 1) always agree, and an earlier call (before the template
+ * has rendered) doesn't lock in a premature "no".
+ *
+ * @return bool
+ */
+function motion_blocks_should_load_frontend_assets() {
+    static $decision = null;
+    if ( null !== $decision ) {
+        return $decision;
+    }
+
+    $detected = motion_blocks_animated_block_seen()
+        || ( ! motion_blocks_uses_block_template_canvas() && motion_blocks_request_has_animated_content() );
+
+    /**
+     * Filters whether a front-end page loads the Motion Blocks CSS and JS.
+     *
+     * By default they load only on pages with animated blocks. Force
+     * them on for content that arrives after the page loads (AJAX
+     * pagination, infinite scroll, popups; GH #50), or turn them off:
+     *
+     *     add_filter( 'motion_blocks_load_frontend_assets', '__return_true' );
+     *     add_filter( 'motion_blocks_load_frontend_assets', '__return_false' );
+     *
+     * Applied in <head> with the detection result, and again with
+     * `true` if an animated block first renders after <head> (the
+     * assets then load in the footer), so returning false disables
+     * both paths.
+     *
+     * @param bool $detected Whether animated blocks were detected on this page.
+     */
+    $result = (bool) apply_filters( 'motion_blocks_load_frontend_assets', $detected );
+
+    if ( did_action( 'wp_head' ) ) {
+        $decision = $result;
+    }
+    return $result;
+}
+
+/**
+ * Whether the front-end assets have been enqueued on this request.
+ *
+ * @param bool $set Pass true to record that they have.
+ * @return bool
+ */
+function motion_blocks_frontend_assets_enqueued( $set = false ) {
+    static $done = false;
+    if ( $set ) {
+        $done = true;
+    }
+    return $done;
+}
+
+/**
+ * Enqueue the front-end animation CSS, the runtime and (for logged-in
+ * users with Self-check on) the self-check. Idempotent.
+ */
+function motion_blocks_enqueue_frontend_assets() {
+    if ( motion_blocks_frontend_assets_enqueued() ) {
+        return;
+    }
+    motion_blocks_frontend_assets_enqueued( true );
+
+    motion_blocks_enqueue_animations_css();
+
+    $frontend_asset_file = plugin_dir_path( __FILE__ ) . 'build/frontend.asset.php';
+
+    if ( file_exists( $frontend_asset_file ) ) {
+        $frontend_asset = include $frontend_asset_file;
+
+        wp_enqueue_script(
+            'motion-blocks-frontend',
+            plugins_url( 'build/frontend.js', __FILE__ ),
+            $frontend_asset['dependencies'],
+            $frontend_asset['version'],
+            true
+        );
+
+        // Opt-in developer self-check (GH #60): when the admin
+        // setting is on, flag the runtime into debug mode (it then
+        // exposes its trigger state) and load the checker after it.
+        // Limited to logged-in users so visitors never load it. Off
+        // by default. The option key predates the self-check; it
+        // used to toggle the trigger-line overlay it replaced.
+        $self_check_asset_file = plugin_dir_path( __FILE__ ) . 'build/self-check.asset.php';
+        if (
+            get_option( 'mb_debug_markers' )
+            && is_user_logged_in()
+            && file_exists( $self_check_asset_file )
+        ) {
+            $self_check_asset = include $self_check_asset_file;
+
+            wp_add_inline_script(
+                'motion-blocks-frontend',
+                'window.motionBlocksDebug = true;',
+                'before'
+            );
+            wp_enqueue_script(
+                'motion-blocks-self-check',
+                plugins_url( 'build/self-check.js', __FILE__ ),
+                array_merge(
+                    $self_check_asset['dependencies'],
+                    array( 'motion-blocks-frontend' )
+                ),
+                $self_check_asset['version'],
+                true
+            );
+        }
+    }
+}
+
+/**
+ * Enqueue css/animations.css: the single source of truth for animation
+ * class → keyframe bindings, duration/delay/fill-mode bindings, and
+ * the stagger cascade. Shared by the editor iframe and the front end,
+ * so editor preview and saved-block rendering use the same CSS — no
+ * duplication, no drift. editor.scss still ships duplicate @keyframes
+ * as a safety net (and adds editor-only overrides for chrome).
+ */
+function motion_blocks_enqueue_animations_css() {
+    $anim_css_path = plugin_dir_path( __FILE__ ) . 'css/animations.css';
+    $anim_css_ver  = file_exists( $anim_css_path )
+        ? filemtime( $anim_css_path )
+        : MOTION_BLOCKS_VERSION;
+    wp_enqueue_style(
+        'motion-blocks-styles',
+        plugins_url( 'css/animations.css', __FILE__ ),
+        array(),
+        $anim_css_ver
+    );
+}
+
+/**
  * Enqueue styles that need to load inside the editor iframe AND on the frontend.
  *
  * enqueue_block_assets fires in both contexts, so the animation preview
  * keyframes reach the iframe where blocks are rendered.
+ *
+ * Editor: index.css plus animations.css, always (any block can be given
+ * an animation). Front end: animations.css, frontend.js and the
+ * self-check only on pages with animated blocks — see
+ * motion_blocks_should_load_frontend_assets().
  */
 function motion_blocks_enqueue_block_assets() {
+    if ( ! is_admin() ) {
+        if ( motion_blocks_should_load_frontend_assets() ) {
+            motion_blocks_enqueue_frontend_assets();
+        }
+        return;
+    }
+
     // Editor CSS — compiled from css/editor.scss via wp-scripts.
     // Includes preview keyframes + animation class rules.
     // Must load inside the iframe for BlockListBlock className preview
@@ -178,87 +520,67 @@ function motion_blocks_enqueue_block_assets() {
     // means the browser keeps the cached stylesheet across rebuilds
     // — fine for releases, breaks dev iteration. JS uses the asset
     // .php hash already; CSS gets the same treatment via mtime.
-    if ( is_admin() ) {
-        $editor_css_path = plugin_dir_path( __FILE__ ) . 'build/index.css';
-        $editor_css_ver  = file_exists( $editor_css_path )
-            ? filemtime( $editor_css_path )
-            : MOTION_BLOCKS_VERSION;
-        wp_enqueue_style(
-            'motion-blocks-editor-styles',
-            plugins_url( 'build/index.css', __FILE__ ),
-            array(),
-            $editor_css_ver
-        );
-    }
-
-    // animations.css: the single source of truth for animation
-    // class → keyframe bindings, duration/delay/fill-mode bindings,
-    // and the stagger cascade. The `enqueue_block_assets` hook fires
-    // for BOTH the editor iframe and the frontend, so loading it
-    // here (outside the !is_admin guard) means editor preview and
-    // saved-block rendering use the same CSS — no duplication, no
-    // drift. editor.scss still ships duplicate @keyframes as a
-    // safety net (and adds editor-only overrides for chrome).
-    $anim_css_path = plugin_dir_path( __FILE__ ) . 'css/animations.css';
-    $anim_css_ver  = file_exists( $anim_css_path )
-        ? filemtime( $anim_css_path )
+    $editor_css_path = plugin_dir_path( __FILE__ ) . 'build/index.css';
+    $editor_css_ver  = file_exists( $editor_css_path )
+        ? filemtime( $editor_css_path )
         : MOTION_BLOCKS_VERSION;
     wp_enqueue_style(
-        'motion-blocks-styles',
-        plugins_url( 'css/animations.css', __FILE__ ),
+        'motion-blocks-editor-styles',
+        plugins_url( 'build/index.css', __FILE__ ),
         array(),
-        $anim_css_ver
+        $editor_css_ver
     );
 
-    if ( ! is_admin() ) {
-        // Frontend-only assets.
-        $frontend_asset_file = plugin_dir_path( __FILE__ ) . 'build/frontend.asset.php';
-
-        if ( file_exists( $frontend_asset_file ) ) {
-            $frontend_asset = include $frontend_asset_file;
-
-            wp_enqueue_script(
-                'motion-blocks-frontend',
-                plugins_url( 'build/frontend.js', __FILE__ ),
-                $frontend_asset['dependencies'],
-                $frontend_asset['version'],
-                true
-            );
-
-            // Opt-in developer self-check (GH #60): when the admin
-            // setting is on, flag the runtime into debug mode (it then
-            // exposes its trigger state) and load the checker after it.
-            // Limited to logged-in users so visitors never load it. Off
-            // by default. The option key predates the self-check; it
-            // used to toggle the trigger-line overlay it replaced.
-            $self_check_asset_file = plugin_dir_path( __FILE__ ) . 'build/self-check.asset.php';
-            if (
-                get_option( 'mb_debug_markers' )
-                && is_user_logged_in()
-                && file_exists( $self_check_asset_file )
-            ) {
-                $self_check_asset = include $self_check_asset_file;
-
-                wp_add_inline_script(
-                    'motion-blocks-frontend',
-                    'window.motionBlocksDebug = true;',
-                    'before'
-                );
-                wp_enqueue_script(
-                    'motion-blocks-self-check',
-                    plugins_url( 'build/self-check.js', __FILE__ ),
-                    array_merge(
-                        $self_check_asset['dependencies'],
-                        array( 'motion-blocks-frontend' )
-                    ),
-                    $self_check_asset['version'],
-                    true
-                );
-            }
-        }
-    }
+    // The editor loads animations.css unconditionally, so the preview
+    // works on posts that have no animations yet.
+    motion_blocks_enqueue_animations_css();
 }
 add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
+
+/**
+ * Note that an animated block just rendered; if that happened after
+ * <head> on a page that didn't load the assets there, load them in the
+ * footer.
+ *
+ * Late path: content the head decision missed — on classic themes,
+ * blocks from do_blocks() in a shortcode or page builder, or blocks
+ * another plugin renders in wp_footer. The stylesheet goes out through
+ * print_late_styles() (on classic themes, WordPress 6.9+ hoists it back
+ * into <head> through its template output buffer) and frontend.js was
+ * already registered for the footer. There is deliberately no head
+ * marker on this path: frontend.js adds `mb-js` itself once its init
+ * has finished, so missing JS or CSS still leaves content visible.
+ * The trade-off: the page first paints
+ * with these blocks at rest; Page Load blocks and Scroll Appear blocks
+ * already in view then replay from their hidden "from" state when init
+ * adds `.mb-triggered` (a visible flash). Scroll Appear blocks below the
+ * fold are simply hidden until they scroll in. Sites that hit this
+ * force the assets into <head> with the
+ * `motion_blocks_load_frontend_assets` filter (`__return_true`).
+ *
+ * Nothing happens in the editor, before wp_head (block templates,
+ * REST, feeds, AJAX — the head decision covers or doesn't apply to
+ * those), once the assets are already enqueued, or once the footer
+ * scripts have printed.
+ */
+function motion_blocks_note_animated_block() {
+    motion_blocks_animated_block_seen( true );
+
+    if (
+        is_admin()
+        || ! did_action( 'wp_head' )
+        || did_action( 'wp_print_footer_scripts' )
+        || motion_blocks_frontend_assets_enqueued()
+    ) {
+        return;
+    }
+
+    /** This filter is documented in motion_blocks_should_load_frontend_assets(). */
+    if ( ! apply_filters( 'motion_blocks_load_frontend_assets', true ) ) {
+        return;
+    }
+    motion_blocks_enqueue_frontend_assets();
+}
 
 /**
  * JS-detection marker for the no-JS visibility fallback.
@@ -286,8 +608,20 @@ add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
  * that flag is missing. Footer and async scripts all run before
  * `load`, so this is not a timing guess. frontend.js re-adds `mb-js`
  * in init, for scripts an optimiser delays until after `load`.
+ *
+ * Printed only on pages that load the assets in <head>: the marker and
+ * the head enqueue share one decision
+ * (motion_blocks_should_load_frontend_assets()), so `mb-js` never
+ * appears without animations.css. A page whose assets arrive late (an
+ * animated block first rendered after <head>, see
+ * motion_blocks_note_animated_block()) gets no head marker; frontend.js
+ * adds `mb-js` itself after init there, so missing JS or missing CSS
+ * still leaves content visible.
  */
 function motion_blocks_print_js_marker() {
+    if ( ! motion_blocks_should_load_frontend_assets() ) {
+        return;
+    }
     wp_print_inline_script_tag(
         '(function(h){h.classList.add("mb-js");'
             . 'window.addEventListener("load",function(){'
@@ -537,6 +871,11 @@ function motion_blocks_render_block( $block_content, $block ) {
     if ( ! $processor->next_tag() ) {
         return $block_content;
     }
+
+    // This page has an animated block, so it needs the front-end CSS
+    // and JS. Recorded before the legacy-markup early return below so
+    // blocks with baked-in animation markup count too.
+    motion_blocks_note_animated_block();
 
     // Skip blocks that already carry complete animation markup. We gate
     // on `data-mb-mode` (what the frontend actually reads), NOT the

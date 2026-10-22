@@ -5,6 +5,7 @@
  * to shared-constants.json and re-export it below.
  */
 import SHARED from '../../shared-constants.json';
+import { isValidFromToValue } from '../css-values';
 
 /**
  * Dropdown labels per effect value. The values themselves (and their
@@ -1651,7 +1652,15 @@ export function isPropertyAdded( value ) {
  *                     `{ opacity: 0, translateX: '20px' }`.
  * @return {string|null}
  */
-export function buildKeyframeSide( bag ) {
+export function buildKeyframeSide( rawBag ) {
+	// The result is written into a <style> as @keyframes text, so only
+	// well-formed values are used (css-values.js).
+	const bag = {};
+	Object.keys( rawBag || {} ).forEach( ( id ) => {
+		if ( isValidFromToValue( id, rawBag[ id ] ) ) {
+			bag[ id ] = rawBag[ id ];
+		}
+	} );
 	const decls = [];
 	if ( isPropertyAdded( bag.opacity ) ) {
 		decls.push( `opacity: ${ bag.opacity }` );
@@ -1840,6 +1849,29 @@ export function normalizeCustomFromToAttrs( attrs ) {
 		}
 		out[ attrName ] = coerceWithUnit( out[ attrName ], unit );
 	};
+	// Values arriving from outside the panel (paste, recipes, older
+	// posts) that fail their property's allowlist become "not set".
+	for ( const def of PROPERTY_DEFINITIONS ) {
+		const Cap = def.id.charAt( 0 ).toUpperCase() + def.id.slice( 1 );
+		for ( const attrName of [
+			FROM_ATTR[ def.id ],
+			TO_ATTR[ def.id ],
+			'animationEntryFrom' + Cap,
+			'animationEntryTo' + Cap,
+			'animationExitFrom' + Cap,
+			'animationExitTo' + Cap,
+		] ) {
+			const v = out[ attrName ];
+			if (
+				v !== undefined &&
+				v !== null &&
+				v !== '' &&
+				! isValidFromToValue( def.id, coerceWithUnit( v, def.unitSuffix || '' ) )
+			) {
+				out[ attrName ] = null;
+			}
+		}
+	}
 	for ( const def of PROPERTY_DEFINITIONS ) {
 		if ( ! def.unitSuffix ) {
 			continue;

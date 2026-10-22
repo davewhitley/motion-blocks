@@ -29,6 +29,7 @@ import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
 import { useEntityProp } from '@wordpress/core-data';
 import { useState } from '@wordpress/element';
+import { useInstanceId } from '@wordpress/compose';
 import {
 	CheckboxControl,
 	Button,
@@ -163,6 +164,13 @@ function MotionBlocksPagePanel() {
 	const { ref: autoAnimateRef, noteOpener } =
 		useFocusAfterDialog( confirmOpen );
 
+	// The confirm dialog hides its header, so it gets its name from
+	// `contentLabel` and its question as the description.
+	const removeAllMessageId = useInstanceId(
+		MotionBlocksPagePanel,
+		'mb-remove-all-message'
+	);
+
 	const setMetaValue = ( key, value ) => {
 		setMeta( { ...meta, [ key ]: value } );
 	};
@@ -276,18 +284,22 @@ function MotionBlocksPagePanel() {
 				onConfirm={ handleRemoveAll }
 				onCancel={ () => setConfirmOpen( false ) }
 				confirmButtonText={ __( 'Remove', 'motion-blocks' ) }
+				contentLabel={ __( 'Remove all animations', 'motion-blocks' ) }
+				aria={ { describedby: removeAllMessageId } }
 			>
-				{ sprintf(
-					/* translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks */
-					_n(
-						'Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button.',
-						'Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button.',
-						animatedCount,
-						'motion-blocks'
-					),
-					contextNoun,
-					animatedCount
-				) }
+				<span id={ removeAllMessageId }>
+					{ sprintf(
+						/* translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks */
+						_n(
+							'Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button.',
+							'Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button.',
+							animatedCount,
+							'motion-blocks'
+						),
+						contextNoun,
+						animatedCount
+					) }
+				</span>
 			</ConfirmDialog>
 
 			<AutoAnimateModal

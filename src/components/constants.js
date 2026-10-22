@@ -115,11 +115,54 @@ export const IMAGE_EFFECT_BLOCKS = [ 'core/cover' ];
  * "Image only" is the same mechanism as Image Move / Image Zoom (it
  * animates the first img descendant); restricting it to Cover keeps
  * the v1 contract consistent.
- *
- * Theme/plugin authors can extend the list via the `motion-blocks/
- * image-targetable-blocks` JS filter (see src/index.js).
  */
 export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
+
+/**
+ * Fit a pasted or applied animation to the block it lands on (GH #30).
+ *
+ * Copy / Paste and saved or theme.json animations can carry settings
+ * that only exist on image blocks: the "Animate image only" target
+ * (`animationFromToTarget: 'img'`) and the Image Move / Image Zoom
+ * effects. On any other block type the panel can't show them, Preview
+ * does nothing and the front end stays static. So, off the lists
+ * above:
+ *
+ * - the From/To target falls back to the whole block;
+ * - an image effect in the shared type or either Scroll Appear slot
+ *   becomes the default effect (Fade), and that slot's direction is
+ *   cleared, since Fade has none.
+ *
+ * Everything else, and every animation on a listed block, passes
+ * through unchanged.
+ *
+ * @param {Object} attrs     Animation attributes about to be written.
+ * @param {string} blockName Block type receiving them.
+ * @return {Object} The attributes, adapted to the block type.
+ */
+export function adaptAnimationToBlock( attrs, blockName ) {
+	const out = { ...( attrs || {} ) };
+	if (
+		! IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
+		out.animationFromToTarget !== undefined &&
+		out.animationFromToTarget !== 'block'
+	) {
+		out.animationFromToTarget = 'block';
+	}
+	if ( ! IMAGE_EFFECT_BLOCKS.includes( blockName ) ) {
+		[
+			[ 'animationType', 'animationDirection' ],
+			[ 'animationEntryType', 'animationEntryDirection' ],
+			[ 'animationExitType', 'animationExitDirection' ],
+		].forEach( ( [ typeKey, directionKey ] ) => {
+			if ( IMAGE_EFFECT_TYPES.includes( out[ typeKey ] ) ) {
+				out[ typeKey ] = 'fade';
+				out[ directionKey ] = '';
+			}
+		} );
+	}
+	return out;
+}
 
 /**
  * Block types that support the "Stagger inner blocks" toggle. When
@@ -1968,6 +2011,40 @@ export const PREVIEW_DEFAULTS = Object.freeze( {
  * The six preview-state keys. Never part of a saved animation.
  */
 export const PREVIEW_UI_KEYS = Object.freeze( Object.keys( PREVIEW_DEFAULTS ) );
+
+/**
+ * The payload for "Reset settings" (GH #56): every animation attribute
+ * (the keys of DEFAULT_ATTRIBUTES minus the preview-state keys) back
+ * at its new-block value, with the block kept in `mode`.
+ *
+ * Covers the Scroll Appear slot keys, Stagger, "Animate image only",
+ * the rotate angle and the custom timing function too. Resetting only
+ * the shared keys left a Scroll Appear block's Entry / Exit effects
+ * exactly as they were.
+ *
+ * For Scroll Appear the Entry slot is seeded with the default effect,
+ * as picking the mode does (`selectMode` in AnimationPanel.js), so the
+ * panel lands on Entry: Fade rather than an empty slot.
+ *
+ * Carries `animationMode`, so `materializeScrollAppearPatch` passes it
+ * through untouched, like the other full-shape writes.
+ *
+ * @param {string} mode The block's current animation mode.
+ * @return {Object} Partial attribute payload ready for setAttributes().
+ */
+export function resetAnimationAttributes( mode ) {
+	const out = {};
+	for ( const key of Object.keys( DEFAULT_ATTRIBUTES ) ) {
+		if ( ! PREVIEW_UI_KEYS.includes( key ) ) {
+			out[ key ] = DEFAULT_ATTRIBUTES[ key ];
+		}
+	}
+	out.animationMode = mode;
+	if ( mode === 'scroll-appear' ) {
+		out.animationEntryType = DEFAULT_ATTRIBUTES.animationType;
+	}
+	return out;
+}
 
 /**
  * Reset any preview-state values saved in a block's attributes to

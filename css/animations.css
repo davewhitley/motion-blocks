@@ -28,7 +28,7 @@
  * scrollbar — even though the user can't actually scroll anywhere
  * useful, the page just looks broken.
  *
- * Clipping `<html>` at the page level fixes this without disturbing
+ * Clipping `<body>` at the page level fixes this without disturbing
  * any intermediate container's `overflow` — Group blocks, Columns,
  * and Sections keep `overflow: visible`, so animations can still
  * visibly break out of their local box. Only the page boundary
@@ -39,7 +39,19 @@
  * uses `scrollLeft` / `scrollIntoView()` on its own scroll
  * containers (carousels, smooth-scroll libraries) is unaffected.
  * The carousel's scrolling happens inside its own wrapper, not on
- * `<html>`.
+ * the page.
+ *
+ * Why `<body>`, not `<html>`: with `<html>` left at `overflow:
+ * visible`, the browser propagates `<body>`'s overflow to the
+ * viewport (where `clip` is read as `hidden`), so `<body>` never
+ * becomes a scroll container. Clipping `<html>` instead stopped that
+ * propagation, so a theme's own `body { overflow-x: hidden }` turned
+ * `<body>` into a scroll container — breaking `position: sticky`
+ * headers and `body { overflow: hidden }` scroll locks (#32).
+ *
+ * `:where()` keeps the rule at zero specificity, so any theme or
+ * plugin `body` overflow rule (including a modal's scroll lock)
+ * wins outright.
  *
  * Gated on `body.mb-clip-page-overflow`, which the PHP body_class
  * filter emits when `motion_blocks_apply_overflow_clip` resolves
@@ -48,7 +60,7 @@
  *
  *     add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
  * -------------------------------------------------------------- */
-html:has(body.mb-clip-page-overflow) {
+:where(body.mb-clip-page-overflow) {
     overflow-x: clip;
 }
 
@@ -62,8 +74,10 @@ html:has(body.mb-clip-page-overflow) {
  * No-JS contract: every HIDE rule (opacity: 0) is scoped under
  * `:where(html.mb-js)` — the marker class a synchronous head script
  * adds on the frontend (motion_blocks_print_js_marker). If JS never
- * runs, the rules don't match and content stays visible. `:where()`
- * adds ZERO specificity, so all the `opacity: 1` override rules
+ * runs, the rules don't match and content stays visible; the same
+ * script drops the class on `load` if frontend.js never finished
+ * init (GH #57), so a broken bundle also leaves content visible.
+ * `:where()` adds ZERO specificity, so all the `opacity: 1` override rules
  * below keep winning unchanged. The editor canvas is unaffected
  * either way: it never carries `mb-mode-*` classes (the preview HOC
  * deliberately omits them — see src/index.js withAnimationPreview).
@@ -131,6 +145,11 @@ html:has(body.mb-clip-page-overflow) {
        Repeat = Loop / Back-and-forth silently played once. */
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+    /* Page Load "Pause when off-screen" — frontend.js toggles
+       `--mb-play-state` on the wrapper. A custom property (not inline
+       `animation-play-state`) so it also reaches Stagger children and
+       the img-target image, which animate instead of the wrapper. */
+    animation-play-state: var(--mb-play-state, running);
 }
 
 /* ----------------------------------------------------------------
@@ -581,6 +600,7 @@ html:has(body.mb-clip-page-overflow) {
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+    animation-play-state: var(--mb-play-state, running);
 }
 
 /* Apply scroll-driven props on the inner img for Scroll Interactive.
@@ -951,6 +971,7 @@ html:has(body.mb-clip-page-overflow) {
     animation-timing-function: var(--mb-timing);
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
+    animation-play-state: var(--mb-play-state, running);
 }
 
 /* Bind animation-name per enter type. Inner blocks use the same

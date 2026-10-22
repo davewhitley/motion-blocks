@@ -95,6 +95,13 @@ import SHARED from '../shared-constants.json';
 		initPageLoadAnimations();
 		initScrollAppearAnimations();
 		initScrollInteractiveAnimations();
+		// Read by the head failsafe on `load` (GH #57,
+		// motion_blocks_print_js_marker): set only once every mode is
+		// wired, so a throw above still reveals the content. Re-assert
+		// the marker too, in case an optimiser delayed this script past
+		// `load` and the failsafe already removed it (no-op otherwise).
+		window.motionBlocksReady = true;
+		document.documentElement.classList.add( 'mb-js' );
 		if ( DEBUG ) {
 			debugApi.ready = true;
 		}
@@ -394,6 +401,8 @@ import SHARED from '../shared-constants.json';
 				'animation-timing-function: var(--mb-timing, ease)',
 				'animation-iteration-count: var(--mb-iteration-count, 1)',
 				'animation-direction: var(--mb-direction, normal)',
+				// Page Load "Pause when off-screen" (setupPauseOffscreen).
+				'animation-play-state: var(--mb-play-state, running)',
 			];
 		}
 
@@ -867,14 +876,22 @@ import SHARED from '../shared-constants.json';
 
 	/**
 	 * Pause/resume animation based on element visibility.
+	 *
+	 * Sets `--mb-play-state` rather than inline `animation-play-state`:
+	 * a Stagger parent's children and an img-target block's image
+	 * animate instead of the wrapper, and only a custom property
+	 * reaches them (the triggered rules in animations.css read it).
+	 * The observer stays connected — a looping animation needs it for
+	 * the life of the page.
 	 */
 	function setupPauseOffscreen( el ) {
 		var observer = new IntersectionObserver(
 			function ( entries ) {
 				entries.forEach( function ( entry ) {
-					el.style.animationPlayState = entry.isIntersecting
-						? 'running'
-						: 'paused';
+					el.style.setProperty(
+						'--mb-play-state',
+						entry.isIntersecting ? 'running' : 'paused'
+					);
 				} );
 			},
 			{ threshold: 0 }
@@ -988,8 +1005,13 @@ import SHARED from '../shared-constants.json';
 		 * scroll viewport, computes inZone, fires a handler only on
 		 * inZone state flips. Called from IO callbacks and from
 		 * ResizeObserver / window resize.
+		 *
+		 * `layoutDir` (optional): set by refreshAll() when a layout
+		 * change, not a scroll, moved the block. 'up' = the block moved
+		 * down the page (as if the reader scrolled up), 'down' = it moved
+		 * up. It replaces the scroll direction for this tick only.
 		 */
-		function tick( state ) {
+		function tick( state, layoutDir ) {
 			if ( state.unobserved ) {
 				return;
 			}
@@ -1007,7 +1029,12 @@ import SHARED from '../shared-constants.json';
 				scrollDir = 'up';
 			}
 			prevScrollY = currentScrollY;
-			var dir = scrollDir;
+			// A layout change is not a scroll: content above growing
+			// pushes an in-zone block out through the BOTTOM of the zone,
+			// which is onLeaveBack, not the "scrolled past it" onLeave
+			// the last scroll direction would pick — that played the Exit
+			// on a block still on screen (GH #52 follow-up).
+			var dir = layoutDir || scrollDir;
 
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
@@ -1254,11 +1281,22 @@ import SHARED from '../shared-constants.json';
 		} );
 
 		// Recompute every element's cached bounds, then re-tick. Shared
-		// by resize and the late-layout refresh below.
+		// by resize and the late-layout refreshes below. These are layout
+		// changes, not scrolls, so a block that moved picks its handler
+		// from which way it moved rather than from the last scroll
+		// direction (see tick()'s `layoutDir`). A block that didn't move
+		// (e.g. only the viewport resized) keeps the scroll direction.
 		function refreshAll() {
 			states.forEach( function ( state ) {
+				var prevTop = state.pageTop;
 				refreshBounds( state );
-				tick( state );
+				var layoutDir = null;
+				if ( state.pageTop > prevTop ) {
+					layoutDir = 'up';
+				} else if ( state.pageTop < prevTop ) {
+					layoutDir = 'down';
+				}
+				tick( state, layoutDir );
 			} );
 		}
 
@@ -1293,6 +1331,28 @@ import SHARED from '../shared-constants.json';
 			document.fonts.ready.then( refreshAll );
 		}
 
+		// Content above a block changing height after load — a Details
+		// block opened or closed, an accordion, a late embed — moves the
+		// block without resizing it, so its own ResizeObserver stays
+		// quiet and the cached bounds go stale: the block fades in
+		// hundreds of pixels early or late, or sits on screen hidden
+		// (GH #52). Such a change resizes the body, so observe that too.
+		// Transforms don't resize the body, so this stays animation-safe;
+		// rAF-throttled so a burst of changes refreshes once per frame.
+		if ( typeof ResizeObserver !== 'undefined' && document.body ) {
+			var bodyResizeScheduled = false;
+			new ResizeObserver( function () {
+				if ( bodyResizeScheduled ) {
+					return;
+				}
+				bodyResizeScheduled = true;
+				requestAnimationFrame( function () {
+					bodyResizeScheduled = false;
+					refreshAll();
+				} );
+			} ).observe( document.body );
+		}
+
 		// Scroll listener safety net.
 		//
 		// IO is the efficient primary wake-up, but it has a known
@@ -1320,7 +1380,11 @@ import SHARED from '../shared-constants.json';
 				scrollScheduled = true;
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
-					states.forEach( tick );
+					// Not `forEach( tick )`: the index would land in
+					// tick()'s `layoutDir` and override the direction.
+					states.forEach( function ( state ) {
+						tick( state );
+					} );
 				} );
 			},
 			{ passive: true }

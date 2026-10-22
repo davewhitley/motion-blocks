@@ -21,7 +21,7 @@ import {
 	Button,
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
-import { useSelect, useDispatch } from '@wordpress/data';
+import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { useInstanceId } from '@wordpress/compose';
 import { speak } from '@wordpress/a11y';
 import {
@@ -36,13 +36,11 @@ import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
-import { normalizeCustomFromToAttrs } from './constants';
 import {
 	generateUid,
 	pickAnimationAttributes,
 	sortLibrary,
 	sortThemeLibrary,
-	stripUiState,
 } from './savedAnimations';
 import SavedAnimationsModal from './SavedAnimationsModal';
 import { selectSameTypeInfo } from './selectStable';
@@ -122,6 +120,8 @@ export default function AnimationOptionsMenu( {
 	const themeEntries = sortThemeLibrary( themeAnimations );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
+	// Read at click time only — no store subscription (GH #27).
+	const registry = useRegistry();
 	const { saveEditedEntityRecord } = useDispatch( coreStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );
 
@@ -252,18 +252,33 @@ export default function AnimationOptionsMenu( {
 			onClose();
 			return;
 		}
-		// Saved entries from before GH #29 and theme.json recipes may
-		// carry preview keys or unit-less From/To values; clean both.
-		updateBlockAttributes(
-			clientId,
-			normalizeCustomFromToAttrs( stripUiState( saved.attributes ) )
-		);
+		// Same path as Paste: the panel's `pasteAnimation` strips
+		// preview keys, normalizes From/To units and fits image-only
+		// settings to the block type (GH #29, GH #30), then writes
+		// through the routed setAttributes, which covers every block
+		// of a multi-selection in one undo step (GH #30).
+		onPaste( { ...saved.attributes } );
+		const count = registry
+			.select( blockEditorStore )
+			.getMultiSelectedBlockClientIds().length;
 		createSuccessNotice(
-			sprintf(
-				/* translators: %s: user-supplied animation name */
-				__( "Applied '%s' to this block.", 'motion-blocks' ),
-				saved.name || ''
-			),
+			count > 1
+				? sprintf(
+						/* translators: 1: user-supplied animation name, 2: number of selected blocks */
+						_n(
+							"Applied '%1$s' to %2$d selected block.",
+							"Applied '%1$s' to %2$d selected blocks.",
+							count,
+							'motion-blocks'
+						),
+						saved.name || '',
+						count
+				  )
+				: sprintf(
+						/* translators: %s: user-supplied animation name */
+						__( "Applied '%s' to this block.", 'motion-blocks' ),
+						saved.name || ''
+				  ),
 			{ type: 'snackbar' }
 		);
 		onClose();

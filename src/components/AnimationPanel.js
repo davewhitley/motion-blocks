@@ -27,13 +27,15 @@ import {
 	PROPERTY_DEFINITIONS,
 	FROM_ATTR,
 	TO_ATTR,
+	adaptAnimationToBlock,
 	normalizeCustomFromToAttrs,
 	migrateScrollAppearAttrs,
+	resetAnimationAttributes,
 } from './constants';
 
 /**
  * Reset all custom From/To attributes to their identity defaults.
- * Used by selectMode / resetSettings / removeAnimation so the custom
+ * Used by selectMode / removeAnimation so the custom
  * editor starts fresh whenever the animation is reconfigured.
  */
 function customFromToDefaults() {
@@ -346,43 +348,48 @@ export default function AnimationPanel( {
 	 * recipe or a copy from a stale clipboard) are upgraded on apply.
 	 * Preview keys are stripped first (GH #29): the router would send
 	 * them to the preview store anyway, but pasted data should only
-	 * ever carry the animation.
+	 * ever carry the animation. Image-only settings copied from a Cover
+	 * fall back to block-level ones on other block types (GH #30).
 	 */
 	const pasteAnimation = useCallback(
 		( data ) => {
-			setAttributes( normalizeCustomFromToAttrs( stripUiState( data ) ) );
+			setAttributes(
+				adaptAnimationToBlock(
+					normalizeCustomFromToAttrs( stripUiState( data ) ),
+					blockName
+				)
+			);
 		},
-		[ setAttributes ]
+		[ setAttributes, blockName ]
 	);
 
 	/**
 	 * Reset settings — revert properties to defaults, keep the current mode.
+	 *
+	 * Resets every animation attribute, the Scroll Appear Entry / Exit
+	 * slots included (GH #56).
 	 */
 	const resetSettings = useCallback( () => {
 		setAttributes( {
-			animationType: DEFAULT_ATTRIBUTES.animationType,
-			animationDirection: DEFAULT_ATTRIBUTES.animationDirection,
-			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
-			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
-			animationRepeat: DEFAULT_ATTRIBUTES.animationRepeat,
-			animationPauseOffscreen: DEFAULT_ATTRIBUTES.animationPauseOffscreen,
-			animationPlayOnce: DEFAULT_ATTRIBUTES.animationPlayOnce,
-			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
-			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
-			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
-			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
+			...resetAnimationAttributes( animationMode ),
 			animationPreviewPlaying: false,
-			...customFromToDefaults(),
 		} );
 		speak( __( 'Animation settings reset.', 'motion-blocks' ) );
-	}, [ setAttributes ] );
+	}, [ setAttributes, animationMode ] );
 
+	/**
+	 * Remove animation — clear the mode and the shared settings.
+	 *
+	 * Also resets "Animate image only" (GH #56): left at 'img', it came
+	 * back the next time a mode was picked, and a block that isn't a
+	 * Cover (no toggle to turn it off) stayed unable to animate.
+	 */
 	const removeAnimation = () => {
 		setAttributes( {
 			animationMode: '',
 			animationType: '',
 			animationDirection: '',
+			animationFromToTarget: DEFAULT_ATTRIBUTES.animationFromToTarget,
 			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
 			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
 			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,

@@ -161,7 +161,7 @@ It logs in through Studio's auto-login URL; on another local site use `--login f
 **CI** (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
 
 1. *Build & unit tests* (about 1 minute): `npm ci`, `npm run build`, fails if the committed `build/` differs from a fresh build (run `npm run build` and commit `build/`), then `npm run test:unit`.
-2. *Page & editor checks* (about 4½ minutes, only after job 1 passes): starts WordPress 7.1 in [WordPress Playground](https://wordpress.github.io/wordpress-playground/developers/local-development/wp-playground-cli) with this repo mounted as the plugin. `tests/self-check/blueprint.json` activates the plugin, turns on Self-check and runs `fixtures.php json`; then `run.mjs` checks every page. The output is attached to the run as the `page-checks` artifact.
+2. *Page & editor checks* (about 4 minutes, only after job 1 passes): starts WordPress 7.1 in [WordPress Playground](https://wordpress.github.io/wordpress-playground/developers/local-development/wp-playground-cli) with this repo mounted as the plugin. `tests/self-check/blueprint.json` activates the plugin, turns on Self-check and runs `fixtures.php json`; then `run.mjs` checks every page. The output is attached to the run as the `page-checks` artifact.
 
 To run the CI setup itself locally (needs Node 24+ for the Playground CLI), from the repo root:
 

@@ -6,8 +6,13 @@
 # and the PR shows a red cross next to it. Click "Details" on the cross
 # to see the log, then expand the step with the red mark.
 #
-# Build & unit tests (~1 min): the JavaScript builds, the built files
-# in build/ are committed, and the Jest unit tests pass.
+# Two jobs:
+#   1. Build & unit tests   (~1 min)  — the JavaScript builds, the built
+#      files in build/ are committed, and the Jest unit tests pass.
+#   2. Page & editor checks (~5 min)  — starts WordPress (WordPress
+#      Playground), builds the self-check fixture pages, and runs the
+#      self-check on each of them in headless Chrome. Only starts if
+#      job 1 passed.
 #
 # Run the same things locally: see "Tests" in README.md.
 
@@ -65,3 +70,80 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+  pages:
+    name: Page & editor checks
+    # Only worth running when the code builds and the unit tests pass.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # WordPress Playground CLI version and the WordPress version to
+      # test against (the local Studio site runs 7.1.x).
+      PLAYGROUND_CLI: "@wp-playground/cli@3.1.60"
+      WP_VERSION: "7.1"
+      PORT: 9400
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js (LTS)
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      # The page checks test the plugin as committed, including build/
+      # (job 1 already confirmed build/ matches the source), so no
+      # `npm ci` / build is needed here.
+
+      - name: Start WordPress (Playground)
+        # Playground runs WordPress + PHP in Node (WebAssembly), with
+        # SQLite: no database server or PHP install needed. The repo is
+        # mounted as the plugin; the blueprint activates it, turns on the
+        # self-check and builds the fixture pages, writing their list to
+        # ci-output/manifest.json.
+        run: |
+          mkdir -p ci-output
+          npx --yes "$PLAYGROUND_CLI" server \
+            --port="$PORT" \
+            --wp="$WP_VERSION" \
+            --mount="$PWD:/wordpress/wp-content/plugins/motion-blocks" \
+            --mount="$PWD/ci-output:/ci-output" \
+            --blueprint=tests/self-check/blueprint.json \
+            > ci-output/playground.log 2>&1 &
+          # Wait (up to 5 minutes) until the blueprint has written the manifest
+          # and the site answers.
+          for i in $(seq 1 150); do
+            if [ -s ci-output/manifest.json ] && curl -sf -o /dev/null "http://127.0.0.1:$PORT/"; then
+              echo "WordPress is up after $((i * 2))s."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::WordPress Playground didn't start. Its log:"
+          cat ci-output/playground.log
+          exit 1
+
+      - name: Show the fixture pages
+        run: cat ci-output/manifest.json
+
+      - name: Run the page & editor checks
+        # Logs in through wp-login.php with Playground's default
+        # admin / password. Google Chrome is preinstalled on GitHub's
+        # Ubuntu runners.
+        run: |
+          set -o pipefail
+          node tests/self-check/run.mjs \
+            --manifest ci-output/manifest.json \
+            --login form \
+            --concurrency 4 \
+            2>&1 | tee ci-output/results.txt
+
+      - name: Upload the results
+        # Runs even when the checks failed, so you can download the log
+        # from the run's "Artifacts" section.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: page-checks
+          path: ci-output/
+          if-no-files-found: ignore

@@ -891,12 +891,19 @@
  * When `mb-stagger-parent` is on a container block (Group / Columns
  * / Buttons / Gallery / List), the parent stops animating itself and
  * its direct children pick up the parent's animation classes via
- * descendant selectors, with a stepped delay computed via
- * `:nth-child()`. Cap at 30 children — past that the cumulative
- * delay stops being useful anyway.
+ * descendant selectors, with a stepped delay of
+ * `--mb-delay + index * --mb-stagger-step`.
  *
- * Pure CSS. The existing IntersectionObserver still adds `.mb-triggered`
- * to the parent; the rules below propagate that trigger to the children.
+ * The animation itself is pure CSS. The existing trigger code still
+ * adds `.mb-triggered` to the parent; the rules below propagate that
+ * trigger to the children. The one thing CSS can't do yet is give an
+ * element its position as a number, so `src/stagger-index.js` writes
+ * each child's 0-based position once, as `--mb-stagger-index` (front
+ * end: frontend.js init; editor: the withAnimationPreview HOC). There
+ * is no cap on the number of children (GH #53: the delay used to come
+ * from 30 `:nth-child()` rules, and children past the 30th started
+ * immediately). When `sibling-index()` is supported everywhere, it can
+ * replace the JS: `(sibling-index() - 1)` counts the same way.
  *
  * Classic-theme Group wrapper (GH #66). In themes without theme.json,
  * core wraps a default / constrained Group's children in
@@ -912,11 +919,23 @@
  * The first is the old `> *` minus the wrapper. Excluding the wrapper
  * matters: if it also matched, it would animate as "child 1" on top of
  * its own children and the two opacities would multiply. The second
- * reaches through the wrapper, so its children count from 1 for the
- * `:nth-child()` delays. `:where()` adds no specificity, so both forms
+ * reaches through the wrapper, and stagger-index.js numbers its
+ * children from 0 inside the wrapper, so the stepped delay starts over
+ * there exactly as the wrapper's own children would. `:where()` adds
+ * no specificity, so both forms
  * weigh exactly what `> *` did and block-theme output is unchanged.
  * The Reduced Motion and per-device lists above use the same pair.
  * -------------------------------------------------------------- */
+
+/* A child's stagger position must not leak to its own children: a
+   nested stagger parent's children would otherwise inherit their
+   parent's position whenever their own hasn't been written. Browsers
+   without @property just inherit, which only matters in that case. */
+@property --mb-stagger-index {
+    syntax: '<integer>';
+    inherits: false;
+    initial-value: 0;
+}
 
 /* Suppress the parent's own animation. Stays visible from frame 0 so
    the children can fade/slide/etc. into the static container. */
@@ -969,12 +988,20 @@
    block's Repeat = Loop / Back-and-forth setting; the parent emits
    them as CSS custom properties (frontend.js sets `--mb-iteration-
    count: infinite` on loop / alternate). These inherit down the
-   cascade so staggered inner blocks loop in sync with the parent. */
+   cascade so staggered inner blocks loop in sync with the parent.
+
+   The stepped delay: `--mb-stagger-index` is the child's own 0-based
+   position, written inline by stagger-index.js (see the section
+   comment above); `--mb-delay` and `--mb-stagger-step` inherit from
+   the parent. Specificity (0,2,0), after `.mb-animated.mb-triggered`
+   in source order, so a child that is itself animated still takes
+   the stagger delay. */
 .mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)),
 .mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > * {
     animation-duration: var(--mb-duration);
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-timing);
+    animation-delay: calc(var(--mb-delay, 0s) + var(--mb-stagger-index, 0) * var(--mb-stagger-step, 0.1s));
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
     animation-play-state: var(--mb-play-state, running);
@@ -1075,68 +1102,4 @@
     animation-iteration-count: var(--mb-iteration-count, 1);
     animation-direction: var(--mb-direction, normal);
 }
-
-/* Stepped delay per child. CSS doesn't have a `for` so we list 30
-   nth-child rules. Each one adds (n-1) * --mb-stagger-step to the
-   parent's --mb-delay. */
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(1),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(1)  { animation-delay: calc(var(--mb-delay, 0s) +  0 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(2),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(2)  { animation-delay: calc(var(--mb-delay, 0s) +  1 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(3),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(3)  { animation-delay: calc(var(--mb-delay, 0s) +  2 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(4),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(4)  { animation-delay: calc(var(--mb-delay, 0s) +  3 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(5),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(5)  { animation-delay: calc(var(--mb-delay, 0s) +  4 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(6),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(6)  { animation-delay: calc(var(--mb-delay, 0s) +  5 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(7),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(7)  { animation-delay: calc(var(--mb-delay, 0s) +  6 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(8),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(8)  { animation-delay: calc(var(--mb-delay, 0s) +  7 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(9),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(9)  { animation-delay: calc(var(--mb-delay, 0s) +  8 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(10),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(10) { animation-delay: calc(var(--mb-delay, 0s) +  9 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(11),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(11) { animation-delay: calc(var(--mb-delay, 0s) + 10 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(12),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(12) { animation-delay: calc(var(--mb-delay, 0s) + 11 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(13),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(13) { animation-delay: calc(var(--mb-delay, 0s) + 12 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(14),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(14) { animation-delay: calc(var(--mb-delay, 0s) + 13 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(15),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(15) { animation-delay: calc(var(--mb-delay, 0s) + 14 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(16),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(16) { animation-delay: calc(var(--mb-delay, 0s) + 15 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(17),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(17) { animation-delay: calc(var(--mb-delay, 0s) + 16 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(18),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(18) { animation-delay: calc(var(--mb-delay, 0s) + 17 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(19),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(19) { animation-delay: calc(var(--mb-delay, 0s) + 18 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(20),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(20) { animation-delay: calc(var(--mb-delay, 0s) + 19 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(21),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(21) { animation-delay: calc(var(--mb-delay, 0s) + 20 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(22),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(22) { animation-delay: calc(var(--mb-delay, 0s) + 21 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(23),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(23) { animation-delay: calc(var(--mb-delay, 0s) + 22 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(24),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(24) { animation-delay: calc(var(--mb-delay, 0s) + 23 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(25),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(25) { animation-delay: calc(var(--mb-delay, 0s) + 24 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(26),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(26) { animation-delay: calc(var(--mb-delay, 0s) + 25 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(27),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(27) { animation-delay: calc(var(--mb-delay, 0s) + 26 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(28),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(28) { animation-delay: calc(var(--mb-delay, 0s) + 27 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(29),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(29) { animation-delay: calc(var(--mb-delay, 0s) + 28 * var(--mb-stagger-step, 0.1s)); }
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container)):nth-child(30),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :nth-child(30) { animation-delay: calc(var(--mb-delay, 0s) + 29 * var(--mb-stagger-step, 0.1s)); }
 

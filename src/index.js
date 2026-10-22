@@ -12,9 +12,16 @@ import {
 } from '@wordpress/block-editor';
 import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { addFilter } from '@wordpress/hooks';
-import { useEffect, useCallback, useMemo, useRef } from '@wordpress/element';
+import {
+	useEffect,
+	useLayoutEffect,
+	useCallback,
+	useMemo,
+	useRef,
+} from '@wordpress/element';
 
 import AnimationPanel from './components/AnimationPanel';
+import { setStaggerIndices } from './stagger-index';
 import {
 	DEFAULT_ATTRIBUTES,
 	SCHEMA_DEFAULTS,
@@ -545,8 +552,8 @@ function addAnimationAttributes( settings ) {
 			// Stagger cascade — only meaningful on STAGGER_PARENT_BLOCKS.
 			// When `animationStaggerEnabled` is true, the parent block
 			// stops animating itself and becomes the cascade controller
-			// for its inner blocks (step in seconds applied via CSS
-			// :nth-child).
+			// for its inner blocks (step in seconds, multiplied by each
+			// inner block's position in CSS; see stagger-index.js).
 			animationStaggerEnabled: {
 				type: 'boolean',
 				default: SCHEMA_DEFAULTS.animationStaggerEnabled,
@@ -889,6 +896,62 @@ addFilter(
 );
 
 /**
+ * The block's wrapper element in the editor canvas.
+ *
+ * Modern Gutenberg (WP 6.x+) renders the canvas inside an
+ * `iframe[name="editor-canvas"]`, while the HOCs' React tree runs in
+ * the parent document, so search the parent document first and fall
+ * through to the canvas iframe's document.
+ *
+ * Both `[data-block]` AND `[data-type]`: when the editor's List View is
+ * open, every block in the post renders a list-view leaf in the PARENT
+ * document with the same `data-block="<clientId>"`. Without the
+ * `[data-type]` filter, `document.querySelector` matches the leaf first
+ * (the parent doc is searched before the canvas iframe), and the leaf
+ * has no `mb-*` classes. List-view leaves carry `data-block` only; only
+ * the actual block wrapper in the canvas carries `data-type`.
+ *
+ * @param {string} clientId Block client ID.
+ * @return {Element|null} The block wrapper, or null when not rendered.
+ */
+function findBlockElement( clientId ) {
+	const selector = `[data-block="${ clientId }"][data-type]`;
+	const found = document.querySelector( selector );
+	if ( found ) {
+		return found;
+	}
+	const iframes = document.querySelectorAll( 'iframe[name="editor-canvas"]' );
+	for ( const iframe of iframes ) {
+		try {
+			const doc = iframe.contentDocument;
+			const el = doc && doc.querySelector( selector );
+			if ( el ) {
+				return el;
+			}
+		} catch ( e ) {
+			// Cross-origin / detached iframe — skip.
+		}
+	}
+	return null;
+}
+
+/**
+ * Whether a block runs the Stagger cascade in the editor preview: Stagger
+ * on, a container that supports it, and a mode/effect it composes with.
+ *
+ * @param {string} name       Block name.
+ * @param {Object} attributes Preview attributes (after migration/aliasing).
+ * @return {boolean} True when the block is a stagger parent.
+ */
+function isStaggerPreviewActive( name, attributes ) {
+	return (
+		!! attributes.animationStaggerEnabled &&
+		STAGGER_PARENT_BLOCKS.includes( name ) &&
+		isStaggerCompatible( attributes )
+	);
+}
+
+/**
  * Apply animation preview via BlockListBlock className.
  *
  * The toolbar lives in the parent document while blocks render inside
@@ -963,36 +1026,10 @@ const withAnimationPreview = createHigherOrderComponent(
 					// Only fire on the false → true transition.
 					return;
 				}
-				// Both `[data-block]` AND `[data-type]` — when the
-				// editor's List View is open, every block in the post
-				// renders a list-view leaf in the PARENT document with
-				// the same `data-block="<clientId>"`. Without the
-				// `[data-type]` filter, `document.querySelector` matches
-				// the leaf first (the parent doc is searched before the
-				// canvas iframe), the leaf has no `mb-*` classes, the
-				// triggerClass check below bails silently, and the
-				// restart never fires. List-view leaves carry
-				// `data-block` only — only the actual block wrapper in
-				// the canvas iframe carries `data-type`.
-				const selector =
-					`[data-block="${ clientId }"][data-type]`;
-				let blockEl = document.querySelector( selector );
-				if ( ! blockEl ) {
-					const iframes = document.querySelectorAll(
-						'iframe[name="editor-canvas"]'
-					);
-					for ( const iframe of iframes ) {
-						try {
-							const doc = iframe.contentDocument;
-							if ( doc ) {
-								blockEl = doc.querySelector( selector );
-								if ( blockEl ) break;
-							}
-						} catch ( e ) {
-							// Cross-origin / detached iframe — skip.
-						}
-					}
-				}
+				// The real canvas wrapper, never a List View leaf (see
+				// findBlockElement) — a leaf has no `mb-*` classes, so
+				// the triggerClass check below would bail silently.
+				const blockEl = findBlockElement( clientId );
 				if ( ! blockEl ) {
 					return;
 				}
@@ -1044,6 +1081,12 @@ const withAnimationPreview = createHigherOrderComponent(
 				// Group's children sit one level down, inside
 				// `.wp-block-group__inner-container` (GH #66).
 				const isStaggerParent = cls.contains( 'mb-stagger-parent' );
+				if ( isStaggerParent ) {
+					// Cheap re-sync of each child's stagger position
+					// before the restart (the layout effect below keeps
+					// it current; this covers anything it missed).
+					setStaggerIndices( blockEl );
+				}
 				const staggerInner = isStaggerParent
 					? blockEl.querySelector(
 							':scope > .wp-block-group__inner-container'
@@ -1110,6 +1153,56 @@ const withAnimationPreview = createHigherOrderComponent(
 				cls.add( triggerClass );
 				// eslint-disable-next-line react-hooks/exhaustive-deps
 			}, [ preview.animationPreviewPlaying ] );
+
+			// Stagger position per inner block (GH #53). The stepped
+			// delay rule in animations.css reads each child's
+			// `--mb-stagger-index`, which stagger-index.js writes on the
+			// DOM (never into attributes or saved markup), the same way
+			// the front end does. A layout effect runs after the inner
+			// blocks are in the DOM and before paint, so a Page Load
+			// stagger that auto-plays on editor load gets its positions
+			// on the first frame. It re-runs when the inner blocks are
+			// reordered, added or removed; the MutationObserver catches
+			// children that mount later or move without an order change
+			// (the appender, a Custom child's <style> sibling, inner
+			// blocks rendered asynchronously). Writing a style property
+			// isn't a childList mutation, so the observer can't loop.
+			const staggerActive = isStaggerPreviewActive(
+				props.name,
+				attributes
+			);
+			const innerBlockOrder = useSelect(
+				( select ) =>
+					staggerActive
+						? select( blockEditorStore ).getBlockOrder( clientId )
+						: null,
+				[ staggerActive, clientId ]
+			);
+			useLayoutEffect( () => {
+				if ( ! staggerActive ) {
+					return;
+				}
+				const blockEl = findBlockElement( clientId );
+				if ( ! blockEl ) {
+					return;
+				}
+				setStaggerIndices( blockEl );
+				const view = blockEl.ownerDocument.defaultView;
+				if ( ! view || ! view.MutationObserver ) {
+					return;
+				}
+				const observer = new view.MutationObserver( () =>
+					setStaggerIndices( blockEl )
+				);
+				observer.observe( blockEl, { childList: true } );
+				const inner = blockEl.querySelector(
+					':scope > .wp-block-group__inner-container'
+				);
+				if ( inner ) {
+					observer.observe( inner, { childList: true } );
+				}
+				return () => observer.disconnect();
+			}, [ staggerActive, clientId, innerBlockOrder ] );
 			const {
 				animationMode,
 				animationType,
@@ -1715,12 +1808,10 @@ const withAnimationPreview = createHigherOrderComponent(
 			// Stagger cascade in the editor preview. Mirrors the save-
 			// props emission so the editor renders the same cascade
 			// the frontend will. Class + inline CSS var; rules in
-			// editor.scss + animations.css do the rest via :nth-child.
-			if (
-				attributes.animationStaggerEnabled &&
-				STAGGER_PARENT_BLOCKS.includes( props.name ) &&
-				isStaggerCompatible( attributes )
-			) {
+			// editor.scss + animations.css do the rest, reading each
+			// child's `--mb-stagger-index` (set by the layout effect
+			// above).
+			if ( staggerActive ) {
 				const step = staggerStepSeconds(
 					attributes.animationStaggerStep
 				);

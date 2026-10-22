@@ -746,8 +746,8 @@
 // one attribute (`[data-block]`) + `:not([data-type])` give this rule
 // specificity (0,5,0), (0,6,0) for the wrapper form — comfortably above
 // the per-type cascade `.mb-stagger-parent.mb-enter-X.mb-triggered > …`
-// (0,3,0) and the nth-child delay rule (0,3,0) without needing
-// !important.
+// (0,3,0) and the shared stagger timing/delay rule (0,2,0) without
+// needing !important.
 .mb-stagger-parent.mb-animated.mb-triggered[data-block] > :not([data-type]),
 .mb-stagger-parent.mb-animated.mb-triggered[data-block] > .wp-block-group__inner-container > :not([data-type]) {
 	animation: none;

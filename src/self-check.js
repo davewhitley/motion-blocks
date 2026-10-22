@@ -20,6 +20,8 @@
  *     pages with expected results: tests/self-check/fixtures.php.
  */
 
+import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
+
 ( function () {
 	'use strict';
 
@@ -29,10 +31,6 @@
 	// before it counts as stuck. Longer than any Entry delay the panel
 	// offers would make sense to wait through while scrolling.
 	var STUCK_AFTER_MS = 1500;
-
-	// animations.css only has :nth-child delay rules for this many
-	// stagger children.
-	var STAGGER_RULE_LIMIT = 30;
 
 	/**
 	 * The elements a stagger parent animates. Classic themes (and
@@ -546,34 +544,39 @@
 	}
 
 	/**
-	 * Stagger delays come from a fixed list of :nth-child rules, so
-	 * children past the last rule all start together.
+	 * Every staggered inner block carries its position: the stepped
+	 * delay rule reads `--mb-stagger-index`, which frontend.js writes at
+	 * init. One without it starts together with the first inner block
+	 * instead of in turn (GH #53: the delay used to stop at the 30th).
 	 */
-	function checkStaggerLimit() {
+	function checkStaggerOrder() {
 		var found = [];
 		document
 			.querySelectorAll( '.mb-stagger-parent' )
 			.forEach( function ( el ) {
-				var count = staggerChildren( el ).length;
-				if ( count <= STAGGER_RULE_LIMIT ) {
+				var targets = staggerTargets( el );
+				var missing = targets.filter( function ( target ) {
+					return (
+						target.el.style
+							.getPropertyValue( STAGGER_INDEX_VAR )
+							.trim() !== String( target.index )
+					);
+				} ).length;
+				if ( ! missing ) {
 					return;
 				}
 				found.push(
 					issue(
-						'stagger-limit',
+						'stagger-order',
 						'warning',
 						el,
 						blockLabel( el ) +
 							' has ' +
-							count +
-							' inner blocks, but stagger delays stop at ' +
-							STAGGER_RULE_LIMIT +
-							', so blocks ' +
-							( STAGGER_RULE_LIMIT + 1 ) +
-							'–' +
-							count +
-							' all start together.',
-						null
+							missing +
+							' of ' +
+							targets.length +
+							' inner blocks without a stagger position, so they start together instead of one after another.',
+						53
 					)
 				);
 			} );
@@ -667,7 +670,7 @@
 			.concat( checkReducedMotion() )
 			.concat( checkDisabledDevice() )
 			.concat( checkNeverAnimated( api ) )
-			.concat( checkStaggerLimit() )
+			.concat( checkStaggerOrder() )
 			.concat( checkFixedTrap() );
 	}
 

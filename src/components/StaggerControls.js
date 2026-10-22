@@ -10,9 +10,10 @@
  * (staggering one — or zero — children is incoherent).
  *
  * When enabled, the parent block's animation classes carry through
- * to each inner block via CSS `:nth-child()` rules with a stepped
- * delay. Implementation detail lives in animations.css /
- * editor.scss; this component only writes the two attributes.
+ * to each inner block with a stepped delay (CSS in animations.css,
+ * reading each inner block's position from `--mb-stagger-index`, set
+ * by src/stagger-index.js). This component only writes the two
+ * attributes.
  *
  * Note: stagger offset and the existing Delay attribute are
  * orthogonal — Delay is the wait before the first inner block
@@ -63,7 +64,7 @@ export default function StaggerControls( {
 	}
 
 	// Image effects (image-move / image-zoom) use per-img @keyframes
-	// which don't compose with the :nth-child cascade. For Scroll
+	// which don't compose with the stagger cascade. For Scroll
 	// Appear the predicate also checks the Exit slot — see
 	// isStaggerCompatible() in constants.js. Hide instead of
 	// disabling — keeps the panel clean.

@@ -122,7 +122,7 @@ function subtreeHasInterestingLeaf( block ) {
  * `sequenceStep` is the stagger step (in seconds) written into
  * `animationStaggerStep` on every Columns block we animate. The
  * plugin's own stagger CSS cascade then produces the per-column
- * delay via `:nth-child()`. So picking a preset effectively picks
+ * delay (`index × step`). So picking a preset effectively picks
  * the cascade speed too — column 0 starts at 0s, column 1 at
  * `1 × step`, column 2 at `2 × step`, etc.
  *
@@ -254,7 +254,7 @@ export function attrsForCategory( category, stylePreset = 'smooth', block = null
 		case 'STAGGER_ROW':
 			// Columns block animates as one unit with the plugin's
 			// stagger feature enabled — each child column cascades
-			// in via the CSS `:nth-child()` rules in animations.css.
+			// in via the stepped-delay rule in animations.css.
 			// `animationStaggerStep` is in seconds (post-cedf2ed unit
 			// change); preset.sequenceStep is already in seconds.
 			return {

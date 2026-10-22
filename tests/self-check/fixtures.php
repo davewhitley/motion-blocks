@@ -475,13 +475,13 @@ function mb_self_check_fixtures( $image ) {
 			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
-		'stagger-limit'       => array(
-			'title'   => 'Stagger limit',
-			'note'    => 'A staggered list (purple) with 35 items. Stagger delays stop at 30, so items 31–35 all appear at the same moment.',
+		'stagger-long'        => array(
+			'title'   => 'Long stagger',
+			'note'    => 'A staggered list (purple) with 35 items. Every item should appear one after another, including items 31–35 (GH #53).',
 			'content' => mb_self_check_frame(
 				mb_self_check_list( 35, $stagger_list, MB_SELF_CHECK_COLORS['list'] )
 			),
-			'expect'  => array( 'stagger-limit' ),
+			'expect'  => array(),
 		),
 		'si-stagger-leftover' => array(
 			'title'   => 'Scroll Interactive + leftover stagger',

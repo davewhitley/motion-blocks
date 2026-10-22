@@ -169,8 +169,9 @@ export function adaptAnimationToBlock( attrs, blockName ) {
  * Block types that support the "Stagger inner blocks" toggle. When
  * stagger is enabled on one of these parent blocks, its animation
  * config is applied to each inner block with a stepped delay
- * (computed via CSS `:nth-child()` rules in animations.css /
- * editor.scss). The parent block itself stops animating and becomes
+ * (computed in animations.css from each inner block's position, which
+ * src/stagger-index.js writes as `--mb-stagger-index`). The parent
+ * block itself stops animating and becomes
  * the cascade controller.
  *
  * Whitelisted because stagger only makes sense for blocks whose

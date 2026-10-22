@@ -9,6 +9,7 @@
 
 import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
+import { setStaggerIndices } from './stagger-index';
 
 ( function () {
 	'use strict';
@@ -93,6 +94,14 @@ import { isValidFromToValue } from './css-values';
 	}
 
 	function init() {
+		// Number each stagger child (`--mb-stagger-index`, read by the
+		// stepped-delay rule in animations.css, GH #53). Must run before
+		// any trigger class lands: Page Load adds `.mb-triggered`
+		// synchronously below, and a child's animation-delay is fixed
+		// when its animation starts.
+		document
+			.querySelectorAll( '.mb-stagger-parent' )
+			.forEach( setStaggerIndices );
 		initPageLoadAnimations();
 		initScrollAppearAnimations();
 		initScrollInteractiveAnimations();

@@ -101,19 +101,11 @@ function staggerSelectorLists() {
  * @return {string|null} Its twin, or null when it is neither form.
  */
 function twinOf( selector ) {
-	const nth = '(:nth-child\\(\\d+\\))?';
-	const esc = ( s ) => s.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
-	let m = selector.match(
-		new RegExp( `^(.*)${ esc( EXCLUDE ) }${ nth }$` )
-	);
-	if ( m ) {
-		return `${ m[ 1 ] }${ THROUGH }${ m[ 2 ] || '*' }`;
+	if ( selector.endsWith( EXCLUDE ) ) {
+		return selector.slice( 0, -EXCLUDE.length ) + THROUGH + '*';
 	}
-	m = selector.match(
-		new RegExp( `^(.*)${ esc( THROUGH ) }(\\*|:nth-child\\(\\d+\\))$` )
-	);
-	if ( m ) {
-		return `${ m[ 1 ] }${ EXCLUDE }${ m[ 2 ] === '*' ? '' : m[ 2 ] }`;
+	if ( selector.endsWith( THROUGH + '*' ) ) {
+		return selector.slice( 0, -( THROUGH.length + 1 ) ) + EXCLUDE;
 	}
 	return null;
 }
@@ -123,9 +115,9 @@ describe( 'stagger child selectors (GH #66)', () => {
 	const all = lists.flat();
 
 	it( 'finds the stagger rules', () => {
-		// 59 rules plus 8 Reduced Motion / per-device entries, two
+		// 29 rules plus 8 Reduced Motion / per-device entries, two
 		// selectors each. Loose floor so new effects don't break it.
-		expect( all.length ).toBeGreaterThanOrEqual( 2 * 60 );
+		expect( all.length ).toBeGreaterThanOrEqual( 2 * 30 );
 	} );
 
 	it( 'has no bare `> *` child selector left', () => {
@@ -146,11 +138,27 @@ describe( 'stagger child selectors (GH #66)', () => {
 		expect( missing ).toEqual( [] );
 	} );
 
-	it( 'keeps the 30 nth-child delays reaching through the wrapper', () => {
-		for ( let n = 1; n <= 30; n++ ) {
-			expect( all ).toContain(
-				`.mb-stagger-parent.mb-triggered${ THROUGH }:nth-child(${ n })`
-			);
-		}
+	it( 'has no :nth-child() delay rules left (GH #53)', () => {
+		// The delay used to come from 30 :nth-child() rules, so
+		// children past the 30th started immediately.
+		expect( all.filter( ( s ) => s.includes( ':nth-child(' ) ) ).toEqual(
+			[]
+		);
+	} );
+
+	it( "steps the delay by each child's --mb-stagger-index, both forms", () => {
+		const rule = css.match(
+			/\.mb-stagger-parent\.mb-triggered > :where\(:not\(\.wp-block-group__inner-container\)\),\s*\.mb-stagger-parent\.mb-triggered > :where\(\.wp-block-group__inner-container\) > \*\s*\{([^}]*)\}/
+		);
+		expect( rule ).not.toBeNull();
+		expect( rule[ 1 ].replace( /\s+/g, ' ' ) ).toContain(
+			'animation-delay: calc(var(--mb-delay, 0s) + var(--mb-stagger-index, 0) * var(--mb-stagger-step, 0.1s));'
+		);
+	} );
+
+	it( 'keeps --mb-stagger-index from inheriting into nested children', () => {
+		const prop = css.match( /@property --mb-stagger-index\s*\{([^}]*)\}/ );
+		expect( prop ).not.toBeNull();
+		expect( prop[ 1 ] ).toMatch( /inherits:\s*false/ );
 	} );
 } );

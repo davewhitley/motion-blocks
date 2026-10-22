@@ -52,7 +52,7 @@ import {
 } from '@wordpress/components';
 import { createInterpolateElement, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import { seen, unseen, plus } from '@wordpress/icons';
+import { seen, unseen } from '@wordpress/icons';
 
 import {
 	PROPERTY_DEFINITIONS,
@@ -564,7 +564,6 @@ export default function FromToControls( {
 						renderToggle={ ( { isOpen, onToggle } ) => (
 							<Button
 								variant="link"
-								icon={ plus }
 								onClick={ onToggle }
 								aria-expanded={ isOpen }
 							>

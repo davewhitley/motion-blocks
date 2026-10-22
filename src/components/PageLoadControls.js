@@ -283,7 +283,15 @@ export default function PageLoadControls( {
 							handler( event );
 						}
 					} }
-					onBlur={ () => setKeepFocusWhilePending( false ) }
+					onBlur={ ( event ) => {
+						// Ignore the blur the browser sends when the whole
+						// window loses focus (switching apps or tabs mid
+						// preview): focus is still on the button and comes
+						// back to it, so it must stay focusable.
+						if ( event.currentTarget.ownerDocument.hasFocus() ) {
+							setKeepFocusWhilePending( false );
+						}
+					} }
 					// Disable while a one-shot preview is in flight to
 					// prevent jumpy mid-playback restarts. Looping
 					// previews are exempt — the button is a stop

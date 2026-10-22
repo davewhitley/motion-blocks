@@ -318,7 +318,15 @@ export default function SlotControls( {
 							onPreview( slot );
 						}
 					} }
-					onBlur={ () => setKeepFocusWhilePending( false ) }
+					onBlur={ ( event ) => {
+						// Ignore the blur the browser sends when the whole
+						// window loses focus (switching apps or tabs mid
+						// preview): focus is still on the button and comes
+						// back to it, so it must stay focusable.
+						if ( event.currentTarget.ownerDocument.hasFocus() ) {
+							setKeepFocusWhilePending( false );
+						}
+					} }
 					disabled={ isPlayPending }
 					// A natively disabled button drops keyboard focus
 					// to the page. After a keyboard press, disable it

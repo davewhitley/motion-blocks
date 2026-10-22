@@ -3,7 +3,8 @@
  *
  * Reads the block tree, computes a tasteful animation plan via
  * `./plan.js`, shows a diff modal, and on apply dispatches one
- * batched `updateBlockAttributes` per category.
+ * `updateBlockAttributes` action carrying each block's own payload,
+ * so the whole apply is one undo step.
  *
  * Stays a presentational component: the parent (PageSettingsPanel)
  * owns the open/closed state.
@@ -30,7 +31,7 @@ import { __, sprintf, _n } from '@wordpress/i18n';
 
 import {
 	STYLE_PRESETS,
-	attrsForCategory,
+	buildAutoAnimateUpdates,
 	computeAutoAnimatePlan,
 	summarizeByBlockType,
 } from './plan';
@@ -116,8 +117,7 @@ function AutoAnimateModalContent( {
 			return;
 		}
 
-		// Per-block dispatch so each animated block gets its own
-		// attribute payload. Two reasons it has to be per-block:
+		// Each animated block gets its own attribute payload:
 		//   1. Direction-from-align (MEDIA): `attrsForCategory` reads
 		//      `block.attributes.align` so a left-aligned image slides
 		//      from the left and a right-aligned one from the right.
@@ -125,17 +125,15 @@ function AutoAnimateModalContent( {
 		//      preset's step value — the plugin's existing stagger
 		//      CSS cascade handles the per-column delay, so no
 		//      manual delay math here anymore.
-		plan.apply.forEach( ( item ) => {
-			const baseAttrs = attrsForCategory(
-				item.category,
-				stylePreset,
-				item.block
-			);
-			if ( ! baseAttrs ) {
-				return;
-			}
-			updateBlockAttributes( item.clientId, baseAttrs );
-		} );
+		// They go out in one action via `uniqueByBlock` so a single
+		// Cmd/Ctrl+Z reverts the whole apply (GH #33 / #56).
+		const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
+			plan.apply,
+			stylePreset
+		);
+		if ( clientIds.length ) {
+			updateBlockAttributes( clientIds, attributesByClientId, true );
+		}
 
 		createSuccessNotice(
 			sprintf(

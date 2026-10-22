@@ -1625,7 +1625,13 @@ function motion_blocks_seed_default_animations() {
     }
 
     if ( $changed ) {
-        update_option( 'mb_saved_animations', $existing );
+        // Not autoloaded: the library is read only by the editor (via
+        // REST /wp/v2/settings), so it must not ride along in alloptions
+        // on every front-end request. The third argument applies when
+        // the row is created (fresh install) and whenever the value
+        // changes; existing autoloaded rows are switched by
+        // motion_blocks_maybe_disable_library_autoload().
+        update_option( 'mb_saved_animations', $existing, false );
     }
     update_option( 'mb_saved_animations_seeded_uids', $seeded_uids );
 }
@@ -1635,7 +1641,36 @@ function motion_blocks_seed_default_animations() {
 register_activation_hook( __FILE__, function () {
     motion_blocks_seed_default_animations();
     update_option( 'mb_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
+    motion_blocks_maybe_disable_library_autoload();
 } );
+
+/**
+ * Stop autoloading the saved-animations library on installs that
+ * created it autoloaded.
+ *
+ * Earlier versions seeded `mb_saved_animations` without an autoload
+ * argument, so WordPress stored it as autoloaded and the whole
+ * library (up to 200 recipes) was loaded on every front-end request
+ * even though only the editor reads it. `update_option()` returns
+ * early when the value is unchanged, so the seeder's `false` alone
+ * never fixes an existing row — this switches it once.
+ *
+ * Self-healing rather than version-flagged: `wp_load_alloptions()` is
+ * already loaded and cached, so after the one switch this costs a
+ * single array lookup per admin request and needs no extra option.
+ * It also repairs the row if the option is ever deleted and the REST
+ * settings endpoint re-creates it autoloaded on the next editor save.
+ * `wp_set_option_autoload()` clears the alloptions/notoptions caches.
+ */
+function motion_blocks_maybe_disable_library_autoload() {
+    if ( ! function_exists( 'wp_set_option_autoload' ) ) {
+        return; // WP < 6.4 — leave the row as it is.
+    }
+    if ( array_key_exists( 'mb_saved_animations', wp_load_alloptions() ) ) {
+        wp_set_option_autoload( 'mb_saved_animations', false );
+    }
+}
+add_action( 'admin_init', 'motion_blocks_maybe_disable_library_autoload' );
 
 // Existing installs: version-gated re-seed so newly-bundled recipes
 // reach sites that activated before they existed. Runs once per

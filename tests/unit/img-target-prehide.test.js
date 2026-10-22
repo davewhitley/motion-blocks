@@ -113,9 +113,9 @@ describe( 'img-target image pre-hide (GH #53)', () => {
 		const media = overrides.map( ( r ) => r.media ).sort();
 		expect( media ).toEqual(
 			[
-				'@media (max-width: 767px)',
-				'@media (min-width: 1024px)',
-				'@media (min-width: 768px) and (max-width: 1023px)',
+				'@media (width < 768px)',
+				'@media (width >= 1024px)',
+				'@media (768px <= width < 1024px)',
 				'@media (prefers-reduced-motion: reduce)',
 			].sort()
 		);

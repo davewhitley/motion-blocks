@@ -63,9 +63,9 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	// Per-device disable breakpoints. Mirror the media queries in
 	// animations.css ("Per-device disable").
 	var DEVICE_QUERIES = {
-		desktop: '(min-width: 1024px)',
-		tablet: '(min-width: 768px) and (max-width: 1023px)',
-		mobile: '(max-width: 767px)',
+		desktop: '(width >= 1024px)',
+		tablet: '(768px <= width < 1024px)',
+		mobile: '(width < 768px)',
 	};
 
 	// Element → first time it was seen on screen, hidden and untriggered.

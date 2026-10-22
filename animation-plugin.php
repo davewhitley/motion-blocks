@@ -1011,9 +1011,9 @@ add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10,
  * symmetric and avoids a fourth "all" key whose state would have
  * to stay in sync with the others.
  *
- *   mb_disabled_desktop  → ≥ 1024px viewports
- *   mb_disabled_tablet   → 768px – 1023px viewports
- *   mb_disabled_mobile   → ≤ 767px viewports
+ *   mb_disabled_desktop  → width ≥ 1024px viewports
+ *   mb_disabled_tablet   → 768px ≤ width < 1024px viewports
+ *   mb_disabled_mobile   → width < 768px viewports
  *
  * Exposed in REST so the editor's `useEntityProp` can read/write
  * them. Registered on every public post type that supports the

@@ -830,12 +830,15 @@
 /* ----------------------------------------------------------------
  * Per-device disable (post meta → body class → media query)
  *
- *   .mb-disabled-desktop  →  ≥ 1024px
- *   .mb-disabled-tablet   →  768px – 1023px
- *   .mb-disabled-mobile   →  ≤ 767px
+ *   .mb-disabled-desktop  →  width ≥ 1024px
+ *   .mb-disabled-tablet   →  768px ≤ width < 1024px
+ *   .mb-disabled-mobile   →  width < 768px
  *
  * Three non-overlapping ranges so a viewport falls into exactly
- * one bucket. Disabling all three is "off everywhere".
+ * one bucket. Disabling all three is "off everywhere". Range syntax
+ * (not min-/max-width) so fractional viewport widths, e.g. 767.5px
+ * under browser zoom, still land in exactly one bucket (GH #33).
+ * DEVICE_QUERIES in src/self-check.js mirrors these.
  *
  * Each rule pins the wrapper, Stagger children and the Cover image
  * at their visible rest state, using the same list as Reduced Motion
@@ -845,7 +848,7 @@
  * what keeps the block (and each Stagger child) visible. The same rest
  * state flattens Flip's 3D context (see Reduced Motion above).
  * -------------------------------------------------------------- */
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
     body.mb-disabled-desktop :is(
         .mb-animated,
         .mb-mode-scroll-interactive,
@@ -871,7 +874,7 @@
     }
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (768px <= width < 1024px) {
     body.mb-disabled-tablet :is(
         .mb-animated,
         .mb-mode-scroll-interactive,
@@ -897,7 +900,7 @@
     }
 }
 
-@media (max-width: 767px) {
+@media (width < 768px) {
     body.mb-disabled-mobile :is(
         .mb-animated,
         .mb-mode-scroll-interactive,

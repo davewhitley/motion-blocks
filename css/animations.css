@@ -106,13 +106,35 @@
         opacity: 0;
     }
 }
-/* img-target Custom: the wrapper never animates — only the first
-   img descendant does. Keep the figure / caption visible by opting
-   out of the wrapper-level pre-hide. The img's own from-state is
-   applied via the scoped keyframe's `animation-fill-mode: both`
-   once the trigger class lands. */
+/* img-target ("Animate image only", any effect): the wrapper never
+   animates — only the first img descendant does. Keep the Cover's
+   overlay and inner blocks visible by opting the wrapper out of the
+   pre-hide above; the image carries the pre-hide instead (next rule). */
 .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered) {
     opacity: 1;
+}
+/* img-target image pre-hide. Every img animation rule needs a
+   trigger class, so without this the image showed at full opacity
+   until the Entry fired, then snapped to the keyframe's hidden
+   from-state — a visible flash (GH #53).
+   - opacity 0 for every effect, like the wrapper rule above (which
+     also hides Wipe / Curtain / Custom wrappers whatever their
+     from-state). On trigger this stops matching and the keyframe's
+     from-state takes over through `animation-fill-mode: both`.
+   - Image Move / Image Zoom are excluded: their from-state is a
+     visible image (frontend.js buildImageMoveSides /
+     buildImageZoomSides), so hiding it would add a pop-in.
+   - Exit-only blocks never match (no `.mb-has-entry`).
+   - Per-device disable wins through the `opacity: 1 !important` img
+     rules at the end of this file; reduced motion never matches
+     because of the media query.
+   - Same descendant `img:first-of-type` scope as the animation rules
+     (and frontend.js scoped CSS), so every image hidden here has an
+     animation that reveals it. Narrow both together, never one. */
+@media (prefers-reduced-motion: no-preference) {
+    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) img:first-of-type {
+        opacity: 0;
+    }
 }
 
 /* "Out" preset variants for Page Load and Scroll Interactive

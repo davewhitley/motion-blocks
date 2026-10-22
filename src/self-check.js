@@ -232,13 +232,19 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 				}
 			}
 			// A stagger parent stays at opacity 1; its children carry
-			// the hidden state.
+			// the hidden state. An "Animate image only" block stays at
+			// opacity 1 too; its image carries it (GH #53).
+			var image =
+				el.getAttribute( 'data-mb-target' ) === 'img'
+					? el.querySelector( 'img:first-of-type' )
+					: null;
 			var target = el.classList.contains( 'mb-stagger-parent' )
 				? staggerChildren( el )[ 0 ] || el
-				: el;
+				: image || el;
 			if ( getComputedStyle( target ).opacity !== '0' ) {
 				return;
 			}
+			var part = target === image ? ' (its image)' : '';
 
 			seen.add( el );
 			if ( ! hiddenSince.has( el ) ) {
@@ -254,6 +260,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 							'error',
 							el,
 							blockLabel( el ) +
+								part +
 								' is invisible: this browser can’t run scroll-linked animations, so it froze on its final frame.',
 							42
 					  )
@@ -263,6 +270,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 							'error',
 							el,
 							blockLabel( el ) +
+								part +
 								' is back on screen but still hidden — its Exit played in reverse but left it at the hidden end state.',
 							51
 					  )
@@ -271,6 +279,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 							'error',
 							el,
 							blockLabel( el ) +
+								part +
 								' is on screen but still hidden — its Entry animation never fired.',
 							null
 					  )

@@ -21,6 +21,7 @@ import {
 	Dropdown,
 	MenuGroup,
 	MenuItem,
+	NavigableMenu,
 	VisuallyHidden,
 } from '@wordpress/components';
 import { useInstanceId } from '@wordpress/compose';
@@ -97,6 +98,7 @@ export default function SubPanelModeHeader( {
 							size="compact"
 							className="mb-mode-picker__toggle"
 							aria-expanded={ isOpen }
+							aria-haspopup="true"
 							aria-describedby={ descriptionId }
 							onClick={ onToggle }
 						>
@@ -108,26 +110,37 @@ export default function SubPanelModeHeader( {
 						</Button>
 					) }
 					renderContent={ ( { onClose } ) => (
-						<MenuGroup>
-							{ MODE_ORDER.map( ( m ) => (
-								<MenuItem
-									key={ m }
-									icon={ getIcon( m ) }
-									disabled={ m === mode }
-									onClick={ () => {
-										setAttributes(
-											switchModeAttributes(
-												attributes,
-												m
-											)
-										);
-										onClose();
-									} }
-								>
-									{ getLabel( m ) }
-								</MenuItem>
-							) ) }
-						</MenuGroup>
+						// NavigableMenu supplies the role="menu" parent the
+						// menuitems need and Up/Down arrow-key movement
+						// between them, matching the kebab DropdownMenu.
+						// It renders a plain unstyled div.
+						<NavigableMenu
+							aria-label={ __(
+								'Animation mode',
+								'motion-blocks'
+							) }
+						>
+							<MenuGroup>
+								{ MODE_ORDER.map( ( m ) => (
+									<MenuItem
+										key={ m }
+										icon={ getIcon( m ) }
+										disabled={ m === mode }
+										onClick={ () => {
+											setAttributes(
+												switchModeAttributes(
+													attributes,
+													m
+												)
+											);
+											onClose();
+										} }
+									>
+										{ getLabel( m ) }
+									</MenuItem>
+								) ) }
+							</MenuGroup>
+						</NavigableMenu>
 					) }
 				/>
 				<VisuallyHidden as="span" id={ descriptionId }>

@@ -563,10 +563,10 @@ export default function FromToControls( {
 						popoverProps={ { placement: 'bottom-start' } }
 						renderToggle={ ( { isOpen, onToggle } ) => (
 							<Button
+								variant="link"
 								icon={ plus }
 								onClick={ onToggle }
 								aria-expanded={ isOpen }
-								__next40pxDefaultSize
 							>
 								{ __( 'Add property', 'motion-blocks' ) }
 							</Button>

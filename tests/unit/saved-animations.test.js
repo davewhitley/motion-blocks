@@ -7,6 +7,7 @@
  */
 import {
 	pickAnimationAttributes,
+	saveLibraryChange,
 	stripUiState,
 } from '../../src/components/savedAnimations';
 import {
@@ -140,5 +141,107 @@ describe( 'apply-saved ingest', () => {
 		expect( out.animationFromOpacity ).toBe( 0 );
 		// Unit-less legacy value upgraded to the stored string form.
 		expect( out.animationFromRotate ).toBe( '45deg' );
+	} );
+} );
+
+/*
+ * Saving the library (GH #28): save only the library, on top of the
+ * server's current copy, and fail loudly.
+ */
+describe( 'saveLibraryChange', () => {
+	const mine = { name: 'Mine', attributes: {} };
+	const theirs = { name: 'Theirs', attributes: {} };
+
+	it( "applies the change to the server's current library", async () => {
+		const saved = [];
+		const next = await saveLibraryChange(
+			{
+				cached: {},
+				// Another admin saved "theirs" after this editor loaded.
+				fetchLibrary: async () => ( { b: theirs } ),
+				saveLibrary: async ( lib ) => saved.push( lib ),
+			},
+			( lib ) => ( { ...lib, a: mine } )
+		);
+		expect( next ).toEqual( { a: mine, b: theirs } );
+		expect( saved ).toEqual( [ { a: mine, b: theirs } ] );
+	} );
+
+	it( 'falls back to the loaded copy when the server read fails', async () => {
+		const next = await saveLibraryChange(
+			{
+				cached: { b: theirs },
+				fetchLibrary: async () => {
+					throw new Error( 'offline' );
+				},
+				saveLibrary: async () => {},
+			},
+			( lib ) => {
+				delete lib.b;
+				return lib;
+			}
+		);
+		expect( next ).toEqual( {} );
+	} );
+
+	it( "doesn't modify the cached library in place", async () => {
+		const cached = { b: theirs };
+		await saveLibraryChange(
+			{
+				cached,
+				fetchLibrary: async () => null,
+				saveLibrary: async () => {},
+			},
+			( lib ) => {
+				delete lib.b;
+				return lib;
+			}
+		);
+		expect( cached ).toEqual( { b: theirs } );
+	} );
+
+	it( 'rejects when the save fails, so no success notice is shown', async () => {
+		await expect(
+			saveLibraryChange(
+				{
+					cached: {},
+					fetchLibrary: async () => ( {} ),
+					saveLibrary: async () => {
+						throw new Error(
+							'Sorry, you are not allowed to do that.'
+						);
+					},
+				},
+				( lib ) => ( { ...lib, a: mine } )
+			)
+		).rejects.toThrow( 'not allowed' );
+	} );
+} );
+
+describe( 'AnimationOptionsMenu saves only the library (GH #28)', () => {
+	const src = require( 'fs' ).readFileSync(
+		require( 'path' ).join(
+			__dirname,
+			'..',
+			'..',
+			'src',
+			'components',
+			'AnimationOptionsMenu.js'
+		),
+		'utf8'
+	);
+
+	it( 'never saves the whole site entity', () => {
+		// saveEditedEntityRecord saves every pending site edit.
+		expect( src ).not.toMatch( /saveEditedEntityRecord/ );
+		expect( src ).toMatch(
+			/saveEntityRecord\(\s*'root',\s*'site',\s*\{\s*mb_saved_animations: next\s*\},\s*\{\s*throwOnError: true\s*\}/
+		);
+	} );
+
+	it( 'never leaves the library as a pending site edit', () => {
+		// An edit that failed to save would ride along with the next
+		// Site Editor save.
+		expect( src ).not.toMatch( /setSavedAnimations/ );
 	} );
 } );

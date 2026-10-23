@@ -32,6 +32,7 @@ import { store as blocksStore } from '@wordpress/blocks';
 import { store as coreStore } from '@wordpress/core-data';
 import { store as noticesStore } from '@wordpress/notices';
 import { useEntityProp } from '@wordpress/core-data';
+import apiFetch from '@wordpress/api-fetch';
 import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
@@ -39,6 +40,7 @@ import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 import {
 	generateUid,
 	pickAnimationAttributes,
+	saveLibraryChange,
 	sortLibrary,
 	sortThemeLibrary,
 } from './savedAnimations';
@@ -103,10 +105,20 @@ export default function AnimationOptionsMenu( {
 	// User saved-animation library (site option, exposed via REST).
 	// Empty object until the entity loads — `useEntityProp` returns
 	// `undefined` initially, so default to `{}` for safe iteration.
-	const [ savedAnimations = {}, setSavedAnimations ] = useEntityProp(
+	// Read-only here: changes are saved straight to the server with
+	// persistLibrary(), never as a pending edit on the site entity
+	// (GH #28).
+	const [ savedAnimations = {} ] = useEntityProp(
 		'root',
 		'site',
 		'mb_saved_animations'
+	);
+	// Only users who can save site settings (`manage_options`, which
+	// /wp/v2/settings requires) can save or delete library entries.
+	// `undefined` while the permission check is still loading.
+	const canManageLibrary = useSelect(
+		( select ) => select( coreStore ).canUser( 'update', 'settings' ),
+		[]
 	);
 	const savedEntries = sortLibrary( savedAnimations );
 
@@ -122,8 +134,9 @@ export default function AnimationOptionsMenu( {
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	// Read at click time only — no store subscription (GH #27).
 	const registry = useRegistry();
-	const { saveEditedEntityRecord } = useDispatch( coreStore );
-	const { createSuccessNotice } = useDispatch( noticesStore );
+	const { saveEntityRecord } = useDispatch( coreStore );
+	const { createSuccessNotice, createErrorNotice } =
+		useDispatch( noticesStore );
 
 	const [ confirmOpen, setConfirmOpen ] = useState( false );
 	const [ saveModalOpen, setSaveModalOpen ] = useState( false );
@@ -155,6 +168,7 @@ export default function AnimationOptionsMenu( {
 		!! blockName &&
 		!! clientId;
 	const canSave = ! pasteOnly && hasAnimation;
+	const showSave = ! pasteOnly && canManageLibrary !== false;
 
 	const handleCopy = ( onClose ) => {
 		copiedAnimation = pickAnimationAttributes( attributes );
@@ -214,29 +228,61 @@ export default function AnimationOptionsMenu( {
 
 	// ── Save / Apply saved / Delete saved ────────────────────────
 
-	const persistLibrary = async ( nextLibrary ) => {
-		setSavedAnimations( nextLibrary );
-		// `useEntityProp` only edits the local entity record; persist
-		// to the server explicitly. Without this the change vanishes
-		// on the next REST round-trip.
-		await saveEditedEntityRecord( 'root', 'site', undefined, {
-			mb_saved_animations: nextLibrary,
-		} );
+	// Save one library change on its own (see saveLibraryChange). The
+	// menu updates from the server's response.
+	const persistLibrary = ( change ) =>
+		saveLibraryChange(
+			{
+				cached: savedAnimations,
+				fetchLibrary: () =>
+					apiFetch( {
+						path: '/wp/v2/settings?_fields=mb_saved_animations',
+					} ).then( ( res ) => res && res.mb_saved_animations ),
+				saveLibrary: ( next ) =>
+					saveEntityRecord(
+						'root',
+						'site',
+						{ mb_saved_animations: next },
+						{ throwOnError: true }
+					),
+			},
+			change
+		);
+
+	// Error notice for a failed save or delete, with the server's
+	// reason when it gave one (e.g. "Sorry, you are not allowed to do
+	// that.").
+	const reportLibraryError = ( message, error ) => {
+		createErrorNotice(
+			error && error.message ? message + ' ' + error.message : message,
+			{ type: 'snackbar' }
+		);
 	};
 
 	const handleSaveSubmit = async ( name ) => {
 		const uid = generateUid();
 		const cleaned = pickAnimationAttributes( attributes );
-		const next = {
-			...( savedAnimations || {} ),
-			[ uid ]: {
-				name,
-				createdAt: new Date().toISOString(),
-				attributes: cleaned,
-			},
-		};
-		await persistLibrary( next );
 		setSaveModalOpen( false );
+		try {
+			await persistLibrary( ( library ) => ( {
+				...library,
+				[ uid ]: {
+					name,
+					createdAt: new Date().toISOString(),
+					attributes: cleaned,
+				},
+			} ) );
+		} catch ( error ) {
+			reportLibraryError(
+				sprintf(
+					/* translators: %s: user-supplied animation name */
+					__( "Couldn't save '%s'.", 'motion-blocks' ),
+					name
+				),
+				error
+			);
+			return;
+		}
 		createSuccessNotice(
 			sprintf(
 				/* translators: %s: user-supplied animation name */
@@ -298,11 +344,24 @@ export default function AnimationOptionsMenu( {
 		if ( ! deletePending?.uid ) {
 			return;
 		}
-		const next = { ...( savedAnimations || {} ) };
-		delete next[ deletePending.uid ];
-		await persistLibrary( next );
-		const name = deletePending.name;
+		const { uid, name } = deletePending;
 		setDeletePending( null );
+		try {
+			await persistLibrary( ( library ) => {
+				delete library[ uid ];
+				return library;
+			} );
+		} catch ( error ) {
+			reportLibraryError(
+				sprintf(
+					/* translators: %s: user-supplied animation name */
+					__( "Couldn't delete '%s'.", 'motion-blocks' ),
+					name || ''
+				),
+				error
+			);
+			return;
+		}
 		createSuccessNotice(
 			sprintf(
 				/* translators: %s: user-supplied animation name */
@@ -372,7 +431,7 @@ export default function AnimationOptionsMenu( {
 							) }
 						</MenuGroup>
 
-						{ ! pasteOnly && (
+						{ showSave && (
 							<MenuGroup>
 								<MenuItem
 									disabled={ ! canSave }
@@ -437,27 +496,29 @@ export default function AnimationOptionsMenu( {
 										>
 											{ saved.name || uid }
 										</MenuItem>
-										<Button
-											className="mb-saved-animation-row__delete"
-											icon={ trash }
-											iconSize={ 16 }
-											label={ sprintf(
-												/* translators: %s: saved animation name */
-												__(
-													'Delete %s',
-													'motion-blocks'
-												),
-												saved.name || uid
-											) }
-											onClick={ ( event ) => {
-												noteOpener( event );
-												setDeletePending( {
-													uid,
-													name: saved.name,
-												} );
-												onClose();
-											} }
-										/>
+										{ canManageLibrary !== false && (
+											<Button
+												className="mb-saved-animation-row__delete"
+												icon={ trash }
+												iconSize={ 16 }
+												label={ sprintf(
+													/* translators: %s: saved animation name */
+													__(
+														'Delete %s',
+														'motion-blocks'
+													),
+													saved.name || uid
+												) }
+												onClick={ ( event ) => {
+													noteOpener( event );
+													setDeletePending( {
+														uid,
+														name: saved.name,
+													} );
+													onClose();
+												} }
+											/>
+										) }
 									</div>
 								) ) }
 							</MenuGroup>

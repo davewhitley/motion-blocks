@@ -41,21 +41,21 @@ export const TRIGGER_BAND_CAP = 0.5;
  *                             bottom edge never stretches.
  * @return {{top: number, bottom: number}} Band edges, page-relative px.
  */
-export function zoneBounds(scrollY, vh, docHeight) {
-  const topInset = vh * TRIGGER_ZONE_TOP_PCT;
-  const bottomInset = vh * (1 - TRIGGER_ZONE_BOTTOM_PCT);
-  // Scrolled distance from the top, and still to go to the bottom.
-  // Clamped so rubber-band overscroll can't push the band past the
-  // document edges.
-  const fromTop = Math.max(0, scrollY);
-  const toBottom =
-    typeof docHeight === "number" && docHeight > 0
-      ? Math.max(0, docHeight - vh - scrollY)
-      : bottomInset;
-  return {
-    top: scrollY + Math.min(topInset, fromTop),
-    bottom: scrollY + vh - Math.min(bottomInset, toBottom),
-  };
+export function zoneBounds( scrollY, vh, docHeight ) {
+	const topInset = vh * TRIGGER_ZONE_TOP_PCT;
+	const bottomInset = vh * ( 1 - TRIGGER_ZONE_BOTTOM_PCT );
+	// Scrolled distance from the top, and still to go to the bottom.
+	// Clamped so rubber-band overscroll can't push the band past the
+	// document edges.
+	const fromTop = Math.max( 0, scrollY );
+	const toBottom =
+		typeof docHeight === 'number' && docHeight > 0
+			? Math.max( 0, docHeight - vh - scrollY )
+			: bottomInset;
+	return {
+		top: scrollY + Math.min( topInset, fromTop ),
+		bottom: scrollY + vh - Math.min( bottomInset, toBottom ),
+	};
 }
 
 /**
@@ -69,12 +69,12 @@ export function zoneBounds(scrollY, vh, docHeight) {
  * @param {number} [docHeight] Scrollable document height (see zoneBounds).
  * @return {number} Overlap in px (0 when none).
  */
-export function zoneOverlap(pageTop, pageBottom, scrollY, vh, docHeight) {
-  const zone = zoneBounds(scrollY, vh, docHeight);
-  return Math.max(
-    0,
-    Math.min(pageBottom, zone.bottom) - Math.max(pageTop, zone.top),
-  );
+export function zoneOverlap( pageTop, pageBottom, scrollY, vh, docHeight ) {
+	const zone = zoneBounds( scrollY, vh, docHeight );
+	return Math.max(
+		0,
+		Math.min( pageBottom, zone.bottom ) - Math.max( pageTop, zone.top )
+	);
 }
 
 /**
@@ -86,14 +86,14 @@ export function zoneOverlap(pageTop, pageBottom, scrollY, vh, docHeight) {
  * @param {number} vh         Viewport height, px (sets the cap).
  * @return {boolean} In the zone.
  */
-export function isInZone(overlap, pageHeight, vh) {
-  if (!(pageHeight > 0) || !(overlap > 0)) {
-    return false;
-  }
-  let required = pageHeight * TRIGGER_OVERLAP_RATIO;
-  if (vh > 0) {
-    const band = vh * (TRIGGER_ZONE_BOTTOM_PCT - TRIGGER_ZONE_TOP_PCT);
-    required = Math.min(required, band * TRIGGER_BAND_CAP);
-  }
-  return overlap >= required;
+export function isInZone( overlap, pageHeight, vh ) {
+	if ( ! ( pageHeight > 0 ) || ! ( overlap > 0 ) ) {
+		return false;
+	}
+	let required = pageHeight * TRIGGER_OVERLAP_RATIO;
+	if ( vh > 0 ) {
+		const band = vh * ( TRIGGER_ZONE_BOTTOM_PCT - TRIGGER_ZONE_TOP_PCT );
+		required = Math.min( required, band * TRIGGER_BAND_CAP );
+	}
+	return overlap >= required;
 }

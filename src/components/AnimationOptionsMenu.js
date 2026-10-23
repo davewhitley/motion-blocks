@@ -26,7 +26,7 @@ import { useInstanceId } from '@wordpress/compose';
 import { speak } from '@wordpress/a11y';
 import {
 	store as blockEditorStore,
-	useSetting,
+	useSettings,
 } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
 import { store as coreStore } from '@wordpress/core-data';
@@ -127,8 +127,12 @@ export default function AnimationOptionsMenu( {
 	// Read-only (the user can't delete them), shown in a separate
 	// menu group so the visual distinction is clear. Same shape as
 	// user library: `{ [slug]: { name, attributes } }`.
-	const themeAnimations =
-		useSetting( 'custom.motionBlocks.savedAnimations' ) || {};
+	// useSettings (6.5+) replaces the deprecated useSetting, which logged
+	// a deprecation warning on every menu render (2026-10-20 review, #56).
+	const [ themeSetting ] = useSettings(
+		'custom.motionBlocks.savedAnimations'
+	);
+	const themeAnimations = themeSetting || {};
 	const themeEntries = sortThemeLibrary( themeAnimations );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );

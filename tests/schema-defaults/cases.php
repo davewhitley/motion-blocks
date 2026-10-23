@@ -351,6 +351,38 @@ return array(
 			'data-mb-entry-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
 		),
 	),
+	// Blocks that can't keep animation settings (nonAnimatableBlocks).
+	// Animations saved on them before the panel was hidden must not
+	// land on whatever their content prints first.
+	array(
+		'label'    => 'Custom HTML with a saved Page Load animation',
+		'panel'    => 'No Motion Effects panel on this block',
+		'behavior' => 'The HTML shows as written, not animated.',
+		'block'    => 'core/html',
+		'html'     => '<div class="mbtest-html">Custom HTML</div>',
+		'attrs'    => array(
+			'animationMode' => 'page-load',
+		),
+		'expect'   => array(
+			'animated' => false,
+			'no_class' => array( 'mb-animated' ),
+		),
+	),
+	array(
+		'label'    => 'Shortcode with a saved Scroll Appear animation',
+		'panel'    => 'No Motion Effects panel on this block',
+		'behavior' => 'The shortcode output shows as written, not animated.',
+		'block'    => 'core/shortcode',
+		'html'     => '<p class="mbtest-shortcode">Shortcode output</p>',
+		'attrs'    => array(
+			'animationMode'      => 'scroll-appear',
+			'animationEntryType' => 'fade',
+		),
+		'expect'   => array(
+			'animated' => false,
+			'no_class' => array( 'mb-animated' ),
+		),
+	),
 	// Server-rendered (dynamic) blocks. In the editor these preview
 	// through the block-renderer endpoint, which used to reject the
 	// animation attributes ("Error loading block", GH #24).

@@ -9,6 +9,12 @@
 		"core/list"
 	],
 
+	"nonAnimatableBlocks": [
+		"core/freeform",
+		"core/html",
+		"core/shortcode"
+	],
+
 	"staggerIncompatibleTypes": [
 		"image-move",
 		"image-zoom"

@@ -207,26 +207,27 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 				return;
 			}
 			// A Scroll Appear block waits until it overlaps the trigger
-			// zone by the runtime's own rule (10% of its height), so a
-			// sliver at the edge of the zone is still legitimately
-			// hidden. It's stuck only once that rule says "in zone", or
-			// once it covers the whole zone (a block too tall to ever
-			// reach 10% — GH #23).
+			// zone by the runtime's own rule (10% of its height, at most
+			// half the zone — GH #23), so a sliver at the edge of the
+			// zone is still legitimately hidden. It's stuck only once
+			// that rule says "in zone", or once it covers the whole zone.
 			var state = api.scrollAppear.find( function ( st ) {
 				return st.el === el;
 			} );
 			if ( state && state.pageHeight > 0 ) {
 				var scrollY = window.scrollY;
+				var docHeight = document.documentElement.scrollHeight;
 				var overlap = api.zoneOverlap(
 					state.pageTop,
 					state.pageBottom,
 					scrollY,
-					vh
+					vh,
+					docHeight
 				);
-				var band = vh * ( api.zone.bottom - api.zone.top );
+				var zone = api.zoneBounds( scrollY, vh, docHeight );
 				if (
-					! api.isInZone( overlap, state.pageHeight ) &&
-					overlap < band
+					! api.isInZone( overlap, state.pageHeight, vh ) &&
+					overlap < zone.bottom - zone.top
 				) {
 					return;
 				}
@@ -300,27 +301,43 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	 * Is there any scroll position at which tick() would put this block
 	 * in the zone? Overlap is piecewise linear in scroll position, so
 	 * its maximum is at a breakpoint or at either end of the scroll
-	 * range; testing those is exhaustive.
+	 * range; testing those is exhaustive. The band's edges are
+	 * themselves piecewise linear (they stretch to the document edges
+	 * over the first and last `top` / `1 - bottom` screens of scroll,
+	 * moving at twice the scroll speed there — src/trigger-zone.js), so
+	 * each edge-meets-block position has two candidate solutions, one
+	 * per piece; a candidate from the wrong piece is still a real scroll
+	 * position, just not a breakpoint, so including it is harmless.
 	 */
 	function canReachZone( api, state ) {
 		var vh = window.innerHeight;
-		var maxScroll = Math.max(
-			0,
-			document.documentElement.scrollHeight - vh
-		);
-		var candidates = [
-			0,
-			maxScroll,
-			state.pageTop - vh * api.zone.top,
-			state.pageBottom - vh * api.zone.bottom,
-			state.pageTop - vh * api.zone.bottom,
-			state.pageBottom - vh * api.zone.top,
-		];
+		var docHeight = document.documentElement.scrollHeight;
+		var maxScroll = Math.max( 0, docHeight - vh );
+		var topInset = vh * api.zone.top;
+		var bottomInset = vh * ( 1 - api.zone.bottom );
+		var candidates = [ 0, maxScroll, topInset, maxScroll - bottomInset ];
+		[ state.pageTop, state.pageBottom ].forEach( function ( edge ) {
+			// Band top (= scrollY + min(topInset, scrollY)) reaches edge.
+			candidates.push( edge - topInset, edge / 2 );
+			// Band bottom (= scrollY + vh - min(bottomInset,
+			// maxScroll - scrollY)) reaches edge.
+			candidates.push(
+				edge - vh + bottomInset,
+				( edge - vh + maxScroll ) / 2
+			);
+		} );
 		return candidates.some( function ( scrollY ) {
 			var s = Math.min( Math.max( scrollY, 0 ), maxScroll );
 			return api.isInZone(
-				api.zoneOverlap( state.pageTop, state.pageBottom, s, vh ),
-				state.pageHeight
+				api.zoneOverlap(
+					state.pageTop,
+					state.pageBottom,
+					s,
+					vh,
+					docHeight
+				),
+				state.pageHeight,
+				vh
 			);
 		} );
 	}
@@ -335,22 +352,19 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 			return found;
 		}
 		var vh = window.innerHeight;
-		var band = vh * ( api.zone.bottom - api.zone.top );
-
 		api.scrollAppear.forEach( function ( state ) {
 			var el = state.el;
 			if ( ! el.isConnected || ! isRendered( el ) ) {
 				return;
 			}
+			// Since GH #23 the zone reaches every block inside the page's
+			// scrollable area (half-band cap, band stretched to the page
+			// edges), so this now only fires for a block the page can't
+			// scroll to, e.g. one pushed past the end of an
+			// overflow-clipped document.
 			if ( state.pageHeight > 0 && ! canReachZone( api, state ) ) {
 				var why =
-					state.pageHeight * api.zone.ratio > band
-						? 'it is ' +
-						  Math.round( state.pageHeight ) +
-						  'px tall (' +
-						  ( state.pageHeight / vh ).toFixed( 1 ) +
-						  '× the screen), too tall to ever overlap the trigger zone enough'
-						: 'it sits too close to the top or bottom of the page for the trigger zone to reach it';
+					'no scroll position brings it far enough into the trigger zone (is it outside the scrollable page?)';
 				found.push(
 					issue(
 						'can-never-play',

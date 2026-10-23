@@ -865,17 +865,35 @@ function mb_self_check_fixtures( $image ) {
 			'expect_reduced_motion' => array(),
 		),
 		'late-injected'       => array(
-			'title'   => 'Injected after load',
-			'note'    => 'A script adds a Scroll Appear paragraph (pink) shortly after the page loads, like pagination or a popup would. Motion Blocks never sets it up, so it stays invisible: the pink box below the fade paragraph never shows. The page has a server-rendered animation (the fade paragraph) so the CSS and JS load; on a page with none, they don\'t load and injected content stays visible instead.',
+			'title'   => 'Added after load',
+			'note'    => 'Shortly after the page loads, a script changes the page the way pagination without a full reload, infinite scroll or a popup would (GH #50): it adds a Scroll Appear paragraph and a Page Load paragraph (pink), swaps the contents of the blue region for a new Scroll Appear paragraph, resets the class attribute of the purple paragraph to its original server markup once it has faded in (as the Interactivity API router can when it reuses an element), and adds two items to the staggered list. Every one of them must end up visible and animated. On a page with no server-rendered animation the CSS and JS don\'t load at all, and added content simply stays static.',
 			'content' => mb_self_check_paragraph( 'Paragraph · Page Load · Fade (loads the runtime)', $page_load_fade )
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Paragraph · Scroll Appear · Entry: Fade — replaced after load', $scroll_fade ),
+					array(),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_paragraph( 'Paragraph · Scroll Appear · Entry: Fade — class attribute reset after load', $scroll_fade, MB_SELF_CHECK_COLORS['list'] )
+				. mb_self_check_list( 3, $stagger_list, MB_SELF_CHECK_COLORS['list'] )
 				. mb_self_check_block(
 					'html',
 					array(),
-					// Mirrors the markup motion_blocks_render_block emits for
-					// a Scroll Appear fade paragraph, plus a tint.
-					"<script>window.addEventListener('load',function(){setTimeout(function(){var p=document.createElement('p');p.className='mb-animated mb-mode-scroll-appear mb-enter-fade mb-has-entry has-background';p.setAttribute('data-mb-mode','scroll-appear');p.setAttribute('data-mb-entry-type','fade');p.style.cssText='background-color:" . MB_SELF_CHECK_COLORS['injected'] . ";padding:1.5rem';p.textContent='Paragraph · Scroll Appear · Entry: Fade — injected after load';var s=document.querySelector('script[data-mb-self-check-inject]');s.parentNode.insertBefore(p,s);},300);});</script><script data-mb-self-check-inject></script>"
+					// The added markup mirrors what motion_blocks_render_block
+					// emits for a Scroll Appear / Page Load fade paragraph.
+					"<script>window.addEventListener('load',function(){setTimeout(function(){"
+					. "var s=document.querySelector('script[data-mb-self-check-inject]');"
+					. "function para(mode,text){var p=document.createElement('p');p.className='mb-animated mb-mode-'+mode+' mb-enter-fade'+(mode==='scroll-appear'?' mb-has-entry':'')+' has-background';p.setAttribute('data-mb-mode',mode);p.setAttribute(mode==='scroll-appear'?'data-mb-entry-type':'data-mb-type','fade');p.style.cssText='background-color:" . MB_SELF_CHECK_COLORS['injected'] . ";padding:1.5rem';p.textContent=text;return p;}"
+					. "s.parentNode.insertBefore(para('scroll-appear','Paragraph · Scroll Appear · Entry: Fade — added after load'),s);"
+					. "s.parentNode.insertBefore(para('page-load','Paragraph · Page Load · Fade — added after load'),s);"
+					. "var region;document.querySelectorAll('p').forEach(function(p){if(p.textContent.indexOf('replaced after load')!==-1){region=p.parentNode;}});region.innerHTML='';region.appendChild(para('scroll-appear','Paragraph · Scroll Appear · Entry: Fade — swapped in after load'));"
+					. "var list=document.querySelector('.wp-block-list.mb-stagger-parent');['Item 4 (added)','Item 5 (added)'].forEach(function(t){var li=document.createElement('li');li.textContent=t;list.appendChild(li);});"
+					. "},300);"
+					// Once the purple paragraph has played its Entry, reset its
+					// class attribute to the server markup.
+					. "var reset=setInterval(function(){document.querySelectorAll('p').forEach(function(p){if(p.textContent.indexOf('class attribute reset')!==-1&&p.classList.contains('mb-triggered')){clearInterval(reset);setTimeout(function(){p.className=p.className.split(' ').filter(function(c){return !/^mb-(triggered|exit-triggered|wired|settled)$/.test(c);}).join(' ');},700);}});},100);"
+					. "});</script><script data-mb-self-check-inject></script>"
 				),
-			'expect'  => array( 'never-wired#50' ),
+			'expect'  => array(),
 		),
 		'content-above-changes' => array(
 			'title'   => 'Content above changes height',

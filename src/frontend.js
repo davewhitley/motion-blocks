@@ -80,17 +80,22 @@ import {
 	}
 
 	function init() {
-		// Number each stagger child (`--mb-stagger-index`, read by the
-		// stepped-delay rule in animations.css, GH #53). Must run before
-		// any trigger class lands: Page Load adds `.mb-triggered`
-		// synchronously below, and a child's animation-delay is fixed
-		// when its animation starts.
-		document
-			.querySelectorAll( '.mb-stagger-parent' )
-			.forEach( setStaggerIndices );
-		initPageLoadAnimations();
-		initScrollAppearAnimations();
-		initScrollInteractiveAnimations();
+		wire( document );
+		watchForLateContent();
+		// Public hook (GH #50). Content added later is picked up on its
+		// own (watchForLateContent), so themes rarely need this; it's
+		// for content the observer can't see coming, e.g. blocks moved
+		// by a carousel or revealed by a script that changes their
+		// position without resizing the page. Re-scans `root` (default:
+		// the whole document) for unwired blocks and re-measures every
+		// Scroll Appear block.
+		window.motionBlocks = window.motionBlocks || {};
+		window.motionBlocks.refresh = function ( root ) {
+			wire( root && root.querySelectorAll ? root : document );
+			if ( scrollAppear ) {
+				scrollAppear.refreshAll();
+			}
+		};
 		// Read by the head failsafe on `load` (GH #57,
 		// motion_blocks_print_js_marker): set only once every mode is
 		// wired, so a throw above still reveals the content. Re-assert
@@ -101,6 +106,197 @@ import {
 		if ( DEBUG ) {
 			debugApi.ready = true;
 		}
+	}
+
+	/* ---------------------------------------------------------------
+	 * Wiring (GH #50)
+	 *
+	 * Blocks are wired one at a time, so content added after the page
+	 * loads (Query Loop pagination without a full reload, infinite
+	 * scroll, AJAX, popups) can be wired the same way as the original
+	 * markup. Every wired block gets the `mb-wired` class. It lives in
+	 * the class attribute on purpose: a script that resets the class
+	 * attribute to fresh server markup (the Interactivity API router
+	 * patching a reused element, morphdom, Turbo) also wipes the
+	 * trigger classes, and dropping `mb-wired` with them makes the
+	 * block look new, so it's wired again instead of staying hidden.
+	 * ------------------------------------------------------------- */
+
+	var WIRED_CLASS = 'mb-wired';
+	var STAGGER_INNER_CLASS = 'wp-block-group__inner-container';
+	// Elements wired at least once, to tell a re-wire from a first one.
+	var everWired = new WeakSet();
+	// Elements wired right now. The class alone isn't proof: a clone
+	// (cloneNode, a carousel's looped slide, Turbo's cached page)
+	// copies `mb-wired` without any of the runtime state behind it.
+	var liveWired = new WeakSet();
+	// The Scroll Appear engine, created on the first Scroll Appear block.
+	var scrollAppear = null;
+
+	/**
+	 * `root.querySelectorAll( selector )`, plus `root` itself if it
+	 * matches.
+	 */
+	function queryAll( root, selector ) {
+		var found = Array.prototype.slice.call(
+			root.querySelectorAll( selector )
+		);
+		if ( root.matches && root.matches( selector ) ) {
+			found.unshift( root );
+		}
+		return found;
+	}
+
+	/** Is `el` wired, with its runtime state in place? */
+	function isWired( el ) {
+		return liveWired.has( el ) && el.classList.contains( WIRED_CLASS );
+	}
+
+	/** Blocks in `root` matching `selector` that need wiring. */
+	function unwired( root, selector ) {
+		return queryAll( root, selector ).filter( function ( el ) {
+			return ! isWired( el );
+		} );
+	}
+
+	/**
+	 * Drop whatever an earlier wiring of `el` left running: its Scroll
+	 * Appear state and observers, and its pause-offscreen observer. A
+	 * re-wired block can come back in a different mode (or with
+	 * different slots), and the old observers would keep adding and
+	 * removing trigger classes on it.
+	 */
+	function release( el ) {
+		liveWired.delete( el );
+		if ( scrollAppear ) {
+			scrollAppear.release( el );
+		}
+		cancelSettle( el );
+		if ( pauseObservers.has( el ) ) {
+			pauseObservers.get( el ).disconnect();
+			pauseObservers.delete( el );
+			el.style.removeProperty( '--mb-play-state' );
+		}
+	}
+
+	/**
+	 * Wire every not-yet-wired animated block in `root` (an Element or
+	 * the document).
+	 */
+	function wire( root ) {
+		// Number each stagger child (`--mb-stagger-index`, read by the
+		// stepped-delay rule in animations.css, GH #53). Must run before
+		// any trigger class lands: Page Load adds `.mb-triggered`
+		// synchronously below, and a child's animation-delay is fixed
+		// when its animation starts.
+		queryAll( root, '.mb-stagger-parent' ).forEach( setStaggerIndices );
+		unwired( root, '.mb-mode-page-load' ).forEach( function ( el ) {
+			release( el );
+			wirePageLoad( el );
+		} );
+		unwired( root, '.mb-mode-scroll-appear' ).forEach( function ( el ) {
+			release( el );
+			if ( ! scrollAppear ) {
+				scrollAppear = createScrollAppear();
+			}
+			scrollAppear.add( el );
+		} );
+		unwired( root, '.mb-mode-scroll-interactive' ).forEach(
+			function ( el ) {
+				release( el );
+				wireScrollInteractive( el );
+			}
+		);
+	}
+
+	/**
+	 * Mark `el` wired. On a re-wire (its class attribute was reset, see
+	 * above) its inline styles may have been reset too, so let
+	 * applyCustomKeyframe() run again.
+	 */
+	function markWired( el ) {
+		if ( everWired.has( el ) ) {
+			delete el.dataset.mbKeyframeApplied;
+		}
+		everWired.add( el );
+		liveWired.add( el );
+		el.classList.add( WIRED_CLASS );
+		if ( DEBUG ) {
+			debugApi.wired.add( el );
+		}
+	}
+
+	/**
+	 * Wire animated blocks added after load, re-number stagger children
+	 * when a stagger parent gains or loses children, and drop Scroll
+	 * Appear state for removed blocks.
+	 *
+	 * MutationObserver callbacks run as a microtask, before the browser
+	 * renders the change, so a new block is wired before it's ever
+	 * painted: a Page Load block starts from its first frame and a
+	 * Scroll Appear block is already measured when it first shows.
+	 */
+	function watchForLateContent() {
+		if ( typeof MutationObserver === 'undefined' ) {
+			return;
+		}
+		new MutationObserver( function ( records ) {
+			var roots = [];
+			var parents = [];
+			var removed = false;
+			records.forEach( function ( record ) {
+				var target = record.target;
+				if ( record.type === 'attributes' ) {
+					// A wired block whose class attribute was reset.
+					if ( ! target.classList.contains( WIRED_CLASS ) ) {
+						if ( target.classList.contains( 'mb-animated' ) ) {
+							roots.push( target );
+						} else if ( liveWired.has( target ) ) {
+							// No longer animated at all.
+							release( target );
+						}
+					}
+					return;
+				}
+				for ( var i = 0; i < record.addedNodes.length; i++ ) {
+					if ( record.addedNodes[ i ].nodeType === 1 ) {
+						roots.push( record.addedNodes[ i ] );
+					}
+				}
+				if ( record.removedNodes.length ) {
+					removed = true;
+				}
+				if ( record.addedNodes.length || record.removedNodes.length ) {
+					var parent =
+						target.classList &&
+						target.classList.contains( STAGGER_INNER_CLASS )
+							? target.parentElement
+							: target;
+					if (
+						parent &&
+						parent.classList &&
+						parent.classList.contains( 'mb-stagger-parent' )
+					) {
+						parents.push( parent );
+					}
+				}
+			} );
+			parents.forEach( setStaggerIndices );
+			roots.forEach( function ( root ) {
+				// Skip nodes already detached again in the same batch.
+				if ( root.isConnected ) {
+					wire( root );
+				}
+			} );
+			if ( removed && scrollAppear ) {
+				scrollAppear.prune();
+			}
+		} ).observe( document.documentElement, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: [ 'class' ],
+		} );
 	}
 
 	/* ---------------------------------------------------------------
@@ -825,60 +1021,60 @@ import {
 	 * 1. Page Load Animations
 	 * ------------------------------------------------------------- */
 
-	function initPageLoadAnimations() {
-		var elements = document.querySelectorAll( '.mb-mode-page-load' );
+	// Pause-offscreen observers by element, so a re-wire replaces one.
+	var pauseObservers = new WeakMap();
 
-		elements.forEach( function ( el ) {
-			applyTimingProps( el );
-			applyDirectionProps(
-				el,
-				el.dataset.mbType,
-				el.dataset.mbDirection
-			);
-			applyBlurProps( el );
-			applyRotateProps( el );
-			applyCustomKeyframe( el );
+	// Pending settle listeners by element (see settleWhenFinished()).
+	var settleListeners = new WeakMap();
 
-			// Handle repeat mode. Set CSS custom properties instead
-			// of inline `animation-*` shorthand — the custom props
-			// inherit through the cascade, so a staggered parent's
-			// loop / alternate settings propagate to its inner blocks
-			// via the `.mb-stagger-parent.mb-triggered > *` rule in
-			// animations.css. Inline `animationIterationCount` on the
-			// parent would NOT cascade.
-			var repeat = el.dataset.mbRepeat || 'once';
-			var isLooping = repeat === 'loop' || repeat === 'alternate';
+	function wirePageLoad( el ) {
+		markWired( el );
+		applyTimingProps( el );
+		applyDirectionProps(
+			el,
+			el.dataset.mbType,
+			el.dataset.mbDirection
+		);
+		applyBlurProps( el );
+		applyRotateProps( el );
+		applyCustomKeyframe( el );
 
-			if ( repeat === 'loop' ) {
-				el.style.setProperty( '--mb-iteration-count', 'infinite' );
-				el.style.setProperty( '--mb-fill-mode', 'none' );
-			} else if ( repeat === 'alternate' ) {
-				el.style.setProperty( '--mb-iteration-count', 'infinite' );
-				el.style.setProperty( '--mb-direction', 'alternate' );
-				el.style.setProperty( '--mb-fill-mode', 'none' );
-			}
+		// Handle repeat mode. Set CSS custom properties instead
+		// of inline `animation-*` shorthand — the custom props
+		// inherit through the cascade, so a staggered parent's
+		// loop / alternate settings propagate to its inner blocks
+		// via the `.mb-stagger-parent.mb-triggered > *` rule in
+		// animations.css. Inline `animationIterationCount` on the
+		// parent would NOT cascade.
+		var repeat = el.dataset.mbRepeat || 'once';
+		var isLooping = repeat === 'loop' || repeat === 'alternate';
 
-			// A one-shot Page Load never plays again: once it finishes,
-			// drop its filled last frame (GH #20).
-			if ( isOneShotPageLoad( repeat ) ) {
-				settleWhenFinished( el, el.dataset.mbType, 'mbTo' );
-			}
+		if ( repeat === 'loop' ) {
+			el.style.setProperty( '--mb-iteration-count', 'infinite' );
+			el.style.setProperty( '--mb-fill-mode', 'none' );
+		} else if ( repeat === 'alternate' ) {
+			el.style.setProperty( '--mb-iteration-count', 'infinite' );
+			el.style.setProperty( '--mb-direction', 'alternate' );
+			el.style.setProperty( '--mb-fill-mode', 'none' );
+		}
 
-			// Trigger the animation.
-			el.classList.add( 'mb-triggered' );
-			if ( DEBUG ) {
-				debugApi.wired.add( el );
-			}
+		// A one-shot Page Load never plays again: once it finishes,
+		// drop its filled last frame (GH #20).
+		if ( isOneShotPageLoad( repeat ) ) {
+			settleWhenFinished( el, el.dataset.mbType, 'mbTo' );
+		}
 
-			// Pause off-screen only applies to looping animations.
-			// Pausing a one-shot while off-screen would freeze it at
-			// frame 0 until it scrolls into view — turning Page Load
-			// into Scroll Appear. One-shot Page Load fires on load and
-			// finishes regardless of viewport, by design.
-			if ( isLooping && el.dataset.mbPauseOffscreen === 'true' ) {
-				setupPauseOffscreen( el );
-			}
-		} );
+		// Trigger the animation.
+		el.classList.add( 'mb-triggered' );
+
+		// Pause off-screen only applies to looping animations.
+		// Pausing a one-shot while off-screen would freeze it at
+		// frame 0 until it scrolls into view — turning Page Load
+		// into Scroll Appear. One-shot Page Load fires on load and
+		// finishes regardless of viewport, by design.
+		if ( isLooping && el.dataset.mbPauseOffscreen === 'true' ) {
+			setupPauseOffscreen( el );
+		}
 	}
 
 	/**
@@ -892,6 +1088,9 @@ import {
 	 * the life of the page.
 	 */
 	function setupPauseOffscreen( el ) {
+		if ( pauseObservers.has( el ) ) {
+			pauseObservers.get( el ).disconnect();
+		}
 		var observer = new IntersectionObserver(
 			function ( entries ) {
 				entries.forEach( function ( entry ) {
@@ -905,6 +1104,7 @@ import {
 		);
 
 		observer.observe( el );
+		pauseObservers.set( el, observer );
 	}
 
 	/* ---------------------------------------------------------------
@@ -927,13 +1127,14 @@ import {
 	 * `data-mb-type` for Scroll Appear blocks any more.
 	 * ------------------------------------------------------------- */
 
-	function initScrollAppearAnimations() {
-		var elements = document.querySelectorAll( '.mb-mode-scroll-appear' );
-
-		if ( ! elements.length ) {
-			return;
-		}
-
+	/**
+	 * The Scroll Appear engine: shared scroll / resize / layout
+	 * listeners plus one trigger state per block. Created once, on the
+	 * first Scroll Appear block (at load or later, GH #50).
+	 *
+	 * @return {{add: Function, refreshAll: Function, prune: Function}} API.
+	 */
+	function createScrollAppear() {
 		// Architecture: IntersectionObserver as a "something changed
 		// near the trigger zone" wake-up signal + cached page-relative
 		// LAYOUT bounds (offsetTop / offsetHeight) as the source of
@@ -975,6 +1176,8 @@ import {
 		// with scroll restored below it, hash-anchor landing) has none.
 
 		var states = [];
+		// Trigger state by element, so a re-wire replaces the old one.
+		var stateByEl = new WeakMap();
 		var prevScrollY = window.scrollY;
 		// Shared scroll direction. tick() updates it ONLY when the scroll
 		// position actually changes, so every element processed in a
@@ -1246,7 +1449,56 @@ import {
 			}
 		}
 
-		elements.forEach( function ( el ) {
+		/**
+		 * Stop tracking a block: disconnect its observers and forget its
+		 * state. Used when it leaves the document or is re-wired.
+		 */
+		function teardown( state ) {
+			state.unobserved = true;
+			if ( state.io ) {
+				state.io.disconnect();
+			}
+			if ( state.ro ) {
+				state.ro.disconnect();
+			}
+			var i = states.indexOf( state );
+			if ( i !== -1 ) {
+				states.splice( i, 1 );
+			}
+			if ( stateByEl.get( state.el ) === state ) {
+				stateByEl.delete( state.el );
+			}
+			if ( DEBUG ) {
+				var j = debugApi.scrollAppear.indexOf( state );
+				if ( j !== -1 ) {
+					debugApi.scrollAppear.splice( j, 1 );
+				}
+			}
+		}
+
+		/**
+		 * Drop the states of blocks no longer in the document. Their
+		 * `mb-wired` class goes too, so a block that's put back later
+		 * (a modal or popup re-attaching its content) is wired again.
+		 */
+		function prune() {
+			states.slice().forEach( function ( state ) {
+				if ( ! state.el.isConnected ) {
+					teardown( state );
+					liveWired.delete( state.el );
+					state.el.classList.remove( WIRED_CLASS );
+				}
+			} );
+		}
+
+		/** Forget `el`'s state, if it has one (see release()). */
+		function releaseEl( el ) {
+			if ( stateByEl.has( el ) ) {
+				teardown( stateByEl.get( el ) );
+			}
+		}
+
+		function add( el ) {
 			var entry = readSlotConfig( el, 'entry' );
 			var exit = readSlotConfig( el, 'exit' );
 			var hasEntry = entry.type !== '';
@@ -1254,6 +1506,10 @@ import {
 			if ( ! hasEntry && ! hasExit ) {
 				return;
 			}
+			if ( stateByEl.has( el ) ) {
+				teardown( stateByEl.get( el ) );
+			}
+			markWired( el );
 
 			// Read per-slot Replay attrs. The render filter always emits
 			// them for filled slots; the fallbacks match the schema
@@ -1290,6 +1546,7 @@ import {
 				pageBottom: 0,
 				pageHeight: 0,
 				io: null,
+				ro: null,
 			};
 			refreshBounds( state );
 
@@ -1303,6 +1560,7 @@ import {
 					tick( state );
 				} );
 				ro.observe( el );
+				state.ro = ro;
 			}
 
 			// IO as the wake-up signal. Same threshold + rootMargin
@@ -1328,11 +1586,11 @@ import {
 			io.observe( el );
 
 			states.push( state );
+			stateByEl.set( el, state );
 			if ( DEBUG ) {
-				debugApi.wired.add( el );
 				debugApi.scrollAppear.push( state );
 			}
-		} );
+		}
 
 		// Recompute every element's cached bounds, then re-tick. Shared
 		// by resize and the late-layout refreshes below. These are layout
@@ -1445,6 +1703,13 @@ import {
 			},
 			{ passive: true }
 		);
+
+		return {
+			add: add,
+			release: releaseEl,
+			refreshAll: refreshAll,
+			prune: prune,
+		};
 	}
 
 	/**
@@ -1539,6 +1804,7 @@ import {
 	 * @param {string}  toPrefix Dataset prefix of its Custom To values.
 	 */
 	function settleWhenFinished( el, type, toPrefix ) {
+		cancelSettle( el );
 		if (
 			typeof el.getAnimations !== 'function' ||
 			! endsAtRest( type, el.dataset, toPrefix )
@@ -1573,12 +1839,26 @@ import {
 					return;
 				}
 			}
-			el.removeEventListener( 'animationend', onFinish );
-			el.removeEventListener( 'animationcancel', onFinish );
+			cancelSettle( el );
 			el.classList.add( 'mb-settled' );
 		}
 		el.addEventListener( 'animationend', onFinish );
 		el.addEventListener( 'animationcancel', onFinish );
+		settleListeners.set( el, onFinish );
+	}
+
+	/**
+	 * Stop waiting to settle `el`. A re-wired block (GH #50) may come
+	 * back in a mode that animates again, so an earlier wiring's
+	 * listener must not settle it.
+	 */
+	function cancelSettle( el ) {
+		var onFinish = settleListeners.get( el );
+		if ( onFinish ) {
+			el.removeEventListener( 'animationend', onFinish );
+			el.removeEventListener( 'animationcancel', onFinish );
+			settleListeners.delete( el );
+		}
 	}
 
 	/**
@@ -1893,52 +2173,39 @@ import {
 	 * 3. Interactive Scroll Animations
 	 * ------------------------------------------------------------- */
 
-	function initScrollInteractiveAnimations() {
-		var elements = document.querySelectorAll(
-			'.mb-mode-scroll-interactive'
-		);
+	function wireScrollInteractive( el ) {
+		markWired( el );
+		var type = el.dataset.mbType;
 
-		if ( ! elements.length ) {
-			return;
+		applyDirectionProps(
+			el,
+			type,
+			el.dataset.mbDirection
+		);
+		applyBlurProps( el );
+		applyRotateProps( el );
+		applyCustomKeyframe( el );
+
+		// Apply acceleration (timing function).
+		var acceleration = el.dataset.mbAcceleration;
+		if ( acceleration ) {
+			el.style.setProperty( '--mb-timing', acceleration );
 		}
 
-		elements.forEach( function ( el ) {
-			var type = el.dataset.mbType;
-
-			applyDirectionProps(
-				el,
-				type,
-				el.dataset.mbDirection
-			);
-			applyBlurProps( el );
-			applyRotateProps( el );
-			applyCustomKeyframe( el );
-
-			// Apply acceleration (timing function).
-			var acceleration = el.dataset.mbAcceleration;
-			if ( acceleration ) {
-				el.style.setProperty( '--mb-timing', acceleration );
-			}
-
-			// Apply scroll-driven animation to container. Set both
-			// inline animation props (so the figure itself animates)
-			// AND CSS custom properties (so img-target blocks can
-			// read the custom range via inheritance — the img's
-			// scoped CSS rule consumes `var(--mb-range-start)`,
-			// which doesn't propagate from inline `animation-range-*`
-			// declarations on the parent).
-			var rangeStart = el.dataset.mbRangeStart || 'entry 0%';
-			var rangeEnd = el.dataset.mbRangeEnd || 'exit 100%';
-			el.style.animationTimeline = 'view()';
-			el.style.animationRangeStart = rangeStart;
-			el.style.animationRangeEnd = rangeEnd;
-			el.style.setProperty( '--mb-range-start', rangeStart );
-			el.style.setProperty( '--mb-range-end', rangeEnd );
-
-			if ( DEBUG ) {
-				debugApi.wired.add( el );
-			}
-		} );
+		// Apply scroll-driven animation to container. Set both
+		// inline animation props (so the figure itself animates)
+		// AND CSS custom properties (so img-target blocks can
+		// read the custom range via inheritance — the img's
+		// scoped CSS rule consumes `var(--mb-range-start)`,
+		// which doesn't propagate from inline `animation-range-*`
+		// declarations on the parent).
+		var rangeStart = el.dataset.mbRangeStart || 'entry 0%';
+		var rangeEnd = el.dataset.mbRangeEnd || 'exit 100%';
+		el.style.animationTimeline = 'view()';
+		el.style.animationRangeStart = rangeStart;
+		el.style.animationRangeEnd = rangeEnd;
+		el.style.setProperty( '--mb-range-start', rangeStart );
+		el.style.setProperty( '--mb-range-end', rangeEnd );
 	}
 
 	/* ---------------------------------------------------------------

@@ -187,6 +187,60 @@ describe( 'blocks removed and put back later', () => {
 	} );
 } );
 
+describe( 'cloned blocks', () => {
+	it( 'are wired even though the clone copied mb-wired', async () => {
+		const el = block( 'scroll-appear', 'original' );
+		document.body.append( el );
+		await flush();
+		// A carousel's looped slide, or Turbo's cached page on Back.
+		const clone = el.cloneNode( true );
+		expect( clone.classList.contains( 'mb-wired' ) ).toBe( true );
+		document.body.append( clone );
+		await flush();
+		expect( watching( clone ).length ).toBe( 2 );
+	} );
+
+	it( 'are wired by refresh() too', async () => {
+		const el = block( 'scroll-appear', 'original 2' );
+		document.body.append( el );
+		await flush();
+		const clone = el.cloneNode( true );
+		// Not in the document yet when refresh() runs on it.
+		window.motionBlocks.refresh( clone );
+		expect( watching( clone ).length ).toBe( 2 );
+	} );
+} );
+
+describe( 're-wired into a different mode', () => {
+	it( 'stops the old Scroll Appear observers', async () => {
+		const el = block( 'scroll-appear', 'mode change' );
+		document.body.append( el );
+		await flush();
+		const old = watching( el );
+		expect( old.length ).toBe( 2 );
+		// The router reuses the element for a Page Load block.
+		el.setAttribute(
+			'class',
+			'mb-animated mb-mode-page-load mb-enter-fade'
+		);
+		el.setAttribute( 'data-mb-type', 'fade' );
+		await flush();
+		expect( old.every( ( o ) => o.disconnected ) ).toBe( true );
+		expect( watching( el ).length ).toBe( 0 );
+		expect( el.classList.contains( 'mb-triggered' ) ).toBe( true );
+	} );
+
+	it( 'stops them when the block is no longer animated', async () => {
+		const el = block( 'scroll-appear', 'not animated' );
+		document.body.append( el );
+		await flush();
+		const old = watching( el );
+		el.setAttribute( 'class', 'wp-block-paragraph' );
+		await flush();
+		expect( old.every( ( o ) => o.disconnected ) ).toBe( true );
+	} );
+} );
+
 describe( 'stagger parents', () => {
 	it( 'number children added after load', async () => {
 		const list = document.createElement( 'ul' );

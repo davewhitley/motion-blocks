@@ -140,6 +140,10 @@ import { setStaggerIndices } from './stagger-index';
 	var STAGGER_INNER_CLASS = 'wp-block-group__inner-container';
 	// Elements wired at least once, to tell a re-wire from a first one.
 	var everWired = new WeakSet();
+	// Elements wired right now. The class alone isn't proof: a clone
+	// (cloneNode, a carousel's looped slide, Turbo's cached page)
+	// copies `mb-wired` without any of the runtime state behind it.
+	var liveWired = new WeakSet();
 	// The Scroll Appear engine, created on the first Scroll Appear block.
 	var scrollAppear = null;
 
@@ -157,6 +161,37 @@ import { setStaggerIndices } from './stagger-index';
 		return found;
 	}
 
+	/** Is `el` wired, with its runtime state in place? */
+	function isWired( el ) {
+		return liveWired.has( el ) && el.classList.contains( WIRED_CLASS );
+	}
+
+	/** Blocks in `root` matching `selector` that need wiring. */
+	function unwired( root, selector ) {
+		return queryAll( root, selector ).filter( function ( el ) {
+			return ! isWired( el );
+		} );
+	}
+
+	/**
+	 * Drop whatever an earlier wiring of `el` left running: its Scroll
+	 * Appear state and observers, and its pause-offscreen observer. A
+	 * re-wired block can come back in a different mode (or with
+	 * different slots), and the old observers would keep adding and
+	 * removing trigger classes on it.
+	 */
+	function release( el ) {
+		liveWired.delete( el );
+		if ( scrollAppear ) {
+			scrollAppear.release( el );
+		}
+		if ( pauseObservers.has( el ) ) {
+			pauseObservers.get( el ).disconnect();
+			pauseObservers.delete( el );
+			el.style.removeProperty( '--mb-play-state' );
+		}
+	}
+
 	/**
 	 * Wire every not-yet-wired animated block in `root` (an Element or
 	 * the document).
@@ -168,22 +203,23 @@ import { setStaggerIndices } from './stagger-index';
 		// synchronously below, and a child's animation-delay is fixed
 		// when its animation starts.
 		queryAll( root, '.mb-stagger-parent' ).forEach( setStaggerIndices );
-		queryAll( root, '.mb-mode-page-load:not(.' + WIRED_CLASS + ')' ).forEach(
-			wirePageLoad
-		);
-		queryAll(
-			root,
-			'.mb-mode-scroll-appear:not(.' + WIRED_CLASS + ')'
-		).forEach( function ( el ) {
+		unwired( root, '.mb-mode-page-load' ).forEach( function ( el ) {
+			release( el );
+			wirePageLoad( el );
+		} );
+		unwired( root, '.mb-mode-scroll-appear' ).forEach( function ( el ) {
+			release( el );
 			if ( ! scrollAppear ) {
 				scrollAppear = createScrollAppear();
 			}
 			scrollAppear.add( el );
 		} );
-		queryAll(
-			root,
-			'.mb-mode-scroll-interactive:not(.' + WIRED_CLASS + ')'
-		).forEach( wireScrollInteractive );
+		unwired( root, '.mb-mode-scroll-interactive' ).forEach(
+			function ( el ) {
+				release( el );
+				wireScrollInteractive( el );
+			}
+		);
 	}
 
 	/**
@@ -196,6 +232,7 @@ import { setStaggerIndices } from './stagger-index';
 			delete el.dataset.mbKeyframeApplied;
 		}
 		everWired.add( el );
+		liveWired.add( el );
 		el.classList.add( WIRED_CLASS );
 		if ( DEBUG ) {
 			debugApi.wired.add( el );
@@ -224,11 +261,13 @@ import { setStaggerIndices } from './stagger-index';
 				var target = record.target;
 				if ( record.type === 'attributes' ) {
 					// A wired block whose class attribute was reset.
-					if (
-						target.classList.contains( 'mb-animated' ) &&
-						! target.classList.contains( WIRED_CLASS )
-					) {
-						roots.push( target );
+					if ( ! target.classList.contains( WIRED_CLASS ) ) {
+						if ( target.classList.contains( 'mb-animated' ) ) {
+							roots.push( target );
+						} else if ( liveWired.has( target ) ) {
+							// No longer animated at all.
+							release( target );
+						}
 					}
 					return;
 				}
@@ -1425,9 +1464,17 @@ import { setStaggerIndices } from './stagger-index';
 			states.slice().forEach( function ( state ) {
 				if ( ! state.el.isConnected ) {
 					teardown( state );
+					liveWired.delete( state.el );
 					state.el.classList.remove( WIRED_CLASS );
 				}
 			} );
+		}
+
+		/** Forget `el`'s state, if it has one (see release()). */
+		function releaseEl( el ) {
+			if ( stateByEl.has( el ) ) {
+				teardown( stateByEl.get( el ) );
+			}
 		}
 
 		function add( el ) {
@@ -1630,7 +1677,12 @@ import { setStaggerIndices } from './stagger-index';
 			{ passive: true }
 		);
 
-		return { add: add, refreshAll: refreshAll, prune: prune };
+		return {
+			add: add,
+			release: releaseEl,
+			refreshAll: refreshAll,
+			prune: prune,
+		};
 	}
 
 	/**

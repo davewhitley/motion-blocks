@@ -22,6 +22,14 @@
  *   - `settleTargets()`: the elements whose animations must all have
  *     finished, or null when the block can't be settled without
  *     touching a nested animated block.
+ *   - `isOneShotPageLoad()` / `isOneShotScrollAppear()`: the block can
+ *     never play again (Page Load Repeat Once; Scroll Appear Entry
+ *     Replay Once with no Exit).
+ *
+ * The editor's "May break the menu overlay" warning reads the same
+ * predicates through `settleBlockers()`, which lists why a block will
+ * keep its last frame, so the panel can't drift from what the front
+ * end actually settles.
  *
  * Dependency-free (apart from the Custom value allowlist) so the
  * front-end bundle stays small.
@@ -151,6 +159,105 @@ export function endsAtRest( type, dataset, toPrefix ) {
 		return customEndsAtRest( dataset, toPrefix );
 	}
 	return false;
+}
+
+/**
+ * Whether a Page Load block plays once and stops, so it can settle.
+ * Loop and Alternate run forever.
+ *
+ * @param {string} repeat data-mb-repeat / animationRepeat.
+ * @return {boolean} True for a one-shot Page Load.
+ */
+export function isOneShotPageLoad( repeat ) {
+	return repeat !== 'loop' && repeat !== 'alternate';
+}
+
+/**
+ * Whether a Scroll Appear block's Entry can never play again: Replay
+ * Once and no Exit slot (an Exit plays, and reverses, on every pass).
+ *
+ * @param {string}  entryReplay data-mb-entry-replay / animationEntryReplay.
+ * @param {boolean} hasExit     Whether the Exit slot has an effect.
+ * @return {boolean} True for a one-shot Scroll Appear Entry.
+ */
+export function isOneShotScrollAppear( entryReplay, hasExit ) {
+	return entryReplay === 'once' && ! hasExit;
+}
+
+/**
+ * Why a block keeps its last frame, in the order the editor lists the
+ * fixes. Each id is one fix line in the "May break the menu overlay"
+ * warning.
+ */
+export const SETTLE_BLOCKERS = [
+	'interactive',
+	'loop',
+	'replay',
+	'exit',
+	'not-at-rest',
+	'custom-end',
+];
+
+/**
+ * Why effect `type` can't settle, or null when it ends at rest.
+ *
+ * @param {string}              type     Effect type.
+ * @param {DOMStringMap|Object} dataset  Custom To values (see endsAtRest).
+ * @param {string}              toPrefix 'mbTo' or 'mbEntryTo'.
+ * @return {?string} 'custom-end', 'not-at-rest' or null.
+ */
+export function effectBlocker( type, dataset, toPrefix ) {
+	if ( endsAtRest( type, dataset, toPrefix ) ) {
+		return null;
+	}
+	return type === 'custom' ? 'custom-end' : 'not-at-rest';
+}
+
+/**
+ * Every reason a block's animation will keep its last frame applied
+ * (and so keep trapping `position: fixed` descendants), as ids from
+ * SETTLE_BLOCKERS in that order. An empty list means frontend.js
+ * settles it once it finishes (unless `settleTargets()` skips it).
+ *
+ * Scroll Interactive shares `animationType` and the To keys with Page
+ * Load, so it reports the effect reason too: switching mode alone
+ * would not settle an Out preset.
+ *
+ * @param {Object}              config             The block's resolved config.
+ * @param {string}              config.mode        Animation mode.
+ * @param {string}              config.type        Page Load / Scroll Interactive effect.
+ * @param {string}              config.repeat      Page Load Repeat.
+ * @param {string}              config.entryType   Scroll Appear Entry effect.
+ * @param {string}              config.entryReplay Scroll Appear Entry Replay.
+ * @param {string}              config.exitType    Scroll Appear Exit effect.
+ * @param {DOMStringMap|Object} dataset            Custom To values, keyed
+ *                                                 like the front-end dataset.
+ * @return {string[]} Blocker ids.
+ */
+export function settleBlockers(
+	{ mode, type, repeat, entryType, entryReplay, exitType },
+	dataset
+) {
+	const found = [];
+	if ( mode === 'scroll-appear' ) {
+		if ( entryType && entryReplay !== 'once' ) {
+			found.push( 'replay' );
+		}
+		if ( exitType ) {
+			found.push( 'exit' );
+		}
+		if ( entryType ) {
+			found.push( effectBlocker( entryType, dataset, 'mbEntryTo' ) );
+		}
+	} else {
+		if ( mode === 'scroll-interactive' ) {
+			found.push( 'interactive' );
+		} else if ( ! isOneShotPageLoad( repeat ) ) {
+			found.push( 'loop' );
+		}
+		found.push( effectBlocker( type, dataset, 'mbTo' ) );
+	}
+	return SETTLE_BLOCKERS.filter( ( id ) => found.indexOf( id ) !== -1 );
 }
 
 /**

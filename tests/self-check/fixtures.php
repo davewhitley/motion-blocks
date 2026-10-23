@@ -668,7 +668,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'nav-settle'          => array(
 			'title'   => 'Navigation menus settle',
-			'note'    => 'For testing by hand (GH #20, PR #81). Seven Navigation blocks, each with Overlay Menu "Always", so each shows a hamburger at any width. Each is labelled above it: green labels should settle, pink labels are the known remainder. Load the page, wait about 2 seconds, then scroll each nav to the middle of the window and click its hamburger (close it before the next one). A Replay "Repeat" nav resets when it leaves the middle band of the screen, and only traps the overlay while it sits there. GREEN (Page Load Slide, Flip, Blur, Wipe, and Scroll Appear Entry Slide Replay "Once" with no Exit): the menu overlay must cover the whole window, and the <nav> has the class mb-settled. PINK (Scroll Appear Entry Replay "Repeat", and Entry "Once" with an Exit): these can animate again, so they keep their finished animation by design; their overlay stays inside the nav box, or clipped to it, and there is no mb-settled. With reduced motion on, every overlay covers the whole window and nothing settles (nothing animates).',
+			'note'    => 'For testing by hand (GH #20, PR #81). Nine Navigation blocks; all but the last have Overlay Menu "Always", so they show a hamburger at any width, and one of them sits inside an animated Group. Each is labelled above it: green labels should settle, pink labels are the known remainder. In the editor, selecting a pink nav shows a "May break the menu overlay" warning at the top of Motion Effects with the fix to make (the pink Group says "This block has a menu inside"); green navs, the nav inside the Group and the "Overlay Menu: Never" nav show no such warning. Load the page, wait about 2 seconds, then scroll each nav to the middle of the window and click its hamburger (close it before the next one). A Replay "Repeat" nav resets when it leaves the middle band of the screen, and only traps the overlay while it sits there. GREEN (Page Load Slide, Flip, Blur, Wipe, and Scroll Appear Entry Slide Replay "Once" with no Exit): the menu overlay must cover the whole window, and the <nav> has the class mb-settled. PINK (Scroll Appear Entry Replay "Repeat", and Entry "Once" with an Exit): these can animate again, so they keep their finished animation by design; their overlay stays inside the nav box, or clipped to it, and there is no mb-settled. With reduced motion on, every overlay covers the whole window and nothing settles (nothing animates).',
 			'content' => mb_self_check_paragraph( 'Settles · Page Load · Slide up (Repeat: Once)', array(), MB_SELF_CHECK_COLORS['paragraph'] )
 				. mb_self_check_nav(
 					array(
@@ -737,11 +737,35 @@ function mb_self_check_fixtures( $image ) {
 						'animationExitType'      => 'fade',
 					)
 				)
+				. mb_self_check_paragraph( 'Remainder (stays trapped) · Group (Scroll Appear · Entry: Slide, Replay: Repeat) containing a nav', array(), MB_SELF_CHECK_COLORS['injected'] )
+				. mb_self_check_group(
+					mb_self_check_nav( array() ),
+					array(
+						'animationMode'          => 'scroll-appear',
+						'animationEntryType'     => 'slide',
+						'animationEntryDuration' => 0.6,
+						'animationEntryDelay'    => 0,
+						'animationEntryReplay'   => 'repeat',
+					)
+				)
+				. mb_self_check_paragraph( 'No warning · Page Load · Slide (Repeat: Loop) · Overlay Menu: Never (no hamburger, links always shown)' )
+				. mb_self_check_nav(
+					array(
+						'overlayMenu'        => 'never',
+						'animationMode'      => 'page-load',
+						'animationType'      => 'slide',
+						'animationDirection' => 'btt',
+						'animationDuration'  => 0.6,
+						'animationDelay'     => 0,
+						'animationRepeat'    => 'loop',
+					)
+				)
 				. mb_self_check_spacer( 600 ),
-			// The two pink remainder navs keep their fill, and the closed
-			// overlay already holds fixed-position descendants, so the
-			// sweep reports them (same as fixed-trap-replayable). The five
-			// green ones settle and must not be reported.
+			// The pink remainder navs (and the pink group around a nav)
+			// keep their fill, and the closed overlay already holds
+			// fixed-position descendants, so the sweep reports them (same
+			// as fixed-trap-replayable). The five green ones settle and
+			// must not be reported.
 			'expect'                => array( 'fixed-trap' ),
 			'expect_reduced_motion' => array(),
 		),

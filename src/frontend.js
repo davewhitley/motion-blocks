@@ -1226,6 +1226,18 @@ import {
 				top += n.offsetTop;
 				n = n.offsetParent;
 			}
+			// The chain stops at <body>, whose own offset is always 0, so
+			// a margin above it (the admin bar's 32px on <html> for
+			// logged-in users, a theme's body margin) was left out and
+			// every block fired that much early. Add where <body> really
+			// starts on the page. Nothing animates <body>, so its rect is
+			// as transform-immune as offsetTop.
+			if ( n === document.body ) {
+				top +=
+					n.getBoundingClientRect().top +
+					window.scrollY +
+					n.clientTop;
+			}
 			state.pageTop = top;
 			state.pageHeight = state.el.offsetHeight;
 			state.pageBottom = top + state.pageHeight;

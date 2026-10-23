@@ -2,9 +2,11 @@
  * Motion Blocks - CSS Animations
  *
  * Supports three animation modes:
- *   1. Page load — plays immediately on DOMContentLoaded.
- *   2. Scroll in view — triggered via Intersection Observer (enter/exit/both).
- *   3. Interactive scroll — tied to scroll progress via CSS scroll-driven animations.
+ *   1. Page Load — plays on DOMContentLoaded.
+ *   2. Scroll Appear — Entry / Exit slots, triggered by frontend.js
+ *      adding .mb-triggered / .mb-exit-triggered.
+ *   3. Scroll Interactive — tied to scroll progress via CSS
+ *      scroll-driven animations.
  *
  * Direction is parameterized via CSS custom properties set by frontend.js,
  * so a single keyframe per type handles all directions.

@@ -2,9 +2,15 @@
  * Motion Blocks — Frontend Script
  *
  * Handles three animation modes:
- *   1. Page load — immediate trigger with optional repeat & pause-offscreen.
- *   2. Scroll in view — Intersection Observer with enter/exit/both support.
- *   3. Interactive scroll — CSS scroll-driven animations (view-timeline).
+ *   1. Page Load — triggered on DOMContentLoaded, with optional repeat
+ *      and pause-offscreen.
+ *   2. Scroll Appear — independent Entry and Exit slots, triggered from
+ *      cached layout bounds woken by IntersectionObserver, ResizeObserver
+ *      and a scroll listener (see "Scroll Appear trigger architecture" in
+ *      the dev notes before changing it).
+ *   3. Scroll Interactive — CSS scroll-driven animations (view timeline).
+ *
+ * Blocks are wired one at a time, including ones added after load.
  */
 
 import SHARED from '../shared-constants.json';

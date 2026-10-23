@@ -53,14 +53,24 @@ function fallbacks() {
 }
 
 function baseDeclarations() {
-	const body = css.match( /(?:^|\})\s*\.mb-animated\s*\{([^}]*)\}/ )[ 1 ];
+	// The plain `.mb-animated` rule (timing) and the one that skips
+	// animated Stagger children (everything else).
+	const re = /(?<=^|\})\s*\.mb-animated(?::not\([^{]*\))?\s*\{([^}]*)\}/g;
+	const bodies = [];
+	let m;
+	while ( ( m = re.exec( css ) ) ) {
+		bodies.push( m[ 1 ] );
+	}
 	const out = {};
-	body.split( ';' ).forEach( ( decl ) => {
-		const m = decl.match( /^\s*(--mb-[a-z-]+)\s*:\s*(.+?)\s*$/ );
-		if ( m ) {
-			out[ m[ 1 ] ] = m[ 2 ];
-		}
-	} );
+	bodies
+		.join( ';' )
+		.split( ';' )
+		.forEach( ( decl ) => {
+			const m = decl.match( /^\s*(--mb-[a-z-]+)\s*:\s*(.+?)\s*$/ );
+			if ( m ) {
+				out[ m[ 1 ] ] = m[ 2 ];
+			}
+		} );
 	return out;
 }
 
@@ -97,5 +107,15 @@ describe( '.mb-animated', () => {
 		INHERITED.forEach( ( name ) => {
 			expect( name in declared ).toBe( false );
 		} );
+	} );
+} );
+
+describe( 'an animated Stagger child', () => {
+	it( "is left out, so it keeps inheriting the parent's stagger settings", () => {
+		// The parent's stagger rule drives that child's animation, so it
+		// must still inherit the parent's direction, loop and reverse.
+		expect( css ).toMatch(
+			/\.mb-animated:not\(\.mb-stagger-parent > :where\(:not\(\.wp-block-group__inner-container\)\), \.mb-stagger-parent > :where\(\.wp-block-group__inner-container\) > \*\) \{[^}]*--mb-iteration-count: 1;/
+		);
 	} );
 } );

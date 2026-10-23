@@ -76,7 +76,9 @@ function staggerSelectorLists() {
 		const selectors = splitTopLevel( prelude );
 		const top = [];
 		selectors.forEach( ( selector ) => {
-			const isList = selector.match( /:is\(\s*([\s\S]*)\)\s*$/ );
+			// A list inside `:is( … )`, or `:not( … )` (the per-effect
+			// defaults on `.mb-animated` skip animated Stagger children).
+			const isList = selector.match( /:(?:is|not)\(\s*([\s\S]*)\)\s*$/ );
 			if ( isList && isList[ 1 ].includes( '.mb-stagger-parent >' ) ) {
 				lists.push( splitTopLevel( isList[ 1 ] ) );
 			} else {

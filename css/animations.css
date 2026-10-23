@@ -15,23 +15,29 @@
 /* ----------------------------------------------------------------
  * CSS Custom Properties
  * -------------------------------------------------------------- */
-/* Every per-effect setting is declared on each animated block with the
-   same value its rules fall back to. Custom properties inherit, and
-   the runtime only sets one inline when it differs from the default,
-   so without these an animated block nested in another inherited the
-   outer block's values: an inner one-shot Slide inside a looping Group
-   looped forever, an inner default 8px Blur used the outer 30px
-   (2026-10-20 review, #54). Stagger children and the Cover image
-   aren't `.mb-animated`, so they still inherit from their block.
-
-   Not declared here on purpose: `--mb-stagger-anim-name`,
-   `--mb-entry-anim-name`, `--mb-exit-anim-name` and
-   `--mb-stagger-step`/`-index`, which stagger children must inherit
-   from their parent. */
+/* Timing applies to every animated block, Stagger children included
+   (they take their own duration / delay / timing). */
 .mb-animated {
     --mb-duration: 0.6s;
     --mb-delay: 0.4s;
     --mb-timing: ease;
+}
+
+/* Every other per-effect setting is declared on each animated block
+   with the same value its rules fall back to. Custom properties
+   inherit, and the runtime only sets one inline when it differs from
+   the default, so without these an animated block nested in another
+   inherited the outer block's values: an inner one-shot Slide inside a
+   looping Group looped forever, an inner default 8px Blur used the
+   outer 30px (2026-10-20 review, #54).
+
+   Not on a Stagger child that is itself animated: the parent's stagger
+   rule drives that child's animation, so it must keep inheriting the
+   parent's direction, loop and Exit-reverse values. Stagger children
+   that aren't animated, and the Cover image, aren't `.mb-animated` and
+   inherit anyway. The stagger keyframe-name and step properties are
+   never declared here, for the same reason. */
+.mb-animated:not(.mb-stagger-parent > :where(:not(.wp-block-group__inner-container)), .mb-stagger-parent > :where(.wp-block-group__inner-container) > *) {
     --mb-iteration-count: 1;
     --mb-direction: normal;
     --mb-fill-mode: both;

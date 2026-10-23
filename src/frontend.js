@@ -11,6 +11,15 @@ import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
 import {
+	TRIGGER_ZONE_TOP_PCT,
+	TRIGGER_ZONE_BOTTOM_PCT,
+	TRIGGER_OVERLAP_RATIO,
+	TRIGGER_BAND_CAP,
+	zoneBounds,
+	zoneOverlap,
+	isInZone,
+} from './trigger-zone';
+import {
 	endsAtRest,
 	isOneShotPageLoad,
 	isOneShotScrollAppear,
@@ -19,13 +28,6 @@ import {
 
 ( function () {
 	'use strict';
-
-	// Scroll Appear trigger-zone geometry. Used by zoneOverlap() /
-	// isInZone() below, which both tick() and the developer self-check
-	// call, so the check can never drift from where blocks actually fire.
-	var TRIGGER_ZONE_TOP_PCT = 0.15;
-	var TRIGGER_ZONE_BOTTOM_PCT = 0.85;
-	var TRIGGER_OVERLAP_RATIO = 0.1;
 
 	// What an omitted per-slot Scroll Appear attr resolves to: the same
 	// schemaDefaults the editor schema and the PHP merge use (GH #45).
@@ -49,30 +51,6 @@ import {
 		},
 	};
 
-	/**
-	 * How much of an element (page-relative layout bounds) overlaps the
-	 * Scroll Appear trigger zone at a given scroll position, in px.
-	 */
-	function zoneOverlap( pageTop, pageBottom, scrollY, vh ) {
-		var triggerTop = scrollY + vh * TRIGGER_ZONE_TOP_PCT;
-		var triggerBottom = scrollY + vh * TRIGGER_ZONE_BOTTOM_PCT;
-		return Math.max(
-			0,
-			Math.min( pageBottom, triggerBottom ) -
-				Math.max( pageTop, triggerTop )
-		);
-	}
-
-	/**
-	 * The trigger decision: is `overlap` px enough for an element
-	 * `pageHeight` px tall to count as in the zone? Must match IO's
-	 * `threshold: 0.1` — see the CRITICAL note in tick().
-	 */
-	function isInZone( overlap, pageHeight ) {
-		var ratio = pageHeight > 0 ? overlap / pageHeight : 0;
-		return ratio >= TRIGGER_OVERLAP_RATIO;
-	}
-
 	// Developer self-check (GH #60). When the opt-in debug setting is
 	// on, PHP sets `window.motionBlocksDebug` before this script runs
 	// and enqueues build/self-check.js after it. The runtime then
@@ -87,12 +65,14 @@ import {
 			wired: new WeakSet(),
 			// Scroll Appear trigger states (same objects tick() reads).
 			scrollAppear: [],
+			zoneBounds: zoneBounds,
 			zoneOverlap: zoneOverlap,
 			isInZone: isInZone,
 			zone: {
 				top: TRIGGER_ZONE_TOP_PCT,
 				bottom: TRIGGER_ZONE_BOTTOM_PCT,
 				ratio: TRIGGER_OVERLAP_RATIO,
+				cap: TRIGGER_BAND_CAP,
 			},
 			ready: false,
 		};
@@ -1001,6 +981,20 @@ import {
 		// single scroll frame (states.forEach(tick)) reads the same
 		// direction instead of all-but-the-first collapsing to 'same'.
 		var scrollDir = 'same';
+		// Scrollable document height, for the trigger band's stretch at
+		// the bottom of the scroll range (GH #23). Re-read once per
+		// scroll frame and on every layout refresh (refreshAll runs on
+		// resize, load, font swap and body resize), never per block.
+		// Unknown (no stretch) until the window `load` event: before
+		// that, late images and embeds can still make the page taller,
+		// and a block that entered because the page briefly looked
+		// short would drop out of the zone again on load.
+		function readDocHeight() {
+			return document.readyState === 'complete'
+				? document.documentElement.scrollHeight
+				: undefined;
+		}
+		var docHeight = readDocHeight();
 
 		/**
 		 * Compute the element's page-relative top via the offsetParent
@@ -1066,6 +1060,15 @@ import {
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
 			var viewportBottom = currentScrollY + vh;
+			var zone = zoneBounds( currentScrollY, vh, docHeight );
+			var overlap = zoneOverlap(
+				state.pageTop,
+				state.pageBottom,
+				currentScrollY,
+				vh,
+				docHeight
+			);
+			var inZone = isInZone( overlap, state.pageHeight, vh );
 
 			// Off-screen reset.
 			//
@@ -1136,20 +1139,12 @@ import {
 			// normal scroll back up produces. Not just "fully below the
 			// screen": after a jump the block can sit visible near the
 			// bottom of the screen, or just inside the zone short of
-			// the 10% overlap, and the Entry would replay as it scrolls
-			// in. A forward-played Exit can only be found there after a
-			// jump, so the snap never interrupts a normal scroll.
+			// the required overlap, and the Entry would replay as it
+			// scrolls in. A forward-played Exit can only be found there
+			// after a jump, so the snap never interrupts a normal scroll.
 			if (
-				state.pageTop > currentScrollY + vh * TRIGGER_ZONE_TOP_PCT &&
-				! isInZone(
-					zoneOverlap(
-						state.pageTop,
-						state.pageBottom,
-						currentScrollY,
-						vh
-					),
-					state.pageHeight
-				) &&
+				state.pageTop > zone.top &&
+				! inZone &&
 				state.hasEntry &&
 				state.hasExit &&
 				state.entryReplay === 'once' &&
@@ -1162,27 +1157,23 @@ import {
 			}
 			state.inViewport = inViewport;
 
-			// Match the previous IO config (`-15% 0px -15% 0px`
-			// rootMargin + threshold 0.1). Trigger zone is the middle
-			// 70% of the viewport; an element is "in zone" when
-			// 10%+ of its area is in that range — same as IO.
+			// The trigger decision (computed above, src/trigger-zone.js):
+			// the zone is the middle 70% of the viewport, stretched to
+			// the document edges at either end of the scroll range, and
+			// an element is "in zone" when it overlaps it by 10% of its
+			// height or by half the band, whichever is less (GH #23).
 			//
-			// CRITICAL: using "any overlap" instead of the 10%
-			// threshold here breaks the IO + cached-bounds hybrid.
-			// IO fires intersecting=false at exactly the 10% boundary;
-			// if cached-bounds disagrees and still reports inZone at
-			// that moment, tick no-ops and the exit handler never
-			// fires — then IO stops firing because its intersection
-			// state has settled at false, leaving the element stuck.
-			var triggerBottom =
-				currentScrollY + vh * TRIGGER_ZONE_BOTTOM_PCT;
-			var overlap = zoneOverlap(
-				state.pageTop,
-				state.pageBottom,
-				currentScrollY,
-				vh
-			);
-			var inZone = isInZone( overlap, state.pageHeight );
+			// That matches IO's `threshold: 0.1` for every block up to
+			// 3.5 screens tall away from the page edges. It used to have
+			// to match exactly — before the scroll listener below
+			// existed, IO was the only wake-up, and "any overlap" here
+			// (75d28ee) left IO settled at false while cached bounds
+			// still said in-zone, so the Exit never fired. The scroll
+			// listener now ticks every block on every scroll frame and
+			// refreshAll() ticks them on every layout change, so a
+			// decision that differs from IO's can't strand a block. Keep
+			// those two wake-ups if you ever change this rule.
+			var triggerBottom = zone.bottom;
 			if ( inZone === state.inZone ) {
 				// No flip. Bbox-bounce IO callbacks land here and
 				// silently no-op.
@@ -1230,6 +1221,20 @@ import {
 						return;
 					}
 					state.hasEntered = true;
+				}
+				// Leaving through the BOTTOM of the band means the block
+				// moved down relative to it: the reader scrolled up, or
+				// content above grew, or the page got taller below a block
+				// near its end, which pulls the band's stretched bottom
+				// edge back up (GH #23). Scrolling down can't do it (both
+				// band edges move down with the scroll), so whatever the
+				// last scroll direction was, this is onLeaveBack, never a
+				// forward Exit on a block still on screen.
+				if (
+					state.pageBottom > zone.bottom &&
+					state.pageTop > zone.top
+				) {
+					dir = 'up';
 				}
 				if ( dir === 'up' ) {
 					// onLeaveBack — Entry slot owns this.
@@ -1311,7 +1316,11 @@ import {
 					tick( state );
 				},
 				{
-					threshold: 0.1,
+					// 0 as well as 0.1: a block too tall to ever reach
+					// IO's 10% (more than 7 screens tall) still gets a
+					// wake-up on first contact (GH #23). Extra wake-ups
+					// are no-ops in tick().
+					threshold: [ 0, 0.1 ],
 					rootMargin: '-15% 0px -15% 0px',
 				}
 			);
@@ -1332,6 +1341,7 @@ import {
 		// direction (see tick()'s `layoutDir`). A block that didn't move
 		// (e.g. only the viewport resized) keeps the scroll direction.
 		function refreshAll() {
+			docHeight = readDocHeight();
 			states.forEach( function ( state ) {
 				var prevTop = state.pageTop;
 				refreshBounds( state );
@@ -1425,6 +1435,7 @@ import {
 				scrollScheduled = true;
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
+					docHeight = readDocHeight();
 					// Not `forEach( tick )`: the index would land in
 					// tick()'s `layoutDir` and override the direction.
 					states.forEach( function ( state ) {

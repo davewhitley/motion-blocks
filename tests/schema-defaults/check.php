@@ -72,6 +72,20 @@ function mb_test_fixture_markup( $n, $case ) {
 		);
 	}
 
+	if ( isset( $case['html'] ) ) {
+		// A block whose saved content is raw markup (Custom HTML,
+		// Shortcode): `html` is that content, verbatim.
+		return serialize_block(
+			array(
+				'blockName'    => $name,
+				'attrs'        => $attrs,
+				'innerBlocks'  => array(),
+				'innerHTML'    => $case['html'],
+				'innerContent' => array( $case['html'] ),
+			)
+		);
+	}
+
 	if ( 'core/paragraph' !== $name ) {
 		// Server-rendered block: saved as a self-closing comment.
 		return serialize_block(

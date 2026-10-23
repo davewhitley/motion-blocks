@@ -55,7 +55,7 @@ describe( 'settled state CSS (GH #20)', () => {
 			'.mb-animated.mb-settled',
 			`.mb-stagger-parent.mb-settled > :where(:not(${ IC }))`,
 			`.mb-stagger-parent.mb-settled > :where(${ IC }) > *`,
-			'[data-mb-target="img"].mb-settled img:first-of-type',
+			'[data-mb-target="img"].mb-settled > img:first-of-type',
 		] );
 	} );
 
@@ -68,7 +68,7 @@ describe( 'settled state CSS (GH #20)', () => {
 			'.mb-enter-flip.mb-settled',
 			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(${ IC }))`,
 			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(${ IC }) > *`,
-			'[data-mb-target="img"].mb-enter-flip.mb-settled img:first-of-type',
+			'[data-mb-target="img"].mb-enter-flip.mb-settled > img:first-of-type',
 		] );
 	} );
 

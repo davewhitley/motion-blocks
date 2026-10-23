@@ -565,18 +565,13 @@ import {
 	 */
 	function buildImgScopedCSS( uid, keyframeName, mode ) {
 		var scope = '[data-mb-uid="' + uid + '"]';
-		// Descendant selector — works in editor (extra wrappers) and
-		// frontend (direct figure child). `:first-of-type` filters
-		// to the first img in its sibling group, so figcaption stays
-		// unaffected.
-		var imgSelector = scope + ' img:first-of-type';
-		// Match both the wrapper itself (e.g. `<figure data-mb-uid>`)
-		// and any descendant of the wrapper that directly holds the
-		// img. The wrapper-self case is the common Image block path.
-		var parentSelector = [
-			scope + ':has(> img:first-of-type)',
-			scope + ' :has(> img:first-of-type)',
-		].join( ', ' );
+		// The Cover's background image: a direct child of the wrapper.
+		// A descendant selector also caught the first image of every
+		// sibling group in the Cover's inner blocks (a logo would
+		// animate with the background and be clipped by its figure).
+		var imgSelector = scope + ' > img:first-of-type';
+		// The wrapper is the clipping frame for its own image.
+		var parentSelector = scope + ':has(> img:first-of-type)';
 
 		var animProps;
 		if ( mode === 'scroll-interactive' ) {
@@ -933,11 +928,8 @@ import {
 	 */
 	function buildScrollAppearImgScopedCSS( uid, entryName, exitName ) {
 		var scope = '[data-mb-uid="' + uid + '"]';
-		var imgSelector = scope + ' img:first-of-type';
-		var parentSelector = [
-			scope + ':has(> img:first-of-type)',
-			scope + ' :has(> img:first-of-type)',
-		].join( ', ' );
+		var imgSelector = scope + ' > img:first-of-type';
+		var parentSelector = scope + ':has(> img:first-of-type)';
 		var rules = [];
 		rules.push( parentSelector + ' { overflow: clip; }' );
 		rules.push(
@@ -956,7 +948,7 @@ import {
 		if ( entryName ) {
 			rules.push(
 				scope +
-					'.mb-triggered img:first-of-type { ' +
+					'.mb-triggered > img:first-of-type { ' +
 					'animation-name: ' +
 					entryName +
 					'; ' +
@@ -967,7 +959,7 @@ import {
 		if ( exitName ) {
 			rules.push(
 				scope +
-					'.mb-exit-triggered img:first-of-type { ' +
+					'.mb-exit-triggered > img:first-of-type { ' +
 					'animation-name: ' +
 					exitName +
 					'; ' +

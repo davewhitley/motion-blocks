@@ -60,7 +60,7 @@ describe( 'Pause when off-screen (GH #58)', () => {
 		expect( selectors ).toContain( '.mb-animated.mb-triggered' );
 		expect( selectors ).toContain( '.mb-stagger-parent.mb-triggered >' );
 		expect( selectors ).toContain(
-			'[data-mb-target="img"].mb-animated.mb-triggered img:first-of-type'
+			'[data-mb-target="img"].mb-animated.mb-triggered > img:first-of-type'
 		);
 	} );
 

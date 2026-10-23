@@ -21,7 +21,7 @@ const css = fs
 	)
 	.replace( /\/\*[\s\S]*?\*\//g, '' );
 
-const IMG = '[data-mb-target="img"] img:first-of-type';
+const IMG = '[data-mb-target="img"] > img:first-of-type';
 
 /**
  * Every rule as { prelude, body, media }, where `media` is the

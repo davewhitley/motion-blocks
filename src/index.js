@@ -230,14 +230,13 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 		return null;
 	}
 	const scope = `[data-mb-uid="${ uid }"]`;
-	// Use descendant selectors (no `>`) so the same rule works in
-	// the editor (where every block is wrapped in extra
-	// `block-editor-block-list__block` divs) and on the frontend
-	// (where the figure is a direct child of the wrapper).
-	// `:first-of-type` only filters among siblings, so img is still
-	// scoped to "the first img in its sibling group" — figcaption
-	// stays unaffected since it's a different element type.
-	const imgSelector = `${ scope } img:first-of-type`;
+	// Direct child only: the Cover's background image is a direct
+	// child of the block wrapper in the editor and on the front end
+	// (core's own Cover duotone selector is `> .wp-block-cover__image-
+	// background`). A descendant selector also matched the first image
+	// in every sibling group of the Cover's inner blocks — a logo
+	// Image block animated with the background and got clipped.
+	const imgSelector = `${ scope } > img:first-of-type`;
 	// `:has()` lets us style whichever element happens to be the
 	// img's immediate parent without injecting a wrapper. Match
 	// both:
@@ -246,10 +245,7 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 	//      saved markup AND the editor's figure element).
 	//   2. A descendant of the wrapper that holds the img (e.g.
 	//      a `<figure>` inside a Featured Image's `<a>` wrapper).
-	const parentSelector = [
-		`${ scope }:has(> img:first-of-type)`,
-		`${ scope } :has(> img:first-of-type)`,
-	].join( ', ' );
+	const parentSelector = `${ scope }:has(> img:first-of-type)`;
 
 	// Scroll-interactive mode wires the timeline directly on the
 	// img so the parent stays a static clipping frame.
@@ -1101,7 +1097,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				const isImgTarget =
 					blockEl.getAttribute( 'data-mb-target' ) === 'img';
 				const innerImg = isImgTarget
-					? blockEl.querySelector( 'img:first-of-type' )
+					? blockEl.querySelector( ':scope > img:first-of-type' )
 					: null;
 				const restartTargets = isStaggerParent
 					? [
@@ -1268,9 +1264,9 @@ const withAnimationPreview = createHigherOrderComponent(
 						} )
 						.join( '; ' );
 					const previewCSS = [
-						`${ scope }:has(> img:first-of-type), ${ scope } :has(> img:first-of-type) { overflow: clip; }`,
-						`@supports not (overflow: clip) { ${ scope }:has(> img:first-of-type), ${ scope } :has(> img:first-of-type) { overflow: hidden; } }`,
-						`${ scope } img:first-of-type { ${ decls }; animation-name: none; }`,
+						`${ scope }:has(> img:first-of-type) { overflow: clip; }`,
+						`@supports not (overflow: clip) { ${ scope }:has(> img:first-of-type) { overflow: hidden; } }`,
+						`${ scope } > img:first-of-type { ${ decls }; animation-name: none; }`,
 					].join( '\n' );
 					return (
 						<>

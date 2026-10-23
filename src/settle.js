@@ -264,7 +264,7 @@ export function settleBlockers(
 /**
  * The elements a block's own animation runs on: the wrapper, a Stagger
  * parent's children (both forms, GH #66) and an img-target block's
- * `img:first-of-type` — the same targets the `.mb-settled` rules in
+ * `> img:first-of-type` — the same targets the `.mb-settled` rules in
  * animations.css reach.
  *
  * Returns null when settling would touch a nested animated block: a
@@ -287,7 +287,7 @@ export function settleTargets( el ) {
 		}
 	}
 	if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
-		const images = el.querySelectorAll( 'img:first-of-type' );
+		const images = el.querySelectorAll( ':scope > img:first-of-type' );
 		for ( let i = 0; i < images.length; i++ ) {
 			if ( images[ i ].closest( '.mb-animated' ) !== el ) {
 				return null;

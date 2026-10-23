@@ -237,7 +237,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 			// opacity 1 too; its image carries it (GH #53).
 			var image =
 				el.getAttribute( 'data-mb-target' ) === 'img'
-					? el.querySelector( 'img:first-of-type' )
+					? el.querySelector( ':scope > img:first-of-type' )
 					: null;
 			var target = el.classList.contains( 'mb-stagger-parent' )
 				? staggerChildren( el )[ 0 ] || el
@@ -639,7 +639,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	 * The elements a block's animation runs on, which the motion-off
 	 * and `.mb-settled` CSS pin at rest: the wrapper, a Stagger parent's
 	 * children (both forms, GH #66) and an img-target block's
-	 * `img:first-of-type` (it can't hold a fixed descendant, so the
+	 * `> img:first-of-type` (it can't hold a fixed descendant, so the
 	 * scan below finds nothing there, but its animations count).
 	 */
 	function restTargets( el ) {
@@ -651,7 +651,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 		}
 		if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
 			Array.prototype.forEach.call(
-				el.querySelectorAll( 'img:first-of-type' ),
+				el.querySelectorAll( ':scope > img:first-of-type' ),
 				function ( img ) {
 					targets.push( img );
 				}

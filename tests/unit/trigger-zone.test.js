@@ -118,13 +118,14 @@ describe( 'edge lines (GH #86)', () => {
 	const exitLine = ( s ) => s + VH * TRIGGER_ZONE_TOP_PCT;
 
 	it( 'Entry fires when the top rises past the 85% line, at any height', () => {
-		for ( const height of [ 20, 200, 800, 2400, 9000 ] ) {
+		// 4px and 10px blocks enter at half their height, the rest at
+		// TRIGGER_HYSTERESIS_PX past the line.
+		for ( const height of [ 4, 10, 20, 200, 800, 2400, 9000 ] ) {
 			const top = 4000;
-			// Top is `TRIGGER_HYSTERESIS_PX` above the 85% line.
-			const s =
-				top + TRIGGER_HYSTERESIS_PX - VH * TRIGGER_ZONE_BOTTOM_PCT;
 			const at = Math.min( TRIGGER_HYSTERESIS_PX, height / 2 );
+			// Scroll position where the top is `at` px above the line.
 			const fire = top + at - VH * TRIGGER_ZONE_BOTTOM_PCT;
+			expect( entryLine( fire ) - top ).toBe( at );
 			expect( [
 				height,
 				inZoneAt( top, top + height, fire - 1, 20000 ),
@@ -133,7 +134,6 @@ describe( 'edge lines (GH #86)', () => {
 				height,
 				inZoneAt( top, top + height, fire, 20000 ),
 			] ).toEqual( [ height, true ] );
-			expect( entryLine( s ) - top ).toBe( TRIGGER_HYSTERESIS_PX );
 		}
 	} );
 
@@ -153,6 +153,61 @@ describe( 'edge lines (GH #86)', () => {
 				inZoneAt( top, bottom, s, 20000, true ),
 			] ).toEqual( [ height, false ] );
 		}
+	} );
+
+	/**
+	 * Scroll through `positions`, carrying the in-zone state the way
+	 * tick() does, and return the positions where it flipped.
+	 *
+	 * @param {number}   top       Block top, page px.
+	 * @param {number}   bottom    Block bottom, page px.
+	 * @param {number[]} positions Scroll positions, in order.
+	 * @param {boolean}  [wasIn]   Starting state.
+	 * @return {number[]} Positions where the state flipped.
+	 */
+	function flipsAlong( top, bottom, positions, wasIn = false ) {
+		const flips = [];
+		for ( const s of positions ) {
+			const now = inZoneAt( top, bottom, s, DOC, wasIn );
+			if ( now !== wasIn ) {
+				flips.push( s );
+			}
+			wasIn = now;
+		}
+		return flips;
+	}
+
+	it( 'an edge jittering on the Exit line does not flicker', () => {
+		const top = 4000;
+		const bottom = top + 400;
+		// Scroll position where the bottom meets the 15% line.
+		const leave = bottom - VH * TRIGGER_ZONE_TOP_PCT;
+		// In the zone, then jitter around the line: out once, and
+		// 1–7px of overlap on the way back doesn't re-enter.
+		expect(
+			flipsAlong(
+				top,
+				bottom,
+				[
+					leave - 20,
+					leave,
+					leave - 2,
+					leave - 5,
+					leave + 1,
+					leave - 7,
+				],
+				true
+			)
+		).toEqual( [ leave ] );
+		// Coming back far enough re-enters.
+		expect(
+			flipsAlong(
+				top,
+				bottom,
+				[ leave + 10, leave - TRIGGER_HYSTERESIS_PX ],
+				false
+			)
+		).toEqual( [ leave - TRIGGER_HYSTERESIS_PX ] );
 	} );
 
 	it( 'an edge jittering on a line does not flicker', () => {

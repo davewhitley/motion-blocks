@@ -431,10 +431,11 @@ function motion_blocks_enqueue_frontend_assets() {
         );
 
         // Opt-in trigger lines (GH #86): two lines showing where
-        // Scroll Appear blocks start and stop. Logged-in users only;
+        // Scroll Appear blocks start and stop. Only for users who can
+        // edit posts, so subscribers and shop customers never see them;
         // frontend.js draws them only on pages with a Scroll Appear
         // block.
-        if ( get_option( 'mb_debug_trigger_lines' ) && is_user_logged_in() ) {
+        if ( get_option( 'mb_debug_trigger_lines' ) && current_user_can( 'edit_posts' ) ) {
             wp_add_inline_script(
                 'motion-blocks-frontend',
                 'window.motionBlocksTriggerLines = true;',
@@ -1869,7 +1870,7 @@ function motion_blocks_render_trigger_lines_field() {
         <?php esc_html_e( 'Show where "Appear on scroll" animations start and stop', 'motion-blocks' ); ?>
     </label>
     <p class="description">
-        <?php esc_html_e( 'Draws two lines on pages with "Appear on scroll" animations. A block\'s Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only logged-in users see them, so visitors are never affected.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Draws two lines on pages with "Appear on scroll" animations. A block\'s Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only users who can edit posts see them, so visitors are never affected.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

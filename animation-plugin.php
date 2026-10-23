@@ -832,9 +832,11 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
 }
 
 /**
- * Remove baked-in animation markup (every `mb-*` class and `data-mb-*`
- * attribute) from the tag the processor is on, so the render filter can
- * emit it fresh. Used for v0.1.0 content, which saved this markup into
+ * Remove baked-in animation markup (the plugin's own `mb-*` classes and
+ * every `data-mb-*` attribute) from the tag the processor is on, so the
+ * render filter can emit it fresh. Classes are matched by the plugin's
+ * own names only, so a user's "Additional CSS class" that happens to
+ * start with `mb-` (Bootstrap / Tailwind spacing such as `mb-4`) stays. Used for v0.1.0 content, which saved this markup into
  * post_content.
  *
  * @param WP_HTML_Tag_Processor $processor Positioned on the block's wrapper.
@@ -846,7 +848,7 @@ function motion_blocks_strip_baked_markup( $processor ) {
     }
     $classes = array();
     foreach ( $processor->class_list() as $class ) {
-        if ( 0 === strpos( $class, 'mb-' ) ) {
+        if ( preg_match( '/^mb-(animated$|mode-|enter-|exit-|has-entry$|stagger-parent$|triggered$|settled$|wired$)/', $class ) ) {
             $classes[] = $class;
         }
     }

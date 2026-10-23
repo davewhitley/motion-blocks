@@ -338,7 +338,7 @@ return array(
 			'animationScrollTrigger' => 'enter',
 		),
 		'baked'    => array(
-			'class' => 'mb-animated mb-enter-slide mb-mode-scroll-appear',
+			'class' => 'mb-4 mb-animated mb-enter-slide mb-mode-scroll-appear',
 			'attrs' => array(
 				'data-mb-mode'           => 'scroll-appear',
 				'data-mb-type'           => 'slide',
@@ -356,7 +356,8 @@ return array(
 			'data-mb-scroll-trigger'  => null,
 			'data-mb-play-once'       => null,
 			'data-mb-type'            => null,
-			'class'                   => array( 'mb-has-entry', 'mb-enter-slide' ),
+			// The user's own `mb-4` class survives the clean-up.
+			'class'                   => array( 'mb-has-entry', 'mb-enter-slide', 'mb-4' ),
 		),
 	),
 	// A non-string custom timing function (hand-edited or corrupted

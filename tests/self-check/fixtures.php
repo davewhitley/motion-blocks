@@ -260,6 +260,50 @@ function mb_self_check_fixed_child( $bottom, $label ) {
 	);
 }
 
+/**
+ * A Navigation block with three custom links and the overlay menu set to
+ * "Always", so its hamburger and full-screen overlay are there at any
+ * width. Uses inner link blocks rather than a wp_navigation menu, so the
+ * page builds the same on any site. Saved the way the editor saves it:
+ * both blocks are dynamic, so the markup is just the block comments.
+ */
+function mb_self_check_nav( $attrs ) {
+	$links = '';
+	foreach ( array( 'Home', 'About', 'Contact' ) as $label ) {
+		$links .= '<!-- wp:navigation-link ' . wp_json_encode(
+			array(
+				'label'          => $label,
+				'url'            => '#nav-' . strtolower( $label ),
+				'kind'           => 'custom',
+				'isTopLevelLink' => true,
+			),
+			JSON_UNESCAPED_SLASHES
+		) . " /-->\n";
+	}
+	$attrs = array_merge( array( 'overlayMenu' => 'always' ), $attrs );
+	return "<!-- wp:navigation " . wp_json_encode( $attrs, JSON_UNESCAPED_SLASHES ) . " -->\n{$links}<!-- /wp:navigation -->\n";
+}
+
+/**
+ * A tinted group with content that sticks out of it: a red outline
+ * shadow and a dark "Dropdown" box positioned below its bottom edge
+ * (styled by the settle-side-effects page's <style>). Wipe and Curtain
+ * clip both while they run, and kept clipping them before GH #20.
+ */
+function mb_self_check_sticks_out( $label, $attrs, $color ) {
+	$attrs['className'] = 'mb-sc-sticks-out';
+	$attrs['layout']    = array( 'type' => 'constrained' );
+	list( $attrs, $class, $style ) = mb_self_check_tint( $attrs, $color );
+	return mb_self_check_block(
+		'group',
+		$attrs,
+		"<div class=\"wp-block-group mb-sc-sticks-out{$class}\"{$style}>\n"
+		. mb_self_check_paragraph( $label )
+		. mb_self_check_block( 'html', array(), '<div class="mb-sc-dropdown">Dropdown (sticks out below the group)</div>' )
+		. '</div>'
+	);
+}
+
 function mb_self_check_cover( $image, $attrs, $label = 'Cover · Page Load · Image Zoom (looping)' ) {
 	$attrs = array_merge(
 		array(
@@ -620,6 +664,180 @@ function mb_self_check_fixtures( $image ) {
 					MB_SELF_CHECK_COLORS['group']
 				),
 			'expect'                => array( 'fixed-trap' ),
+			'expect_reduced_motion' => array(),
+		),
+		'nav-settle'          => array(
+			'title'   => 'Navigation menus settle',
+			'note'    => 'For testing by hand (GH #20, PR #81). Seven Navigation blocks, each with Overlay Menu "Always", so each shows a hamburger at any width. Each is labelled above it: green labels should settle, pink labels are the known remainder. Load the page, wait about 2 seconds, then scroll each nav to the middle of the window and click its hamburger (close it before the next one). A Replay "Repeat" nav resets when it leaves the middle band of the screen, and only traps the overlay while it sits there. GREEN (Page Load Slide, Flip, Blur, Wipe, and Scroll Appear Entry Slide Replay "Once" with no Exit): the menu overlay must cover the whole window, and the <nav> has the class mb-settled. PINK (Scroll Appear Entry Replay "Repeat", and Entry "Once" with an Exit): these can animate again, so they keep their finished animation by design; their overlay stays inside the nav box, or clipped to it, and there is no mb-settled. With reduced motion on, every overlay covers the whole window and nothing settles (nothing animates).',
+			'content' => mb_self_check_paragraph( 'Settles · Page Load · Slide up (Repeat: Once)', array(), MB_SELF_CHECK_COLORS['paragraph'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'      => 'page-load',
+						'animationType'      => 'slide',
+						'animationDirection' => 'btt',
+						'animationDuration'  => 0.6,
+						'animationDelay'     => 0,
+					)
+				)
+				. mb_self_check_paragraph( 'Settles · Page Load · Flip', array(), MB_SELF_CHECK_COLORS['paragraph'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'     => 'page-load',
+						'animationType'     => 'flip',
+						'animationDuration' => 0.6,
+						'animationDelay'    => 0,
+					)
+				)
+				. mb_self_check_paragraph( 'Settles · Page Load · Blur', array(), MB_SELF_CHECK_COLORS['paragraph'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'     => 'page-load',
+						'animationType'     => 'blur',
+						'animationDuration' => 0.6,
+						'animationDelay'    => 0,
+					)
+				)
+				. mb_self_check_paragraph( 'Settles · Page Load · Wipe (the overlay must not be clipped to the nav)', array(), MB_SELF_CHECK_COLORS['paragraph'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'     => 'page-load',
+						'animationType'     => 'wipe',
+						'animationDuration' => 0.6,
+						'animationDelay'    => 0,
+					)
+				)
+				. mb_self_check_paragraph( 'Settles · Scroll Appear · Entry: Slide (Replay: Once) · no Exit', array(), MB_SELF_CHECK_COLORS['paragraph'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'          => 'scroll-appear',
+						'animationEntryType'     => 'slide',
+						'animationEntryDuration' => 0.6,
+						'animationEntryDelay'    => 0,
+						'animationEntryReplay'   => 'once',
+					)
+				)
+				. mb_self_check_paragraph( 'Remainder (stays trapped) · Scroll Appear · Entry: Slide (Replay: Repeat) · no Exit', array(), MB_SELF_CHECK_COLORS['injected'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'          => 'scroll-appear',
+						'animationEntryType'     => 'slide',
+						'animationEntryDuration' => 0.6,
+						'animationEntryDelay'    => 0,
+						'animationEntryReplay'   => 'repeat',
+					)
+				)
+				. mb_self_check_paragraph( 'Remainder (stays trapped) · Scroll Appear · Entry: Slide (Replay: Once) · Exit: Fade', array(), MB_SELF_CHECK_COLORS['injected'] )
+				. mb_self_check_nav(
+					array(
+						'animationMode'          => 'scroll-appear',
+						'animationEntryType'     => 'slide',
+						'animationEntryDuration' => 0.6,
+						'animationEntryDelay'    => 0,
+						'animationEntryReplay'   => 'once',
+						'animationExitType'      => 'fade',
+					)
+				)
+				. mb_self_check_spacer( 600 ),
+			// The two pink remainder navs keep their fill, and the closed
+			// overlay already holds fixed-position descendants, so the
+			// sweep reports them (same as fixed-trap-replayable). The five
+			// green ones settle and must not be reported.
+			'expect'                => array( 'fixed-trap' ),
+			'expect_reduced_motion' => array(),
+		),
+		'settle-side-effects' => array(
+			'title'   => 'Settle side effects',
+			'note'    => 'The visible side effects of settling a finished animation (GH #20, PR #81), one section each. (1) Wipe (green) and Curtain (blue) groups with a red outline-shadow and a dark "Dropdown" box that hangs below the group: while each animates, both are clipped to the group; once it finishes (about 1 s) the shadow and the whole dropdown show. (2) A Slide group (orange) whose theme CSS sets opacity 0.6 and rotate(-2deg): while it animates it ends at full opacity and straight; once it settles the theme\'s faded, tilted look shows again. (3) Animation is turned off for this page on mobile only. Load it at desktop width, scroll down until the slide paragraph (purple) and the Scroll Appear paragraph (blue, Entry "Once") have both played, then resize the window to phone width and back, or toggle reduced motion: neither replays its entry.',
+			'content' => mb_self_check_block(
+				'html',
+				array(),
+				'<style>.mb-sc-sticks-out{position:relative;box-shadow:0 0 0 6px #e11d48,0 16px 32px rgba(0,0,0,.35)}.mb-sc-dropdown{position:absolute;left:24px;top:calc(100% + 8px);padding:12px 16px;background:#1e1e1e;color:#fff;font-size:14px;z-index:2}.mb-sc-theme-style{opacity:.6;transform:rotate(-2deg)}</style>'
+			)
+				. mb_self_check_block(
+					'heading',
+					array( 'level' => 3 ),
+					'<h3 class="wp-block-heading">1. Content that sticks out of Wipe and Curtain</h3>'
+				)
+				. mb_self_check_sticks_out(
+					'Group · Page Load · Wipe · red shadow + dropdown below. While it wipes in, both are clipped; once it finishes, both show.',
+					array(
+						'animationMode'     => 'page-load',
+						'animationType'     => 'wipe',
+						'animationDuration' => 1,
+						'animationDelay'    => 0,
+					),
+					MB_SELF_CHECK_COLORS['paragraph']
+				)
+				. mb_self_check_spacer( 120 )
+				. mb_self_check_sticks_out(
+					'Group · Page Load · Curtain · red shadow + dropdown below. While the curtain opens, both are clipped; once it finishes, both show.',
+					array(
+						'animationMode'     => 'page-load',
+						'animationType'     => 'curtain',
+						'animationDuration' => 1,
+						'animationDelay'    => 0,
+					),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_spacer( 120 )
+				. mb_self_check_block(
+					'heading',
+					array( 'level' => 3 ),
+					'<h3 class="wp-block-heading">2. Theme opacity and transform show again</h3>'
+				)
+				. mb_self_check_block(
+					'group',
+					array(
+						'className'          => 'mb-sc-theme-style',
+						'layout'             => array( 'type' => 'constrained' ),
+						'animationMode'      => 'page-load',
+						'animationType'      => 'slide',
+						'animationDirection' => 'btt',
+						'animationDuration'  => 1,
+						'animationDelay'     => 0.5,
+						'style'              => array(
+							'color'   => array( 'background' => MB_SELF_CHECK_COLORS['slide'] ),
+							'spacing' => array(
+								'padding' => array(
+									'top'    => '1.5rem',
+									'right'  => '1.5rem',
+									'bottom' => '1.5rem',
+									'left'   => '1.5rem',
+								),
+							),
+						),
+					),
+					'<div class="wp-block-group mb-sc-theme-style has-background" style="background-color:' . MB_SELF_CHECK_COLORS['slide'] . ';padding-top:1.5rem;padding-right:1.5rem;padding-bottom:1.5rem;padding-left:1.5rem">'
+					. mb_self_check_paragraph( 'Group · Page Load · Slide up · theme CSS: opacity 0.6, rotate(-2deg). While it slides in it ends fully opaque and straight; once it settles it fades to 0.6 and tilts.' )
+					. '</div>'
+				)
+				. mb_self_check_block(
+					'heading',
+					array( 'level' => 3 ),
+					'<h3 class="wp-block-heading">3. No replay on resize or reduced motion</h3>'
+				)
+				. mb_self_check_paragraph( 'Animation is off for this page on mobile only. At desktop width, scroll until both blocks below have played (the blue one fades in when it reaches the screen), then resize to phone width and back, or toggle reduced motion (DevTools → Rendering). Neither block plays its entry again.' )
+				. mb_self_check_paragraph(
+					'Paragraph · Page Load · Slide up (settles)',
+					array(
+						'animationMode'      => 'page-load',
+						'animationType'      => 'slide',
+						'animationDirection' => 'btt',
+						'animationDuration'  => 1,
+						'animationDelay'     => 0,
+					),
+					MB_SELF_CHECK_COLORS['list']
+				)
+				. mb_self_check_paragraph(
+					'Paragraph · Scroll Appear · Entry: Fade (Replay: Once) · no Exit (settles)',
+					array_merge( $scroll_fade, array( 'animationEntryReplay' => 'once' ) ),
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_spacer( 600 ),
+			'meta'                  => array(
+				'mb_disabled_mobile' => '1',
+			),
+			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
 		'late-injected'       => array(

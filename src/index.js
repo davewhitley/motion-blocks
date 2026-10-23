@@ -65,32 +65,6 @@ import {
 import './components/PageSettingsPanel';
 
 /**
- * One-time runtime style injection.
- *
- * `__experimentalConfirmDialog` doesn't forward `className`, `style`,
- * or `modalProps` to its inner Modal in this WP version, so the
- * normal "set max-width via prop" path fails. Targeting the always-
- * present `.components-confirm-dialog` class via CSS works, but
- * stylesheet enqueue versioning + browser/page caches in admin make
- * dev iteration unreliable.
- *
- * Inject the rule directly into <head> as a JS-built <style>. The JS
- * bundle's asset-hash version already busts cache reliably, so this
- * styles ride along. Idempotent via the element id check.
- */
-if ( typeof document !== 'undefined' ) {
-	const STYLE_ID = 'mb-runtime-styles';
-	if ( ! document.getElementById( STYLE_ID ) ) {
-		const styleEl = document.createElement( 'style' );
-		styleEl.id = STYLE_ID;
-		styleEl.textContent = `
-			.components-modal__frame.components-confirm-dialog { max-width: 512px; }
-		`;
-		document.head.appendChild( styleEl );
-	}
-}
-
-/**
  * Whether the live Scroll Interactive preview (the real `view()` scroll
  * timeline) runs in the editor. Gated ONLY on the beta opt-in
  * (`window.motionBlocksBetaLivePreview`, set by a `before` inline script

@@ -266,6 +266,7 @@ function MotionBlocksPagePanel() {
 			</VStack>
 
 			<ConfirmDialog
+				className="mb-confirm-dialog"
 				isOpen={ confirmOpen }
 				onConfirm={ handleRemoveAll }
 				onCancel={ () => setConfirmOpen( false ) }

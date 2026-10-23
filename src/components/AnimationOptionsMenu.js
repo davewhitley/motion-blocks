@@ -556,6 +556,7 @@ export default function AnimationOptionsMenu( {
 
 			{ /* Apply-to-all overwrite confirmation */ }
 			<ConfirmDialog
+				className="mb-confirm-dialog"
 				isOpen={ confirmOpen }
 				onConfirm={ onConfirmApplyToAll }
 				onCancel={ () => setConfirmOpen( false ) }
@@ -606,6 +607,7 @@ export default function AnimationOptionsMenu( {
 
 			{ /* Delete confirmation */ }
 			<ConfirmDialog
+				className="mb-confirm-dialog"
 				isOpen={ !! deletePending }
 				onConfirm={ handleDeleteSaved }
 				onCancel={ () => setDeletePending( null ) }

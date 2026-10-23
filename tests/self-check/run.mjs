@@ -379,7 +379,7 @@ async function logIn( tab ) {
 	);
 	if ( ! loggedIn ) {
 		throw new Error(
-			`not logged in at ${ baseUrl }/ after --login ${ login }. The self-check only loads for logged-in users.`
+			`not logged in at ${ baseUrl }/ after --login ${ login }. The self-check only loads for users who can edit posts.`
 		);
 	}
 }

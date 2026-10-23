@@ -5,7 +5,7 @@
  * that would leave content stuck invisible or moving when it shouldn't.
  * Each check is written from a bug that shipped or was found in review.
  *
- * Only enqueued for logged-in users when the debug setting is on (see
+ * Only enqueued for users who can edit posts when the debug setting is on (see
  * motion_blocks_enqueue_block_assets), so visitors never load it. Reads
  * trigger state from `window.__motionBlocks`, which frontend.js exposes
  * in debug mode only.

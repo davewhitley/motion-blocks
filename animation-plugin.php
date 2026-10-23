@@ -433,13 +433,15 @@ function motion_blocks_enqueue_frontend_assets() {
         // Opt-in developer self-check (GH #60): when the admin
         // setting is on, flag the runtime into debug mode (it then
         // exposes its trigger state) and load the checker after it.
-        // Limited to logged-in users so visitors never load it. Off
-        // by default. The option key predates the self-check; it
-        // used to toggle the trigger-line overlay it replaced.
+        // Limited to users who can edit posts, so visitors (including
+        // logged-in subscribers and shop customers) never load it
+        // (2026-10-20 review, #57). Off by default. The option key
+        // predates the self-check; it used to toggle the trigger-line
+        // overlay it replaced.
         $self_check_asset_file = plugin_dir_path( __FILE__ ) . 'build/self-check.asset.php';
         if (
             get_option( 'mb_debug_markers' )
-            && is_user_logged_in()
+            && current_user_can( 'edit_posts' )
             && file_exists( $self_check_asset_file )
         ) {
             $self_check_asset = include $self_check_asset_file;
@@ -1842,7 +1844,7 @@ function motion_blocks_render_debug_markers_field() {
         <?php esc_html_e( 'Check animated blocks on the front end and report problems', 'motion-blocks' ); ?>
     </label>
     <p class="description">
-        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only logged-in users see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only users who can edit posts see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

@@ -20,8 +20,7 @@ import { imgTargetSelector, imgFrameSelector } from './img-target';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
-	TRIGGER_OVERLAP_RATIO,
-	TRIGGER_BAND_CAP,
+	TRIGGER_HYSTERESIS_PX,
 	zoneBounds,
 	zoneOverlap,
 	isInZone,
@@ -65,6 +64,8 @@ import {
 	// check inspects real trigger state instead of re-deriving it. With
 	// the flag off nothing is exposed and nothing else changes.
 	var DEBUG = window.motionBlocksDebug === true;
+	// Settings → Motion Blocks → Trigger lines (logged-in users only).
+	var TRIGGER_LINES = window.motionBlocksTriggerLines === true;
 	var debugApi = null;
 	if ( DEBUG ) {
 		debugApi = {
@@ -78,8 +79,7 @@ import {
 			zone: {
 				top: TRIGGER_ZONE_TOP_PCT,
 				bottom: TRIGGER_ZONE_BOTTOM_PCT,
-				ratio: TRIGGER_OVERLAP_RATIO,
-				cap: TRIGGER_BAND_CAP,
+				hysteresis: TRIGGER_HYSTERESIS_PX,
 			},
 			ready: false,
 		};
@@ -1197,6 +1197,13 @@ import {
 				: undefined;
 		}
 		var docHeight = readDocHeight();
+		var triggerLines = TRIGGER_LINES ? createTriggerLines() : null;
+		function drawTriggerLines() {
+			if ( triggerLines ) {
+				triggerLines.update( docHeight );
+			}
+		}
+		drawTriggerLines();
 
 		/**
 		 * Compute the element's page-relative top via the offsetParent
@@ -1282,7 +1289,7 @@ import {
 				vh,
 				docHeight
 			);
-			var inZone = isInZone( overlap, state.pageHeight, vh );
+			var inZone = isInZone( overlap, state.pageHeight, state.inZone );
 
 			// Off-screen reset.
 			//
@@ -1353,8 +1360,8 @@ import {
 			// normal scroll back up produces. Not just "fully below the
 			// screen": after a jump the block can sit visible near the
 			// bottom of the screen, or just inside the zone short of
-			// the required overlap, and the Entry would replay as it
-			// scrolls in. A forward-played Exit can only be found there
+			// the overlap needed to enter, and the Entry would replay as
+			// it scrolls in. A forward-played Exit can only be found there
 			// after a jump, so the snap never interrupts a normal scroll.
 			if (
 				state.pageTop > zone.top &&
@@ -1374,19 +1381,20 @@ import {
 			// The trigger decision (computed above, src/trigger-zone.js):
 			// the zone is the middle 70% of the viewport, stretched to
 			// the document edges at either end of the scroll range, and
-			// an element is "in zone" when it overlaps it by 10% of its
-			// height or by half the band, whichever is less (GH #23).
+			// an element is in it while any part of it overlaps it —
+			// Entry when its top rises past the 85% line, Exit when its
+			// bottom rises past the 15% line (GH #86). Entering needs a
+			// few px of overlap so an edge resting on a line can't
+			// flicker.
 			//
-			// That matches IO's `threshold: 0.1` for every block up to
-			// 3.5 screens tall away from the page edges. It used to have
-			// to match exactly — before the scroll listener below
-			// existed, IO was the only wake-up, and "any overlap" here
-			// (75d28ee) left IO settled at false while cached bounds
-			// still said in-zone, so the Exit never fired. The scroll
-			// listener now ticks every block on every scroll frame and
-			// refreshAll() ticks them on every layout change, so a
-			// decision that differs from IO's can't strand a block. Keep
-			// those two wake-ups if you ever change this rule.
+			// This differs from IO's view of the same band, and that's
+			// only safe because of the wake-ups: before the scroll
+			// listener below existed, IO was the only wake-up, and "any
+			// overlap" here (75d28ee) left IO settled while cached
+			// bounds still said in-zone, so the Exit never fired. The
+			// scroll listener now ticks every block on every scroll
+			// frame and refreshAll() ticks them on every layout change.
+			// Keep those two wake-ups.
 			var triggerBottom = zone.bottom;
 			if ( inZone === state.inZone ) {
 				// No flip. Bbox-bounce IO callbacks land here and
@@ -1585,11 +1593,9 @@ import {
 					tick( state );
 				},
 				{
-					// 0 as well as 0.1: a block too tall to ever reach
-					// IO's 10% (more than 7 screens tall) still gets a
-					// wake-up on first contact (GH #23). Extra wake-ups
-					// are no-ops in tick().
-					threshold: [ 0, 0.1 ],
+					// Wakes on first and last contact with the band,
+					// which is where tick()'s rule flips (GH #86).
+					threshold: 0,
 					rootMargin: '-15% 0px -15% 0px',
 				}
 			);
@@ -1611,6 +1617,7 @@ import {
 		// (e.g. only the viewport resized) keeps the scroll direction.
 		function refreshAll() {
 			docHeight = readDocHeight();
+			drawTriggerLines();
 			states.forEach( function ( state ) {
 				var prevTop = state.pageTop;
 				refreshBounds( state );
@@ -1705,6 +1712,7 @@ import {
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
 					docHeight = readDocHeight();
+					drawTriggerLines();
 					// Not `forEach( tick )`: the index would land in
 					// tick()'s `layoutDir` and override the direction.
 					states.forEach( function ( state ) {
@@ -1720,6 +1728,58 @@ import {
 			release: releaseEl,
 			refreshAll: refreshAll,
 			prune: prune,
+		};
+	}
+
+	/**
+	 * Debug overlay: the two Scroll Appear trigger lines, like GSAP's
+	 * `markers`. A block's Entry plays when its top passes the lower
+	 * line and its Exit plays when its bottom passes the upper one
+	 * (src/trigger-zone.js, GH #86). The lines follow zoneBounds(), so
+	 * they also show the band stretching to the page edges at the top
+	 * and bottom of the scroll range. Only created on pages with a
+	 * Scroll Appear block, and only when the admin setting is on.
+	 *
+	 * @return {{update: Function}} Call update( docHeight ) to redraw.
+	 */
+	function createTriggerLines() {
+		var style = document.createElement( 'style' );
+		style.textContent =
+			'.mb-trigger-line{position:fixed;left:0;right:0;height:0;' +
+			'z-index:2147483646;pointer-events:none;' +
+			'border-top:1px dashed var(--mb-line-color);}' +
+			'.mb-trigger-line span{position:absolute;right:8px;' +
+			'padding:2px 6px;border-radius:3px;color:#fff;' +
+			'background:var(--mb-line-color);white-space:nowrap;' +
+			'font:600 11px/1.4 -apple-system,BlinkMacSystemFont,' +
+			'"Segoe UI",Roboto,sans-serif;}' +
+			'.mb-trigger-line--entry{--mb-line-color:#0a8a3f;}' +
+			'.mb-trigger-line--entry span{bottom:2px;}' +
+			'.mb-trigger-line--exit{--mb-line-color:#c0392b;}' +
+			'.mb-trigger-line--exit span{top:2px;}';
+		document.head.appendChild( style );
+
+		function makeLine( modifier, text ) {
+			var line = document.createElement( 'div' );
+			line.className = 'mb-trigger-line mb-trigger-line--' + modifier;
+			line.setAttribute( 'aria-hidden', 'true' );
+			var label = document.createElement( 'span' );
+			label.textContent = text;
+			line.appendChild( label );
+			document.body.appendChild( line );
+			return line;
+		}
+
+		var entry = makeLine( 'entry', 'Motion Blocks • Entry trigger' );
+		var exit = makeLine( 'exit', 'Motion Blocks • Exit trigger' );
+
+		return {
+			update: function ( docHeight ) {
+				var scrollY = window.scrollY;
+				var zone = zoneBounds( scrollY, window.innerHeight, docHeight );
+				entry.style.top = zone.bottom - scrollY + 'px';
+				exit.style.top = zone.top - scrollY + 'px';
+			},
 		};
 	}
 

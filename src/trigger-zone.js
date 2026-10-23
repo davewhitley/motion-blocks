@@ -4,32 +4,38 @@
  * blocks actually fire).
  *
  * The zone is the middle band of the viewport, 15% to 85% of its
- * height. A block counts as "in the zone" once it overlaps the band by
- * 10% of its own height, or by half the band if that's less (GH #23).
+ * height, and a block is "in the zone" while any part of it overlaps
+ * the band (GH #86). Put as two lines, the way GSAP ScrollTrigger
+ * describes it:
  *
- * Two adjustments keep every block reachable (GH #23):
+ * - **Entry** plays when the block's top edge rises past the 85% line.
+ * - **Exit** plays when the block's bottom edge rises past the 15% line.
  *
- * - **Tall blocks.** 10% of a block taller than 7 screens is more than
- *   the whole band, so it could never count as in. Capping the required
- *   overlap at half the band means a tall block enters once its top
- *   reaches mid-screen, and leaves once its bottom passes mid-screen.
- *   Blocks up to 3.5 screens tall are unaffected.
+ * Scrolling back up crosses the same lines the other way. Block height
+ * doesn't change when a block fires, so tall blocks need no special
+ * case.
  *
- * - **Page edges.** At the top and bottom of the scroll range the band
- *   stretches to the edge of the document, so blocks in the first or
- *   last 15% of a screen's height (a footer row, a block at the top of a
- *   page that can't scroll) can still be reached. The stretch is
- *   gradual: over the first 15% of a screen of scrolling the band's top
- *   edge moves from the top of the document to its usual place (it moves
- *   at twice the scroll speed), and the bottom edge does the same over
- *   the last 15%. Everywhere else the band is exactly as before.
+ * **Hysteresis.** Entering needs a few px of overlap
+ * (`TRIGGER_HYSTERESIS_PX`, at most half the block), leaving needs
+ * none. An edge resting exactly on a line, or trackpad jitter of a
+ * pixel or two, then can't toggle the block in and out.
+ *
+ * **Page edges.** At the top and bottom of the scroll range the band
+ * stretches to the edge of the document, so blocks in the first or last
+ * 15% of a screen's height (a footer row, a block at the top of a page
+ * that can't scroll) can still be reached (GH #23). The stretch is
+ * gradual: over the first 15% of a screen of scrolling the band's top
+ * edge moves from the top of the document to its usual place (it moves
+ * at twice the scroll speed), and the bottom edge does the same over
+ * the last 15%. A hard clamp (GSAP's `clamp()`) would instead make a
+ * block near the top of the page Exit on the first scrolled pixel, and
+ * a footer fire only at the exact last pixel of scroll.
  */
 
 export const TRIGGER_ZONE_TOP_PCT = 0.15;
 export const TRIGGER_ZONE_BOTTOM_PCT = 0.85;
-export const TRIGGER_OVERLAP_RATIO = 0.1;
-// The most overlap a block ever needs, as a fraction of the band.
-export const TRIGGER_BAND_CAP = 0.5;
+// Overlap needed to enter the zone (leaving needs none), px.
+export const TRIGGER_HYSTERESIS_PX = 8;
 
 /**
  * The trigger band in page coordinates at a given scroll position.
@@ -78,22 +84,23 @@ export function zoneOverlap( pageTop, pageBottom, scrollY, vh, docHeight ) {
 }
 
 /**
- * The trigger decision: is `overlap` px enough for an element
- * `pageHeight` px tall to count as in the zone?
+ * The trigger decision: does an element `pageHeight` px tall that
+ * overlaps the zone by `overlap` px count as in the zone?
  *
- * @param {number} overlap    From zoneOverlap().
- * @param {number} pageHeight Element height, px.
- * @param {number} vh         Viewport height, px (sets the cap).
+ * @param {number}  overlap    From zoneOverlap().
+ * @param {number}  pageHeight Element height, px.
+ * @param {boolean} [wasIn]    Whether it was in the zone last time.
+ *                             Entering needs TRIGGER_HYSTERESIS_PX (at
+ *                             most half the element); staying in only
+ *                             needs some overlap.
  * @return {boolean} In the zone.
  */
-export function isInZone( overlap, pageHeight, vh ) {
+export function isInZone( overlap, pageHeight, wasIn ) {
 	if ( ! ( pageHeight > 0 ) || ! ( overlap > 0 ) ) {
 		return false;
 	}
-	let required = pageHeight * TRIGGER_OVERLAP_RATIO;
-	if ( vh > 0 ) {
-		const band = vh * ( TRIGGER_ZONE_BOTTOM_PCT - TRIGGER_ZONE_TOP_PCT );
-		required = Math.min( required, band * TRIGGER_BAND_CAP );
+	if ( wasIn ) {
+		return true;
 	}
-	return overlap >= required;
+	return overlap >= Math.min( TRIGGER_HYSTERESIS_PX, pageHeight / 2 );
 }

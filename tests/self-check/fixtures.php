@@ -389,7 +389,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'tall-block'          => array(
 			'title'   => 'Tall block',
-			'note'    => 'A Scroll Appear group (blue) about 9000px tall: more than 7 screens, so 10% of its height is more than the whole trigger zone. It must fade in once its top reaches the middle of the screen (GH #23), instead of staying blank.',
+			'note'    => 'A Scroll Appear group (blue) about 9000px tall: more than 7 screens. It must fade in once its top rises past 85% of the screen, like any other block (GH #23, GH #86), instead of staying blank.',
 			'content' => mb_self_check_frame(
 				mb_self_check_group(
 					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade — top of the tall group' )
@@ -499,7 +499,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'once-exit-near-top'  => array(
 			'title'   => 'Entry once + Exit near the top',
-			'note'    => 'Three tall Scroll Appear groups (blue, Entry Replay "Once" + Exit) at the very top of a short page, so after a jump back to the top (Home key, "back to top" link) each one sits partly on screen or just short of the trigger zone. They must come back already shown, not replay their fade-in when you scroll down again.',
+			'note'    => 'Three tall Scroll Appear groups (blue, Entry Replay "Once" + Exit) at the very top of a short page, so after a jump back to the top (Home key, "back to top" link) each one sits partly on screen, some of them below the trigger zone. They must come back already shown, not replay their fade-in when you scroll down again.',
 			'content' => mb_self_check_group(
 				mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade (Once) · Exit: Fade — 1' ) . mb_self_check_spacer( 330 ),
 				array_merge(

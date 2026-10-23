@@ -28,6 +28,7 @@ function motion_blocks_uninstall_site_data() {
     delete_option( 'mb_saved_animations_seeded' );
     delete_option( 'mb_saved_animations_recipe_version' );
     delete_option( 'mb_debug_markers' );
+    delete_option( 'mb_debug_trigger_lines' );
     delete_option( 'mb_beta_live_scroll_preview' );
 
     delete_post_meta_by_key( 'mb_disabled_desktop' );

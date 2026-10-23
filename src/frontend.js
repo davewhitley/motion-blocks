@@ -1211,6 +1211,18 @@ import {
 				top += n.offsetTop;
 				n = n.offsetParent;
 			}
+			// The chain stops at <body>, and offsets are measured from
+			// <html>'s border box, so a margin on <html> is missing:
+			// WordPress adds `html { margin-top: 32px }` for the admin
+			// bar, which put every trigger 32px off for logged-in users
+			// (2026-10-20 review, #58). Add <html>'s own page offset.
+			// Skipped when the chain ended at a fixed-position ancestor
+			// (see the edge case above).
+			if ( n === document.body ) {
+				top +=
+					document.documentElement.getBoundingClientRect().top +
+					window.scrollY;
+			}
 			state.pageTop = top;
 			state.pageHeight = state.el.offsetHeight;
 			state.pageBottom = top + state.pageHeight;

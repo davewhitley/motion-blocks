@@ -19,11 +19,7 @@
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
-import {
-	useSelect,
-	useDispatch,
-	select as dataSelect,
-} from '@wordpress/data';
+import { useSelect, useDispatch, select as dataSelect } from '@wordpress/data';
 import { store as editorStore } from '@wordpress/editor';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
@@ -108,11 +104,19 @@ function MotionBlocksPagePanel() {
 	);
 	const contextNoun = editorContextNoun( postType );
 
-	const [ meta = {}, setMeta ] = useEntityProp(
-		'postType',
-		postType,
-		'meta'
-	);
+	const [ meta, setMeta ] = useEntityProp( 'postType', postType, 'meta' );
+	// The screen-size toggles are post meta, registered only for public
+	// post types with the block editor. Templates, template parts and
+	// synced patterns don't have it: the REST response carries no such
+	// keys, a toggle there was dropped on save, and the front end never
+	// reads it (2026-10-20 review, #56). Show them only where the
+	// loaded record actually has the keys.
+	const supportsDeviceToggles =
+		!! meta &&
+		typeof meta === 'object' &&
+		DEVICE_OPTIONS.every( ( opt ) =>
+			Object.prototype.hasOwnProperty.call( meta, opt.key )
+		);
 
 	// Count animated blocks for context next to the Remove button.
 	// `getClientIdsWithDescendants()` returns a flat array of all
@@ -150,7 +154,7 @@ function MotionBlocksPagePanel() {
 	);
 
 	const setMetaValue = ( key, value ) => {
-		setMeta( { ...meta, [ key ]: value } );
+		setMeta( { ...( meta || {} ), [ key ]: value } );
 	};
 
 	const handleRemoveAll = () => {
@@ -213,33 +217,37 @@ function MotionBlocksPagePanel() {
 				<div className="mb-page-settings__divider" />
 
 				<VStack spacing={ 4 }>
-					<p className="mb-page-settings__intro">
-						{ __(
-							'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
-							'motion-blocks'
-						) }
-					</p>
+					{ supportsDeviceToggles && (
+						<p className="mb-page-settings__intro">
+							{ __(
+								'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
+								'motion-blocks'
+							) }
+						</p>
+					) }
 
-					<VStack spacing={ 3 }>
-						{ DEVICE_OPTIONS.map( ( opt ) => (
-							<HStack
-								key={ opt.key }
-								alignment="center"
-								justify="space-between"
-								spacing={ 3 }
-							>
-								<CheckboxControl
-									label={ opt.label }
-									checked={ !! meta[ opt.key ] }
-									onChange={ ( v ) =>
-										setMetaValue( opt.key, v )
-									}
-									__nextHasNoMarginBottom
-								/>
-								<Icon icon={ opt.icon } />
-							</HStack>
-						) ) }
-					</VStack>
+					{ supportsDeviceToggles && (
+						<VStack spacing={ 3 }>
+							{ DEVICE_OPTIONS.map( ( opt ) => (
+								<HStack
+									key={ opt.key }
+									alignment="center"
+									justify="space-between"
+									spacing={ 3 }
+								>
+									<CheckboxControl
+										label={ opt.label }
+										checked={ !! meta[ opt.key ] }
+										onChange={ ( v ) =>
+											setMetaValue( opt.key, v )
+										}
+										__nextHasNoMarginBottom
+									/>
+									<Icon icon={ opt.icon } />
+								</HStack>
+							) ) }
+						</VStack>
+					) }
 
 					<Button
 						variant="secondary"

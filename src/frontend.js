@@ -1771,14 +1771,8 @@ import {
 			return line;
 		}
 
-		var entry = makeLine(
-			'entry',
-			'Motion Blocks · Entry plays when a block’s top passes this line'
-		);
-		var exit = makeLine(
-			'exit',
-			'Motion Blocks · Exit plays when a block’s bottom passes this line'
-		);
+		var entry = makeLine( 'entry', 'Motion Blocks • Entry trigger' );
+		var exit = makeLine( 'exit', 'Motion Blocks • Exit trigger' );
 
 		return {
 			update: function ( docHeight ) {

@@ -19,7 +19,12 @@ import {
 	zoneOverlap,
 	isInZone,
 } from './trigger-zone';
-import { endsAtRest, settleTargets } from './settle';
+import {
+	endsAtRest,
+	isOneShotPageLoad,
+	isOneShotScrollAppear,
+	settleTargets,
+} from './settle';
 
 ( function () {
 	'use strict';
@@ -855,7 +860,7 @@ import { endsAtRest, settleTargets } from './settle';
 
 			// A one-shot Page Load never plays again: once it finishes,
 			// drop its filled last frame (GH #20).
-			if ( ! isLooping ) {
+			if ( isOneShotPageLoad( repeat ) ) {
 				settleWhenFinished( el, el.dataset.mbType, 'mbTo' );
 			}
 
@@ -1680,7 +1685,7 @@ import { endsAtRest, settleTargets } from './settle';
 		// play, so stop observing. With an Exit slot the block stays
 		// observed so onLeave / onEnterBack still fire (GH #39); the
 		// guard above keeps the Entry from replaying.
-		if ( state.entryReplay === 'once' && ! state.hasExit ) {
+		if ( isOneShotScrollAppear( state.entryReplay, state.hasExit ) ) {
 			state.unobserved = true;
 			if ( state.io ) {
 				state.io.unobserve( el );

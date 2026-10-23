@@ -19,6 +19,7 @@ import PageLoadControls from './PageLoadControls';
 import ScrollAppearControls from './ScrollAppearControls';
 import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
+import MenuOverlayNotice from './MenuOverlayNotice';
 import { isKeyboardActivation } from './keyboardFocus';
 import { selectAnimatedAncestor } from './selectStable';
 import { stripUiState } from './savedAnimations';
@@ -456,6 +457,14 @@ export default function AnimationPanel( {
 						) }
 					</Notice>
 				</div>
+			) }
+
+			{ animationMode && (
+				<MenuOverlayNotice
+					attributes={ attributes }
+					blockName={ blockName }
+					clientId={ clientId }
+				/>
 			) }
 
 			{ ! animationMode && animatedAncestor.clientId && (

@@ -16,6 +16,7 @@
  */
 
 import { select } from '@wordpress/data';
+import { menuOverlayBlockers } from './components/menuOverlay';
 
 /**
  * console-style formatting: fills `%s` / `%o` / `%d` placeholders in a
@@ -196,3 +197,26 @@ async function editorCheck( options = {} ) {
 }
 
 window.motionBlocksEditorCheck = editorCheck;
+
+/**
+ * What the editor predicts for every block's settle eligibility (the
+ * "May break the menu overlay" warning's inputs), in document order.
+ * Compared with the front end's `.mb-settled` blocks to check the
+ * editor and front end agree.
+ *
+ *   motionBlocksSettlePrediction()
+ *
+ * @return {Object[]} One entry per block: clientId, name and the
+ *                    menuOverlayBlockers() result.
+ */
+window.motionBlocksSettlePrediction = () => {
+	const sel = select( 'core/block-editor' );
+	return sel.getClientIdsWithDescendants().map( ( clientId ) => ( {
+		clientId,
+		name: sel.getBlockName( clientId ),
+		...menuOverlayBlockers(
+			sel.getBlockName( clientId ),
+			sel.getBlockAttributes( clientId )
+		),
+	} ) );
+};

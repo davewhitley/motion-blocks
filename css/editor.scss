@@ -95,6 +95,25 @@
 	.components-notice {
 		margin: 0;
 	}
+
+	.mb-panel-notice__title {
+		display: block;
+	}
+
+	p {
+		margin: vars.$grid-unit-05 0 0;
+	}
+
+	// WP admin resets list-style on every ul.
+	.mb-panel-notice__list {
+		list-style: disc;
+		margin: vars.$grid-unit-05 0 0 1.25em;
+		padding: 0;
+
+		li {
+			margin: 0;
+		}
+	}
 }
 
 // Saved-animation rows in the kebab menu. Each row has the apply

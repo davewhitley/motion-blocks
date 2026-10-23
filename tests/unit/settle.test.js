@@ -9,10 +9,16 @@
  *
  * Run: npm run test:unit
  */
+import SHARED from '../../shared-constants.json';
 import {
 	REST_END_TYPES,
+	SETTLE_BLOCKERS,
 	customEndsAtRest,
+	effectBlocker,
 	endsAtRest,
+	isOneShotPageLoad,
+	isOneShotScrollAppear,
+	settleBlockers,
 	settleTargets,
 } from '../../src/settle';
 
@@ -230,5 +236,190 @@ describe( 'settleTargets', () => {
 			'<div class="mb-animated" data-mb-target="img"><img alt=""><div class="mb-animated"><img alt=""></div></div>'
 		);
 		expect( settleTargets( el ) ).toBeNull();
+	} );
+} );
+
+describe( 'isOneShotPageLoad / isOneShotScrollAppear', () => {
+	it( 'Page Load: only Loop and Alternate run forever', () => {
+		expect( isOneShotPageLoad( 'once' ) ).toBe( true );
+		expect( isOneShotPageLoad( '' ) ).toBe( true );
+		expect( isOneShotPageLoad( undefined ) ).toBe( true );
+		expect( isOneShotPageLoad( 'loop' ) ).toBe( false );
+		expect( isOneShotPageLoad( 'alternate' ) ).toBe( false );
+	} );
+
+	it( 'Scroll Appear: Entry Replay Once with no Exit', () => {
+		expect( isOneShotScrollAppear( 'once', false ) ).toBe( true );
+		expect( isOneShotScrollAppear( 'once', true ) ).toBe( false );
+		expect( isOneShotScrollAppear( 'repeat', false ) ).toBe( false );
+		expect( isOneShotScrollAppear( 'reverse', false ) ).toBe( false );
+	} );
+} );
+
+describe( 'effectBlocker', () => {
+	it( 'null at rest, custom-end for Custom, not-at-rest otherwise', () => {
+		expect( effectBlocker( 'fade', {}, 'mbTo' ) ).toBe( null );
+		expect( effectBlocker( 'custom', {}, 'mbTo' ) ).toBe( null );
+		expect(
+			effectBlocker( 'custom', { mbToTranslateX: '20px' }, 'mbTo' )
+		).toBe( 'custom-end' );
+		expect( effectBlocker( 'fade-out', {}, 'mbTo' ) ).toBe( 'not-at-rest' );
+		expect( effectBlocker( 'image-zoom', {}, 'mbTo' ) ).toBe(
+			'not-at-rest'
+		);
+	} );
+} );
+
+describe( 'settleBlockers', () => {
+	const PL = { mode: 'page-load', type: 'fade', repeat: 'once' };
+	const SA = {
+		mode: 'scroll-appear',
+		entryType: 'slide',
+		entryReplay: 'once',
+		exitType: '',
+	};
+	const SI = { mode: 'scroll-interactive', type: 'fade' };
+
+	it( 'lists the display order', () => {
+		expect( SETTLE_BLOCKERS ).toEqual( [
+			'interactive',
+			'loop',
+			'replay',
+			'exit',
+			'not-at-rest',
+			'custom-end',
+		] );
+	} );
+
+	it.each( [
+		[ 'Page Load once, fade', PL, {}, [] ],
+		[ 'Page Load loop', { ...PL, repeat: 'loop' }, {}, [ 'loop' ] ],
+		[
+			'Page Load alternate',
+			{ ...PL, repeat: 'alternate' },
+			{},
+			[ 'loop' ],
+		],
+		[
+			'Page Load fade-out',
+			{ ...PL, type: 'fade-out' },
+			{},
+			[ 'not-at-rest' ],
+		],
+		[
+			'Page Load loop + fade-out',
+			{ ...PL, repeat: 'loop', type: 'fade-out' },
+			{},
+			[ 'loop', 'not-at-rest' ],
+		],
+		[
+			'Page Load Custom ending elsewhere',
+			{ ...PL, type: 'custom' },
+			{ mbToTranslateX: '20px' },
+			[ 'custom-end' ],
+		],
+		[
+			'Page Load Custom ending neutral',
+			{ ...PL, type: 'custom' },
+			{ mbToTranslateX: '0px', mbToOpacity: '1' },
+			[],
+		],
+		[ 'Scroll Appear once, no Exit', SA, {}, [] ],
+		[
+			'Scroll Appear Replay Repeat',
+			{ ...SA, entryReplay: 'repeat' },
+			{},
+			[ 'replay' ],
+		],
+		[
+			'Scroll Appear with Exit',
+			{ ...SA, exitType: 'fade' },
+			{},
+			[ 'exit' ],
+		],
+		[
+			'Scroll Appear Exit only',
+			{ ...SA, entryType: '', entryReplay: 'repeat', exitType: 'fade' },
+			{},
+			[ 'exit' ],
+		],
+		[
+			'Scroll Appear repeat + Exit + Custom ending elsewhere',
+			{
+				...SA,
+				entryType: 'custom',
+				entryReplay: 'repeat',
+				exitType: 'fade',
+			},
+			{ mbEntryToScale: '1.2', mbToScale: '1' },
+			[ 'replay', 'exit', 'custom-end' ],
+		],
+		[
+			'Scroll Appear Custom reads the Entry keys, not the Page Load ones',
+			{ ...SA, entryType: 'custom' },
+			{ mbToScale: '1.2' },
+			[],
+		],
+		[ 'Scroll Interactive fade', SI, {}, [ 'interactive' ] ],
+		[
+			'Scroll Interactive fade-out',
+			{ ...SI, type: 'fade-out' },
+			{},
+			[ 'interactive', 'not-at-rest' ],
+		],
+	] )( '%s', ( label, config, dataset, expected ) => {
+		expect( settleBlockers( config, dataset ) ).toEqual( expected );
+	} );
+
+	// What frontend.js evaluates before settleWhenFinished() can settle
+	// a block: the one-shot mode test and endsAtRest(). settleBlockers()
+	// must be empty exactly then.
+	it( 'is empty exactly when the front end would settle', () => {
+		const datasets = [
+			{},
+			{ mbToTranslateX: '20px', mbEntryToTranslateX: '20px' },
+			{ mbToOpacity: '1', mbEntryToOpacity: '1' },
+		];
+		for ( const dataset of datasets ) {
+			for ( const type of SHARED.animationTypes ) {
+				for ( const repeat of [ 'once', 'loop', 'alternate' ] ) {
+					const settles =
+						isOneShotPageLoad( repeat ) &&
+						endsAtRest( type, dataset, 'mbTo' );
+					expect(
+						settleBlockers(
+							{ mode: 'page-load', type, repeat },
+							dataset
+						).length === 0
+					).toBe( settles );
+				}
+				expect(
+					settleBlockers(
+						{ mode: 'scroll-interactive', type },
+						dataset
+					)
+				).toContain( 'interactive' );
+			}
+			for ( const entryType of SHARED.entryTypes ) {
+				for ( const entryReplay of [ 'once', 'repeat', 'reverse' ] ) {
+					for ( const exitType of [ '', ...SHARED.exitTypes ] ) {
+						const settles =
+							isOneShotScrollAppear( entryReplay, !! exitType ) &&
+							endsAtRest( entryType, dataset, 'mbEntryTo' );
+						expect(
+							settleBlockers(
+								{
+									mode: 'scroll-appear',
+									entryType,
+									entryReplay,
+									exitType,
+								},
+								dataset
+							).length === 0
+						).toBe( settles );
+					}
+				}
+			}
+		}
 	} );
 } );

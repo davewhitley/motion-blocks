@@ -10,6 +10,7 @@ import {
 	EMPTY_IDS,
 	selectSameTypeInfo,
 	selectAnimatedAncestor,
+	selectMenuOverlayInfo,
 	countDescendantsIn,
 } from '../../src/components/selectStable';
 
@@ -35,6 +36,15 @@ function makeSel( { blocks, parents = {}, publicName = true } ) {
 		getBlockAttributes: jest.fn( ( id ) => blocks[ id ]?.attributes ),
 		getBlockName: ( id ) => blocks[ id ]?.name ?? null,
 		getBlockParents: ( id ) => parents[ id ] || [],
+		getBlockOrder: ( id ) =>
+			Object.keys( blocks ).filter( ( child ) => {
+				const p = parents[ child ] || [];
+				return p[ p.length - 1 ] === id;
+			} ),
+		getClientIdsOfDescendants: ( ids ) =>
+			Object.keys( blocks ).filter( ( child ) =>
+				( parents[ child ] || [] ).includes( ids[ 0 ] )
+			),
 	};
 	if ( publicName ) {
 		sel.getBlocksByName = jest.fn( byName );
@@ -169,5 +179,117 @@ describe( 'countDescendantsIn', () => {
 		};
 		expect( countDescendantsIn( sel, 'cols' ) ).toBe( 3 );
 		expect( countDescendantsIn( sel, 'deep' ) ).toBe( 1 );
+	} );
+} );
+
+describe( 'selectMenuOverlayInfo', () => {
+	const NAV_BLOCKS = {
+		nav: { name: 'core/navigation', attributes: { animationMode: 'x' } },
+		off: {
+			name: 'core/navigation',
+			attributes: { overlayMenu: 'never', animationMode: 'x' },
+		},
+		grp: { name: 'core/group', attributes: { animationMode: 'x' } },
+		gnav: {
+			name: 'core/navigation',
+			attributes: { overlayMenu: 'always' },
+		},
+		grpOff: { name: 'core/group', attributes: { animationMode: 'x' } },
+		gnavOff: {
+			name: 'core/navigation',
+			attributes: { overlayMenu: 'never' },
+		},
+		stg: { name: 'core/group', attributes: { animationMode: 'x' } },
+		stgPara: { name: 'core/paragraph', attributes: { animationMode: 'x' } },
+		stgCol: { name: 'core/column', attributes: {} },
+		stgNav: { name: 'core/navigation', attributes: {} },
+		deepPara: {
+			name: 'core/paragraph',
+			attributes: { animationMode: 'x' },
+		},
+	};
+	const NAV_PARENTS = {
+		gnav: [ 'grp' ],
+		gnavOff: [ 'grpOff' ],
+		stgPara: [ 'stg' ],
+		stgCol: [ 'stg' ],
+		stgNav: [ 'stg', 'stgCol' ],
+		deepPara: [ 'stg', 'stgCol' ],
+	};
+	const sel = () => makeSel( { blocks: NAV_BLOCKS, parents: NAV_PARENTS } );
+
+	test( 'a Navigation with an overlay is self; Overlay Menu Off is not', () => {
+		const s = sel();
+		expect(
+			selectMenuOverlayInfo( s, 'nav', 'core/navigation', false, false )
+		).toEqual( { scope: 'self', targetsSkipped: false } );
+		expect(
+			selectMenuOverlayInfo( s, 'off', 'core/navigation', false, false )
+		).toEqual( { scope: '', targetsSkipped: false } );
+		// The self path never looks the navs up.
+		expect( s.getBlocksByName ).not.toHaveBeenCalled();
+	} );
+
+	test( 'a block containing a Navigation with an overlay is inside', () => {
+		const s = sel();
+		expect(
+			selectMenuOverlayInfo( s, 'grp', 'core/group', false, false ).scope
+		).toBe( 'inside' );
+		expect(
+			selectMenuOverlayInfo( s, 'grpOff', 'core/group', false, false )
+				.scope
+		).toBe( '' );
+		expect(
+			selectMenuOverlayInfo( s, 'nav', 'core/group', false, false ).scope
+		).toBe( '' );
+	} );
+
+	test( 'falls back to the experimental selector before WP 6.5', () => {
+		const s = makeSel( {
+			blocks: NAV_BLOCKS,
+			parents: NAV_PARENTS,
+			publicName: false,
+		} );
+		expect(
+			selectMenuOverlayInfo( s, 'grp', 'core/group', false, false ).scope
+		).toBe( 'inside' );
+		expect( s.__experimentalGetGlobalBlocksByName ).toHaveBeenCalledWith(
+			'core/navigation'
+		);
+	} );
+
+	test( 'two runs against the same state are shallow-equal', () => {
+		const s = sel();
+		const a = selectMenuOverlayInfo( s, 'stg', 'core/group', true, true );
+		const b = selectMenuOverlayInfo( s, 'stg', 'core/group', true, true );
+		expect( shallowEqual( a, b ) ).toBe( true );
+	} );
+
+	test( 'targetsSkipped: animated Stagger child or animated descendant', () => {
+		const s = sel();
+		expect(
+			selectMenuOverlayInfo( s, 'stg', 'core/group', true, false )
+		).toEqual( { scope: 'inside', targetsSkipped: true } );
+		expect(
+			selectMenuOverlayInfo( s, 'stg', 'core/group', false, true )
+		).toEqual( { scope: 'inside', targetsSkipped: true } );
+		expect(
+			selectMenuOverlayInfo( s, 'stg', 'core/group', false, false )
+		).toEqual( { scope: 'inside', targetsSkipped: false } );
+		// The isAnimated predicate decides what counts.
+		expect(
+			selectMenuOverlayInfo(
+				s,
+				'stg',
+				'core/group',
+				true,
+				true,
+				() => false
+			).targetsSkipped
+		).toBe( false );
+		// No menu: nothing else is looked at.
+		expect(
+			selectMenuOverlayInfo( s, 'grpOff', 'core/group', true, true )
+		).toEqual( { scope: '', targetsSkipped: false } );
 	} );
 } );

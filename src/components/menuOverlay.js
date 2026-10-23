@@ -116,10 +116,11 @@ function customAnimatesBeyondOpacity( attrs, fromPrefix, toPrefix ) {
  * Whether a slot's effect, while it plays or keeps its last frame,
  * makes the block wrapper trap `position: fixed` descendants.
  *
- *   - Flip: its `preserve-3d` comes from the `.mb-enter-flip` /
- *     `.mb-exit-flip` class rules on the wrapper, whatever the target.
  *   - "Animate image only" and Image Move / Zoom: the animation runs on
  *     the Cover's image, and the wrapper's is `none` (animations.css).
+ *     That includes Flip: its `preserve-3d` is set on the image, not
+ *     the wrapper, and only while the block is triggered.
+ *   - Flip on the wrapper: its `preserve-3d` traps like a transform.
  *   - Fade In / Fade Out: opacity only.
  *   - Custom: see customAnimatesBeyondOpacity().
  *   - Every other preset animates a transform, filter or clip-path.
@@ -134,9 +135,6 @@ function customAnimatesBeyondOpacity( attrs, fromPrefix, toPrefix ) {
 export function effectTraps( type, attrs, fromPrefix, toPrefix, imgTarget ) {
 	if ( ! type ) {
 		return false;
-	}
-	if ( type === 'flip' ) {
-		return true;
 	}
 	if (
 		imgTarget ||

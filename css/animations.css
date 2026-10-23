@@ -13,10 +13,38 @@
 /* ----------------------------------------------------------------
  * CSS Custom Properties
  * -------------------------------------------------------------- */
+/* Every per-effect setting is declared on each animated block with the
+   same value its rules fall back to. Custom properties inherit, and
+   the runtime only sets one inline when it differs from the default,
+   so without these an animated block nested in another inherited the
+   outer block's values: an inner one-shot Slide inside a looping Group
+   looped forever, an inner default 8px Blur used the outer 30px
+   (2026-10-20 review, #54). Stagger children and the Cover image
+   aren't `.mb-animated`, so they still inherit from their block.
+
+   Not declared here on purpose: `--mb-stagger-anim-name`,
+   `--mb-entry-anim-name`, `--mb-exit-anim-name` and
+   `--mb-stagger-step`/`-index`, which stagger children must inherit
+   from their parent. */
 .mb-animated {
     --mb-duration: 0.6s;
     --mb-delay: 0.4s;
     --mb-timing: ease;
+    --mb-iteration-count: 1;
+    --mb-direction: normal;
+    --mb-fill-mode: both;
+    --mb-play-state: running;
+    --mb-slide-x: 0;
+    --mb-slide-y: 50px;
+    --mb-scale-x: 0;
+    --mb-scale-y: 0;
+    --mb-rotate-angle: 90deg;
+    --mb-blur-amount: 8px;
+    --mb-wipe-from: inset(0 100% 0 0);
+    --mb-curtain-from: inset(0 50% 0 50%);
+    --mb-flip-transform: rotateY(90deg);
+    --mb-range-start: entry 0%;
+    --mb-range-end: exit 100%;
 }
 
 /* ----------------------------------------------------------------

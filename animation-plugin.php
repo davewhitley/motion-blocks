@@ -731,9 +731,20 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         return $attrs;
     }
 
-    // Normalize the legacy trigger value: v1 'both' aliases to v2 'mirror'.
+    // Normalize the legacy trigger value: v1 'both' aliases to v2
+    // 'mirror', and an empty value means 'enter', exactly like the
+    // editor's normalizeScrollTrigger(). An empty string used to fall
+    // through to the "mirror" branch here, filling both slots on the
+    // front end while the editor showed Entry only (2026-10-20
+    // review, #57).
     $raw_trigger = $attrs['animationScrollTrigger'] ?? motion_blocks_attr_default( 'animationScrollTrigger' );
-    $trigger = ( $raw_trigger === 'both' ) ? 'mirror' : $raw_trigger;
+    if ( 'both' === $raw_trigger ) {
+        $trigger = 'mirror';
+    } elseif ( ! is_string( $raw_trigger ) || '' === $raw_trigger ) {
+        $trigger = 'enter';
+    } else {
+        $trigger = $raw_trigger;
+    }
 
     $raw_type = $attrs['animationType'] ?? motion_blocks_attr_default( 'animationType' );
     $base_type = preg_replace( '/-out$/', '', (string) $raw_type );

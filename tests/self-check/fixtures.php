@@ -333,7 +333,7 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'tall-block'          => array(
 			'title'   => 'Tall block',
-			'note'    => 'A Scroll Appear group (blue) about 9000px tall. It can never overlap the trigger zone by 10% of its height, so it never fades in: scroll into it and the blue area stays blank.',
+			'note'    => 'A Scroll Appear group (blue) about 9000px tall: more than 7 screens, so 10% of its height is more than the whole trigger zone. It must fade in once its top reaches the middle of the screen (GH #23), instead of staying blank.',
 			'content' => mb_self_check_frame(
 				mb_self_check_group(
 					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Fade — top of the tall group' )
@@ -343,7 +343,7 @@ function mb_self_check_fixtures( $image ) {
 					MB_SELF_CHECK_COLORS['group']
 				)
 			),
-			'expect'                => array( 'can-never-play#23', 'invisible-on-screen' ),
+			'expect'                => array(),
 			'expect_reduced_motion' => array(),
 		),
 		'entry-once-exit'     => array(

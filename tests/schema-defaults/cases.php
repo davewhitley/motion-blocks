@@ -302,6 +302,23 @@ return array(
 			'data-mb-range-end'   => 'exit 100%',
 		),
 	),
+	// Legacy (pre-slot) Scroll Appear with an empty trigger: the editor
+	// reads '' as 'enter' (normalizeScrollTrigger), so only the Entry
+	// slot is filled. PHP used to fill both (2026-10-20 review, #57).
+	array(
+		'label'    => 'Legacy Scroll Appear with an empty animationScrollTrigger',
+		'panel'    => 'Entry: Fade In · no Exit',
+		'behavior' => 'Fades in once; no fade out.',
+		'attrs'    => array(
+			'animationMode'          => 'scroll-appear',
+			'animationType'          => 'fade',
+			'animationScrollTrigger' => '',
+		),
+		'expect'   => array(
+			'data-mb-entry-type' => 'fade',
+			'data-mb-exit-type'  => null,
+		),
+	),
 	// A non-string custom timing function (hand-edited or corrupted
 	// block comment) used to be a fatal TypeError in trim() on PHP 8
 	// (2026-10-20 review). The editor drops it to the default curve.

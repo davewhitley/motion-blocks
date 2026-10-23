@@ -430,6 +430,18 @@ function motion_blocks_enqueue_frontend_assets() {
             true
         );
 
+        // Opt-in trigger lines (GH #86): two lines showing where
+        // Scroll Appear blocks start and stop. Logged-in users only;
+        // frontend.js draws them only on pages with a Scroll Appear
+        // block.
+        if ( get_option( 'mb_debug_trigger_lines' ) && is_user_logged_in() ) {
+            wp_add_inline_script(
+                'motion-blocks-frontend',
+                'window.motionBlocksTriggerLines = true;',
+                'before'
+            );
+        }
+
         // Opt-in developer self-check (GH #60): when the admin
         // setting is on, flag the runtime into debug mode (it then
         // exposes its trigger state) and load the checker after it.
@@ -1619,6 +1631,20 @@ function motion_blocks_register_settings() {
         )
     );
 
+    // Trigger-lines toggle (GH #86): draws the Scroll Appear Entry and
+    // Exit lines on the front end for logged-in users.
+    register_setting(
+        'motion_blocks_settings',
+        'mb_debug_trigger_lines',
+        array(
+            'type'              => 'boolean',
+            'description'       => __( 'Show the Scroll Appear trigger lines on the front end.', 'motion-blocks' ),
+            'default'           => false,
+            'sanitize_callback' => 'rest_sanitize_boolean',
+            'show_in_rest'      => true,
+        )
+    );
+
     // Beta: live Scroll Interactive preview in the editor. Off by
     // default; opt-in only. When on, the editor runs the real
     // `animation-timeline: view()` scroll animation in the canvas on
@@ -1642,7 +1668,8 @@ add_action( 'init', 'motion_blocks_register_settings' );
 /**
  * Settings → Motion Blocks admin page.
  *
- * Two toggles: the front-end self-check and the beta live preview. The page is
+ * Three toggles: the front-end self-check, trigger lines and the beta
+ * live preview. The page is
  * structured with the Settings API (section + field) so more options can
  * slot in later without restructuring. `manage_options` gates the whole
  * page, matching the setting's own write cap.
@@ -1673,6 +1700,14 @@ function motion_blocks_register_settings_ui() {
         'mb_debug_markers',
         __( 'Self-check', 'motion-blocks' ),
         'motion_blocks_render_debug_markers_field',
+        'motion-blocks',
+        'motion_blocks_debug_section'
+    );
+
+    add_settings_field(
+        'mb_debug_trigger_lines',
+        __( 'Trigger lines', 'motion-blocks' ),
+        'motion_blocks_render_trigger_lines_field',
         'motion-blocks',
         'motion_blocks_debug_section'
     );
@@ -1814,6 +1849,27 @@ function motion_blocks_render_debug_markers_field() {
     </label>
     <p class="description">
         <?php esc_html_e( 'Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only logged-in users see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors.', 'motion-blocks' ); ?>
+    </p>
+    <?php
+}
+
+/**
+ * Trigger lines checkbox.
+ */
+function motion_blocks_render_trigger_lines_field() {
+    $value = (bool) get_option( 'mb_debug_trigger_lines', false );
+    ?>
+    <label>
+        <input
+            type="checkbox"
+            name="mb_debug_trigger_lines"
+            value="1"
+            <?php checked( $value ); ?>
+        />
+        <?php esc_html_e( 'Show where "Appear on scroll" animations start and stop', 'motion-blocks' ); ?>
+    </label>
+    <p class="description">
+        <?php esc_html_e( 'Draws two lines on pages with "Appear on scroll" animations. A block\'s Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only logged-in users see them, so visitors are never affected.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

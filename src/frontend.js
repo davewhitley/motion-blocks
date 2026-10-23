@@ -57,6 +57,8 @@ import {
 	// check inspects real trigger state instead of re-deriving it. With
 	// the flag off nothing is exposed and nothing else changes.
 	var DEBUG = window.motionBlocksDebug === true;
+	// Settings → Motion Blocks → Trigger lines (logged-in users only).
+	var TRIGGER_LINES = window.motionBlocksTriggerLines === true;
 	var debugApi = null;
 	if ( DEBUG ) {
 		debugApi = {
@@ -1196,6 +1198,13 @@ import {
 				: undefined;
 		}
 		var docHeight = readDocHeight();
+		var triggerLines = TRIGGER_LINES ? createTriggerLines() : null;
+		function drawTriggerLines() {
+			if ( triggerLines ) {
+				triggerLines.update( docHeight );
+			}
+		}
+		drawTriggerLines();
 
 		/**
 		 * Compute the element's page-relative top via the offsetParent
@@ -1597,6 +1606,7 @@ import {
 		// (e.g. only the viewport resized) keeps the scroll direction.
 		function refreshAll() {
 			docHeight = readDocHeight();
+			drawTriggerLines();
 			states.forEach( function ( state ) {
 				var prevTop = state.pageTop;
 				refreshBounds( state );
@@ -1691,6 +1701,7 @@ import {
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
 					docHeight = readDocHeight();
+					drawTriggerLines();
 					// Not `forEach( tick )`: the index would land in
 					// tick()'s `layoutDir` and override the direction.
 					states.forEach( function ( state ) {
@@ -1706,6 +1717,64 @@ import {
 			release: releaseEl,
 			refreshAll: refreshAll,
 			prune: prune,
+		};
+	}
+
+	/**
+	 * Debug overlay: the two Scroll Appear trigger lines, like GSAP's
+	 * `markers`. A block's Entry plays when its top passes the lower
+	 * line and its Exit plays when its bottom passes the upper one
+	 * (src/trigger-zone.js, GH #86). The lines follow zoneBounds(), so
+	 * they also show the band stretching to the page edges at the top
+	 * and bottom of the scroll range. Only created on pages with a
+	 * Scroll Appear block, and only when the admin setting is on.
+	 *
+	 * @return {{update: Function}} Call update( docHeight ) to redraw.
+	 */
+	function createTriggerLines() {
+		var style = document.createElement( 'style' );
+		style.textContent =
+			'.mb-trigger-line{position:fixed;left:0;right:0;height:0;' +
+			'z-index:2147483646;pointer-events:none;' +
+			'border-top:1px dashed var(--mb-line-color);}' +
+			'.mb-trigger-line span{position:absolute;right:8px;' +
+			'padding:2px 6px;border-radius:3px;color:#fff;' +
+			'background:var(--mb-line-color);white-space:nowrap;' +
+			'font:600 11px/1.4 -apple-system,BlinkMacSystemFont,' +
+			'"Segoe UI",Roboto,sans-serif;}' +
+			'.mb-trigger-line--entry{--mb-line-color:#0a8a3f;}' +
+			'.mb-trigger-line--entry span{bottom:2px;}' +
+			'.mb-trigger-line--exit{--mb-line-color:#c0392b;}' +
+			'.mb-trigger-line--exit span{top:2px;}';
+		document.head.appendChild( style );
+
+		function makeLine( modifier, text ) {
+			var line = document.createElement( 'div' );
+			line.className = 'mb-trigger-line mb-trigger-line--' + modifier;
+			line.setAttribute( 'aria-hidden', 'true' );
+			var label = document.createElement( 'span' );
+			label.textContent = text;
+			line.appendChild( label );
+			document.body.appendChild( line );
+			return line;
+		}
+
+		var entry = makeLine(
+			'entry',
+			'Motion Blocks · Entry plays when a block’s top passes this line'
+		);
+		var exit = makeLine(
+			'exit',
+			'Motion Blocks · Exit plays when a block’s bottom passes this line'
+		);
+
+		return {
+			update: function ( docHeight ) {
+				var scrollY = window.scrollY;
+				var zone = zoneBounds( scrollY, window.innerHeight, docHeight );
+				entry.style.top = zone.bottom - scrollY + 'px';
+				exit.style.top = zone.top - scrollY + 'px';
+			},
 		};
 	}
 

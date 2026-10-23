@@ -252,12 +252,16 @@ describe( 'Classic block', () => {
 
 	it( 'is not animatable', () => {
 		expect( canAnimateBlock( 'core/freeform' ) ).toBe( false );
+		expect( canAnimateBlock( 'core/html' ) ).toBe( false );
+		expect( canAnimateBlock( 'core/shortcode' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/paragraph' ) ).toBe( true );
 		expect( canAnimateBlock( 'acme/custom' ) ).toBe( true );
 	} );
 
 	it( 'is skipped by Auto-animate', () => {
 		expect( classifyBlock( { name: 'core/freeform' } ) ).toBe( 'BODY' );
+		expect( classifyBlock( { name: 'core/html' } ) ).toBe( 'BODY' );
+		expect( classifyBlock( { name: 'core/shortcode' } ) ).toBe( 'BODY' );
 	} );
 
 	it( 'gets no Motion panel', () => {

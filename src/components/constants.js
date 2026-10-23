@@ -120,12 +120,22 @@ export const IMAGE_EFFECT_BLOCKS = [ 'core/cover' ];
 export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
 
 /**
- * Blocks that can't keep animation settings. The Classic block
- * (`core/freeform`) is raw HTML with no block comment, so nothing set
- * on it is ever saved; offering the Motion panel there only produced
- * settings that vanished on reload (2026-10-20 review, #56).
+ * Blocks that don't get the Motion panel:
+ *
+ * - `core/freeform` (Classic): raw HTML with no block comment, so
+ *   nothing set on it is ever saved (2026-10-20 review, #56).
+ * - `core/html` (Custom HTML) and `core/shortcode`: their front-end
+ *   output has no wrapper element of its own, so the render filter's
+ *   first-tag rule animated whatever the user's HTML or the shortcode
+ *   printed first (a <style>, one of several siblings…), while the
+ *   editor preview animated the whole block. Wrap them in a Group to
+ *   animate them.
  */
-export const NON_ANIMATABLE_BLOCKS = [ 'core/freeform' ];
+export const NON_ANIMATABLE_BLOCKS = [
+	'core/freeform',
+	'core/html',
+	'core/shortcode',
+];
 
 /**
  * Can this block type keep animation settings?

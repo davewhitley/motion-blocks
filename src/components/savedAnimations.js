@@ -154,3 +154,55 @@ export function sortThemeLibrary( library ) {
 	} );
 	return entries;
 }
+
+/**
+ * Persist one change to the saved-animation library (GH #28).
+ *
+ * - Saves only `mb_saved_animations`. The old code called
+ *   `saveEditedEntityRecord( 'root', 'site', … )`, which saves every
+ *   pending edit on the site entity, so an unsaved Site Title change in
+ *   the Site Editor was saved along with the animation.
+ * - Applies `change` to the library as it is on the server right now,
+ *   not the copy this editor loaded, so an animation another admin saved
+ *   in the meantime isn't dropped. Falls back to `cached` if that read
+ *   fails.
+ * - Rejects when the save fails (no permission, network error), so the
+ *   caller can say so instead of reporting success.
+ *
+ * @param {Object}   io
+ * @param {Function} io.fetchLibrary Resolves to the server's library.
+ * @param {Function} io.saveLibrary  Saves a whole library; rejects on failure.
+ * @param {Object}   [io.cached]     The library this editor has loaded.
+ * @param {Function} change          Library → next library. Gets a copy.
+ * @return {Promise<Object>} The library that was saved.
+ */
+export function saveLibraryChange( io, change ) {
+	// One at a time: a second change made before the first one's save
+	// lands (Save, then a quick Delete) must start from the library that
+	// includes the first, or it would overwrite it.
+	const run = pendingLibrarySave.then( () =>
+		applyLibraryChange( io, change )
+	);
+	pendingLibrarySave = run.catch( () => {} );
+	return run;
+}
+
+let pendingLibrarySave = Promise.resolve();
+
+async function applyLibraryChange(
+	{ fetchLibrary, saveLibrary, cached },
+	change
+) {
+	let current = cached || {};
+	try {
+		const fresh = await fetchLibrary();
+		if ( fresh && typeof fresh === 'object' && ! Array.isArray( fresh ) ) {
+			current = fresh;
+		}
+	} catch ( e ) {
+		// Keep the cached copy; the save below reports any real problem.
+	}
+	const next = change( { ...current } );
+	await saveLibrary( next );
+	return next;
+}

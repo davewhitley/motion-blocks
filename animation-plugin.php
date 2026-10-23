@@ -1460,8 +1460,9 @@ add_filter( 'body_class', 'motion_blocks_body_class' );
  * the schema to block forward-compat when new animation attributes
  * are added — the editor is the canonical schema for what's inside.
  *
- * Capability: `edit_theme_options` matches "site design" ownership
- * so non-admin Editors with that cap can manage the library.
+ * Capability: reading and writing it goes through /wp/v2/settings,
+ * which always requires `manage_options` (GH #28). The editor hides
+ * Save and Delete for users who can't update settings.
  */
 /**
  * Scrub a single string attribute value from a saved-animation recipe.
@@ -1578,16 +1579,10 @@ function motion_blocks_register_settings() {
             'description'  => __( 'Motion Blocks saved animation library.', 'motion-blocks' ),
             'default'      => array(),
             'sanitize_callback' => 'motion_blocks_sanitize_saved_animations',
-            // Editors with `edit_theme_options` (admins by default,
-            // optionally Editors via membership plugins) can read and
-            // write the library through the REST options endpoint.
-            // Without this gate, any logged-in user with
-            // `manage_options` access — including custom roles that
-            // shouldn't have been granted that — could PUT arbitrary
-            // recipe payloads via /wp/v2/settings.
-            'auth_callback' => function () {
-                return current_user_can( 'edit_theme_options' );
-            },
+            // No `auth_callback`: that's a register_meta() argument and
+            // register_setting() ignores it. /wp/v2/settings requires
+            // `manage_options` for every read and write, so only users
+            // who can manage options can use the library (GH #28).
             'show_in_rest' => array(
                 'schema' => array(
                     'type'                 => 'object',

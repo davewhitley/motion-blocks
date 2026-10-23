@@ -10,6 +10,8 @@ import {
 	migrateScrollAppearAttrs,
 	materializeScrollAppearPatch,
 	resetAnimationAttributes,
+	clearAnimationAttributes,
+	SCHEMA_DEFAULTS,
 } from '../../src/components/constants';
 import { pickAnimationAttributes } from '../../src/components/savedAnimations';
 
@@ -127,6 +129,78 @@ describe( 'resetAnimationAttributes', () => {
 		const patch = resetAnimationAttributes( 'scroll-appear' );
 		expect( materializeScrollAppearPatch( configured, patch ) ).toBe(
 			patch
+		);
+	} );
+} );
+
+/*
+ * clearAnimationAttributes — "Remove animation" and "Remove all"
+ * (2026-10-20 review, #56). Both used to clear only the shared keys, so
+ * the Scroll Appear slots, Stagger and per-slot Custom values came back
+ * the next time a mode was picked.
+ */
+describe( 'clearAnimationAttributes', () => {
+	it( 'clears the mode', () => {
+		expect( clearAnimationAttributes().animationMode ).toBe( '' );
+	} );
+
+	it( 'covers every animation key and no preview key', () => {
+		const out = clearAnimationAttributes();
+		for ( const key of Object.keys( DEFAULT_ATTRIBUTES ) ) {
+			expect( out ).toHaveProperty( key );
+		}
+		for ( const key of PREVIEW_UI_KEYS ) {
+			expect( out ).not.toHaveProperty( key );
+		}
+	} );
+
+	it( 'uses registered defaults, so nothing is left in the saved block', () => {
+		const out = clearAnimationAttributes();
+		for ( const key of Object.keys( out ) ) {
+			const expected = Object.prototype.hasOwnProperty.call(
+				SCHEMA_DEFAULTS,
+				key
+			)
+				? SCHEMA_DEFAULTS[ key ]
+				: null;
+			expect( [ key, out[ key ] ] ).toEqual( [ key, expected ] );
+		}
+	} );
+
+	it( 'leaves no slot, stagger or custom value behind', () => {
+		const after = { ...configured, ...clearAnimationAttributes() };
+		expect( after.animationEntryType ).toBe( '' );
+		expect( after.animationEntryDirection ).toBe( '' );
+		expect( after.animationEntryReplay ).toBe( 'once' );
+		expect( after.animationExitType ).toBe( '' );
+		expect( after.animationExitFromOpacity ).toBeNull();
+		expect( after.animationExitToTranslateY ).toBeNull();
+		expect( after.animationStaggerEnabled ).toBe( false );
+		expect( after.animationFromToTarget ).toBe( 'block' );
+		// Picking Scroll Appear again starts from a clean block.
+		const view = migrateScrollAppearAttrs( {
+			...after,
+			animationMode: 'scroll-appear',
+			animationEntryType: 'fade',
+		} );
+		expect( view.animationExitType ).toBe( '' );
+		expect( view.animationEntryDirection ).toBe( '' );
+		expect( view.animationEntryDuration ).toBe( 0.6 );
+	} );
+
+	it( 'is what both Remove paths use', () => {
+		const fs = require( 'fs' );
+		const path = require( 'path' );
+		const read = ( f ) =>
+			fs.readFileSync(
+				path.join( __dirname, '..', '..', 'src', 'components', f ),
+				'utf8'
+			);
+		expect( read( 'AnimationPanel.js' ) ).toMatch(
+			/const removeAnimation = \(\) => \{\s*setAttributes\( \{\s*\.\.\.clearAnimationAttributes\(\)/
+		);
+		expect( read( 'PageSettingsPanel.js' ) ).toMatch(
+			/const CLEAR_ATTRS = clearAnimationAttributes\(\);/
 		);
 	} );
 } );

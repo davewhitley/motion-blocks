@@ -32,6 +32,7 @@ import {
 	normalizeCustomFromToAttrs,
 	migrateScrollAppearAttrs,
 	resetAnimationAttributes,
+	clearAnimationAttributes,
 } from './constants';
 
 /**
@@ -379,30 +380,15 @@ export default function AnimationPanel( {
 	}, [ setAttributes, animationMode ] );
 
 	/**
-	 * Remove animation — clear the mode and the shared settings.
-	 *
-	 * Also resets "Animate image only" (GH #56): left at 'img', it came
-	 * back the next time a mode was picked, and a block that isn't a
-	 * Cover (no toggle to turn it off) stayed unable to animate.
+	 * Remove animation — clear the mode and every animation setting,
+	 * the Scroll Appear slots, Stagger and "Animate image only"
+	 * included, so nothing comes back the next time a mode is picked
+	 * (GH #56).
 	 */
 	const removeAnimation = () => {
 		setAttributes( {
-			animationMode: '',
-			animationType: '',
-			animationDirection: '',
-			animationFromToTarget: DEFAULT_ATTRIBUTES.animationFromToTarget,
-			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
-			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
-			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
-			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
-			animationRepeat: DEFAULT_ATTRIBUTES.animationRepeat,
-			animationPauseOffscreen: DEFAULT_ATTRIBUTES.animationPauseOffscreen,
-			animationPlayOnce: DEFAULT_ATTRIBUTES.animationPlayOnce,
-			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationRangeStart: DEFAULT_ATTRIBUTES.animationRangeStart,
-			animationRangeEnd: DEFAULT_ATTRIBUTES.animationRangeEnd,
+			...clearAnimationAttributes(),
 			animationPreviewPlaying: false,
-			...customFromToDefaults(),
 		} );
 	};
 

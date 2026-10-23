@@ -2080,6 +2080,38 @@ export function resetAnimationAttributes( mode ) {
 }
 
 /**
+ * The payload for "Remove animation" and "Remove all": every animation
+ * attribute back to its registered default, with the mode cleared.
+ *
+ * Both used to clear a hand-picked list of the shared keys, so the
+ * Scroll Appear Entry / Exit slots, Stagger and the per-slot Custom
+ * values survived a Remove and came back the next time a mode was
+ * picked (2026-10-20 review, #56). Registered defaults rather than
+ * DEFAULT_ATTRIBUTES (the new-block values, e.g. delay 0) so WordPress
+ * leaves every key out of the saved block comment: a removed animation
+ * leaves nothing behind. Preview-state keys live in the editor preview
+ * store and aren't touched.
+ *
+ * @return {Object} Partial attribute payload ready for setAttributes().
+ */
+export function clearAnimationAttributes() {
+	const out = {};
+	for ( const key of Object.keys( DEFAULT_ATTRIBUTES ) ) {
+		if ( PREVIEW_UI_KEYS.includes( key ) ) {
+			continue;
+		}
+		out[ key ] = Object.prototype.hasOwnProperty.call(
+			SCHEMA_DEFAULTS,
+			key
+		)
+			? SCHEMA_DEFAULTS[ key ]
+			: null;
+	}
+	out.animationMode = '';
+	return out;
+}
+
+/**
  * Reset any preview-state values saved in a block's attributes to
  * their registered defaults (GH #29). Older posts may carry them
  * because the editor used to store preview state as attributes.

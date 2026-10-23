@@ -43,6 +43,7 @@ import { desktop, tablet, mobile } from '@wordpress/icons';
 import AutoAnimateModal from './AutoAnimate';
 import { store as previewStore } from './previewStore';
 import { useFocusAfterDialog } from './keyboardFocus';
+import { clearAnimationAttributes } from './constants';
 
 const DEVICE_OPTIONS = [
 	{
@@ -83,36 +84,13 @@ const editorContextNoun = ( postType ) =>
 
 /**
  * Animation attributes that get reset when the user clicks
- * "Remove all animations". `animationMode: ''` is the kill switch
- * (no class is emitted, no `data-mb-*` attrs); we also clear the
- * From/To bag so a future re-enable doesn't surprise the user with
- * stale values. Editor preview state (the eye, Play, …) is not an
- * attribute; it is cleared in the preview store instead (GH #29).
+ * "Remove all animations": every animation setting back to its
+ * registered default, the Scroll Appear slots and Stagger included
+ * (GH #56), so a later re-enable doesn't bring stale values back.
+ * Editor preview state (the eye, Play, …) is not an attribute; it is
+ * cleared in the preview store instead (GH #29).
  */
-const CLEAR_ATTRS = {
-	animationMode: '',
-	animationType: 'fade',
-	animationDirection: '',
-	animationFromToTarget: 'block',
-	animationFromOpacity: null,
-	animationFromTranslateX: null,
-	animationFromTranslateY: null,
-	animationFromScale: null,
-	animationFromRotate: null,
-	animationFromRotateX: null,
-	animationFromRotateY: null,
-	animationFromBlur: null,
-	animationFromClipPath: null,
-	animationToOpacity: null,
-	animationToTranslateX: null,
-	animationToTranslateY: null,
-	animationToScale: null,
-	animationToRotate: null,
-	animationToRotateX: null,
-	animationToRotateY: null,
-	animationToBlur: null,
-	animationToClipPath: null,
-};
+const CLEAR_ATTRS = clearAnimationAttributes();
 
 /**
  * A block "has an animation" when its mode is set. Mode is the gate:

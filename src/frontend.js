@@ -970,10 +970,19 @@ import {
 		// direction instead of all-but-the-first collapsing to 'same'.
 		var scrollDir = 'same';
 		// Scrollable document height, for the trigger band's stretch at
-		// the top and bottom of the scroll range (GH #23). Re-read once
-		// per scroll frame and on every layout refresh (refreshAll runs
-		// on resize, load, font swap and body resize), never per block.
-		var docHeight = document.documentElement.scrollHeight;
+		// the bottom of the scroll range (GH #23). Re-read once per
+		// scroll frame and on every layout refresh (refreshAll runs on
+		// resize, load, font swap and body resize), never per block.
+		// Unknown (no stretch) until the window `load` event: before
+		// that, late images and embeds can still make the page taller,
+		// and a block that entered because the page briefly looked
+		// short would drop out of the zone again on load.
+		function readDocHeight() {
+			return document.readyState === 'complete'
+				? document.documentElement.scrollHeight
+				: undefined;
+		}
+		var docHeight = readDocHeight();
 
 		/**
 		 * Compute the element's page-relative top via the offsetParent
@@ -1201,6 +1210,20 @@ import {
 					}
 					state.hasEntered = true;
 				}
+				// Leaving through the BOTTOM of the band means the block
+				// moved down relative to it: the reader scrolled up, or
+				// content above grew, or the page got taller below a block
+				// near its end, which pulls the band's stretched bottom
+				// edge back up (GH #23). Scrolling down can't do it (both
+				// band edges move down with the scroll), so whatever the
+				// last scroll direction was, this is onLeaveBack, never a
+				// forward Exit on a block still on screen.
+				if (
+					state.pageBottom > zone.bottom &&
+					state.pageTop > zone.top
+				) {
+					dir = 'up';
+				}
 				if ( dir === 'up' ) {
 					// onLeaveBack — Entry slot owns this.
 					handleSlotLeaveBack( state );
@@ -1306,7 +1329,7 @@ import {
 		// direction (see tick()'s `layoutDir`). A block that didn't move
 		// (e.g. only the viewport resized) keeps the scroll direction.
 		function refreshAll() {
-			docHeight = document.documentElement.scrollHeight;
+			docHeight = readDocHeight();
 			states.forEach( function ( state ) {
 				var prevTop = state.pageTop;
 				refreshBounds( state );
@@ -1400,7 +1423,7 @@ import {
 				scrollScheduled = true;
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
-					docHeight = document.documentElement.scrollHeight;
+					docHeight = readDocHeight();
 					// Not `forEach( tick )`: the index would land in
 					// tick()'s `layoutDir` and override the direction.
 					states.forEach( function ( state ) {

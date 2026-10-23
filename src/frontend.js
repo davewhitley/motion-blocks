@@ -10,6 +10,7 @@
 import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
+import { endsAtRest, settleTargets } from './settle';
 
 ( function () {
 	'use strict';
@@ -872,6 +873,12 @@ import { setStaggerIndices } from './stagger-index';
 				el.style.setProperty( '--mb-fill-mode', 'none' );
 			}
 
+			// A one-shot Page Load never plays again: once it finishes,
+			// drop its filled last frame (GH #20).
+			if ( ! isLooping ) {
+				settleWhenFinished( el, el.dataset.mbType, 'mbTo' );
+			}
+
 			// Trigger the animation.
 			el.classList.add( 'mb-triggered' );
 			if ( DEBUG ) {
@@ -1493,6 +1500,72 @@ import { setStaggerIndices } from './stagger-index';
 	}
 
 	/**
+	 * Add `.mb-settled` once the block's own animations have finished,
+	 * which drops their filled last frame (GH #20, see settle.js and the
+	 * Settled State rules in animations.css). That frame is a resolved
+	 * identity — `matrix(1, 0, 0, 1, 0, 0)`, `blur(0px)`,
+	 * `inset(0 0 0 0)` — not `none`, so it kept `position: fixed`
+	 * descendants (a Navigation overlay) trapped inside the block.
+	 *
+	 * Only call this for a block that will never animate again:
+	 * removing `.mb-settled` would replay the animation. Blocks whose
+	 * last frame isn't their natural look (Out presets, Image Move /
+	 * Zoom, Custom ending elsewhere) are left alone, or they would snap
+	 * back. Only the block's own targets and `mb*` animations count, so
+	 * a nested animated block or core's own animations (the Navigation
+	 * overlay's fade-in) never settle it early.
+	 *
+	 * Browsers without `getAnimations()` never settle (the old
+	 * behaviour).
+	 *
+	 * @param {Element} el       Block wrapper.
+	 * @param {string}  type     Effect type that plays.
+	 * @param {string}  toPrefix Dataset prefix of its Custom To values.
+	 */
+	function settleWhenFinished( el, type, toPrefix ) {
+		if (
+			typeof el.getAnimations !== 'function' ||
+			! endsAtRest( type, el.dataset, toPrefix )
+		) {
+			return;
+		}
+		var targets = settleTargets( el );
+		if ( ! targets ) {
+			return;
+		}
+		function isOurs( name ) {
+			return typeof name === 'string' && /^mb/.test( name );
+		}
+		function onFinish( e ) {
+			if (
+				targets.indexOf( e.target ) === -1 ||
+				! isOurs( e.animationName )
+			) {
+				return;
+			}
+			for ( var i = 0; i < targets.length; i++ ) {
+				var running = targets[ i ]
+					.getAnimations()
+					.some( function ( anim ) {
+						return (
+							isOurs( anim.animationName ) &&
+							anim.playState !== 'finished'
+						);
+					} );
+				if ( running ) {
+					// Stagger: wait for the last child.
+					return;
+				}
+			}
+			el.removeEventListener( 'animationend', onFinish );
+			el.removeEventListener( 'animationcancel', onFinish );
+			el.classList.add( 'mb-settled' );
+		}
+		el.addEventListener( 'animationend', onFinish );
+		el.addEventListener( 'animationcancel', onFinish );
+	}
+
+	/**
 	 * Put a Scroll Appear block straight into its entered state without
 	 * playing the Entry: bind the Entry keyframe via `mb-triggered`,
 	 * then jump its animations (the wrapper's, plus staggered children
@@ -1601,6 +1674,9 @@ import { setStaggerIndices } from './stagger-index';
 			if ( state.io ) {
 				state.io.unobserve( el );
 			}
+			// Nothing can replay it either, so once the Entry finishes
+			// drop its filled last frame (GH #20).
+			settleWhenFinished( el, state.entry.type, 'mbEntryTo' );
 		}
 	}
 

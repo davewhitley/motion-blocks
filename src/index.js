@@ -23,6 +23,11 @@ import {
 import AnimationPanel from './components/AnimationPanel';
 import { setStaggerIndices } from './stagger-index';
 import {
+	imgTargetSelector,
+	imgFrameSelector,
+	imgTargetsOf,
+} from './img-target';
+import {
 	DEFAULT_ATTRIBUTES,
 	SCHEMA_DEFAULTS,
 	ENTER_KEYFRAME_MAP,
@@ -211,7 +216,7 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 	// background`). A descendant selector also matched the first image
 	// in every sibling group of the Cover's inner blocks — a logo
 	// Image block animated with the background and got clipped.
-	const imgSelector = `${ scope } > img:first-of-type`;
+	const imgSelector = imgTargetSelector( scope );
 	// `:has()` lets us style whichever element happens to be the
 	// img's immediate parent without injecting a wrapper. Match
 	// both:
@@ -220,7 +225,7 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 	//      saved markup AND the editor's figure element).
 	//   2. A descendant of the wrapper that holds the img (e.g.
 	//      a `<figure>` inside a Featured Image's `<a>` wrapper).
-	const parentSelector = `${ scope }:has(> img:first-of-type)`;
+	const parentSelector = imgFrameSelector( scope );
 
 	// Scroll-interactive mode wires the timeline directly on the
 	// img so the parent stays a static clipping frame.
@@ -1072,7 +1077,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				const isImgTarget =
 					blockEl.getAttribute( 'data-mb-target' ) === 'img';
 				const innerImg = isImgTarget
-					? blockEl.querySelector( ':scope > img:first-of-type' )
+					? imgTargetsOf( blockEl )[ 0 ] || null
 					: null;
 				const restartTargets = isStaggerParent
 					? [
@@ -1239,9 +1244,9 @@ const withAnimationPreview = createHigherOrderComponent(
 						} )
 						.join( '; ' );
 					const previewCSS = [
-						`${ scope }:has(> img:first-of-type) { overflow: clip; }`,
-						`@supports not (overflow: clip) { ${ scope }:has(> img:first-of-type) { overflow: hidden; } }`,
-						`${ scope } > img:first-of-type { ${ decls }; animation-name: none; }`,
+						`${ imgFrameSelector( scope ) } { overflow: clip; }`,
+						`@supports not (overflow: clip) { ${ imgFrameSelector( scope ) } { overflow: hidden; } }`,
+						`${ imgTargetSelector( scope ) } { ${ decls }; animation-name: none; }`,
 					].join( '\n' );
 					return (
 						<>

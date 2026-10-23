@@ -37,6 +37,7 @@
 
 import { isValidFromToValue } from './css-values';
 import { staggerTargets } from './stagger-index';
+import { imgTargetsOf } from './img-target';
 
 /**
  * Preset entry effects whose last keyframe is the block's natural look
@@ -287,7 +288,7 @@ export function settleTargets( el ) {
 		}
 	}
 	if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
-		const images = el.querySelectorAll( ':scope > img:first-of-type' );
+		const images = imgTargetsOf( el );
 		for ( let i = 0; i < images.length; i++ ) {
 			if ( images[ i ].closest( '.mb-animated' ) !== el ) {
 				return null;

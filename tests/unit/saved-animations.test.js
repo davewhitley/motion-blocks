@@ -200,6 +200,50 @@ describe( 'saveLibraryChange', () => {
 		expect( cached ).toEqual( { b: theirs } );
 	} );
 
+	it( 'runs quick successive changes one after another', async () => {
+		// A fake server: the read returns what the last save stored.
+		let stored = {};
+		const io = {
+			cached: {},
+			fetchLibrary: async () => ( { ...stored } ),
+			saveLibrary: ( lib ) =>
+				new Promise( ( resolve ) =>
+					setTimeout( () => {
+						stored = lib;
+						resolve();
+					}, 20 )
+				),
+		};
+		// Save A, then add B before A's save has landed.
+		await Promise.all( [
+			saveLibraryChange( io, ( lib ) => ( { ...lib, a: mine } ) ),
+			saveLibraryChange( io, ( lib ) => ( { ...lib, b: theirs } ) ),
+		] );
+		expect( stored ).toEqual( { a: mine, b: theirs } );
+	} );
+
+	it( 'keeps going after a failed change', async () => {
+		let stored = {};
+		const ok = {
+			cached: {},
+			fetchLibrary: async () => ( { ...stored } ),
+			saveLibrary: async ( lib ) => {
+				stored = lib;
+			},
+		};
+		const failing = {
+			...ok,
+			saveLibrary: async () => {
+				throw new Error( 'nope' );
+			},
+		};
+		await expect(
+			saveLibraryChange( failing, ( lib ) => ( { ...lib, x: mine } ) )
+		).rejects.toThrow( 'nope' );
+		await saveLibraryChange( ok, ( lib ) => ( { ...lib, a: mine } ) );
+		expect( stored ).toEqual( { a: mine } );
+	} );
+
 	it( 'rejects when the save fails, so no success notice is shown', async () => {
 		await expect(
 			saveLibraryChange(

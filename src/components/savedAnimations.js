@@ -176,7 +176,20 @@ export function sortThemeLibrary( library ) {
  * @param {Function} change          Library → next library. Gets a copy.
  * @return {Promise<Object>} The library that was saved.
  */
-export async function saveLibraryChange(
+export function saveLibraryChange( io, change ) {
+	// One at a time: a second change made before the first one's save
+	// lands (Save, then a quick Delete) must start from the library that
+	// includes the first, or it would overwrite it.
+	const run = pendingLibrarySave.then( () =>
+		applyLibraryChange( io, change )
+	);
+	pendingLibrarySave = run.catch( () => {} );
+	return run;
+}
+
+let pendingLibrarySave = Promise.resolve();
+
+async function applyLibraryChange(
 	{ fetchLibrary, saveLibrary, cached },
 	change
 ) {

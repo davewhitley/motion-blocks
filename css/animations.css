@@ -1147,3 +1147,51 @@
     animation-direction: var(--mb-direction, normal);
 }
 
+/* ----------------------------------------------------------------
+ * Settled State (GH #20)
+ *
+ * `animation-fill-mode: both` keeps a finished animation's last
+ * keyframe applied forever, and for an entry effect that frame is a
+ * resolved identity, not `none`. Four sources of residue trapped
+ * `position: fixed` descendants (e.g. core/navigation's full-screen
+ * mobile overlay) inside the block long after it stopped moving:
+ *
+ *   - transform: `translate(0, 0)` → `matrix(1, 0, 0, 1, 0, 0)`
+ *     (Slide, Scale, Rotate, Flip, Custom) — a containing block;
+ *   - filter: `blur(0px)` (Blur) — a containing block;
+ *   - clip-path: `inset(0 0 0 0)` (Wipe, Curtain) — clips the fixed
+ *     child to the block;
+ *   - Flip's `transform-style: preserve-3d`, which comes from class
+ *     rules, not the keyframe, so `animation: none` alone keeps it.
+ *
+ * frontend.js `settleWhenFinished()` adds `.mb-settled` to the block
+ * once every one of its own animations has finished — only for blocks
+ * that never animate again and whose last frame is their natural look
+ * (see src/settle.js). These rules then drop the animation on exactly
+ * the targets it ran on: the wrapper, Stagger children (both forms,
+ * GH #66) and the img-target image. `!important` out-ranks the inline
+ * Custom `animation-name` and the runtime img rules, as Reduced Motion
+ * does.
+ *
+ * Two traps: (1) ending a keyframe at `transform: none` doesn't help,
+ * it still resolves to a matrix; (2) removing `.mb-settled` replays
+ * the animation, so nothing may ever remove it.
+ *
+ * Written as plain selector lists, not `:is()`, so they can't be
+ * mistaken for the motion-off rest rules above.
+ * -------------------------------------------------------------- */
+.mb-animated.mb-settled,
+.mb-stagger-parent.mb-settled > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-settled > :where(.wp-block-group__inner-container) > *,
+[data-mb-target="img"].mb-settled img:first-of-type {
+    animation: none !important;
+}
+
+/* Flip's 3D context, on the same targets. */
+.mb-enter-flip.mb-settled,
+.mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(.wp-block-group__inner-container)),
+.mb-stagger-parent.mb-enter-flip.mb-settled > :where(.wp-block-group__inner-container) > *,
+[data-mb-target="img"].mb-enter-flip.mb-settled img:first-of-type {
+    transform-style: flat !important;
+    backface-visibility: visible !important;
+}

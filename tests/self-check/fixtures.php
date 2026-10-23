@@ -248,6 +248,18 @@ function mb_self_check_spacer( $px ) {
 	);
 }
 
+/**
+ * A dark box pinned to the bottom-right corner of the screen, for the
+ * fixed-position trap fixtures. `$bottom` keeps several from overlapping.
+ */
+function mb_self_check_fixed_child( $bottom, $label ) {
+	return mb_self_check_block(
+		'html',
+		array(),
+		'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:' . (int) $bottom . 'px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">' . esc_html( $label ) . ' (should be in the screen corner)</div>'
+	);
+}
+
 function mb_self_check_cover( $image, $attrs, $label = 'Cover · Page Load · Image Zoom (looping)' ) {
 	$attrs = array_merge(
 		array(
@@ -510,14 +522,10 @@ function mb_self_check_fixtures( $image ) {
 		),
 		'fixed-trap'          => array(
 			'title'   => 'Fixed-position trap',
-			'note'    => 'A Page Load slide group (orange) and a Page Load flip group (blue), each containing a dark "Fixed child" that should sit in the bottom-right corner of the screen. After the slide finishes it keeps a transform, so its fixed child is placed inside the orange group instead; the flip group keeps its 3D context the same way. With reduced motion on, both fixed children must sit in the screen corner.',
+			'note'    => 'One-shot animations, each containing a dark "Fixed child": Page Load Slide (orange), Flip (blue), Wipe (green), a staggered Flip with the fixed element in child 2 (orange), a Custom that ends at rest (purple), and a Scroll Appear Slide with Entry Replay "Once" and no Exit (blue). Once each animation finishes, its fixed child must sit in the bottom-right corner of the screen, not inside or clipped to its block: the finished animation is dropped (GH #20). Same with reduced motion on.',
 			'content' => mb_self_check_group(
 				mb_self_check_paragraph( 'Group · Page Load · Slide up' )
-				. mb_self_check_block(
-					'html',
-					array(),
-					'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:12px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child (should be in the screen corner)</div>'
-				),
+				. mb_self_check_fixed_child( 12, 'Fixed child of the slide group' ),
 				array(
 					'animationMode'      => 'page-load',
 					'animationType'      => 'slide',
@@ -529,12 +537,86 @@ function mb_self_check_fixtures( $image ) {
 			)
 				. mb_self_check_group(
 					mb_self_check_paragraph( 'Group · Page Load · Flip' )
-					. mb_self_check_block(
-						'html',
-						array(),
-						'<div class="mb-self-check-fixed" style="position:fixed;right:12px;bottom:48px;padding:4px 8px;background:#1e1e1e;color:#fff;font-size:12px">Fixed child of the flip group (should be in the screen corner)</div>'
-					),
+					. mb_self_check_fixed_child( 48, 'Fixed child of the flip group' ),
 					$page_load_flip,
+					MB_SELF_CHECK_COLORS['group']
+				)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Page Load · Wipe (ends at clip-path: inset(0))' )
+					. mb_self_check_fixed_child( 84, 'Fixed child of the wipe group' ),
+					array(
+						'animationMode'     => 'page-load',
+						'animationType'     => 'wipe',
+						'animationDuration' => 0.3,
+						'animationDelay'    => 0,
+					),
+					MB_SELF_CHECK_COLORS['paragraph']
+				)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Page Load · Flip · Stagger (child 1)' )
+					. mb_self_check_group(
+						mb_self_check_paragraph( 'Child 2: a group holding a fixed element' )
+						. mb_self_check_fixed_child( 120, 'Fixed child of a staggered flip item' )
+					),
+					array_merge( $page_load_flip, array( 'animationStaggerEnabled' => true ) ),
+					MB_SELF_CHECK_COLORS['stagger']
+				)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Page Load · Custom (Start: opacity 0, Y 40px · End: opacity 1, Y 0)' )
+					. mb_self_check_fixed_child( 156, 'Fixed child of the custom group' ),
+					array(
+						'animationMode'           => 'page-load',
+						'animationType'           => 'custom',
+						'animationDuration'       => 0.3,
+						'animationDelay'          => 0,
+						'animationFromOpacity'    => 0,
+						'animationFromTranslateY' => '40px',
+						'animationToOpacity'      => 1,
+						'animationToTranslateY'   => '0px',
+					),
+					MB_SELF_CHECK_COLORS['list']
+				)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Slide (Replay: Once) · no Exit' )
+					. mb_self_check_fixed_child( 192, 'Fixed child of the scroll appear group' ),
+					array(
+						'animationMode'          => 'scroll-appear',
+						'animationEntryType'     => 'slide',
+						'animationEntryDuration' => 0.3,
+						'animationEntryDelay'    => 0,
+						'animationEntryReplay'   => 'once',
+					),
+					MB_SELF_CHECK_COLORS['group']
+				),
+			'expect'                => array(),
+			'expect_reduced_motion' => array(),
+		),
+		'fixed-trap-replayable' => array(
+			'title'   => 'Fixed-position trap (replayable)',
+			'note'    => 'Two Scroll Appear slide groups (blue) that can play again: one with Entry Replay "Repeat", one with an Exit slot. Each holds a dark "Fixed child". These keep their finished animation applied by design (GH #20 known remainder: dropping it would replay the animation), so the fixed child sits inside its group and the self-check reports it. With reduced motion on, both fixed children must sit in the screen corner.',
+			'content' => mb_self_check_group(
+				mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Slide (Replay: Repeat) · no Exit' )
+				. mb_self_check_fixed_child( 12, 'Fixed child of the repeating group' ),
+				array(
+					'animationMode'          => 'scroll-appear',
+					'animationEntryType'     => 'slide',
+					'animationEntryDuration' => 0.3,
+					'animationEntryDelay'    => 0,
+					'animationEntryReplay'   => 'repeat',
+				),
+				MB_SELF_CHECK_COLORS['group']
+			)
+				. mb_self_check_group(
+					mb_self_check_paragraph( 'Group · Scroll Appear · Entry: Slide (Replay: Once) · Exit: Fade' )
+					. mb_self_check_fixed_child( 48, 'Fixed child of the group with an Exit' ),
+					array(
+						'animationMode'          => 'scroll-appear',
+						'animationEntryType'     => 'slide',
+						'animationEntryDuration' => 0.3,
+						'animationEntryDelay'    => 0,
+						'animationEntryReplay'   => 'once',
+						'animationExitType'      => 'fade',
+					),
 					MB_SELF_CHECK_COLORS['group']
 				),
 			'expect'                => array( 'fixed-trap' ),

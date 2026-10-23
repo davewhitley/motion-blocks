@@ -111,7 +111,11 @@ export function stripUiState( picked ) {
  * @return {string} 8-character base36 string.
  */
 export function generateUid() {
-	return Math.random().toString( 36 ).slice( 2, 10 );
+	const uid = Math.random().toString( 36 ).slice( 2, 10 );
+	// Never all digits: PHP turns a numeric string key into an int, and
+	// a library whose keys all look like 0, 1, 2… would come back from
+	// the REST API as a JSON array (2026-10-20 review, #57).
+	return /^\d+$/.test( uid ) ? 'u' + uid.slice( 1 ) : uid;
 }
 
 /**

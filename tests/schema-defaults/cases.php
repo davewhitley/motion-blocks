@@ -17,6 +17,9 @@
  *   'style'     => string  Substring the wrapper's style attr must contain.
  *   'animated'  => false   Block must not be animated (no data-mb-mode).
  *
+ * Optional `baked` => array( 'class' => '…', 'attrs' => array( … ) ) puts
+ * animation markup into the saved HTML itself, as v0.1.0 did.
+ *
  * The `mbtest-{n}` class on each block lets the test page's inline
  * checker find it on the front end; it has no effect on the render.
  */
@@ -317,6 +320,43 @@ return array(
 		'expect'   => array(
 			'data-mb-entry-type' => 'fade',
 			'data-mb-exit-type'  => null,
+		),
+	),
+	// Content saved with v0.1.0 has its animation markup baked into the
+	// post, including the pre-slot data-mb-scroll-trigger. The render
+	// filter used to skip any block that already had data-mb-mode, so
+	// these never got slot attributes and stopped animating (#33).
+	array(
+		'label'    => 'v0.1.0 content: Scroll Appear Slide baked into the saved HTML',
+		'panel'    => 'Entry: Slide In · Delay 0.2s · Replay: Once',
+		'behavior' => 'Slides in once, like the same block saved today.',
+		'attrs'    => array(
+			'animationMode'          => 'scroll-appear',
+			'animationType'          => 'slide',
+			'animationDirection'     => 'btt',
+			'animationDelay'         => 0.2,
+			'animationScrollTrigger' => 'enter',
+		),
+		'baked'    => array(
+			'class' => 'mb-animated mb-enter-slide mb-mode-scroll-appear',
+			'attrs' => array(
+				'data-mb-mode'           => 'scroll-appear',
+				'data-mb-type'           => 'slide',
+				'data-mb-direction'      => 'btt',
+				'data-mb-delay'          => '0.2',
+				'data-mb-scroll-trigger' => 'enter',
+				'data-mb-play-once'      => 'true',
+			),
+		),
+		'expect'   => array(
+			'data-mb-entry-type'      => 'slide',
+			'data-mb-entry-direction' => 'btt',
+			'data-mb-entry-delay'     => '0.2',
+			'data-mb-entry-replay'    => 'once',
+			'data-mb-scroll-trigger'  => null,
+			'data-mb-play-once'       => null,
+			'data-mb-type'            => null,
+			'class'                   => array( 'mb-has-entry', 'mb-enter-slide' ),
 		),
 	),
 	// A non-string custom timing function (hand-edited or corrupted

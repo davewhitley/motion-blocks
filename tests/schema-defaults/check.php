@@ -85,15 +85,7 @@ function mb_test_fixture_markup( $n, $case ) {
 		);
 	}
 
-	// `baked`: classes and data attributes baked into the saved HTML,
-	// the way v0.1.0 saved animated blocks (before render-time-only
-	// emission).
-	$baked_class = isset( $case['baked']['class'] ) ? ' ' . $case['baked']['class'] : '';
-	$baked_attrs = '';
-	foreach ( isset( $case['baked']['attrs'] ) ? $case['baked']['attrs'] : array() as $k => $v ) {
-		$baked_attrs .= ' ' . $k . '="' . esc_attr( $v ) . '"';
-	}
-	$html = '<p class="' . $class . $baked_class . '"' . $baked_attrs . '>Case ' . $n . '</p>';
+	$html = '<p class="' . $class . '">Case ' . $n . '</p>';
 	return serialize_block(
 		array(
 			'blockName'    => $name,

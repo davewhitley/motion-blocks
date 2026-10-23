@@ -206,11 +206,10 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 			if ( ! onScreen ) {
 				return;
 			}
-			// A Scroll Appear block waits until it overlaps the trigger
-			// zone by the runtime's own rule (10% of its height, at most
-			// half the zone — GH #23), so a sliver at the edge of the
-			// zone is still legitimately hidden. It's stuck only once
-			// that rule says "in zone", or once it covers the whole zone.
+			// A Scroll Appear block enters once it overlaps the trigger
+			// zone by a few px (the runtime's own rule, GH #86), so a
+			// sliver right at the edge of the zone is still legitimately
+			// hidden. It's stuck only once that rule says "in zone".
 			var state = api.scrollAppear.find( function ( st ) {
 				return st.el === el;
 			} );
@@ -224,11 +223,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 					vh,
 					docHeight
 				);
-				var zone = api.zoneBounds( scrollY, vh, docHeight );
-				if (
-					! api.isInZone( overlap, state.pageHeight, vh ) &&
-					overlap < zone.bottom - zone.top
-				) {
+				if ( ! api.isInZone( overlap, state.pageHeight, false ) ) {
 					return;
 				}
 			}
@@ -337,7 +332,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 					docHeight
 				),
 				state.pageHeight,
-				vh
+				false
 			);
 		} );
 	}

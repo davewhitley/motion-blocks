@@ -13,8 +13,7 @@ import { setStaggerIndices } from './stagger-index';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
-	TRIGGER_OVERLAP_RATIO,
-	TRIGGER_BAND_CAP,
+	TRIGGER_HYSTERESIS_PX,
 	zoneBounds,
 	zoneOverlap,
 	isInZone,
@@ -71,8 +70,7 @@ import {
 			zone: {
 				top: TRIGGER_ZONE_TOP_PCT,
 				bottom: TRIGGER_ZONE_BOTTOM_PCT,
-				ratio: TRIGGER_OVERLAP_RATIO,
-				cap: TRIGGER_BAND_CAP,
+				hysteresis: TRIGGER_HYSTERESIS_PX,
 			},
 			ready: false,
 		};
@@ -1271,7 +1269,7 @@ import {
 				vh,
 				docHeight
 			);
-			var inZone = isInZone( overlap, state.pageHeight, vh );
+			var inZone = isInZone( overlap, state.pageHeight, state.inZone );
 
 			// Off-screen reset.
 			//
@@ -1342,8 +1340,8 @@ import {
 			// normal scroll back up produces. Not just "fully below the
 			// screen": after a jump the block can sit visible near the
 			// bottom of the screen, or just inside the zone short of
-			// the required overlap, and the Entry would replay as it
-			// scrolls in. A forward-played Exit can only be found there
+			// the overlap needed to enter, and the Entry would replay as
+			// it scrolls in. A forward-played Exit can only be found there
 			// after a jump, so the snap never interrupts a normal scroll.
 			if (
 				state.pageTop > zone.top &&
@@ -1363,19 +1361,20 @@ import {
 			// The trigger decision (computed above, src/trigger-zone.js):
 			// the zone is the middle 70% of the viewport, stretched to
 			// the document edges at either end of the scroll range, and
-			// an element is "in zone" when it overlaps it by 10% of its
-			// height or by half the band, whichever is less (GH #23).
+			// an element is in it while any part of it overlaps it —
+			// Entry when its top rises past the 85% line, Exit when its
+			// bottom rises past the 15% line (GH #86). Entering needs a
+			// few px of overlap so an edge resting on a line can't
+			// flicker.
 			//
-			// That matches IO's `threshold: 0.1` for every block up to
-			// 3.5 screens tall away from the page edges. It used to have
-			// to match exactly — before the scroll listener below
-			// existed, IO was the only wake-up, and "any overlap" here
-			// (75d28ee) left IO settled at false while cached bounds
-			// still said in-zone, so the Exit never fired. The scroll
-			// listener now ticks every block on every scroll frame and
-			// refreshAll() ticks them on every layout change, so a
-			// decision that differs from IO's can't strand a block. Keep
-			// those two wake-ups if you ever change this rule.
+			// This differs from IO's view of the same band, and that's
+			// only safe because of the wake-ups: before the scroll
+			// listener below existed, IO was the only wake-up, and "any
+			// overlap" here (75d28ee) left IO settled while cached
+			// bounds still said in-zone, so the Exit never fired. The
+			// scroll listener now ticks every block on every scroll
+			// frame and refreshAll() ticks them on every layout change.
+			// Keep those two wake-ups.
 			var triggerBottom = zone.bottom;
 			if ( inZone === state.inZone ) {
 				// No flip. Bbox-bounce IO callbacks land here and
@@ -1574,11 +1573,9 @@ import {
 					tick( state );
 				},
 				{
-					// 0 as well as 0.1: a block too tall to ever reach
-					// IO's 10% (more than 7 screens tall) still gets a
-					// wake-up on first contact (GH #23). Extra wake-ups
-					// are no-ops in tick().
-					threshold: [ 0, 0.1 ],
+					// Wakes on first and last contact with the band,
+					// which is where tick()'s rule flips (GH #86).
+					threshold: 0,
 					rootMargin: '-15% 0px -15% 0px',
 				}
 			);

@@ -1362,30 +1362,54 @@ add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10,
  * block editor.
  */
 function motion_blocks_register_meta() {
+    foreach ( get_post_types( array( 'public' => true ), 'names' ) as $post_type ) {
+        motion_blocks_register_meta_for_post_type( $post_type );
+    }
+}
+// Late on `init`, so post types registered (or given editor support)
+// by themes and plugins at the default priority are included; the
+// `registered_post_type` hook below catches any registered later still
+// (2026-10-20 review, #57: a snapshot at init@10 missed them, so their
+// per-device toggles never saved).
+add_action( 'init', 'motion_blocks_register_meta', 99 );
+
+/**
+ * Register the per-device meta for one post type, if it's public and
+ * supports the block editor. Safe to call more than once.
+ *
+ * @param string $post_type Post type name.
+ */
+function motion_blocks_register_meta_for_post_type( $post_type ) {
+    $object = get_post_type_object( $post_type );
+    if ( ! $object || ! $object->public || ! post_type_supports( $post_type, 'editor' ) ) {
+        return;
+    }
     $keys = array(
         'mb_disabled_desktop',
         'mb_disabled_tablet',
         'mb_disabled_mobile',
     );
-    $post_types = get_post_types( array( 'public' => true ), 'names' );
-    foreach ( $post_types as $post_type ) {
-        if ( ! post_type_supports( $post_type, 'editor' ) ) {
+    foreach ( $keys as $key ) {
+        if ( registered_meta_key_exists( 'post', $key, $post_type ) ) {
             continue;
         }
-        foreach ( $keys as $key ) {
-            register_post_meta( $post_type, $key, array(
-                'show_in_rest'  => true,
-                'single'        => true,
-                'type'          => 'boolean',
-                'default'       => false,
-                'auth_callback' => function () {
-                    return current_user_can( 'edit_posts' );
-                },
-            ) );
-        }
+        register_post_meta( $post_type, $key, array(
+            'show_in_rest'  => true,
+            'single'        => true,
+            'type'          => 'boolean',
+            'default'       => false,
+            'auth_callback' => function () {
+                return current_user_can( 'edit_posts' );
+            },
+        ) );
     }
 }
-add_action( 'init', 'motion_blocks_register_meta' );
+
+// Every post type as it's registered, at any point in the request: its
+// `public` flag and `supports` are final by then. The late `init` pass
+// above still catches editor support added afterwards with
+// add_post_type_support(). Both are idempotent.
+add_action( 'registered_post_type', 'motion_blocks_register_meta_for_post_type' );
 
 /**
  * Emit body classes used by the frontend CSS.

@@ -47,6 +47,7 @@ import {
 import SavedAnimationsModal from './SavedAnimationsModal';
 import { selectSameTypeInfo } from './selectStable';
 import { useFocusAfterDialog } from './keyboardFocus';
+import { canAnimateBlock } from './constants';
 
 /**
  * Module-level clipboard — persists across block selections
@@ -308,9 +309,13 @@ export default function AnimationOptionsMenu( {
 		// through the routed setAttributes, which covers every block
 		// of a multi-selection in one undo step (GH #30).
 		onPaste( { ...saved.attributes } );
-		const count = registry
-			.select( blockEditorStore )
-			.getMultiSelectedBlockClientIds().length;
+		// Same blocks the routed write covered: not the ones that can't
+		// keep animation settings (Classic, Custom HTML, Shortcode).
+		const { getMultiSelectedBlockClientIds, getBlockName } =
+			registry.select( blockEditorStore );
+		const count = getMultiSelectedBlockClientIds().filter( ( id ) =>
+			canAnimateBlock( getBlockName( id ) )
+		).length;
 		createSuccessNotice(
 			count > 1
 				? sprintf(

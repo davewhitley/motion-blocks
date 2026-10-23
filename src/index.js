@@ -676,10 +676,17 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// `inSelection` (single- or multi-selected) drives the preview
 		// cleanup below. `isSelected` can't: it is false on every block
 		// during a multi-selection, so a deselect never showed up there.
+		//
+		// Blocks that can't keep animation settings (Classic, Custom
+		// HTML, Shortcode — NON_ANIMATABLE_BLOCKS) are left out of a
+		// multi-selection: the panel renders on the first block that
+		// can, its count leaves them out, and writes skip them
+		// (`animatableIds()` below).
 		const {
 			multiSelectedClientIds,
 			isMultiSelecting,
 			shouldRenderPanel,
+			animatableCount,
 			inSelection,
 		} = useSelect(
 			( select ) => {
@@ -689,13 +696,25 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				const isSingle = sel.getSelectedBlockClientId() === clientId;
 				// Render only one copy of the panel: for single
 				// selection use the selected block; for multi,
-				// render on the first selected block.
+				// render on the first selected block that can be
+				// animated.
+				const panelId = isMulti
+					? multi.find( ( id ) =>
+							canAnimateBlock( sel.getBlockName( id ) )
+					  )
+					: null;
+				const isPanelBlock = isMulti ? panelId === clientId : isSingle;
 				return {
 					multiSelectedClientIds: multi,
 					isMultiSelecting: isMulti,
-					shouldRenderPanel: isMulti
-						? multi[ 0 ] === clientId
-						: isSingle,
+					shouldRenderPanel: isPanelBlock,
+					// Only the panel block needs the count.
+					animatableCount:
+						isMulti && isPanelBlock
+							? multi.filter( ( id ) =>
+									canAnimateBlock( sel.getBlockName( id ) )
+							  ).length
+							: 0,
 					inSelection:
 						isSingle || sel.isBlockMultiSelected( clientId ),
 				};
@@ -716,6 +735,14 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// Read at write time only — `registry.select` inside a callback
 		// adds no store subscription, so it doesn't undo GH #27.
 		const registry = useRegistry();
+		// The multi-selected blocks that can keep animation settings.
+		// Read at write time (no subscription, GH #27).
+		const animatableIds = useCallback( () => {
+			const { getBlockName } = registry.select( blockEditorStore );
+			return multiSelectedClientIds.filter( ( id ) =>
+				canAnimateBlock( getBlockName( id ) )
+			);
+		}, [ registry, multiSelectedClientIds ] );
 
 		// When multi-selecting, route attribute updates through the
 		// store dispatch so they apply to every selected block at
@@ -731,9 +758,10 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				const { getBlockAttributes } =
 					registry.select( blockEditorStore );
 				if ( isMultiSelecting ) {
+					const ids = animatableIds();
 					let differs = false;
 					const byId = {};
-					for ( const id of multiSelectedClientIds ) {
+					for ( const id of ids ) {
 						byId[ id ] = materializeScrollAppearPatch(
 							getBlockAttributes( id ),
 							newAttrs
@@ -745,16 +773,9 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 					if ( differs ) {
 						// Per-block payloads in one action (one undo
 						// step): `uniqueByBlock`.
-						updateBlockAttributes(
-							multiSelectedClientIds,
-							byId,
-							true
-						);
+						updateBlockAttributes( ids, byId, true );
 					} else {
-						updateBlockAttributes(
-							multiSelectedClientIds,
-							newAttrs
-						);
+						updateBlockAttributes( ids, newAttrs );
 					}
 				} else {
 					setAttributes(
@@ -769,7 +790,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				registry,
 				clientId,
 				isMultiSelecting,
-				multiSelectedClientIds,
+				animatableIds,
 				setAttributes,
 				updateBlockAttributes,
 			]
@@ -794,7 +815,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 					splitPreviewPatch( newAttrs );
 				if ( previewPatch ) {
 					setPreview(
-						isMultiSelecting ? multiSelectedClientIds : [ clientId ],
+						isMultiSelecting ? animatableIds() : [ clientId ],
 						previewPatch
 					);
 				}
@@ -805,7 +826,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			[
 				clientId,
 				isMultiSelecting,
-				multiSelectedClientIds,
+				animatableIds,
 				setPreview,
 				fanSetAttributes,
 			]
@@ -852,11 +873,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 							setAttributes={ routedSetAttributes }
 							blockName={ name }
 							clientId={ clientId }
-							multiSelectCount={
-								isMultiSelecting
-									? multiSelectedClientIds.length
-									: 0
-							}
+							multiSelectCount={ animatableCount }
 						/>
 					</InspectorControls>
 				) }

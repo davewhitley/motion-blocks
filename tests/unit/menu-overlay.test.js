@@ -8,6 +8,7 @@
  */
 import {
 	attrsToSettleDataset,
+	effectTraps,
 	isRenderedAnimated,
 	menuOverlayBlockers,
 	navHasOverlay,
@@ -73,6 +74,8 @@ describe( 'menuOverlayBlockers', () => {
 			reasons: [],
 			staggerActive: false,
 			imgTargetActive: false,
+			traps: true,
+			fixes: [],
 		} );
 		expect( menuOverlayBlockers( 'core/navigation', SA ).reasons ).toEqual(
 			[]
@@ -204,5 +207,150 @@ describe( 'menuOverlayBlockers', () => {
 				animationExitType: 'image-move',
 			} ).imgTargetActive
 		).toBe( true );
+	} );
+} );
+
+describe( 'effectTraps', () => {
+	const T = ( type, attrs = {}, imgTarget = false ) =>
+		effectTraps( type, attrs, 'animationFrom', 'animationTo', imgTarget );
+
+	it( 'opacity-only presets never trap', () => {
+		expect( T( 'fade' ) ).toBe( false );
+		expect( T( 'fade-out' ) ).toBe( false );
+		expect( T( '' ) ).toBe( false );
+	} );
+
+	it( 'transform, filter and clip-path presets trap', () => {
+		[
+			'slide',
+			'slide-out',
+			'scale',
+			'scale-out',
+			'rotate',
+			'rotate-out',
+			'blur',
+			'blur-out',
+			'wipe',
+			'curtain',
+			'curtain-out',
+			'flip',
+		].forEach( ( type ) => expect( T( type ) ).toBe( true ) );
+	} );
+
+	it( 'the image target keeps the wrapper free, except for Flip', () => {
+		expect( T( 'slide', {}, true ) ).toBe( false );
+		expect( T( 'custom', { animationToTranslateX: '20px' }, true ) ).toBe(
+			false
+		);
+		expect( T( 'image-zoom' ) ).toBe( false );
+		expect( T( 'image-move' ) ).toBe( false );
+		// Flip's preserve-3d is a class rule on the wrapper.
+		expect( T( 'flip', {}, true ) ).toBe( true );
+	} );
+
+	it( 'Custom traps only beyond opacity, on either side', () => {
+		expect(
+			T( 'custom', { animationFromOpacity: 0, animationToOpacity: 0.5 } )
+		).toBe( false );
+		expect( T( 'custom', { animationToTranslateX: '20px' } ) ).toBe( true );
+		// A From-only transform still leaves a matrix in the last frame.
+		expect(
+			T( 'custom', {
+				animationFromTranslateY: '40px',
+				animationToOpacity: 0.5,
+			} )
+		).toBe( true );
+		expect( T( 'custom', { animationFromBlur: '8px' } ) ).toBe( true );
+		expect( T( 'custom', { animationToScale: 1 } ) ).toBe( true );
+		expect( T( 'custom', { animationToClipPath: 'inset(0 0 0 0)' } ) ).toBe(
+			true
+		);
+		expect( T( 'custom', { animationToClipPath: 'none' } ) ).toBe( false );
+		// Invalid values never reach the keyframe.
+		expect(
+			T( 'custom', { animationToTranslateX: 'calc(1px; color: red)' } )
+		).toBe( false );
+	} );
+} );
+
+describe( 'menuOverlayBlockers: traps and fixes', () => {
+	const nav = ( attrs ) => menuOverlayBlockers( 'core/navigation', attrs );
+
+	it( 'opacity-only effects that keep their frame: reasons, but no trap', () => {
+		[
+			{ ...PL, animationType: 'fade', animationRepeat: 'loop' },
+			{ ...PL, animationType: 'fade', animationRepeat: 'alternate' },
+			{ ...PL, animationType: 'fade-out' },
+			{
+				...PL,
+				animationType: 'custom',
+				animationRepeat: 'loop',
+				animationFromOpacity: 0,
+				animationToOpacity: 0.5,
+			},
+			{
+				...PL,
+				animationMode: 'scroll-interactive',
+				animationType: 'fade',
+			},
+			{ ...SA, animationEntryType: '', animationExitType: 'fade' },
+			{
+				...SA,
+				animationEntryType: 'fade',
+				animationEntryReplay: 'repeat',
+			},
+		].forEach( ( attrs ) => {
+			const r = nav( attrs );
+			expect( r.reasons.length ).toBeGreaterThan( 0 );
+			expect( r.traps ).toBe( false );
+			expect( r.fixes ).toEqual( [] );
+		} );
+	} );
+
+	it( 'a trapping effect lists every reason as a fix', () => {
+		const r = nav( {
+			...SA,
+			animationEntryType: 'custom',
+			animationEntryReplay: 'repeat',
+			animationEntryToTranslateY: '40px',
+			animationExitType: 'fade',
+		} );
+		expect( r.traps ).toBe( true );
+		expect( r.fixes ).toEqual( [ 'replay', 'exit', 'custom-end' ] );
+		expect( nav( { ...PL, animationRepeat: 'loop' } ).fixes ).toEqual( [
+			'loop',
+		] );
+	} );
+
+	it( 'only the Exit traps: removing it is the one fix', () => {
+		const r = nav( {
+			...SA,
+			animationEntryType: 'fade',
+			animationEntryReplay: 'repeat',
+			animationExitType: 'slide',
+		} );
+		expect( r.reasons ).toEqual( [ 'replay', 'exit' ] );
+		expect( r.traps ).toBe( true );
+		expect( r.fixes ).toEqual( [ 'exit' ] );
+	} );
+
+	it( 'a trapping Entry needs the Exit gone even when the Exit fades', () => {
+		const r = nav( {
+			...SA,
+			animationEntryType: 'slide',
+			animationExitType: 'fade',
+		} );
+		expect( r.traps ).toBe( true );
+		expect( r.fixes ).toEqual( [ 'exit' ] );
+	} );
+
+	it( '"Animate image only" moves the effect off the wrapper', () => {
+		const r = menuOverlayBlockers( 'core/cover', {
+			...PL,
+			animationRepeat: 'loop',
+			animationFromToTarget: 'img',
+		} );
+		expect( r.reasons ).toEqual( [ 'loop' ] );
+		expect( r.traps ).toBe( false );
 	} );
 } );

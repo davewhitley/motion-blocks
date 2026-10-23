@@ -215,8 +215,9 @@ export function effectBlocker( type, dataset, toPrefix ) {
 
 /**
  * Every reason a block's animation will keep its last frame applied
- * (and so keep trapping `position: fixed` descendants), as ids from
- * SETTLE_BLOCKERS in that order. An empty list means frontend.js
+ * (and so keep trapping `position: fixed` descendants, when that frame
+ * goes beyond opacity: see effectTraps() in components/menuOverlay.js),
+ * as ids from SETTLE_BLOCKERS in that order. An empty list means frontend.js
  * settles it once it finishes (unless `settleTargets()` skips it).
  *
  * Scroll Interactive shares `animationType` and the To keys with Page

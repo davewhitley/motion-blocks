@@ -3,11 +3,14 @@
  * Navigation menu overlay from opening full screen.
  *
  * Front-end background (GH #20): a finished animation that is never
- * settled keeps its last frame applied, and that frame makes the block
- * a containing block for `position: fixed` descendants. A Navigation
- * overlay inside then opens within the block. menuOverlayBlockers()
- * asks src/settle.js, the code the front end uses, whether the block
- * settles, and lists the fixes.
+ * settled keeps its last frame applied. When that frame (or the running
+ * animation) sets a transform, filter, clip-path or Flip's preserve-3d,
+ * the block becomes a containing block for `position: fixed`
+ * descendants, and a Navigation overlay inside opens within the block.
+ * Opacity-only effects (Fade, opacity-only Custom) never do, so they
+ * get no warning. menuOverlayBlockers() asks src/settle.js, the code
+ * the front end uses, whether the block settles, checks whether its
+ * effect can trap at all, and lists the fixes.
  *
  * Read-only: it never writes attributes, so it adds no undo steps.
  */
@@ -58,9 +61,9 @@ function fixLines() {
 			'Use an effect that ends visible, like <strong>Fade In</strong>.',
 			'motion-blocks'
 		),
-		/* translators: Fix for a Custom effect whose end values move, scale, rotate, blur, clip or fade the block. Keep the <strong> tags. */
+		/* translators: Fix for a Custom effect whose end values move, scale, rotate, blur, clip or fade the block. "To" is the tab with the end values in the Custom panel. Keep the <strong> tags. */
 		'custom-end': __(
-			'Set the <strong>End</strong> values back to normal.',
+			'Set the <strong>To</strong> values back to normal.',
 			'motion-blocks'
 		),
 	};
@@ -78,8 +81,11 @@ export default function MenuOverlayNotice( {
 		[ blockName, attributes ]
 	);
 	const reasonCount = b.reasons.length;
+	// An effect that can't trap the overlay (Fade, opacity-only Custom,
+	// "Animate image only") needs no warning, settled or not.
 	const relevant =
 		b.animated &&
+		b.traps &&
 		( reasonCount > 0 || b.staggerActive || b.imgTargetActive );
 
 	const info = useSelect(
@@ -122,7 +128,7 @@ export default function MenuOverlayNotice( {
 					'motion-blocks'
 			  );
 	const all = fixLines();
-	const lines = b.reasons.map( ( id ) => [ id, all[ id ] ] );
+	const lines = b.fixes.map( ( id ) => [ id, all[ id ] ] );
 	const spoken = [
 		title,
 		sentence,

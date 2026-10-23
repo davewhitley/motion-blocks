@@ -19,11 +19,7 @@
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
-import {
-	useSelect,
-	useDispatch,
-	select as dataSelect,
-} from '@wordpress/data';
+import { useSelect, useDispatch, select as dataSelect } from '@wordpress/data';
 import { store as editorStore } from '@wordpress/editor';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
@@ -43,6 +39,7 @@ import { desktop, tablet, mobile } from '@wordpress/icons';
 import AutoAnimateModal from './AutoAnimate';
 import { store as previewStore } from './previewStore';
 import { useFocusAfterDialog } from './keyboardFocus';
+import { clearAnimationAttributes } from './constants';
 
 const DEVICE_OPTIONS = [
 	{
@@ -83,36 +80,13 @@ const editorContextNoun = ( postType ) =>
 
 /**
  * Animation attributes that get reset when the user clicks
- * "Remove all animations". `animationMode: ''` is the kill switch
- * (no class is emitted, no `data-mb-*` attrs); we also clear the
- * From/To bag so a future re-enable doesn't surprise the user with
- * stale values. Editor preview state (the eye, Play, …) is not an
- * attribute; it is cleared in the preview store instead (GH #29).
+ * "Remove all animations": every animation setting back to its
+ * registered default, the Scroll Appear slots and Stagger included
+ * (GH #56), so a later re-enable doesn't bring stale values back.
+ * Editor preview state (the eye, Play, …) is not an attribute; it is
+ * cleared in the preview store instead (GH #29).
  */
-const CLEAR_ATTRS = {
-	animationMode: '',
-	animationType: 'fade',
-	animationDirection: '',
-	animationFromToTarget: 'block',
-	animationFromOpacity: null,
-	animationFromTranslateX: null,
-	animationFromTranslateY: null,
-	animationFromScale: null,
-	animationFromRotate: null,
-	animationFromRotateX: null,
-	animationFromRotateY: null,
-	animationFromBlur: null,
-	animationFromClipPath: null,
-	animationToOpacity: null,
-	animationToTranslateX: null,
-	animationToTranslateY: null,
-	animationToScale: null,
-	animationToRotate: null,
-	animationToRotateX: null,
-	animationToRotateY: null,
-	animationToBlur: null,
-	animationToClipPath: null,
-};
+const CLEAR_ATTRS = clearAnimationAttributes();
 
 /**
  * A block "has an animation" when its mode is set. Mode is the gate:
@@ -130,11 +104,19 @@ function MotionBlocksPagePanel() {
 	);
 	const contextNoun = editorContextNoun( postType );
 
-	const [ meta = {}, setMeta ] = useEntityProp(
-		'postType',
-		postType,
-		'meta'
-	);
+	const [ meta, setMeta ] = useEntityProp( 'postType', postType, 'meta' );
+	// The screen-size toggles are post meta, registered only for public
+	// post types with the block editor. Templates, template parts and
+	// synced patterns don't have it: the REST response carries no such
+	// keys, a toggle there was dropped on save, and the front end never
+	// reads it (2026-10-20 review, #56). Show them only where the
+	// loaded record actually has the keys.
+	const supportsDeviceToggles =
+		!! meta &&
+		typeof meta === 'object' &&
+		DEVICE_OPTIONS.every( ( opt ) =>
+			Object.prototype.hasOwnProperty.call( meta, opt.key )
+		);
 
 	// Count animated blocks for context next to the Remove button.
 	// `getClientIdsWithDescendants()` returns a flat array of all
@@ -172,7 +154,7 @@ function MotionBlocksPagePanel() {
 	);
 
 	const setMetaValue = ( key, value ) => {
-		setMeta( { ...meta, [ key ]: value } );
+		setMeta( { ...( meta || {} ), [ key ]: value } );
 	};
 
 	const handleRemoveAll = () => {
@@ -235,33 +217,37 @@ function MotionBlocksPagePanel() {
 				<div className="mb-page-settings__divider" />
 
 				<VStack spacing={ 4 }>
-					<p className="mb-page-settings__intro">
-						{ __(
-							'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
-							'motion-blocks'
-						) }
-					</p>
+					{ supportsDeviceToggles && (
+						<p className="mb-page-settings__intro">
+							{ __(
+								'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
+								'motion-blocks'
+							) }
+						</p>
+					) }
 
-					<VStack spacing={ 3 }>
-						{ DEVICE_OPTIONS.map( ( opt ) => (
-							<HStack
-								key={ opt.key }
-								alignment="center"
-								justify="space-between"
-								spacing={ 3 }
-							>
-								<CheckboxControl
-									label={ opt.label }
-									checked={ !! meta[ opt.key ] }
-									onChange={ ( v ) =>
-										setMetaValue( opt.key, v )
-									}
-									__nextHasNoMarginBottom
-								/>
-								<Icon icon={ opt.icon } />
-							</HStack>
-						) ) }
-					</VStack>
+					{ supportsDeviceToggles && (
+						<VStack spacing={ 3 }>
+							{ DEVICE_OPTIONS.map( ( opt ) => (
+								<HStack
+									key={ opt.key }
+									alignment="center"
+									justify="space-between"
+									spacing={ 3 }
+								>
+									<CheckboxControl
+										label={ opt.label }
+										checked={ !! meta[ opt.key ] }
+										onChange={ ( v ) =>
+											setMetaValue( opt.key, v )
+										}
+										__nextHasNoMarginBottom
+									/>
+									<Icon icon={ opt.icon } />
+								</HStack>
+							) ) }
+						</VStack>
+					) }
 
 					<Button
 						variant="secondary"
@@ -280,6 +266,7 @@ function MotionBlocksPagePanel() {
 			</VStack>
 
 			<ConfirmDialog
+				className="mb-confirm-dialog"
 				isOpen={ confirmOpen }
 				onConfirm={ handleRemoveAll }
 				onCancel={ () => setConfirmOpen( false ) }

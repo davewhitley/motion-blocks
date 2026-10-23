@@ -302,6 +302,87 @@ return array(
 			'data-mb-range-end'   => 'exit 100%',
 		),
 	),
+	// Legacy (pre-slot) Scroll Appear with an empty trigger: the editor
+	// reads '' as 'enter' (normalizeScrollTrigger), so only the Entry
+	// slot is filled. PHP used to fill both (2026-10-20 review, #57).
+	array(
+		'label'    => 'Legacy Scroll Appear with an empty animationScrollTrigger',
+		'panel'    => 'Entry: Fade In · no Exit',
+		'behavior' => 'Fades in once; no fade out.',
+		'attrs'    => array(
+			'animationMode'          => 'scroll-appear',
+			'animationType'          => 'fade',
+			'animationScrollTrigger' => '',
+		),
+		'expect'   => array(
+			'data-mb-entry-type' => 'fade',
+			'data-mb-exit-type'  => null,
+		),
+	),
+	// A non-string custom timing function (hand-edited or corrupted
+	// block comment) used to be a fatal TypeError in trim() on PHP 8
+	// (2026-10-20 review). The editor drops it to the default curve.
+	array(
+		'label'    => 'Page Load, Custom timing function that is not a string',
+		'panel'    => 'Page Load: Fade In · Acceleration: Custom · default curve',
+		'behavior' => 'Fades in with the default custom curve; the page renders.',
+		'attrs'    => array(
+			'animationMode'                 => 'page-load',
+			'animationAcceleration'         => 'custom',
+			'animationCustomTimingFunction' => array( 'not', 'a', 'string' ),
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'fade',
+			'data-mb-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+		),
+	),
+	array(
+		'label'    => 'Scroll Appear, Entry custom timing function that is not a string',
+		'panel'    => 'Entry: Fade In · Acceleration: Custom · default curve',
+		'behavior' => 'Fades in with the default custom curve; the page renders.',
+		'attrs'    => array(
+			'animationMode'                      => 'scroll-appear',
+			'animationEntryType'                 => 'fade',
+			'animationEntryAcceleration'         => 'custom',
+			'animationEntryCustomTimingFunction' => 42,
+		),
+		'expect'   => array(
+			'data-mb-entry-type'         => 'fade',
+			'data-mb-entry-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+		),
+	),
+	// Blocks that can't keep animation settings (nonAnimatableBlocks).
+	// Animations saved on them before the panel was hidden must not
+	// land on whatever their content prints first.
+	array(
+		'label'    => 'Custom HTML with a saved Page Load animation',
+		'panel'    => 'No Motion Effects panel on this block',
+		'behavior' => 'The HTML shows as written, not animated.',
+		'block'    => 'core/html',
+		'html'     => '<div class="mbtest-html">Custom HTML</div>',
+		'attrs'    => array(
+			'animationMode' => 'page-load',
+		),
+		'expect'   => array(
+			'animated' => false,
+			'no_class' => array( 'mb-animated' ),
+		),
+	),
+	array(
+		'label'    => 'Shortcode with a saved Scroll Appear animation',
+		'panel'    => 'No Motion Effects panel on this block',
+		'behavior' => 'The shortcode output shows as written, not animated.',
+		'block'    => 'core/shortcode',
+		'html'     => '<p class="mbtest-shortcode">Shortcode output</p>',
+		'attrs'    => array(
+			'animationMode'      => 'scroll-appear',
+			'animationEntryType' => 'fade',
+		),
+		'expect'   => array(
+			'animated' => false,
+			'no_class' => array( 'mb-animated' ),
+		),
+	),
 	// Server-rendered (dynamic) blocks. In the editor these preview
 	// through the block-renderer endpoint, which used to reject the
 	// animation attributes ("Error loading block", GH #24).

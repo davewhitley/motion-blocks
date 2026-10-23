@@ -51,6 +51,12 @@ const CATEGORY_BY_BLOCK_NAME = {
 	// block contains unexpected content" warning, not the actual
 	// thing). Skipped from auto-animate.
 	'core/missing': 'BROKEN',
+	// The Classic block is body content, and it can't keep animation
+	// settings anyway (no block comment to save them in).
+	'core/freeform': 'BODY',
+	// No wrapper element of their own (see NON_ANIMATABLE_BLOCKS).
+	'core/html': 'BODY',
+	'core/shortcode': 'BODY',
 };
 
 /**

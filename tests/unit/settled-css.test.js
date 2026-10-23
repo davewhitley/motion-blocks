@@ -49,17 +49,18 @@ describe( 'settled state CSS (GH #20)', () => {
 		r.body.includes( 'transform-style: flat !important' )
 	);
 
-	it( 'drops the animation on all four target forms', () => {
+	it( 'drops the animation on all four target forms (img in two paths)', () => {
 		expect( dropRule ).toBeDefined();
 		expect( dropRule.selectors ).toEqual( [
 			'.mb-animated.mb-settled',
 			`.mb-stagger-parent.mb-settled > :where(:not(${ IC }))`,
 			`.mb-stagger-parent.mb-settled > :where(${ IC }) > *`,
-			'[data-mb-target="img"].mb-settled img:first-of-type',
+			'[data-mb-target="img"].mb-settled > img:first-of-type',
+			'[data-mb-target="img"].mb-settled > picture > img:first-of-type',
 		] );
 	} );
 
-	it( 'flattens Flip on the same four target forms', () => {
+	it( 'flattens Flip on the same four target forms (img in two paths)', () => {
 		expect( flatRule ).toBeDefined();
 		expect( flatRule.body ).toContain(
 			'backface-visibility: visible !important'
@@ -68,7 +69,8 @@ describe( 'settled state CSS (GH #20)', () => {
 			'.mb-enter-flip.mb-settled',
 			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(${ IC }))`,
 			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(${ IC }) > *`,
-			'[data-mb-target="img"].mb-enter-flip.mb-settled img:first-of-type',
+			'[data-mb-target="img"].mb-enter-flip.mb-settled > img:first-of-type',
+			'[data-mb-target="img"].mb-enter-flip.mb-settled > picture > img:first-of-type',
 		] );
 	} );
 

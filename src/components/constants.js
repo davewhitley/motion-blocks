@@ -120,6 +120,31 @@ export const IMAGE_EFFECT_BLOCKS = [ 'core/cover' ];
 export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
 
 /**
+ * Blocks that don't get the Motion panel:
+ *
+ * - `core/freeform` (Classic): raw HTML with no block comment, so
+ *   nothing set on it is ever saved (2026-10-20 review, #56).
+ * - `core/html` (Custom HTML) and `core/shortcode`: their front-end
+ *   output has no wrapper element of its own, so the render filter's
+ *   first-tag rule animated whatever the user's HTML or the shortcode
+ *   printed first (a <style>, one of several siblings…), while the
+ *   editor preview animated the whole block. Wrap them in a Group to
+ *   animate them. The render filter skips these too, so animations
+ *   saved on them before are dropped on the front end.
+ */
+export const NON_ANIMATABLE_BLOCKS = SHARED.nonAnimatableBlocks;
+
+/**
+ * Can this block type keep animation settings?
+ *
+ * @param {string} blockName Block type name.
+ * @return {boolean} True unless it's in NON_ANIMATABLE_BLOCKS.
+ */
+export function canAnimateBlock( blockName ) {
+	return ! NON_ANIMATABLE_BLOCKS.includes( blockName );
+}
+
+/**
  * Fit a pasted or applied animation to the block it lands on (GH #30).
  *
  * Copy / Paste and saved or theme.json animations can carry settings
@@ -2076,6 +2101,38 @@ export function resetAnimationAttributes( mode ) {
 	if ( mode === 'scroll-appear' ) {
 		out.animationEntryType = DEFAULT_ATTRIBUTES.animationType;
 	}
+	return out;
+}
+
+/**
+ * The payload for "Remove animation" and "Remove all": every animation
+ * attribute back to its registered default, with the mode cleared.
+ *
+ * Both used to clear a hand-picked list of the shared keys, so the
+ * Scroll Appear Entry / Exit slots, Stagger and the per-slot Custom
+ * values survived a Remove and came back the next time a mode was
+ * picked (2026-10-20 review, #56). Registered defaults rather than
+ * DEFAULT_ATTRIBUTES (the new-block values, e.g. delay 0) so WordPress
+ * leaves every key out of the saved block comment: a removed animation
+ * leaves nothing behind. Preview-state keys live in the editor preview
+ * store and aren't touched.
+ *
+ * @return {Object} Partial attribute payload ready for setAttributes().
+ */
+export function clearAnimationAttributes() {
+	const out = {};
+	for ( const key of Object.keys( DEFAULT_ATTRIBUTES ) ) {
+		if ( PREVIEW_UI_KEYS.includes( key ) ) {
+			continue;
+		}
+		out[ key ] = Object.prototype.hasOwnProperty.call(
+			SCHEMA_DEFAULTS,
+			key
+		)
+			? SCHEMA_DEFAULTS[ key ]
+			: null;
+	}
+	out.animationMode = '';
 	return out;
 }
 

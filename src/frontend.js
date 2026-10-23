@@ -2,14 +2,21 @@
  * Motion Blocks — Frontend Script
  *
  * Handles three animation modes:
- *   1. Page load — immediate trigger with optional repeat & pause-offscreen.
- *   2. Scroll in view — Intersection Observer with enter/exit/both support.
- *   3. Interactive scroll — CSS scroll-driven animations (view-timeline).
+ *   1. Page Load — triggered on DOMContentLoaded, with optional repeat
+ *      and pause-offscreen.
+ *   2. Scroll Appear — independent Entry and Exit slots, triggered from
+ *      cached layout bounds woken by IntersectionObserver, ResizeObserver
+ *      and a scroll listener (see "Scroll Appear trigger architecture" in
+ *      the dev notes before changing it).
+ *   3. Scroll Interactive — CSS scroll-driven animations (view timeline).
+ *
+ * Blocks are wired one at a time, including ones added after load.
  */
 
 import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
+import { imgTargetSelector, imgFrameSelector } from './img-target';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
@@ -565,18 +572,13 @@ import {
 	 */
 	function buildImgScopedCSS( uid, keyframeName, mode ) {
 		var scope = '[data-mb-uid="' + uid + '"]';
-		// Descendant selector — works in editor (extra wrappers) and
-		// frontend (direct figure child). `:first-of-type` filters
-		// to the first img in its sibling group, so figcaption stays
-		// unaffected.
-		var imgSelector = scope + ' img:first-of-type';
-		// Match both the wrapper itself (e.g. `<figure data-mb-uid>`)
-		// and any descendant of the wrapper that directly holds the
-		// img. The wrapper-self case is the common Image block path.
-		var parentSelector = [
-			scope + ':has(> img:first-of-type)',
-			scope + ' :has(> img:first-of-type)',
-		].join( ', ' );
+		// The Cover's background image: a direct child of the wrapper.
+		// A descendant selector also caught the first image of every
+		// sibling group in the Cover's inner blocks (a logo would
+		// animate with the background and be clipped by its figure).
+		var imgSelector = imgTargetSelector( scope );
+		// The wrapper is the clipping frame for its own image.
+		var parentSelector = imgFrameSelector( scope );
 
 		var animProps;
 		if ( mode === 'scroll-interactive' ) {
@@ -933,11 +935,8 @@ import {
 	 */
 	function buildScrollAppearImgScopedCSS( uid, entryName, exitName ) {
 		var scope = '[data-mb-uid="' + uid + '"]';
-		var imgSelector = scope + ' img:first-of-type';
-		var parentSelector = [
-			scope + ':has(> img:first-of-type)',
-			scope + ' :has(> img:first-of-type)',
-		].join( ', ' );
+		var imgSelector = imgTargetSelector( scope );
+		var parentSelector = imgFrameSelector( scope );
 		var rules = [];
 		rules.push( parentSelector + ' { overflow: clip; }' );
 		rules.push(
@@ -955,8 +954,8 @@ import {
 		];
 		if ( entryName ) {
 			rules.push(
-				scope +
-					'.mb-triggered img:first-of-type { ' +
+				imgTargetSelector( scope + '.mb-triggered' ) +
+					' { ' +
 					'animation-name: ' +
 					entryName +
 					'; ' +
@@ -966,8 +965,8 @@ import {
 		}
 		if ( exitName ) {
 			rules.push(
-				scope +
-					'.mb-exit-triggered img:first-of-type { ' +
+				imgTargetSelector( scope + '.mb-exit-triggered' ) +
+					' { ' +
 					'animation-name: ' +
 					exitName +
 					'; ' +
@@ -1225,6 +1224,18 @@ import {
 			while ( n && n.offsetParent !== null ) {
 				top += n.offsetTop;
 				n = n.offsetParent;
+			}
+			// The chain stops at <body>, and offsets are measured from
+			// <html>'s border box, so a margin on <html> is missing:
+			// WordPress adds `html { margin-top: 32px }` for the admin
+			// bar, which put every trigger 32px off for logged-in users
+			// (2026-10-20 review, #58). Add <html>'s own page offset.
+			// Skipped when the chain ended at a fixed-position ancestor
+			// (see the edge case above).
+			if ( n === document.body ) {
+				top +=
+					document.documentElement.getBoundingClientRect().top +
+					window.scrollY;
 			}
 			state.pageTop = top;
 			state.pageHeight = state.el.offsetHeight;

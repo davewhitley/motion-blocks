@@ -55,7 +55,7 @@ describe( 'Exit Delay (GH #33)', () => {
 			'.mb-stagger-parent.mb-exit-triggered >'
 		);
 		expect( selectors ).toContain(
-			'[data-mb-target="img"].mb-animated.mb-exit-triggered img:first-of-type'
+			'[data-mb-target="img"].mb-animated.mb-exit-triggered > img:first-of-type'
 		);
 	} );
 

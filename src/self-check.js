@@ -5,7 +5,7 @@
  * that would leave content stuck invisible or moving when it shouldn't.
  * Each check is written from a bug that shipped or was found in review.
  *
- * Only enqueued for logged-in users when the debug setting is on (see
+ * Only enqueued for users who can edit posts when the debug setting is on (see
  * motion_blocks_enqueue_block_assets), so visitors never load it. Reads
  * trigger state from `window.__motionBlocks`, which frontend.js exposes
  * in debug mode only.
@@ -21,6 +21,7 @@
  */
 
 import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
+import { imgTargetsOf } from './img-target';
 
 ( function () {
 	'use strict';
@@ -232,7 +233,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 			// opacity 1 too; its image carries it (GH #53).
 			var image =
 				el.getAttribute( 'data-mb-target' ) === 'img'
-					? el.querySelector( 'img:first-of-type' )
+					? imgTargetsOf( el )[ 0 ] || null
 					: null;
 			var target = el.classList.contains( 'mb-stagger-parent' )
 				? staggerChildren( el )[ 0 ] || el
@@ -634,7 +635,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	 * The elements a block's animation runs on, which the motion-off
 	 * and `.mb-settled` CSS pin at rest: the wrapper, a Stagger parent's
 	 * children (both forms, GH #66) and an img-target block's
-	 * `img:first-of-type` (it can't hold a fixed descendant, so the
+	 * `> img:first-of-type` (it can't hold a fixed descendant, so the
 	 * scan below finds nothing there, but its animations count).
 	 */
 	function restTargets( el ) {
@@ -646,7 +647,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 		}
 		if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
 			Array.prototype.forEach.call(
-				el.querySelectorAll( 'img:first-of-type' ),
+				imgTargetsOf( el ),
 				function ( img ) {
 					targets.push( img );
 				}

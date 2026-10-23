@@ -446,13 +446,15 @@ function motion_blocks_enqueue_frontend_assets() {
         // Opt-in developer self-check (GH #60): when the admin
         // setting is on, flag the runtime into debug mode (it then
         // exposes its trigger state) and load the checker after it.
-        // Limited to logged-in users so visitors never load it. Off
-        // by default. The option key predates the self-check; it
-        // used to toggle the trigger-line overlay it replaced.
+        // Limited to users who can edit posts, so visitors (including
+        // logged-in subscribers and shop customers) never load it
+        // (2026-10-20 review, #57). Off by default. The option key
+        // predates the self-check; it used to toggle the trigger-line
+        // overlay it replaced.
         $self_check_asset_file = plugin_dir_path( __FILE__ ) . 'build/self-check.asset.php';
         if (
             get_option( 'mb_debug_markers' )
-            && is_user_logged_in()
+            && current_user_can( 'edit_posts' )
             && file_exists( $self_check_asset_file )
         ) {
             $self_check_asset = include $self_check_asset_file;
@@ -742,9 +744,20 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         return $attrs;
     }
 
-    // Normalize the legacy trigger value: v1 'both' aliases to v2 'mirror'.
+    // Normalize the legacy trigger value: v1 'both' aliases to v2
+    // 'mirror', and an empty value means 'enter', exactly like the
+    // editor's normalizeScrollTrigger(). An empty string used to fall
+    // through to the "mirror" branch here, filling both slots on the
+    // front end while the editor showed Entry only (2026-10-20
+    // review, #57).
     $raw_trigger = $attrs['animationScrollTrigger'] ?? motion_blocks_attr_default( 'animationScrollTrigger' );
-    $trigger = ( $raw_trigger === 'both' ) ? 'mirror' : $raw_trigger;
+    if ( 'both' === $raw_trigger ) {
+        $trigger = 'mirror';
+    } elseif ( ! is_string( $raw_trigger ) || '' === $raw_trigger ) {
+        $trigger = 'enter';
+    } else {
+        $trigger = $raw_trigger;
+    }
 
     $raw_type = $attrs['animationType'] ?? motion_blocks_attr_default( 'animationType' );
     $base_type = preg_replace( '/-out$/', '', (string) $raw_type );
@@ -847,6 +860,17 @@ function motion_blocks_render_block( $block_content, $block ) {
     $block_name = $block['blockName'] ?? '';
 
     if ( ! $mode || empty( $block_content ) ) {
+        return $block_content;
+    }
+
+    // Blocks that can't keep animation settings (Classic, Custom HTML,
+    // Shortcode — `nonAnimatableBlocks`, the editor's
+    // NON_ANIMATABLE_BLOCKS). Custom HTML and Shortcode have no wrapper
+    // of their own, so the first-tag rule below would animate whatever
+    // their content prints first. The editor no longer offers the
+    // panel on them; this drops animations saved on them before.
+    $non_animatable = motion_blocks_shared_constants()['nonAnimatableBlocks'] ?? array();
+    if ( in_array( $block_name, $non_animatable, true ) ) {
         return $block_content;
     }
 
@@ -1043,7 +1067,11 @@ function motion_blocks_render_block( $block_content, $block ) {
                 // with a value". The default itself comes from the
                 // central source.
                 $custom_tf = $attrs[ "{$slot['prefix']}CustomTimingFunction" ] ?? '';
-                $slot_accel = trim( $custom_tf ) !== ''
+                // `is_string` first: a non-string value in a hand-edited
+                // or corrupted block comment would make trim() throw a
+                // fatal TypeError on PHP 8. The editor drops such a value
+                // to the default, so do the same here.
+                $slot_accel = is_string( $custom_tf ) && trim( $custom_tf ) !== ''
                     ? $custom_tf
                     : motion_blocks_attr_default( "{$slot['prefix']}CustomTimingFunction" );
             }
@@ -1127,7 +1155,8 @@ function motion_blocks_render_block( $block_content, $block ) {
             // a value"; the default cubic-bezier comes from the central
             // source.
             $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
-            $acceleration = trim( $custom_tf ) !== ''
+            // See the slot loop above: never trim() a non-string.
+            $acceleration = is_string( $custom_tf ) && trim( $custom_tf ) !== ''
                 ? $custom_tf
                 : motion_blocks_attr_default( 'animationCustomTimingFunction' );
         }
@@ -1370,30 +1399,54 @@ add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10,
  * block editor.
  */
 function motion_blocks_register_meta() {
+    foreach ( get_post_types( array( 'public' => true ), 'names' ) as $post_type ) {
+        motion_blocks_register_meta_for_post_type( $post_type );
+    }
+}
+// Late on `init`, so post types registered (or given editor support)
+// by themes and plugins at the default priority are included; the
+// `registered_post_type` hook below catches any registered later still
+// (2026-10-20 review, #57: a snapshot at init@10 missed them, so their
+// per-device toggles never saved).
+add_action( 'init', 'motion_blocks_register_meta', 99 );
+
+/**
+ * Register the per-device meta for one post type, if it's public and
+ * supports the block editor. Safe to call more than once.
+ *
+ * @param string $post_type Post type name.
+ */
+function motion_blocks_register_meta_for_post_type( $post_type ) {
+    $object = get_post_type_object( $post_type );
+    if ( ! $object || ! $object->public || ! post_type_supports( $post_type, 'editor' ) ) {
+        return;
+    }
     $keys = array(
         'mb_disabled_desktop',
         'mb_disabled_tablet',
         'mb_disabled_mobile',
     );
-    $post_types = get_post_types( array( 'public' => true ), 'names' );
-    foreach ( $post_types as $post_type ) {
-        if ( ! post_type_supports( $post_type, 'editor' ) ) {
+    foreach ( $keys as $key ) {
+        if ( registered_meta_key_exists( 'post', $key, $post_type ) ) {
             continue;
         }
-        foreach ( $keys as $key ) {
-            register_post_meta( $post_type, $key, array(
-                'show_in_rest'  => true,
-                'single'        => true,
-                'type'          => 'boolean',
-                'default'       => false,
-                'auth_callback' => function () {
-                    return current_user_can( 'edit_posts' );
-                },
-            ) );
-        }
+        register_post_meta( $post_type, $key, array(
+            'show_in_rest'  => true,
+            'single'        => true,
+            'type'          => 'boolean',
+            'default'       => false,
+            'auth_callback' => function () {
+                return current_user_can( 'edit_posts' );
+            },
+        ) );
     }
 }
-add_action( 'init', 'motion_blocks_register_meta' );
+
+// Every post type as it's registered, at any point in the request: its
+// `public` flag and `supports` are final by then. The late `init` pass
+// above still catches editor support added afterwards with
+// add_post_type_support(). Both are idempotent.
+add_action( 'registered_post_type', 'motion_blocks_register_meta_for_post_type' );
 
 /**
  * Emit body classes used by the frontend CSS.
@@ -1528,8 +1581,15 @@ function motion_blocks_sanitize_saved_animations( $value ) {
             break;
         }
         // JS uids are 8-char base36 (generateUid); bundled uids are
-        // slugs like `spin-default`.
-        if ( ! is_string( $uid ) || ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $uid ) ) {
+        // slugs like `spin-default`. PHP turns an all-digit string key
+        // ("12345678") into an int, which used to fail an is_string()
+        // check and silently drop the entry (2026-10-20 review, #57),
+        // so compare the key as a string.
+        if ( ! is_string( $uid ) && ! is_int( $uid ) ) {
+            continue;
+        }
+        $uid = (string) $uid;
+        if ( ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $uid ) ) {
             continue;
         }
         if ( ! is_array( $entry ) ) {
@@ -1849,7 +1909,7 @@ function motion_blocks_render_debug_markers_field() {
         <?php esc_html_e( 'Check animated blocks on the front end and report problems', 'motion-blocks' ); ?>
     </label>
     <p class="description">
-        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only logged-in users see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only users who can edit posts see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors.', 'motion-blocks' ); ?>
     </p>
     <?php
 }

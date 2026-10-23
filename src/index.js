@@ -23,6 +23,11 @@ import {
 import AnimationPanel from './components/AnimationPanel';
 import { setStaggerIndices } from './stagger-index';
 import {
+	imgTargetSelector,
+	imgFrameSelector,
+	imgTargetsOf,
+} from './img-target';
+import {
 	DEFAULT_ATTRIBUTES,
 	SCHEMA_DEFAULTS,
 	ENTER_KEYFRAME_MAP,
@@ -48,6 +53,7 @@ import {
 	aliasSlotForPreview,
 	resolveTimingFunction,
 	resetPreviewUiAttributes,
+	canAnimateBlock,
 } from './components/constants';
 
 import '../css/editor.scss';
@@ -62,32 +68,6 @@ import {
 // Page-level settings panel — registers itself via registerPlugin
 // on import. Lives in the Document/Page tab of the inspector.
 import './components/PageSettingsPanel';
-
-/**
- * One-time runtime style injection.
- *
- * `__experimentalConfirmDialog` doesn't forward `className`, `style`,
- * or `modalProps` to its inner Modal in this WP version, so the
- * normal "set max-width via prop" path fails. Targeting the always-
- * present `.components-confirm-dialog` class via CSS works, but
- * stylesheet enqueue versioning + browser/page caches in admin make
- * dev iteration unreliable.
- *
- * Inject the rule directly into <head> as a JS-built <style>. The JS
- * bundle's asset-hash version already busts cache reliably, so this
- * styles ride along. Idempotent via the element id check.
- */
-if ( typeof document !== 'undefined' ) {
-	const STYLE_ID = 'mb-runtime-styles';
-	if ( ! document.getElementById( STYLE_ID ) ) {
-		const styleEl = document.createElement( 'style' );
-		styleEl.id = STYLE_ID;
-		styleEl.textContent = `
-			.components-modal__frame.components-confirm-dialog { max-width: 512px; }
-		`;
-		document.head.appendChild( styleEl );
-	}
-}
 
 /**
  * Whether the live Scroll Interactive preview (the real `view()` scroll
@@ -230,14 +210,13 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 		return null;
 	}
 	const scope = `[data-mb-uid="${ uid }"]`;
-	// Use descendant selectors (no `>`) so the same rule works in
-	// the editor (where every block is wrapped in extra
-	// `block-editor-block-list__block` divs) and on the frontend
-	// (where the figure is a direct child of the wrapper).
-	// `:first-of-type` only filters among siblings, so img is still
-	// scoped to "the first img in its sibling group" — figcaption
-	// stays unaffected since it's a different element type.
-	const imgSelector = `${ scope } img:first-of-type`;
+	// Direct child only: the Cover's background image is a direct
+	// child of the block wrapper in the editor and on the front end
+	// (core's own Cover duotone selector is `> .wp-block-cover__image-
+	// background`). A descendant selector also matched the first image
+	// in every sibling group of the Cover's inner blocks — a logo
+	// Image block animated with the background and got clipped.
+	const imgSelector = imgTargetSelector( scope );
 	// `:has()` lets us style whichever element happens to be the
 	// img's immediate parent without injecting a wrapper. Match
 	// both:
@@ -246,10 +225,7 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 	//      saved markup AND the editor's figure element).
 	//   2. A descendant of the wrapper that holds the img (e.g.
 	//      a `<figure>` inside a Featured Image's `<a>` wrapper).
-	const parentSelector = [
-		`${ scope }:has(> img:first-of-type)`,
-		`${ scope } :has(> img:first-of-type)`,
-	].join( ', ' );
+	const parentSelector = imgFrameSelector( scope );
 
 	// Scroll-interactive mode wires the timeline directly on the
 	// img so the parent stays a static clipping frame.
@@ -700,10 +676,17 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// `inSelection` (single- or multi-selected) drives the preview
 		// cleanup below. `isSelected` can't: it is false on every block
 		// during a multi-selection, so a deselect never showed up there.
+		//
+		// Blocks that can't keep animation settings (Classic, Custom
+		// HTML, Shortcode — NON_ANIMATABLE_BLOCKS) are left out of a
+		// multi-selection: the panel renders on the first block that
+		// can, its count leaves them out, and writes skip them
+		// (`animatableIds()` below).
 		const {
 			multiSelectedClientIds,
 			isMultiSelecting,
 			shouldRenderPanel,
+			animatableCount,
 			inSelection,
 		} = useSelect(
 			( select ) => {
@@ -713,13 +696,25 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				const isSingle = sel.getSelectedBlockClientId() === clientId;
 				// Render only one copy of the panel: for single
 				// selection use the selected block; for multi,
-				// render on the first selected block.
+				// render on the first selected block that can be
+				// animated.
+				const panelId = isMulti
+					? multi.find( ( id ) =>
+							canAnimateBlock( sel.getBlockName( id ) )
+					  )
+					: null;
+				const isPanelBlock = isMulti ? panelId === clientId : isSingle;
 				return {
 					multiSelectedClientIds: multi,
 					isMultiSelecting: isMulti,
-					shouldRenderPanel: isMulti
-						? multi[ 0 ] === clientId
-						: isSingle,
+					shouldRenderPanel: isPanelBlock,
+					// Only the panel block needs the count.
+					animatableCount:
+						isMulti && isPanelBlock
+							? multi.filter( ( id ) =>
+									canAnimateBlock( sel.getBlockName( id ) )
+							  ).length
+							: 0,
 					inSelection:
 						isSingle || sel.isBlockMultiSelected( clientId ),
 				};
@@ -740,6 +735,14 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// Read at write time only — `registry.select` inside a callback
 		// adds no store subscription, so it doesn't undo GH #27.
 		const registry = useRegistry();
+		// The multi-selected blocks that can keep animation settings.
+		// Read at write time (no subscription, GH #27).
+		const animatableIds = useCallback( () => {
+			const { getBlockName } = registry.select( blockEditorStore );
+			return multiSelectedClientIds.filter( ( id ) =>
+				canAnimateBlock( getBlockName( id ) )
+			);
+		}, [ registry, multiSelectedClientIds ] );
 
 		// When multi-selecting, route attribute updates through the
 		// store dispatch so they apply to every selected block at
@@ -755,9 +758,10 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				const { getBlockAttributes } =
 					registry.select( blockEditorStore );
 				if ( isMultiSelecting ) {
+					const ids = animatableIds();
 					let differs = false;
 					const byId = {};
-					for ( const id of multiSelectedClientIds ) {
+					for ( const id of ids ) {
 						byId[ id ] = materializeScrollAppearPatch(
 							getBlockAttributes( id ),
 							newAttrs
@@ -769,16 +773,9 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 					if ( differs ) {
 						// Per-block payloads in one action (one undo
 						// step): `uniqueByBlock`.
-						updateBlockAttributes(
-							multiSelectedClientIds,
-							byId,
-							true
-						);
+						updateBlockAttributes( ids, byId, true );
 					} else {
-						updateBlockAttributes(
-							multiSelectedClientIds,
-							newAttrs
-						);
+						updateBlockAttributes( ids, newAttrs );
 					}
 				} else {
 					setAttributes(
@@ -793,7 +790,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				registry,
 				clientId,
 				isMultiSelecting,
-				multiSelectedClientIds,
+				animatableIds,
 				setAttributes,
 				updateBlockAttributes,
 			]
@@ -818,7 +815,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 					splitPreviewPatch( newAttrs );
 				if ( previewPatch ) {
 					setPreview(
-						isMultiSelecting ? multiSelectedClientIds : [ clientId ],
+						isMultiSelecting ? animatableIds() : [ clientId ],
 						previewPatch
 					);
 				}
@@ -829,7 +826,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			[
 				clientId,
 				isMultiSelecting,
-				multiSelectedClientIds,
+				animatableIds,
 				setPreview,
 				fanSetAttributes,
 			]
@@ -869,18 +866,14 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		return (
 			<>
 				<BlockEdit { ...props } />
-				{ shouldRenderPanel && (
+				{ shouldRenderPanel && canAnimateBlock( name ) && (
 					<InspectorControls>
 						<AnimationPanel
 							attributes={ panelAttributes }
 							setAttributes={ routedSetAttributes }
 							blockName={ name }
 							clientId={ clientId }
-							multiSelectCount={
-								isMultiSelecting
-									? multiSelectedClientIds.length
-									: 0
-							}
+							multiSelectCount={ animatableCount }
 						/>
 					</InspectorControls>
 				) }
@@ -1101,7 +1094,7 @@ const withAnimationPreview = createHigherOrderComponent(
 				const isImgTarget =
 					blockEl.getAttribute( 'data-mb-target' ) === 'img';
 				const innerImg = isImgTarget
-					? blockEl.querySelector( 'img:first-of-type' )
+					? imgTargetsOf( blockEl )[ 0 ] || null
 					: null;
 				const restartTargets = isStaggerParent
 					? [
@@ -1268,9 +1261,9 @@ const withAnimationPreview = createHigherOrderComponent(
 						} )
 						.join( '; ' );
 					const previewCSS = [
-						`${ scope }:has(> img:first-of-type), ${ scope } :has(> img:first-of-type) { overflow: clip; }`,
-						`@supports not (overflow: clip) { ${ scope }:has(> img:first-of-type), ${ scope } :has(> img:first-of-type) { overflow: hidden; } }`,
-						`${ scope } img:first-of-type { ${ decls }; animation-name: none; }`,
+						`${ imgFrameSelector( scope ) } { overflow: clip; }`,
+						`@supports not (overflow: clip) { ${ imgFrameSelector( scope ) } { overflow: hidden; } }`,
+						`${ imgTargetSelector( scope ) } { ${ decls }; animation-name: none; }`,
 					].join( '\n' );
 					return (
 						<>

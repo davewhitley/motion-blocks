@@ -1030,7 +1030,11 @@ function motion_blocks_render_block( $block_content, $block ) {
                 // with a value". The default itself comes from the
                 // central source.
                 $custom_tf = $attrs[ "{$slot['prefix']}CustomTimingFunction" ] ?? '';
-                $slot_accel = trim( $custom_tf ) !== ''
+                // `is_string` first: a non-string value in a hand-edited
+                // or corrupted block comment would make trim() throw a
+                // fatal TypeError on PHP 8. The editor drops such a value
+                // to the default, so do the same here.
+                $slot_accel = is_string( $custom_tf ) && trim( $custom_tf ) !== ''
                     ? $custom_tf
                     : motion_blocks_attr_default( "{$slot['prefix']}CustomTimingFunction" );
             }
@@ -1114,7 +1118,8 @@ function motion_blocks_render_block( $block_content, $block ) {
             // a value"; the default cubic-bezier comes from the central
             // source.
             $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
-            $acceleration = trim( $custom_tf ) !== ''
+            // See the slot loop above: never trim() a non-string.
+            $acceleration = is_string( $custom_tf ) && trim( $custom_tf ) !== ''
                 ? $custom_tf
                 : motion_blocks_attr_default( 'animationCustomTimingFunction' );
         }

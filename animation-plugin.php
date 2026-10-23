@@ -832,6 +832,30 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
 }
 
 /**
+ * Remove baked-in animation markup (every `mb-*` class and `data-mb-*`
+ * attribute) from the tag the processor is on, so the render filter can
+ * emit it fresh. Used for v0.1.0 content, which saved this markup into
+ * post_content.
+ *
+ * @param WP_HTML_Tag_Processor $processor Positioned on the block's wrapper.
+ */
+function motion_blocks_strip_baked_markup( $processor ) {
+    $names = $processor->get_attribute_names_with_prefix( 'data-mb-' );
+    foreach ( is_array( $names ) ? $names : array() as $name ) {
+        $processor->remove_attribute( $name );
+    }
+    $classes = array();
+    foreach ( $processor->class_list() as $class ) {
+        if ( 0 === strpos( $class, 'mb-' ) ) {
+            $classes[] = $class;
+        }
+    }
+    foreach ( $classes as $class ) {
+        $processor->remove_class( $class );
+    }
+}
+
+/**
  * Render-time filter that injects mb-* classes and data-mb-* attrs
  * onto the block wrapper based on the block's stored animation
  * attributes. Runs on every block; bails early when no animation is
@@ -909,6 +933,17 @@ function motion_blocks_render_block( $block_content, $block ) {
     // for genuinely-complete legacy blocks too. The attrs are rebuilt
     // from the block-comment attributes, so any block whose comment still
     // holds its animation config self-heals at render with no re-save.
+    //
+    // Exception: v0.1.0 Scroll Appear markup. v0.1.0 baked the pre-slot
+    // shape into post_content (`data-mb-scroll-trigger`, which nothing
+    // since has emitted, plus `data-mb-type` and no slot attributes), so
+    // the front end found no Entry / Exit slot and the block stopped
+    // animating (#33). Its block comment still holds the config, so
+    // strip the baked animation markup and let the code below re-emit
+    // it from the (migrated) attributes, like any block saved today.
+    if ( null !== $processor->get_attribute( 'data-mb-scroll-trigger' ) ) {
+        motion_blocks_strip_baked_markup( $processor );
+    }
     if ( $processor->get_attribute( 'data-mb-mode' ) !== null ) {
         return $block_content;
     }

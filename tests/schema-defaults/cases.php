@@ -302,6 +302,38 @@ return array(
 			'data-mb-range-end'   => 'exit 100%',
 		),
 	),
+	// A non-string custom timing function (hand-edited or corrupted
+	// block comment) used to be a fatal TypeError in trim() on PHP 8
+	// (2026-10-20 review). The editor drops it to the default curve.
+	array(
+		'label'    => 'Page Load, Custom timing function that is not a string',
+		'panel'    => 'Page Load: Fade In · Acceleration: Custom · default curve',
+		'behavior' => 'Fades in with the default custom curve; the page renders.',
+		'attrs'    => array(
+			'animationMode'                 => 'page-load',
+			'animationAcceleration'         => 'custom',
+			'animationCustomTimingFunction' => array( 'not', 'a', 'string' ),
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'fade',
+			'data-mb-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+		),
+	),
+	array(
+		'label'    => 'Scroll Appear, Entry custom timing function that is not a string',
+		'panel'    => 'Entry: Fade In · Acceleration: Custom · default curve',
+		'behavior' => 'Fades in with the default custom curve; the page renders.',
+		'attrs'    => array(
+			'animationMode'                      => 'scroll-appear',
+			'animationEntryType'                 => 'fade',
+			'animationEntryAcceleration'         => 'custom',
+			'animationEntryCustomTimingFunction' => 42,
+		),
+		'expect'   => array(
+			'data-mb-entry-type'         => 'fade',
+			'data-mb-entry-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+		),
+	),
 	// Server-rendered (dynamic) blocks. In the editor these preview
 	// through the block-renderer endpoint, which used to reject the
 	// animation attributes ("Error loading block", GH #24).

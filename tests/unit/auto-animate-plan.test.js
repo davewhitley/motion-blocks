@@ -150,77 +150,123 @@ describe( 'attrsForCategory (Scroll Appear categories)', () => {
  * updateBlockAttributes action (one undo step, GH #33 / #56), but each
  * block's payload must stay exactly what attrsForCategory returns.
  */
-describe("buildAutoAnimateUpdates", () => {
-  const block = (name, attributes = {}) => ({ name, attributes });
-  const APPLY = [
-    { clientId: "hero", category: "HERO", block: block("core/cover") },
-    {
-      clientId: "img-left",
-      category: "MEDIA",
-      block: block("core/image", { align: "left" }),
-    },
-    {
-      clientId: "img-right",
-      category: "MEDIA",
-      block: block("core/image", { align: "right" }),
-    },
-    { clientId: "img-unset", category: "MEDIA", block: block("core/image") },
-    {
-      clientId: "cols",
-      category: "STAGGER_ROW",
-      block: block("core/columns"),
-    },
-    { clientId: "group", category: "SECTION", block: block("core/group") },
-    { clientId: "cta", category: "CTA", block: block("core/buttons") },
-  ];
+describe( 'buildAutoAnimateUpdates', () => {
+	const block = ( name, attributes = {} ) => ( { name, attributes } );
+	const APPLY = [
+		{ clientId: 'hero', category: 'HERO', block: block( 'core/cover' ) },
+		{
+			clientId: 'img-left',
+			category: 'MEDIA',
+			block: block( 'core/image', { align: 'left' } ),
+		},
+		{
+			clientId: 'img-right',
+			category: 'MEDIA',
+			block: block( 'core/image', { align: 'right' } ),
+		},
+		{
+			clientId: 'img-unset',
+			category: 'MEDIA',
+			block: block( 'core/image' ),
+		},
+		{
+			clientId: 'cols',
+			category: 'STAGGER_ROW',
+			block: block( 'core/columns' ),
+		},
+		{
+			clientId: 'group',
+			category: 'SECTION',
+			block: block( 'core/group' ),
+		},
+		{ clientId: 'cta', category: 'CTA', block: block( 'core/buttons' ) },
+	];
 
-  for (const preset of PRESETS) {
-    it(`${preset}: same payloads as attrsForCategory, in plan order`, () => {
-      const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
-        APPLY,
-        preset,
-      );
-      expect(clientIds).toEqual(APPLY.map((i) => i.clientId));
-      expect(Object.keys(attributesByClientId)).toHaveLength(APPLY.length);
-      for (const item of APPLY) {
-        expect(attributesByClientId[item.clientId]).toEqual(
-          attrsForCategory(item.category, preset, item.block),
-        );
-      }
-    });
-  }
+	for ( const preset of PRESETS ) {
+		it( `${ preset }: same payloads as attrsForCategory, in plan order`, () => {
+			const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
+				APPLY,
+				preset
+			);
+			expect( clientIds ).toEqual( APPLY.map( ( i ) => i.clientId ) );
+			expect( Object.keys( attributesByClientId ) ).toHaveLength(
+				APPLY.length
+			);
+			for ( const item of APPLY ) {
+				expect( attributesByClientId[ item.clientId ] ).toEqual(
+					attrsForCategory( item.category, preset, item.block )
+				);
+			}
+		} );
+	}
 
-  it("leaves out items with no payload (unknown category)", () => {
-    const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
-      [
-        APPLY[0],
-        { clientId: "odd", category: "NOPE", block: block("x/y") },
-        APPLY[5],
-      ],
-      "smooth",
-    );
-    expect(clientIds).toEqual(["hero", "group"]);
-    expect(attributesByClientId).not.toHaveProperty("odd");
-  });
+	it( 'leaves out items with no payload (unknown category)', () => {
+		const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
+			[
+				APPLY[ 0 ],
+				{ clientId: 'odd', category: 'NOPE', block: block( 'x/y' ) },
+				APPLY[ 5 ],
+			],
+			'smooth'
+		);
+		expect( clientIds ).toEqual( [ 'hero', 'group' ] );
+		expect( attributesByClientId ).not.toHaveProperty( 'odd' );
+	} );
 
-  it("empty apply gives empty ids and map", () => {
-    expect(buildAutoAnimateUpdates([], "smooth")).toEqual({
-      clientIds: [],
-      attributesByClientId: {},
-    });
-  });
+	it( 'empty apply gives empty ids and map', () => {
+		expect( buildAutoAnimateUpdates( [], 'smooth' ) ).toEqual( {
+			clientIds: [],
+			attributesByClientId: {},
+		} );
+	} );
 
-  it("keeps direction-from-align for MEDIA", () => {
-    const { attributesByClientId } = buildAutoAnimateUpdates(APPLY, "smooth");
-    expect(attributesByClientId["img-left"].animationEntryDirection).toBe(
-      "ltr",
-    );
-    expect(attributesByClientId["img-right"].animationEntryDirection).toBe(
-      "rtl",
-    );
-    expect(attributesByClientId["img-unset"].animationEntryDirection).toBe(
-      "btt",
-    );
-    expect(attributesByClientId.cols.animationStaggerEnabled).toBe(true);
-  });
-});
+	it( 'keeps direction-from-align for MEDIA', () => {
+		const { attributesByClientId } = buildAutoAnimateUpdates(
+			APPLY,
+			'smooth'
+		);
+		expect(
+			attributesByClientId[ 'img-left' ].animationEntryDirection
+		).toBe( 'ltr' );
+		expect(
+			attributesByClientId[ 'img-right' ].animationEntryDirection
+		).toBe( 'rtl' );
+		expect(
+			attributesByClientId[ 'img-unset' ].animationEntryDirection
+		).toBe( 'btt' );
+		expect( attributesByClientId.cols.animationStaggerEnabled ).toBe(
+			true
+		);
+	} );
+} );
+
+/*
+ * The Classic block can't keep animation settings (2026-10-20 review,
+ * #56): no panel, and Auto-animate skips it.
+ */
+describe( 'Classic block', () => {
+	const { canAnimateBlock } = require( '../../src/components/constants' );
+	const {
+		classifyBlock,
+	} = require( '../../src/components/AutoAnimate/plan' );
+
+	it( 'is not animatable', () => {
+		expect( canAnimateBlock( 'core/freeform' ) ).toBe( false );
+		expect( canAnimateBlock( 'core/paragraph' ) ).toBe( true );
+		expect( canAnimateBlock( 'acme/custom' ) ).toBe( true );
+	} );
+
+	it( 'is skipped by Auto-animate', () => {
+		expect( classifyBlock( { name: 'core/freeform' } ) ).toBe( 'BODY' );
+	} );
+
+	it( 'gets no Motion panel', () => {
+		const src = require( 'fs' ).readFileSync(
+			require( 'path' ).join( __dirname, '..', '..', 'src', 'index.js' ),
+			'utf8'
+		);
+		expect( src ).toMatch(
+			/\{ shouldRenderPanel && canAnimateBlock\( name \) && \(/
+		);
+	} );
+} );

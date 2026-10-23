@@ -120,6 +120,24 @@ export const IMAGE_EFFECT_BLOCKS = [ 'core/cover' ];
 export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
 
 /**
+ * Blocks that can't keep animation settings. The Classic block
+ * (`core/freeform`) is raw HTML with no block comment, so nothing set
+ * on it is ever saved; offering the Motion panel there only produced
+ * settings that vanished on reload (2026-10-20 review, #56).
+ */
+export const NON_ANIMATABLE_BLOCKS = [ 'core/freeform' ];
+
+/**
+ * Can this block type keep animation settings?
+ *
+ * @param {string} blockName Block type name.
+ * @return {boolean} True unless it's in NON_ANIMATABLE_BLOCKS.
+ */
+export function canAnimateBlock( blockName ) {
+	return ! NON_ANIMATABLE_BLOCKS.includes( blockName );
+}
+
+/**
  * Fit a pasted or applied animation to the block it lands on (GH #30).
  *
  * Copy / Paste and saved or theme.json animations can carry settings

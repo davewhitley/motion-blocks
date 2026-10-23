@@ -48,6 +48,7 @@ import {
 	aliasSlotForPreview,
 	resolveTimingFunction,
 	resetPreviewUiAttributes,
+	canAnimateBlock,
 } from './components/constants';
 
 import '../css/editor.scss';
@@ -865,7 +866,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		return (
 			<>
 				<BlockEdit { ...props } />
-				{ shouldRenderPanel && (
+				{ shouldRenderPanel && canAnimateBlock( name ) && (
 					<InspectorControls>
 						<AnimationPanel
 							attributes={ panelAttributes }

@@ -237,15 +237,16 @@ describe( 'effectTraps', () => {
 		].forEach( ( type ) => expect( T( type ) ).toBe( true ) );
 	} );
 
-	it( 'the image target keeps the wrapper free, except for Flip', () => {
+	it( 'the image target keeps the wrapper free, Flip included', () => {
 		expect( T( 'slide', {}, true ) ).toBe( false );
 		expect( T( 'custom', { animationToTranslateX: '20px' }, true ) ).toBe(
 			false
 		);
 		expect( T( 'image-zoom' ) ).toBe( false );
 		expect( T( 'image-move' ) ).toBe( false );
-		// Flip's preserve-3d is a class rule on the wrapper.
-		expect( T( 'flip', {}, true ) ).toBe( true );
+		// Flip's preserve-3d is set on the image, not the wrapper, and
+		// only while triggered (animations.css, 2026-10-20 review #53).
+		expect( T( 'flip', {}, true ) ).toBe( false );
 	} );
 
 	it( 'Custom traps only beyond opacity, on either side', () => {

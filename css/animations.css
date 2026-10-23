@@ -336,15 +336,25 @@
     animation-name: mbCurtainClose;
 }
 
-/* Flip In — direction via --mb-flip-transform */
-.mb-enter-flip {
-    backface-visibility: hidden;
-    transform-style: preserve-3d;
-}
+/* Flip In — direction via --mb-flip-transform.
 
+   The 3D context (backface-visibility + preserve-3d) is only set while
+   the block is triggered. It used to be on the bare class, from first
+   paint: preserve-3d makes the block a containing block for
+   `position: fixed` descendants, so a Navigation overlay inside a
+   Flip block was trapped even before the block was ever scrolled to
+   (2026-10-20 review, #53). Stagger parents and "Animate image only"
+   Covers don't animate themselves (their children / image carry the
+   3D context in their own rules below), so they never get it. */
 .mb-enter-flip.mb-triggered,
 .mb-mode-scroll-interactive.mb-enter-flip {
     animation-name: mbFlipIn;
+}
+
+.mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]),
+.mb-mode-scroll-interactive.mb-enter-flip:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
 }
 
 @keyframes mbFlipIn {
@@ -560,17 +570,18 @@
 
 /* Flip Out — direction via --mb-flip-transform. Inverse of mbFlipIn:
    starts flat, flips away to the 90deg state for the chosen axis.
-   The base rule mirrors `.mb-enter-flip` — flip is the only effect
+   The 3D rule mirrors Flip In's — flip is the only effect
    that needs a 3D rendering context (backface-visibility +
    transform-style) for the rotation to read as a flip rather than a
-   squash. */
-.mb-exit-flip {
-    backface-visibility: hidden;
-    transform-style: preserve-3d;
-}
-
+   squash. Only while the Exit is triggered, for the same reason as
+   Flip In above. */
 .mb-exit-flip.mb-exit-triggered {
     animation-name: mbFlipOut;
+}
+
+.mb-exit-flip.mb-exit-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
 }
 
 @keyframes mbFlipOut {

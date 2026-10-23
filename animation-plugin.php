@@ -1546,8 +1546,15 @@ function motion_blocks_sanitize_saved_animations( $value ) {
             break;
         }
         // JS uids are 8-char base36 (generateUid); bundled uids are
-        // slugs like `spin-default`.
-        if ( ! is_string( $uid ) || ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $uid ) ) {
+        // slugs like `spin-default`. PHP turns an all-digit string key
+        // ("12345678") into an int, which used to fail an is_string()
+        // check and silently drop the entry (2026-10-20 review, #57),
+        // so compare the key as a string.
+        if ( ! is_string( $uid ) && ! is_int( $uid ) ) {
+            continue;
+        }
+        $uid = (string) $uid;
+        if ( ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $uid ) ) {
             continue;
         }
         if ( ! is_array( $entry ) ) {

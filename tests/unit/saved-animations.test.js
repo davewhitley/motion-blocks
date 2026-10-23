@@ -9,6 +9,7 @@ import {
 	pickAnimationAttributes,
 	saveLibraryChange,
 	stripUiState,
+	generateUid,
 } from '../../src/components/savedAnimations';
 import {
 	DEFAULT_ATTRIBUTES,
@@ -287,5 +288,37 @@ describe( 'AnimationOptionsMenu saves only the library (GH #28)', () => {
 		// An edit that failed to save would ride along with the next
 		// Site Editor save.
 		expect( src ).not.toMatch( /setSavedAnimations/ );
+	} );
+} );
+
+/*
+ * generateUid never returns an all-digit uid (2026-10-20 review, #57):
+ * PHP turns a numeric string key into an int.
+ */
+describe( 'generateUid', () => {
+	afterEach( () => jest.restoreAllMocks() );
+
+	it( 'returns 8 base36 characters', () => {
+		for ( let i = 0; i < 200; i++ ) {
+			expect( generateUid() ).toMatch( /^[0-9a-z]{8}$/ );
+		}
+	} );
+
+	it( 'is never all digits, even when the random draw is', () => {
+		// 0.123456789 in base36 starts "0.4fzyo82m..."; find a value whose
+		// first 8 base36 digits are all 0-9.
+		let value = 0;
+		for ( let n = 1; n < 1e6; n++ ) {
+			const v = n / 1e6;
+			if ( /^\d{8}$/.test( v.toString( 36 ).slice( 2, 10 ) ) ) {
+				value = v;
+				break;
+			}
+		}
+		expect( value ).toBeGreaterThan( 0 );
+		jest.spyOn( Math, 'random' ).mockReturnValue( value );
+		const uid = generateUid();
+		expect( uid ).toMatch( /^[0-9a-z]{8}$/ );
+		expect( uid ).not.toMatch( /^\d+$/ );
 	} );
 } );

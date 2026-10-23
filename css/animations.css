@@ -168,7 +168,8 @@
      (and frontend.js scoped CSS), so every image hidden here has an
      animation that reveals it. Narrow both together, never one. */
 @media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > img:first-of-type {
+    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > img:first-of-type,
+    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > picture > img:first-of-type {
         opacity: 0;
     }
 }
@@ -667,7 +668,8 @@
    Scroll Appear. The CSS variables are set on the wrapper inline
    and inherit down. Animation-name comes from the per-type rules
    below. */
-[data-mb-target="img"].mb-animated.mb-triggered > img:first-of-type {
+[data-mb-target="img"].mb-animated.mb-triggered > img:first-of-type,
+[data-mb-target="img"].mb-animated.mb-triggered > picture > img:first-of-type {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-timing-function: var(--mb-timing);
@@ -681,7 +683,8 @@
    Wrapper holds the range vars; img reads them via inheritance.
    Gated like the wrapper base above (GH #42). */
 @supports (animation-timeline: view()) {
-    [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type {
+    [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive > picture > img:first-of-type {
         animation-timeline: view();
         animation-range-start: var(--mb-range-start, entry 0%);
         animation-range-end: var(--mb-range-end, exit 100%);
@@ -694,59 +697,87 @@
 /* Per-type animation-name on the img descendant. Mirrors the
    wrapper-target bindings higher up in this file. */
 [data-mb-target="img"].mb-enter-fade.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > img:first-of-type {
+[data-mb-target="img"].mb-enter-fade.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > picture > img:first-of-type {
     animation-name: mbFadeIn;
 }
 [data-mb-target="img"].mb-enter-fade-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > img:first-of-type {
+[data-mb-target="img"].mb-enter-fade-out.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > picture > img:first-of-type {
     animation-name: mbFadeOut;
 }
 [data-mb-target="img"].mb-enter-slide.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > img:first-of-type {
+[data-mb-target="img"].mb-enter-slide.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > picture > img:first-of-type {
     animation-name: mbSlideIn;
 }
 [data-mb-target="img"].mb-enter-slide-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > img:first-of-type {
+[data-mb-target="img"].mb-enter-slide-out.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > picture > img:first-of-type {
     animation-name: mbSlideOut;
 }
 [data-mb-target="img"].mb-enter-scale.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > img:first-of-type {
+[data-mb-target="img"].mb-enter-scale.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > picture > img:first-of-type {
     animation-name: mbScaleIn;
 }
 [data-mb-target="img"].mb-enter-scale-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > img:first-of-type {
+[data-mb-target="img"].mb-enter-scale-out.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > picture > img:first-of-type {
     animation-name: mbScaleOut;
 }
 [data-mb-target="img"].mb-enter-blur.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > img:first-of-type {
+[data-mb-target="img"].mb-enter-blur.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > picture > img:first-of-type {
     animation-name: mbBlurIn;
 }
 [data-mb-target="img"].mb-enter-blur-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > img:first-of-type {
+[data-mb-target="img"].mb-enter-blur-out.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > picture > img:first-of-type {
     animation-name: mbBlurOut;
 }
 [data-mb-target="img"].mb-enter-rotate.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > img:first-of-type {
+[data-mb-target="img"].mb-enter-rotate.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > picture > img:first-of-type {
     animation-name: mbRotateIn;
 }
 [data-mb-target="img"].mb-enter-rotate-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > img:first-of-type {
+[data-mb-target="img"].mb-enter-rotate-out.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > picture > img:first-of-type {
     animation-name: mbRotateOut;
 }
 [data-mb-target="img"].mb-enter-wipe.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > img:first-of-type {
+[data-mb-target="img"].mb-enter-wipe.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > picture > img:first-of-type {
     animation-name: mbWipeIn;
 }
 [data-mb-target="img"].mb-enter-curtain.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > img:first-of-type {
+[data-mb-target="img"].mb-enter-curtain.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > picture > img:first-of-type {
     animation-name: mbCurtainReveal;
 }
 [data-mb-target="img"].mb-enter-curtain-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > img:first-of-type {
+[data-mb-target="img"].mb-enter-curtain-out.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > picture > img:first-of-type {
     animation-name: mbCurtainClose;
 }
 [data-mb-target="img"].mb-enter-flip.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > img:first-of-type {
+[data-mb-target="img"].mb-enter-flip.mb-triggered > picture > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > img:first-of-type,
+[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > picture > img:first-of-type {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
@@ -773,7 +804,8 @@
    per-type rules below supply the animation-name. `--mb-delay` is the
    Exit slot's Delay going forward and 0s on the reverse round trip
    (frontend.js handleSlotEnterBack). */
-[data-mb-target="img"].mb-animated.mb-exit-triggered > img:first-of-type {
+[data-mb-target="img"].mb-animated.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-animated.mb-exit-triggered > picture > img:first-of-type {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-timing-function: var(--mb-timing);
@@ -783,14 +815,22 @@
 }
 
 /* Per-type exit animation-name on the img descendant. */
-[data-mb-target="img"].mb-exit-fade.mb-exit-triggered > img:first-of-type    { animation-name: mbFadeOut; }
-[data-mb-target="img"].mb-exit-slide.mb-exit-triggered > img:first-of-type   { animation-name: mbSlideOut; }
-[data-mb-target="img"].mb-exit-scale.mb-exit-triggered > img:first-of-type   { animation-name: mbScaleOut; }
-[data-mb-target="img"].mb-exit-blur.mb-exit-triggered > img:first-of-type    { animation-name: mbBlurOut; }
-[data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > img:first-of-type  { animation-name: mbRotateOut; }
-[data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > img:first-of-type    { animation-name: mbWipeOut; }
-[data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > img:first-of-type { animation-name: mbCurtainClose; }
-[data-mb-target="img"].mb-exit-flip.mb-exit-triggered > img:first-of-type {
+[data-mb-target="img"].mb-exit-fade.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-fade.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbFadeOut; }
+[data-mb-target="img"].mb-exit-slide.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-slide.mb-exit-triggered > picture > img:first-of-type   { animation-name: mbSlideOut; }
+[data-mb-target="img"].mb-exit-scale.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-scale.mb-exit-triggered > picture > img:first-of-type   { animation-name: mbScaleOut; }
+[data-mb-target="img"].mb-exit-blur.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-blur.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbBlurOut; }
+[data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > picture > img:first-of-type  { animation-name: mbRotateOut; }
+[data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbWipeOut; }
+[data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > picture > img:first-of-type { animation-name: mbCurtainClose; }
+[data-mb-target="img"].mb-exit-flip.mb-exit-triggered > img:first-of-type,
+[data-mb-target="img"].mb-exit-flip.mb-exit-triggered > picture > img:first-of-type {
     animation-name: mbFlipOut;
     backface-visibility: hidden;
     transform-style: preserve-3d;
@@ -815,7 +855,8 @@
  * -------------------------------------------------------------- */
 @supports not (animation-timeline: view()) {
     .mb-mode-scroll-interactive,
-    [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type {
+    [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive > picture > img:first-of-type {
         animation-name: none !important;
     }
 }
@@ -855,7 +896,8 @@
         .mb-mode-scroll-interactive,
         .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
         .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
-        [data-mb-target="img"] > img:first-of-type
+        [data-mb-target="img"] > img:first-of-type,
+        [data-mb-target="img"] > picture > img:first-of-type
     ) {
         animation: none !important;
         animation-timeline: none !important;
@@ -905,7 +947,8 @@
         .mb-mode-scroll-interactive,
         .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
         .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
-        [data-mb-target="img"] > img:first-of-type
+        [data-mb-target="img"] > img:first-of-type,
+        [data-mb-target="img"] > picture > img:first-of-type
     ) {
         animation: none !important;
         animation-timeline: none !important;
@@ -931,7 +974,8 @@
         .mb-mode-scroll-interactive,
         .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
         .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
-        [data-mb-target="img"] > img:first-of-type
+        [data-mb-target="img"] > img:first-of-type,
+        [data-mb-target="img"] > picture > img:first-of-type
     ) {
         animation: none !important;
         animation-timeline: none !important;
@@ -957,7 +1001,8 @@
         .mb-mode-scroll-interactive,
         .mb-stagger-parent > :where(:not(.wp-block-group__inner-container)),
         .mb-stagger-parent > :where(.wp-block-group__inner-container) > *,
-        [data-mb-target="img"] > img:first-of-type
+        [data-mb-target="img"] > img:first-of-type,
+        [data-mb-target="img"] > picture > img:first-of-type
     ) {
         animation: none !important;
         animation-timeline: none !important;
@@ -1231,7 +1276,8 @@
 .mb-animated.mb-settled,
 .mb-stagger-parent.mb-settled > :where(:not(.wp-block-group__inner-container)),
 .mb-stagger-parent.mb-settled > :where(.wp-block-group__inner-container) > *,
-[data-mb-target="img"].mb-settled > img:first-of-type {
+[data-mb-target="img"].mb-settled > img:first-of-type,
+[data-mb-target="img"].mb-settled > picture > img:first-of-type {
     animation: none !important;
 }
 
@@ -1239,7 +1285,8 @@
 .mb-enter-flip.mb-settled,
 .mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(.wp-block-group__inner-container)),
 .mb-stagger-parent.mb-enter-flip.mb-settled > :where(.wp-block-group__inner-container) > *,
-[data-mb-target="img"].mb-enter-flip.mb-settled > img:first-of-type {
+[data-mb-target="img"].mb-enter-flip.mb-settled > img:first-of-type,
+[data-mb-target="img"].mb-enter-flip.mb-settled > picture > img:first-of-type {
     transform-style: flat !important;
     backface-visibility: visible !important;
 }

@@ -16,6 +16,7 @@
 import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
+import { imgTargetSelector, imgFrameSelector } from './img-target';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
@@ -575,9 +576,9 @@ import {
 		// A descendant selector also caught the first image of every
 		// sibling group in the Cover's inner blocks (a logo would
 		// animate with the background and be clipped by its figure).
-		var imgSelector = scope + ' > img:first-of-type';
+		var imgSelector = imgTargetSelector( scope );
 		// The wrapper is the clipping frame for its own image.
-		var parentSelector = scope + ':has(> img:first-of-type)';
+		var parentSelector = imgFrameSelector( scope );
 
 		var animProps;
 		if ( mode === 'scroll-interactive' ) {
@@ -934,8 +935,8 @@ import {
 	 */
 	function buildScrollAppearImgScopedCSS( uid, entryName, exitName ) {
 		var scope = '[data-mb-uid="' + uid + '"]';
-		var imgSelector = scope + ' > img:first-of-type';
-		var parentSelector = scope + ':has(> img:first-of-type)';
+		var imgSelector = imgTargetSelector( scope );
+		var parentSelector = imgFrameSelector( scope );
 		var rules = [];
 		rules.push( parentSelector + ' { overflow: clip; }' );
 		rules.push(
@@ -953,8 +954,8 @@ import {
 		];
 		if ( entryName ) {
 			rules.push(
-				scope +
-					'.mb-triggered > img:first-of-type { ' +
+				imgTargetSelector( scope + '.mb-triggered' ) +
+					' { ' +
 					'animation-name: ' +
 					entryName +
 					'; ' +
@@ -964,8 +965,8 @@ import {
 		}
 		if ( exitName ) {
 			rules.push(
-				scope +
-					'.mb-exit-triggered > img:first-of-type { ' +
+				imgTargetSelector( scope + '.mb-exit-triggered' ) +
+					' { ' +
 					'animation-name: ' +
 					exitName +
 					'; ' +

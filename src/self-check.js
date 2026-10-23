@@ -21,6 +21,7 @@
  */
 
 import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
+import { imgTargetsOf } from './img-target';
 
 ( function () {
 	'use strict';
@@ -237,7 +238,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 			// opacity 1 too; its image carries it (GH #53).
 			var image =
 				el.getAttribute( 'data-mb-target' ) === 'img'
-					? el.querySelector( ':scope > img:first-of-type' )
+					? imgTargetsOf( el )[ 0 ] || null
 					: null;
 			var target = el.classList.contains( 'mb-stagger-parent' )
 				? staggerChildren( el )[ 0 ] || el
@@ -651,7 +652,7 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 		}
 		if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
 			Array.prototype.forEach.call(
-				el.querySelectorAll( ':scope > img:first-of-type' ),
+				imgTargetsOf( el ),
 				function ( img ) {
 					targets.push( img );
 				}

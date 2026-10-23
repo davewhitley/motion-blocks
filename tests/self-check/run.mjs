@@ -175,56 +175,97 @@ if ( ! chromePath ) {
 	setupError( 'no Chrome found. Install Chrome or set CHROME_PATH.' );
 }
 
-const profileDir = mkdtempSync( join( tmpdir(), 'mb-self-check-' ) );
-const chrome = spawn(
-	chromePath,
-	[
-		'--headless=new',
-		// Port 0: Chrome picks a free port and writes it to
-		// DevToolsActivePort in the profile directory.
-		'--remote-debugging-port=0',
-		`--user-data-dir=${ profileDir }`,
-		'--window-size=1280,800',
-		'--no-first-run',
-		'--no-default-browser-check',
-		// Several pages run at once; none of them may be treated as a
-		// background tab, or its timers and animation frames slow down
-		// and the self-check would see blocks that never trigger.
-		'--disable-background-timer-throttling',
-		'--disable-backgrounding-occluded-windows',
-		'--disable-renderer-backgrounding',
-		// CI containers: small /dev/shm, and Ubuntu 24.04 blocks
-		// Chrome's sandbox. Only ever pointed at a local test site.
-		...( process.env.CI
-			? [ '--no-sandbox', '--disable-dev-shm-usage' ]
-			: [] ),
-		'about:blank',
-	],
-	{ stdio: 'ignore' }
-);
+// Chrome sometimes fails to start on CI runners: it never writes
+// DevToolsActivePort. A fresh process with a fresh profile almost always
+// works, so try a few times before giving up.
+const CHROME_ATTEMPTS = 3;
+// Each attempt waits up to this long for Chrome to report its port.
+const CHROME_START_MS = 20000;
+
+let profileDir;
+let chrome;
+
+function launchChrome() {
+	profileDir = mkdtempSync( join( tmpdir(), 'mb-self-check-' ) );
+	chrome = spawn(
+		chromePath,
+		[
+			'--headless=new',
+			// Port 0: Chrome picks a free port and writes it to
+			// DevToolsActivePort in the profile directory.
+			'--remote-debugging-port=0',
+			`--user-data-dir=${ profileDir }`,
+			'--window-size=1280,800',
+			'--no-first-run',
+			'--no-default-browser-check',
+			// Several pages run at once; none of them may be treated as
+			// a background tab, or its timers and animation frames slow
+			// down and the self-check would see blocks that never
+			// trigger.
+			'--disable-background-timer-throttling',
+			'--disable-backgrounding-occluded-windows',
+			'--disable-renderer-backgrounding',
+			// CI containers: small /dev/shm, and Ubuntu 24.04 blocks
+			// Chrome's sandbox. Only ever pointed at a local test site.
+			...( process.env.CI
+				? [ '--no-sandbox', '--disable-dev-shm-usage' ]
+				: [] ),
+			'about:blank',
+		],
+		{ stdio: 'ignore' }
+	);
+}
 
 function cleanup() {
-	chrome.kill();
+	const dir = profileDir;
+	chrome?.kill();
 	// Chrome may still hold files for a moment after kill.
 	setTimeout( () => {
 		try {
-			rmSync( profileDir, { recursive: true, force: true } );
+			rmSync( dir, { recursive: true, force: true } );
 		} catch {}
 	}, 500 ).unref();
 }
 
-async function browserWebSocketUrl() {
+/**
+ * The DevTools URL of the running Chrome, or null if it didn't report
+ * one in time (or exited first).
+ */
+async function waitForDevTools() {
 	const file = join( profileDir, 'DevToolsActivePort' );
-	for ( let i = 0; i < 150; i++ ) {
+	const proc = chrome;
+	for ( let waited = 0; waited < CHROME_START_MS; waited += 200 ) {
 		if ( existsSync( file ) ) {
 			const [ port, path ] = readFileSync( file, 'utf8' ).split( '\n' );
 			if ( port && path ) {
 				return `ws://127.0.0.1:${ port }${ path }`;
 			}
 		}
+		if ( proc.exitCode !== null ) {
+			return null;
+		}
 		await sleep( 200 );
 	}
-	throw new Error( `Chrome (${ chromePath }) didn't start.` );
+	return null;
+}
+
+async function browserWebSocketUrl() {
+	for ( let attempt = 1; attempt <= CHROME_ATTEMPTS; attempt++ ) {
+		launchChrome();
+		const url = await waitForDevTools();
+		if ( url ) {
+			return url;
+		}
+		cleanup();
+		if ( attempt < CHROME_ATTEMPTS ) {
+			console.error(
+				`run.mjs: Chrome didn't start (attempt ${ attempt } of ${ CHROME_ATTEMPTS }), trying again.`
+			);
+		}
+	}
+	throw new Error(
+		`Chrome (${ chromePath }) didn't start after ${ CHROME_ATTEMPTS } attempts.`
+	);
 }
 
 /* ------------------------------------------------------------------

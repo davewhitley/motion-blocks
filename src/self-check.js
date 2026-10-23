@@ -207,26 +207,27 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 				return;
 			}
 			// A Scroll Appear block waits until it overlaps the trigger
-			// zone by the runtime's own rule (10% of its height), so a
-			// sliver at the edge of the zone is still legitimately
-			// hidden. It's stuck only once that rule says "in zone", or
-			// once it covers the whole zone (a block too tall to ever
-			// reach 10% — GH #23).
+			// zone by the runtime's own rule (10% of its height, at most
+			// half the zone — GH #23), so a sliver at the edge of the
+			// zone is still legitimately hidden. It's stuck only once
+			// that rule says "in zone", or once it covers the whole zone.
 			var state = api.scrollAppear.find( function ( st ) {
 				return st.el === el;
 			} );
 			if ( state && state.pageHeight > 0 ) {
 				var scrollY = window.scrollY;
+				var docHeight = document.documentElement.scrollHeight;
 				var overlap = api.zoneOverlap(
 					state.pageTop,
 					state.pageBottom,
 					scrollY,
-					vh
+					vh,
+					docHeight
 				);
-				var band = vh * ( api.zone.bottom - api.zone.top );
+				var zone = api.zoneBounds( scrollY, vh, docHeight );
 				if (
-					! api.isInZone( overlap, state.pageHeight ) &&
-					overlap < band
+					! api.isInZone( overlap, state.pageHeight, vh ) &&
+					overlap < zone.bottom - zone.top
 				) {
 					return;
 				}
@@ -300,27 +301,43 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	 * Is there any scroll position at which tick() would put this block
 	 * in the zone? Overlap is piecewise linear in scroll position, so
 	 * its maximum is at a breakpoint or at either end of the scroll
-	 * range; testing those is exhaustive.
+	 * range; testing those is exhaustive. The band's edges are
+	 * themselves piecewise linear (they stretch to the document edges
+	 * over the first and last `top` / `1 - bottom` screens of scroll,
+	 * moving at twice the scroll speed there — src/trigger-zone.js), so
+	 * each edge-meets-block position has two candidate solutions, one
+	 * per piece; a candidate from the wrong piece is still a real scroll
+	 * position, just not a breakpoint, so including it is harmless.
 	 */
 	function canReachZone( api, state ) {
 		var vh = window.innerHeight;
-		var maxScroll = Math.max(
-			0,
-			document.documentElement.scrollHeight - vh
-		);
-		var candidates = [
-			0,
-			maxScroll,
-			state.pageTop - vh * api.zone.top,
-			state.pageBottom - vh * api.zone.bottom,
-			state.pageTop - vh * api.zone.bottom,
-			state.pageBottom - vh * api.zone.top,
-		];
+		var docHeight = document.documentElement.scrollHeight;
+		var maxScroll = Math.max( 0, docHeight - vh );
+		var topInset = vh * api.zone.top;
+		var bottomInset = vh * ( 1 - api.zone.bottom );
+		var candidates = [ 0, maxScroll, topInset, maxScroll - bottomInset ];
+		[ state.pageTop, state.pageBottom ].forEach( function ( edge ) {
+			// Band top (= scrollY + min(topInset, scrollY)) reaches edge.
+			candidates.push( edge - topInset, edge / 2 );
+			// Band bottom (= scrollY + vh - min(bottomInset,
+			// maxScroll - scrollY)) reaches edge.
+			candidates.push(
+				edge - vh + bottomInset,
+				( edge - vh + maxScroll ) / 2
+			);
+		} );
 		return candidates.some( function ( scrollY ) {
 			var s = Math.min( Math.max( scrollY, 0 ), maxScroll );
 			return api.isInZone(
-				api.zoneOverlap( state.pageTop, state.pageBottom, s, vh ),
-				state.pageHeight
+				api.zoneOverlap(
+					state.pageTop,
+					state.pageBottom,
+					s,
+					vh,
+					docHeight
+				),
+				state.pageHeight,
+				vh
 			);
 		} );
 	}
@@ -335,22 +352,19 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 			return found;
 		}
 		var vh = window.innerHeight;
-		var band = vh * ( api.zone.bottom - api.zone.top );
-
 		api.scrollAppear.forEach( function ( state ) {
 			var el = state.el;
 			if ( ! el.isConnected || ! isRendered( el ) ) {
 				return;
 			}
+			// Since GH #23 the zone reaches every block inside the page's
+			// scrollable area (half-band cap, band stretched to the page
+			// edges), so this now only fires for a block the page can't
+			// scroll to, e.g. one pushed past the end of an
+			// overflow-clipped document.
 			if ( state.pageHeight > 0 && ! canReachZone( api, state ) ) {
 				var why =
-					state.pageHeight * api.zone.ratio > band
-						? 'it is ' +
-						  Math.round( state.pageHeight ) +
-						  'px tall (' +
-						  ( state.pageHeight / vh ).toFixed( 1 ) +
-						  '× the screen), too tall to ever overlap the trigger zone enough'
-						: 'it sits too close to the top or bottom of the page for the trigger zone to reach it';
+					'no scroll position brings it far enough into the trigger zone (is it outside the scrollable page?)';
 				found.push(
 					issue(
 						'can-never-play',
@@ -593,15 +607,19 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	}
 
 	/**
-	 * Does this element form a containing block for `position: fixed`
-	 * descendants? Covers the three sources Motion Blocks can set.
+	 * Does this element trap `position: fixed` descendants? A transform,
+	 * a filter or `transform-style: preserve-3d` makes it their
+	 * containing block; a clip-path (Wipe / Curtain end at `inset(0 0 0
+	 * 0)`) isn't one, but clips them to the element all the same.
+	 * Covers the four sources Motion Blocks can set.
 	 */
 	function containsFixed( el ) {
 		var style = getComputedStyle( el );
 		return (
 			style.transform !== 'none' ||
 			style.filter !== 'none' ||
-			style.transformStyle === 'preserve-3d'
+			style.transformStyle === 'preserve-3d' ||
+			style.clipPath !== 'none'
 		);
 	}
 
@@ -618,23 +636,26 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	}
 
 	/**
-	 * What the motion-off CSS pins at rest for one block: the wrapper
-	 * and, on a Stagger parent, each child (both forms, GH #66). The
-	 * Cover's `img:first-of-type` is pinned too but can't hold a fixed
-	 * descendant, so it isn't scanned.
+	 * The elements a block's animation runs on, which the motion-off
+	 * and `.mb-settled` CSS pin at rest: the wrapper, a Stagger parent's
+	 * children (both forms, GH #66) and an img-target block's
+	 * `img:first-of-type` (it can't hold a fixed descendant, so the
+	 * scan below finds nothing there, but its animations count).
 	 */
 	function restTargets( el ) {
 		var targets = [ el ];
 		if ( el.classList.contains( 'mb-stagger-parent' ) ) {
-			Array.prototype.forEach.call( el.children, function ( child ) {
-				if ( child.classList.contains( 'wp-block-group__inner-container' ) ) {
-					targets = targets.concat(
-						Array.prototype.slice.call( child.children )
-					);
-				} else {
-					targets.push( child );
-				}
+			staggerTargets( el ).forEach( function ( target ) {
+				targets.push( target.el );
 			} );
+		}
+		if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
+			Array.prototype.forEach.call(
+				el.querySelectorAll( 'img:first-of-type' ),
+				function ( img ) {
+					targets.push( img );
+				}
+			);
 		}
 		return targets;
 	}
@@ -643,11 +664,15 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 	 * A finished animation that keeps its last frame applied (fill
 	 * forwards/both) still has a transform, even an identity one, so
 	 * fixed-position descendants are laid out relative to the block
-	 * instead of the screen. This is the bug `.mb-settled` exists for.
+	 * instead of the screen (or, for an `inset(0)` clip-path, clipped to
+	 * it). This is the bug `.mb-settled` exists for (GH #20). Blocks
+	 * that can animate again (a Replay, an Exit, loops) keep their fill
+	 * by design and are still reported, so the check stays proven.
 	 *
 	 * With motion off (reduced motion or a disabled device) nothing
-	 * runs, so instead every element the CSS pins at rest must be free
-	 * of containing-block sources: Flip's `transform-style: preserve-3d`
+	 * runs, and once a block has settled its animation is dropped, so
+	 * instead every element the CSS pins at rest must be free of
+	 * containing-block sources: Flip's `transform-style: preserve-3d`
 	 * comes from a class rule, not a keyframe, so `animation: none`
 	 * alone doesn't remove it.
 	 */
@@ -655,9 +680,11 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 		var found = [];
 		var off = motionIsOff();
 		document.querySelectorAll( '.mb-animated' ).forEach( function ( el ) {
-			if ( off ) {
-				var targets = restTargets( el );
-				for ( var t = 0; t < targets.length; t++ ) {
+			var targets = restTargets( el );
+			var settled = el.classList.contains( 'mb-settled' );
+			var t;
+			if ( off || settled ) {
+				for ( t = 0; t < targets.length; t++ ) {
 					if ( ! containsFixed( targets[ t ] ) ) {
 						continue;
 					}
@@ -669,7 +696,10 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 								'error',
 								el,
 								blockLabel( targets[ t ] ) +
-									' is pinned at rest because motion is off, but still forms a containing block, so the fixed-position ' +
+									( off
+										? ' is pinned at rest because motion is off'
+										: ' has settled after its animation finished' ) +
+									', but still traps fixed-position content, so the ' +
 									blockLabel( trapped ) +
 									' inside it is placed relative to the block instead of the screen.',
 								null
@@ -680,34 +710,39 @@ import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 				}
 				return;
 			}
-			var mine = el.getAnimations().filter( isOurAnimation );
-			if ( ! mine.length ) {
-				return;
-			}
-			var holding = mine.every( function ( animation ) {
-				var fill = animation.effect.getComputedTiming().fill;
-				return (
-					animation.playState === 'finished' &&
-					( fill === 'forwards' || fill === 'both' )
-				);
-			} );
-			if ( ! holding || ! containsFixed( el ) ) {
-				return;
-			}
-			var fixed = firstFixedDescendant( el );
-			if ( fixed ) {
-				found.push(
-					issue(
-						'fixed-trap',
-						'error',
-						el,
-						blockLabel( el ) +
-							' keeps its finished animation applied, so the fixed-position ' +
-							blockLabel( fixed ) +
-							' inside it is placed relative to the block instead of the screen (e.g. a mobile menu that renders clipped).',
-						null
-					)
-				);
+			for ( t = 0; t < targets.length; t++ ) {
+				var mine = targets[ t ]
+					.getAnimations()
+					.filter( isOurAnimation );
+				if ( ! mine.length ) {
+					continue;
+				}
+				var holding = mine.every( function ( animation ) {
+					var fill = animation.effect.getComputedTiming().fill;
+					return (
+						animation.playState === 'finished' &&
+						( fill === 'forwards' || fill === 'both' )
+					);
+				} );
+				if ( ! holding || ! containsFixed( targets[ t ] ) ) {
+					continue;
+				}
+				var fixed = firstFixedDescendant( targets[ t ] );
+				if ( fixed ) {
+					found.push(
+						issue(
+							'fixed-trap',
+							'error',
+							el,
+							blockLabel( targets[ t ] ) +
+								' keeps its finished animation applied, so the fixed-position ' +
+								blockLabel( fixed ) +
+								' inside it is placed relative to the block instead of the screen (e.g. a mobile menu that renders clipped).',
+							null
+						)
+					);
+					return;
+				}
 			}
 		} );
 		return found;

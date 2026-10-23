@@ -83,6 +83,88 @@ export function selectAnimatedAncestor( sel, blocksSel, clientId ) {
 }
 
 /**
+ * Whether a core/navigation block can open its full-screen overlay
+ * menu: Overlay Menu "Mobile" (core's default) or "Always".
+ *
+ * @param {Object} attrs Navigation block attributes.
+ * @return {boolean} True unless Overlay Menu is "Off" ('never').
+ */
+export function navHasOverlay( attrs ) {
+	return ( attrs?.overlayMenu ?? 'mobile' ) !== 'never';
+}
+
+const hasAnimationMode = ( attrs ) => !! attrs?.animationMode;
+
+/**
+ * Whether the block's animation can trap a Navigation menu overlay, as
+ * a fixed-shape object of primitives (GH #27):
+ *
+ *   - `scope`: 'self' when the block is a Navigation with an overlay,
+ *     'inside' when such a Navigation is nested in it, else ''.
+ *   - `targetsSkipped`: settleTargets() would skip the block for a
+ *     nested animated block — an animated Stagger child
+ *     (`checkChildren`) or any animated descendant, which may own the
+ *     image an img-target block animates (`checkDescendants`).
+ *
+ * The navigation lookup uses the memoized `getBlocksByName` list (which
+ * includes template-part and synced-pattern inner blocks) and walks
+ * only each nav's parents, never the whole subtree.
+ *
+ * @param {Object}   sel              `select( blockEditorStore )`.
+ * @param {string}   clientId         The block with the animation.
+ * @param {string}   blockName        Its block type name.
+ * @param {boolean}  checkChildren    Look for animated direct children.
+ * @param {boolean}  checkDescendants Look for animated descendants.
+ * @param {Function} isAnimated       Whether attributes render animated.
+ * @return {{ scope: string, targetsSkipped: boolean }} Result.
+ */
+export function selectMenuOverlayInfo(
+	sel,
+	clientId,
+	blockName,
+	checkChildren,
+	checkDescendants,
+	isAnimated = hasAnimationMode
+) {
+	let scope = '';
+	if ( clientId ) {
+		if ( blockName === 'core/navigation' ) {
+			if ( navHasOverlay( sel.getBlockAttributes( clientId ) ) ) {
+				scope = 'self';
+			}
+		} else {
+			const getByName =
+				sel.getBlocksByName || sel.__experimentalGetGlobalBlocksByName;
+			const navIds = getByName
+				? getByName( 'core/navigation' ) || EMPTY_IDS
+				: EMPTY_IDS;
+			for ( const id of navIds ) {
+				if (
+					navHasOverlay( sel.getBlockAttributes( id ) ) &&
+					sel.getBlockParents( id ).includes( clientId )
+				) {
+					scope = 'inside';
+					break;
+				}
+			}
+		}
+	}
+	let targetsSkipped = false;
+	if ( scope ) {
+		const animated = ( id ) => isAnimated( sel.getBlockAttributes( id ) );
+		if ( checkChildren ) {
+			targetsSkipped = sel.getBlockOrder( clientId ).some( animated );
+		}
+		if ( ! targetsSkipped && checkDescendants ) {
+			targetsSkipped = sel
+				.getClientIdsOfDescendants( [ clientId ] )
+				.some( animated );
+		}
+	}
+	return { scope, targetsSkipped };
+}
+
+/**
  * How many blocks are nested below `clientId` (not counting itself).
  *
  * @param {Object} sel      `select( blockEditorStore )`.

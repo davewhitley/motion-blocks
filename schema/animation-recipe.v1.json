@@ -1,0 +1,664 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/davewhitley/motion-blocks/blob/main/schema/animation-recipe.v1.json",
+    "title": "Motion Blocks animation recipe",
+    "description": "One block's animation. Page Load and Scroll Interactive use `effect`; Scroll Appear uses `entry` and/or `exit`. Omitted fields take their documented defaults.",
+    "type": "object",
+    "properties": {
+        "version": {
+            "type": "integer",
+            "enum": [
+                1
+            ],
+            "description": "Recipe format version."
+        },
+        "mode": {
+            "type": "string",
+            "enum": [
+                "page-load",
+                "scroll-appear",
+                "scroll-interactive"
+            ],
+            "description": "page-load: plays once the page loads. scroll-appear: plays as the block scrolls into (entry) and out of (exit) view. scroll-interactive: progress follows the scroll position."
+        },
+        "effect": {
+            "type": "object",
+            "description": "Page Load / Scroll Interactive: the effect.",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "fade",
+                        "fade-out",
+                        "slide",
+                        "slide-out",
+                        "wipe",
+                        "curtain",
+                        "curtain-out",
+                        "flip",
+                        "scale",
+                        "scale-out",
+                        "blur",
+                        "blur-out",
+                        "rotate",
+                        "rotate-out",
+                        "image-move",
+                        "image-zoom",
+                        "custom"
+                    ],
+                    "description": "Effect. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "none",
+                        "btt",
+                        "ttb",
+                        "ltr",
+                        "rtl",
+                        "horizontal",
+                        "vertical"
+                    ],
+                    "description": "Where the motion comes from: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. Optional; each effect has a sensible default."
+                },
+                "duration": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 60,
+                    "description": "Seconds. Default 0.6."
+                },
+                "delay": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 60,
+                    "description": "Seconds before it starts. Default 0."
+                },
+                "easing": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease."
+                },
+                "blur": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 200,
+                    "description": "Blur effects only: blur in px. Default 8."
+                },
+                "rotate": {
+                    "type": "number",
+                    "minimum": -3600,
+                    "maximum": 3600,
+                    "description": "Rotate effects only: angle in degrees. Default 90."
+                },
+                "from": {
+                    "type": "object",
+                    "description": "Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path().",
+                    "properties": {
+                        "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "translateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "translateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "scale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                        },
+                        "rotate": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "blur": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "clipPath": {
+                            "type": "string",
+                            "maxLength": 2000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "to": {
+                    "type": "object",
+                    "description": "Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path().",
+                    "properties": {
+                        "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "translateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "translateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "scale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                        },
+                        "rotate": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "blur": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "clipPath": {
+                            "type": "string",
+                            "maxLength": 2000
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "entry": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Scroll Appear: what plays as the block enters the view (null for none).",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "fade",
+                        "slide",
+                        "scale",
+                        "blur",
+                        "rotate",
+                        "wipe",
+                        "curtain",
+                        "flip",
+                        "image-move",
+                        "image-zoom",
+                        "custom"
+                    ],
+                    "description": "Effect. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "none",
+                        "btt",
+                        "ttb",
+                        "ltr",
+                        "rtl",
+                        "horizontal",
+                        "vertical"
+                    ],
+                    "description": "Where the motion comes from: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. Optional; each effect has a sensible default."
+                },
+                "duration": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 60,
+                    "description": "Seconds. Default 0.6."
+                },
+                "delay": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 60,
+                    "description": "Seconds before it starts. Default 0."
+                },
+                "easing": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease."
+                },
+                "blur": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 200,
+                    "description": "Blur effects only: blur in px. Default 8."
+                },
+                "rotate": {
+                    "type": "number",
+                    "minimum": -3600,
+                    "maximum": 3600,
+                    "description": "Rotate effects only: angle in degrees. Default 90."
+                },
+                "from": {
+                    "type": "object",
+                    "description": "Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path().",
+                    "properties": {
+                        "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "translateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "translateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "scale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                        },
+                        "rotate": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "blur": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "clipPath": {
+                            "type": "string",
+                            "maxLength": 2000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "to": {
+                    "type": "object",
+                    "description": "Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path().",
+                    "properties": {
+                        "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "translateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "translateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "scale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                        },
+                        "rotate": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "blur": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "clipPath": {
+                            "type": "string",
+                            "maxLength": 2000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "replay": {
+                    "type": "string",
+                    "enum": [
+                        "once",
+                        "repeat",
+                        "reverse"
+                    ],
+                    "description": "once (default): plays the first time only. repeat: every time it enters. reverse: plays backwards as it leaves at the bottom."
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "exit": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Scroll Appear: what plays as the block leaves the view upwards (null for none).",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "fade",
+                        "slide",
+                        "scale",
+                        "blur",
+                        "rotate",
+                        "flip",
+                        "wipe",
+                        "curtain",
+                        "image-move",
+                        "image-zoom",
+                        "custom"
+                    ],
+                    "description": "Effect. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "none",
+                        "btt",
+                        "ttb",
+                        "ltr",
+                        "rtl",
+                        "horizontal",
+                        "vertical"
+                    ],
+                    "description": "Where the motion comes from: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. Optional; each effect has a sensible default."
+                },
+                "duration": {
+                    "type": "number",
+                    "minimum": 0.05,
+                    "maximum": 60,
+                    "description": "Seconds. Default 0.6."
+                },
+                "delay": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 60,
+                    "description": "Seconds before it starts. Default 0."
+                },
+                "easing": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease."
+                },
+                "blur": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 200,
+                    "description": "Blur effects only: blur in px. Default 8."
+                },
+                "rotate": {
+                    "type": "number",
+                    "minimum": -3600,
+                    "maximum": 3600,
+                    "description": "Rotate effects only: angle in degrees. Default 90."
+                },
+                "from": {
+                    "type": "object",
+                    "description": "Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path().",
+                    "properties": {
+                        "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "translateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "translateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "scale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                        },
+                        "rotate": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "blur": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "clipPath": {
+                            "type": "string",
+                            "maxLength": 2000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "to": {
+                    "type": "object",
+                    "description": "Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path().",
+                    "properties": {
+                        "opacity": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "translateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "translateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "scale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10
+                        },
+                        "rotate": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateX": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "rotateY": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "blur": {
+                            "type": [
+                                "number",
+                                "string"
+                            ]
+                        },
+                        "clipPath": {
+                            "type": "string",
+                            "maxLength": 2000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "replay": {
+                    "type": "string",
+                    "enum": [
+                        "once",
+                        "repeat",
+                        "reverse"
+                    ],
+                    "description": "reverse (default): plays backwards when scrolled back. repeat: every time. once: only the first time."
+                }
+            },
+            "required": [
+                "type"
+            ],
+            "additionalProperties": false
+        },
+        "repeat": {
+            "type": "string",
+            "enum": [
+                "once",
+                "loop",
+                "alternate"
+            ],
+            "description": "Page Load only. Default once."
+        },
+        "pauseOffscreen": {
+            "type": "boolean",
+            "description": "Page Load loops only: pause while off screen. Default true."
+        },
+        "range": {
+            "type": "object",
+            "description": "Scroll Interactive only: where in the block's pass through the view the animation runs, e.g. \"entry 0%\" to \"exit 100%\" (the default).",
+            "properties": {
+                "start": {
+                    "type": "string",
+                    "pattern": "^(entry|exit|cover|contain|entry-crossing|exit-crossing) -?\\d+(\\.\\d+)?%$"
+                },
+                "end": {
+                    "type": "string",
+                    "pattern": "^(entry|exit|cover|contain|entry-crossing|exit-crossing) -?\\d+(\\.\\d+)?%$"
+                }
+            },
+            "additionalProperties": false
+        },
+        "target": {
+            "type": "string",
+            "enum": [
+                "block",
+                "image"
+            ],
+            "description": "\"image\" animates only a Cover block's background image. Default block."
+        },
+        "stagger": {
+            "type": [
+                "object",
+                "null"
+            ],
+            "description": "Cascade the block's direct children one after another (Group, Columns, Buttons, Gallery, List; not Scroll Interactive).",
+            "properties": {
+                "step": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "description": "Seconds between children. Default 0.1."
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "required": [
+        "version",
+        "mode"
+    ],
+    "additionalProperties": false
+}

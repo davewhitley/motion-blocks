@@ -181,16 +181,16 @@ function motion_blocks_recipe_schema() {
                 'description' => 'ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease.',
             ),
             'blur'      => array(
-                'type'        => 'number',
+                'type'        => 'integer',
                 'minimum'     => 0,
                 'maximum'     => 200,
-                'description' => 'Blur effects only: blur in px. Default 8.',
+                'description' => 'Blur effects only: blur in whole px. Default 8.',
             ),
             'rotate'    => array(
-                'type'        => 'number',
+                'type'        => 'integer',
                 'minimum'     => -3600,
                 'maximum'     => 3600,
-                'description' => 'Rotate effects only: angle in degrees. Default 90.',
+                'description' => 'Rotate effects only: angle in whole degrees. Default 90.',
             ),
             'from'      => $side,
             'to'        => $side,
@@ -408,20 +408,20 @@ function motion_blocks_recipe_effect_to_attrs( $effect, $prefix, $part, $path, &
         $v = $effect['blur'];
         if ( 'blur' !== $base ) {
             $errors[] = array( 'path' => "{$path}.blur", 'message' => 'Only for blur effects (use from / to with "custom").' );
-        } elseif ( ! is_numeric( $v ) || $v < 0 || $v > 200 ) {
-            $errors[] = array( 'path' => "{$path}.blur", 'message' => 'Must be a number of px from 0 to 200.' );
+        } elseif ( ! is_numeric( $v ) || (float) $v !== floor( (float) $v ) || $v < 0 || $v > 200 ) {
+            $errors[] = array( 'path' => "{$path}.blur", 'message' => 'Must be a whole number of px from 0 to 200.' );
         } else {
-            $out[ "{$prefix}BlurAmount" ] = $v + 0;
+            $out[ "{$prefix}BlurAmount" ] = (int) $v;
         }
     }
     if ( array_key_exists( 'rotate', $effect ) ) {
         $v = $effect['rotate'];
         if ( 'rotate' !== $base ) {
             $errors[] = array( 'path' => "{$path}.rotate", 'message' => 'Only for rotate effects (use from / to with "custom").' );
-        } elseif ( ! is_numeric( $v ) || $v < -3600 || $v > 3600 ) {
-            $errors[] = array( 'path' => "{$path}.rotate", 'message' => 'Must be a number of degrees from -3600 to 3600.' );
+        } elseif ( ! is_numeric( $v ) || (float) $v !== floor( (float) $v ) || $v < -3600 || $v > 3600 ) {
+            $errors[] = array( 'path' => "{$path}.rotate", 'message' => 'Must be a whole number of degrees from -3600 to 3600.' );
         } else {
-            $out[ "{$prefix}RotateAngle" ] = $v + 0;
+            $out[ "{$prefix}RotateAngle" ] = (int) $v;
         }
     }
 
@@ -483,6 +483,60 @@ function motion_blocks_recipe_effect_to_attrs( $effect, $prefix, $part, $path, &
 }
 
 /**
+ * Accept numbers and booleans sent as strings ("1", "0.6", "true"), as
+ * they arrive from query strings (REST GET) and from some agents.
+ *
+ * @param mixed $recipe Recipe.
+ * @return mixed Recipe with numeric / boolean strings converted.
+ */
+function motion_blocks_recipe_normalize_scalars( $recipe ) {
+    if ( ! is_array( $recipe ) ) {
+        return $recipe;
+    }
+    $num = function ( $v ) {
+        if ( is_string( $v ) && is_numeric( trim( $v ) ) ) {
+            return trim( $v ) + 0;
+        }
+        return $v;
+    };
+    if ( isset( $recipe['version'] ) ) {
+        $recipe['version'] = $num( $recipe['version'] );
+    }
+    if ( isset( $recipe['pauseOffscreen'] ) && is_string( $recipe['pauseOffscreen'] ) ) {
+        $map = array( 'true' => true, '1' => true, 'false' => false, '0' => false );
+        $key = strtolower( trim( $recipe['pauseOffscreen'] ) );
+        if ( isset( $map[ $key ] ) ) {
+            $recipe['pauseOffscreen'] = $map[ $key ];
+        }
+    }
+    if ( isset( $recipe['stagger']['step'] ) ) {
+        $recipe['stagger']['step'] = $num( $recipe['stagger']['step'] );
+    }
+    foreach ( array( 'effect', 'entry', 'exit' ) as $part ) {
+        // "null" / "" from a query string means no slot.
+        if ( isset( $recipe[ $part ] ) && is_string( $recipe[ $part ] ) && in_array( strtolower( $recipe[ $part ] ), array( '', 'null' ), true ) ) {
+            $recipe[ $part ] = null;
+        }
+        if ( empty( $recipe[ $part ] ) || ! is_array( $recipe[ $part ] ) ) {
+            continue;
+        }
+        foreach ( array( 'duration', 'delay', 'blur', 'rotate' ) as $field ) {
+            if ( isset( $recipe[ $part ][ $field ] ) ) {
+                $recipe[ $part ][ $field ] = $num( $recipe[ $part ][ $field ] );
+            }
+        }
+        foreach ( array( 'from', 'to' ) as $side ) {
+            foreach ( array( 'opacity', 'scale' ) as $field ) {
+                if ( isset( $recipe[ $part ][ $side ][ $field ] ) ) {
+                    $recipe[ $part ][ $side ][ $field ] = $num( $recipe[ $part ][ $side ][ $field ] );
+                }
+            }
+        }
+    }
+    return $recipe;
+}
+
+/**
  * Convert a recipe to block attributes, validating it on the way.
  *
  * `null` (or an empty mode) means "no animation": every animation
@@ -511,6 +565,7 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
         );
     }
     $shared = motion_blocks_shared_constants();
+    $recipe = motion_blocks_recipe_normalize_scalars( $recipe );
 
     $version = isset( $recipe['version'] ) ? $recipe['version'] : null;
     if ( MOTION_BLOCKS_RECIPE_FORMAT !== $version ) {
@@ -726,10 +781,15 @@ function motion_blocks_recipe_effect_from_attrs( $a, $prefix ) {
  * Scroll Appear shape first, exactly as the render filter does, so the
  * recipe describes what the front end actually plays.
  *
- * @param array $attrs Saved block attributes.
+ * Pass `$block_name` to describe exactly what plays on that block:
+ * Stagger only takes effect on stagger-parent blocks and the image-only
+ * target only on a Cover, so a leftover flag elsewhere is left out.
+ *
+ * @param array  $attrs      Saved block attributes.
+ * @param string $block_name Block type ('' when unknown: report the flags as stored).
  * @return array|null Recipe, or null when the block isn't animated.
  */
-function motion_blocks_attributes_to_recipe( $attrs ) {
+function motion_blocks_attributes_to_recipe( $attrs, $block_name = '' ) {
     if ( ! is_array( $attrs ) || empty( $attrs['animationMode'] ) ) {
         return null;
     }
@@ -762,10 +822,15 @@ function motion_blocks_attributes_to_recipe( $attrs ) {
     if ( empty( $recipe['entry'] ) && empty( $recipe['exit'] ) && empty( $recipe['effect'] ) ) {
         return null;
     }
-    if ( 'img' === $a['animationFromToTarget'] ) {
+    $shared = motion_blocks_shared_constants();
+    if ( 'img' === $a['animationFromToTarget'] && ( '' === $block_name || 'core/cover' === $block_name ) ) {
         $recipe['target'] = 'image';
     }
-    if ( ! empty( $a['animationStaggerEnabled'] ) && 'scroll-interactive' !== $a['animationMode'] ) {
+    if (
+        ! empty( $a['animationStaggerEnabled'] ) &&
+        'scroll-interactive' !== $a['animationMode'] &&
+        ( '' === $block_name || in_array( $block_name, $shared['staggerParentBlocks'], true ) )
+    ) {
         $recipe['stagger'] = array( 'step' => (float) $a['animationStaggerStep'] );
     }
     return $recipe;

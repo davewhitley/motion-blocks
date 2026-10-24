@@ -80,16 +80,16 @@
                     "description": "ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease."
                 },
                 "blur": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": 0,
                     "maximum": 200,
-                    "description": "Blur effects only: blur in px. Default 8."
+                    "description": "Blur effects only: blur in whole px. Default 8."
                 },
                 "rotate": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": -3600,
                     "maximum": 3600,
-                    "description": "Rotate effects only: angle in degrees. Default 90."
+                    "description": "Rotate effects only: angle in whole degrees. Default 90."
                 },
                 "from": {
                     "type": "object",
@@ -267,16 +267,16 @@
                     "description": "ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease."
                 },
                 "blur": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": 0,
                     "maximum": 200,
-                    "description": "Blur effects only: blur in px. Default 8."
+                    "description": "Blur effects only: blur in whole px. Default 8."
                 },
                 "rotate": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": -3600,
                     "maximum": 3600,
-                    "description": "Rotate effects only: angle in degrees. Default 90."
+                    "description": "Rotate effects only: angle in whole degrees. Default 90."
                 },
                 "from": {
                     "type": "object",
@@ -463,16 +463,16 @@
                     "description": "ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease."
                 },
                 "blur": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": 0,
                     "maximum": 200,
-                    "description": "Blur effects only: blur in px. Default 8."
+                    "description": "Blur effects only: blur in whole px. Default 8."
                 },
                 "rotate": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": -3600,
                     "maximum": 3600,
-                    "description": "Rotate effects only: angle in degrees. Default 90."
+                    "description": "Rotate effects only: angle in whole degrees. Default 90."
                 },
                 "from": {
                     "type": "object",

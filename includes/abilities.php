@@ -49,7 +49,34 @@ function motion_blocks_ability_post( $post_id ) {
     if ( ! $post ) {
         return new WP_Error( 'motion_blocks_no_post', __( 'No post with that ID.', 'motion-blocks' ), array( 'status' => 404 ) );
     }
+    if ( ! motion_blocks_ability_post_type_ok( $post->post_type ) ) {
+        return new WP_Error(
+            'motion_blocks_wrong_post_type',
+            __( 'Only posts, pages, templates, template parts and patterns edited with blocks can be read or changed (not revisions, autosaves or attachments).', 'motion-blocks' ),
+            array( 'status' => 400 )
+        );
+    }
     return $post;
+}
+
+/**
+ * Block content an editor edits: post types with the block editor, plus
+ * templates, template parts and synced patterns. Never revisions (a
+ * revision is history: `edit_post` on it maps to its parent, so it
+ * would let anyone who can edit the parent rewrite the history the
+ * Revisions screen rolls back to), autosaves or attachments.
+ *
+ * @param string $post_type Post type.
+ * @return bool
+ */
+function motion_blocks_ability_post_type_ok( $post_type ) {
+    if ( in_array( $post_type, array( 'revision', 'attachment', 'nav_menu_item', 'customize_changeset', 'oembed_cache', 'user_request', 'wp_global_styles', 'wp_font_family', 'wp_font_face' ), true ) ) {
+        return false;
+    }
+    if ( in_array( $post_type, array( 'wp_template', 'wp_template_part', 'wp_block' ), true ) ) {
+        return true;
+    }
+    return post_type_supports( $post_type, 'editor' ) && use_block_editor_for_post_type( $post_type );
 }
 
 /**
@@ -88,7 +115,7 @@ function motion_blocks_collect_blocks( $blocks, $prefix, &$out ) {
             'block_name'  => $block['blockName'],
             'text'        => motion_blocks_block_excerpt( $block ),
             'can_animate' => motion_blocks_can_animate_block_name( $block['blockName'] ),
-            'recipe'      => motion_blocks_attributes_to_recipe( isset( $block['attrs'] ) ? $block['attrs'] : array() ),
+            'recipe'      => motion_blocks_attributes_to_recipe( isset( $block['attrs'] ) ? $block['attrs'] : array(), $block['blockName'] ),
         );
         if ( ! empty( $block['attrs']['metadata']['name'] ) ) {
             $entry['label'] = (string) $block['attrs']['metadata']['name'];
@@ -257,6 +284,24 @@ function motion_blocks_ability_set_animations( $input ) {
     if ( is_wp_error( $post ) ) {
         return $post;
     }
+    // Someone else has it open in the editor: their next save would
+    // silently undo this change (or this would undo theirs).
+    if ( ! function_exists( 'wp_check_post_lock' ) ) {
+        require_once ABSPATH . 'wp-admin/includes/post.php';
+    }
+    $lock = wp_check_post_lock( $post->ID );
+    if ( $lock ) {
+        $user = get_userdata( $lock );
+        return new WP_Error(
+            'motion_blocks_post_locked',
+            sprintf(
+                /* translators: %s: name of the user editing the post */
+                __( '%s is editing this post right now. Try again when they have closed it, so neither of you overwrites the other.', 'motion-blocks' ),
+                $user ? $user->display_name : __( 'Someone else', 'motion-blocks' )
+            ),
+            array( 'status' => 409 )
+        );
+    }
     $blocks  = parse_blocks( $post->post_content );
     $errors  = array();
     $updated = array();
@@ -267,7 +312,7 @@ function motion_blocks_ability_set_animations( $input ) {
             $blocks,
             $change['path'],
             function ( &$block ) use ( $change, $recipe, $i, &$errors, &$updated ) {
-                if ( ! empty( $change['block_name'] ) && $change['block_name'] !== $block['blockName'] ) {
+                if ( $change['block_name'] !== $block['blockName'] ) {
                     return new WP_Error(
                         'motion_blocks_block_mismatch',
                         sprintf(
@@ -291,7 +336,7 @@ function motion_blocks_ability_set_animations( $input ) {
                 $updated[]      = array(
                     'path'       => array_values( $change['path'] ),
                     'block_name' => $block['blockName'],
-                    'recipe'     => motion_blocks_attributes_to_recipe( $block['attrs'] ),
+                    'recipe'     => motion_blocks_attributes_to_recipe( $block['attrs'], $block['blockName'] ),
                 );
                 return true;
             }
@@ -373,6 +418,18 @@ function motion_blocks_ability_save_animation( $input ) {
     if ( $converted['errors'] ) {
         return motion_blocks_recipe_error( $converted['errors'] );
     }
+    // The library keeps strings up to 200 characters (see
+    // motion_blocks_scrub_recipe_string()); say so instead of storing a
+    // truncated, broken value.
+    $too_long = array();
+    foreach ( $converted['attributes'] as $key => $value ) {
+        if ( is_string( $value ) && strlen( $value ) > 200 ) {
+            $too_long[] = array( 'path' => '', 'message' => $key . ' is longer than the saved library allows (200 characters). Use a shorter easing or clip-path, or set it on the block with set-animations instead.' );
+        }
+    }
+    if ( $too_long ) {
+        return motion_blocks_recipe_error( $too_long );
+    }
     $library = get_option( 'mb_saved_animations', array() );
     $library = is_array( $library ) ? $library : array();
     do {
@@ -440,7 +497,6 @@ function motion_blocks_register_abilities() {
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => array( 'object', 'null' ),
-                'properties'           => (object) array(),
                 'additionalProperties' => false,
             ),
             'output_schema'       => array( 'type' => 'object' ),
@@ -502,7 +558,7 @@ function motion_blocks_register_abilities() {
         'motion-blocks/set-animations',
         array(
             'label'               => __( 'Set animations on a post', 'motion-blocks' ),
-            'description'         => __( 'Sets or removes the animation of one or more blocks of a post, page, template or pattern, and saves it straight away (also when published). All changes are validated first; if any is invalid nothing is saved and every problem is reported. The save stores a revision, so it can be rolled back. Pass block_name with each change to guard against the content having changed since get-animations.', 'motion-blocks' ),
+            'description'         => __( 'Sets or removes the animation of one or more blocks of a post, page, template or pattern, and saves it straight away (also when published). All changes are validated first; if any is invalid nothing is saved and every problem is reported. The save stores a revision, so it can be rolled back. Each change names the block_name get-animations reported at that path, to guard against the content having changed since. Refused while another user has the post open in the editor.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => 'object',
@@ -518,14 +574,14 @@ function motion_blocks_register_abilities() {
                                 'path'       => $path,
                                 'block_name' => array(
                                     'type'        => 'string',
-                                    'description' => 'Expected block type at that path (recommended).',
+                                    'description' => 'The block type at that path, as get-animations reported it. Guards against changing the wrong block if the content changed since.',
                                 ),
                                 'recipe'     => array(
                                     'type'        => array( 'object', 'null' ),
                                     'description' => 'The animation recipe (see get-effects), or null to remove the animation.',
                                 ),
                             ),
-                            'required'             => array( 'path', 'recipe' ),
+                            'required'             => array( 'path', 'block_name', 'recipe' ),
                             'additionalProperties' => false,
                         ),
                     ),
@@ -550,16 +606,18 @@ function motion_blocks_register_abilities() {
         'motion-blocks/list-saved-animations',
         array(
             'label'               => __( 'List saved animations', 'motion-blocks' ),
-            'description'         => __( 'Lists the site\'s saved animation library and the animations the theme ships, each as a recipe ready for set-animations.', 'motion-blocks' ),
+            'description'         => __( 'Lists the site\'s saved animation library and the animations the theme ships, each as a recipe ready for set-animations. Needs a user who can manage site settings, like the library in the editor.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => array( 'object', 'null' ),
-                'properties'           => (object) array(),
                 'additionalProperties' => false,
             ),
             'output_schema'       => array( 'type' => 'object' ),
             'execute_callback'    => 'motion_blocks_ability_list_saved',
-            'permission_callback' => $can_edit_posts,
+            // Same gate as the library in the editor (/wp/v2/settings).
+            'permission_callback' => function () {
+                return current_user_can( 'manage_options' );
+            },
             'meta'                => $meta( $readonly ),
         )
     );

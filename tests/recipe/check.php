@@ -136,7 +136,7 @@ $mb_fixtures[] = array( 'Spring easing', 'core/paragraph', array( 'animationMode
 
 foreach ( $mb_fixtures as $fx ) {
 	list( $label, $name, $attrs ) = $fx;
-	$recipe = motion_blocks_attributes_to_recipe( $attrs );
+	$recipe = motion_blocks_attributes_to_recipe( $attrs, $name );
 	$back   = motion_blocks_recipe_to_attributes( $recipe, $name, $attrs );
 	if ( $back['errors'] ) {
 		mb_recipe_check( false, $label, 'recipe rejected: ' . wp_json_encode( $back['errors'] ) . ' recipe=' . wp_json_encode( $recipe ) );
@@ -145,7 +145,7 @@ foreach ( $mb_fixtures as $fx ) {
 	$before = mb_recipe_signature( mb_recipe_render( $name, $attrs ) );
 	$after  = mb_recipe_signature( mb_recipe_render( $name, motion_blocks_apply_animation_attributes( array(), $back['attributes'] ) ) );
 	// And the recipe is stable: converting again gives the same recipe.
-	$again = motion_blocks_attributes_to_recipe( $back['attributes'] );
+	$again = motion_blocks_attributes_to_recipe( $back['attributes'], $name );
 	mb_recipe_check(
 		$before === $after && $again == $recipe,
 		$label,
@@ -295,8 +295,8 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 		array(
 			'post_id' => $mb_post,
 			'changes' => array(
-				array( 'path' => array( 0 ), 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ),
-				array( 'path' => array( 1, 0 ), 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'zoom' ) ) ),
+				array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ),
+				array( 'path' => array( 1, 0 ), 'block_name' => 'core/paragraph', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'zoom' ) ) ),
 			),
 		)
 	);
@@ -309,7 +309,7 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	);
 	$mismatch = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/image', 'recipe' => null ) ) ) );
 	mb_recipe_check( is_wp_error( $mismatch ) && 'motion_blocks_block_mismatch' === $mismatch->get_error_code(), 'block_name guards against a stale path' );
-	$missing = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 9 ), 'recipe' => null ) ) ) );
+	$missing = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 9 ), 'block_name' => 'core/paragraph', 'recipe' => null ) ) ) );
 	mb_recipe_check( is_wp_error( $missing ) && 'motion_blocks_no_block' === $missing->get_error_code(), 'a path with no block is an error' );
 
 	// Saved library.
@@ -337,13 +337,47 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	mb_recipe_check( 200 === $rest->get_status() && isset( $rest->get_data()['blocks'] ), 'runs over REST (wp-abilities/v1)', wp_json_encode( $rest->get_data() ) );
 	$req2 = new WP_REST_Request( 'POST', '/wp-abilities/v1/abilities/motion-blocks/set-animations/run' );
 	$req2->set_header( 'Content-Type', 'application/json' );
-	$req2->set_body( wp_json_encode( array( 'input' => array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ) ) ) ) ) );
+	$req2->set_body( wp_json_encode( array( 'input' => array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ) ) ) ) ) );
 	$rest2 = rest_do_request( $req2 );
 	mb_recipe_check( 200 === $rest2->get_status(), 'set-animations runs over REST (POST)', wp_json_encode( $rest2->get_data() ) );
 
+	// Review fixes.
+	$no_name = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'recipe' => null ) ) ) );
+	mb_recipe_check( is_wp_error( $no_name ), 'set-animations requires block_name on each change' );
+	$set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'scale' ) ) ) ) ) );
+	$revs = wp_get_post_revisions( $mb_post );
+	$rev  = $revs ? reset( $revs ) : null;
+	$rev_content = $rev ? $rev->post_content : '';
+	$on_rev = $rev ? $set->execute( array( 'post_id' => $rev->ID, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => null ) ) ) ) : null;
+	clean_post_cache( $rev ? $rev->ID : 0 );
+	mb_recipe_check( $rev && is_wp_error( $on_rev ) && 'motion_blocks_wrong_post_type' === $on_rev->get_error_code() && get_post( $rev->ID )->post_content === $rev_content, 'revisions can\'t be read or rewritten (history stays intact)', is_wp_error( $on_rev ) ? $on_rev->get_error_code() : wp_json_encode( $on_rev ) );
+	$mb_other = wp_insert_user( array( 'user_login' => 'mbrecipe_editor_' . wp_generate_password( 6, false ), 'user_email' => 'mbrecipe@example.test', 'user_pass' => wp_generate_password( 24 ), 'role' => 'editor' ) );
+	update_post_meta( $mb_post, '_edit_lock', time() . ':' . $mb_other );
+	$locked = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => null ) ) ) );
+	mb_recipe_check( is_wp_error( $locked ) && 'motion_blocks_post_locked' === $locked->get_error_code(), 'refuses while another user has the post open in the editor' );
+	delete_post_meta( $mb_post, '_edit_lock' );
+	$req3 = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/motion-blocks/validate-recipe/run' );
+	$req3->set_query_params( array( 'input' => array( 'block_name' => 'core/paragraph', 'recipe' => array( 'version' => '1', 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => '0.8', 'delay' => '0' ) ) ) ) );
+	$rest3 = rest_do_request( $req3 );
+	mb_recipe_check( 200 === $rest3->get_status() && true === $rest3->get_data()['valid'], 'validate-recipe works over REST GET (string numbers)', wp_json_encode( $rest3->get_data() ) );
+	$req4 = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/motion-blocks/get-effects/run' );
+	$req4->set_query_params( array( 'input' => array( 'foo' => '1' ) ) );
+	$rest4 = rest_do_request( $req4 );
+	mb_recipe_check( 400 === $rest4->get_status(), 'an unexpected input key is a 400, not a fatal error', $rest4->get_status() . ' ' . wp_json_encode( $rest4->get_data() ) );
+	$long = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => 'Too long', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => 'linear(' . implode( ', ', array_fill( 0, 60, '0.5' ) ) . ')' ) ) ) );
+	mb_recipe_check( is_wp_error( $long ) && false !== strpos( $long->get_error_message(), '200 characters' ), 'save-animation refuses values the library would truncate' );
+	mb_recipe_check( ! isset( motion_blocks_attributes_to_recipe( array( 'animationMode' => 'page-load', 'animationStaggerEnabled' => true ), 'core/paragraph' )['stagger'] ), 'a recipe leaves out a Stagger flag the block can\'t use' );
+	mb_recipe_check( (bool) motion_blocks_recipe_to_attributes( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'blur', 'blur' => 8.5 ) ), 'core/paragraph' )['errors'], 'blur must be a whole number (the renderer compares integers)' );
+	wp_set_current_user( $mb_other );
+	$ed_list = wp_get_ability( 'motion-blocks/list-saved-animations' )->execute();
+	mb_recipe_check( is_wp_error( $ed_list ), 'list-saved-animations needs manage_options, like the editor\'s library' );
+	wp_set_current_user( (int) $mb_admin[0] );
+	require_once ABSPATH . 'wp-admin/includes/user.php';
+	wp_delete_user( $mb_other );
+
 	// Permissions.
 	wp_set_current_user( 0 );
-	$denied = wp_get_ability( 'motion-blocks/set-animations' )->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'recipe' => null ) ) ) );
+	$denied = wp_get_ability( 'motion-blocks/set-animations' )->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => null ) ) ) );
 	mb_recipe_check( is_wp_error( $denied ), 'a logged-out caller can\'t set animations' );
 	$denied_read = wp_get_ability( 'motion-blocks/get-animations' )->execute( array( 'post_id' => $mb_post ) );
 	mb_recipe_check( is_wp_error( $denied_read ), 'a logged-out caller can\'t read a post\'s animations' );

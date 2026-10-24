@@ -20,6 +20,10 @@
 		},
 		{
 			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; $args = array(); ob_start(); require '/wordpress/wp-content/plugins/motion-blocks/tests/recipe/check.php'; file_put_contents( '/ci-output/recipe-check.txt', ob_get_clean() );"
+		},
+		{
+			"step": "runPHP",
 			"code": "<?php require '/wordpress/wp-load.php'; flush_rewrite_rules(); $args = array( 'json' ); ob_start(); require '/wordpress/wp-content/plugins/motion-blocks/tests/self-check/fixtures.php'; file_put_contents( '/ci-output/manifest.json', ob_get_clean() );"
 		}
 	]

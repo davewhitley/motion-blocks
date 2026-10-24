@@ -1,0 +1,371 @@
+<?php
+/**
+ * Recipe and abilities check (includes/recipe.php, includes/abilities.php).
+ *
+ *  1. Round trip: every schema-defaults fixture (tests/schema-defaults/
+ *     cases.php) and every bundled recipe goes attributes → recipe →
+ *     attributes, and must render exactly the same front-end markup.
+ *  2. Validation: broken recipes are rejected with the expected error
+ *     paths; valid ones pass.
+ *  3. Abilities, end to end on a temporary post: get-effects,
+ *     get-animations, validate-recipe, set-animations (valid, invalid,
+ *     wrong block, remove), list/save in the library, the REST route,
+ *     and the permission checks. Also checks the published schema file.
+ *
+ * Run with WP-CLI from a site that has the plugin active (WordPress 6.9+
+ * for the abilities part; CI runs it from tests/self-check/blueprint.json):
+ *
+ *   wp eval-file path/to/motion-blocks/tests/recipe/check.php
+ *
+ * Add `schema` to (re)write schema/animation-recipe.v1.json instead.
+ * Prints PASS / FAIL lines; exits 1 on any failure. Cleans up after
+ * itself (temporary post deleted, library restored).
+ */
+
+if ( ! function_exists( 'motion_blocks_recipe_to_attributes' ) ) {
+	fwrite( STDERR, "Motion Blocks (with recipes) is not active on this site.\n" );
+	exit( 1 );
+}
+
+$mb_root        = dirname( __DIR__, 2 );
+$mb_schema_file = $mb_root . '/schema/animation-recipe.v1.json';
+
+/** The published schema: the PHP schema plus JSON Schema metadata. */
+function mb_recipe_published_schema() {
+	return array_merge(
+		array(
+			'$schema' => 'https://json-schema.org/draft/2020-12/schema',
+			'$id'     => 'https://github.com/davewhitley/motion-blocks/blob/main/schema/animation-recipe.v1.json',
+		),
+		motion_blocks_recipe_schema()
+	);
+}
+
+if ( isset( $args[0] ) && 'schema' === $args[0] ) {
+	file_put_contents(
+		$mb_schema_file,
+		wp_json_encode( mb_recipe_published_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n"
+	);
+	echo "Wrote {$mb_schema_file}\n";
+	return;
+}
+
+// WP-CLI runs this file inside a function: keep the counters in $GLOBALS.
+$GLOBALS['mb_failures'] = 0;
+$GLOBALS['mb_passes']   = 0;
+function mb_recipe_check( $ok, $label, $detail = '' ) {
+	if ( $ok ) {
+		$GLOBALS['mb_passes']++;
+		echo "PASS  {$label}\n";
+	} else {
+		$GLOBALS['mb_failures']++;
+		echo "FAIL  {$label}" . ( $detail ? "\n        {$detail}" : '' ) . "\n";
+	}
+}
+
+/** Animation markup of the first tag: sorted mb-* classes + data-mb-* attrs. */
+function mb_recipe_signature( $html ) {
+	$p = new WP_HTML_Tag_Processor( $html );
+	if ( ! $p->next_tag() ) {
+		return '(no element)';
+	}
+	$parts = array();
+	foreach ( (array) $p->get_attribute_names_with_prefix( 'data-mb-' ) as $name ) {
+		$parts[] = $name . '=' . $p->get_attribute( $name );
+	}
+	sort( $parts );
+	$classes = array();
+	foreach ( $p->class_list() as $class ) {
+		if ( 0 === strpos( $class, 'mb-' ) ) {
+			$classes[] = $class;
+		}
+	}
+	sort( $classes );
+	$style = (string) $p->get_attribute( 'style' );
+	if ( preg_match( '/--mb-stagger-step:[^;]+/', $style, $m ) ) {
+		$parts[] = $m[0];
+	}
+	return implode( ' ', $classes ) . ' | ' . implode( ' ', $parts );
+}
+
+/** Render a block of type $name with $attrs through render_block. */
+function mb_recipe_render( $name, $attrs ) {
+	if ( 'core/group' === $name ) {
+		$block = array(
+			'blockName'    => 'core/group',
+			'attrs'        => $attrs,
+			'innerBlocks'  => array(
+				array( 'blockName' => 'core/paragraph', 'attrs' => array(), 'innerBlocks' => array(), 'innerHTML' => '<p>a</p>', 'innerContent' => array( '<p>a</p>' ) ),
+				array( 'blockName' => 'core/paragraph', 'attrs' => array(), 'innerBlocks' => array(), 'innerHTML' => '<p>b</p>', 'innerContent' => array( '<p>b</p>' ) ),
+			),
+			'innerHTML'    => '<div class="wp-block-group"></div>',
+			'innerContent' => array( '<div class="wp-block-group">', null, null, '</div>' ),
+		);
+	} elseif ( 'core/cover' === $name ) {
+		$html  = '<div class="wp-block-cover"><img class="wp-block-cover__image-background" src="x.jpg" alt=""/><div class="wp-block-cover__inner-container"><p>c</p></div></div>';
+		$block = array( 'blockName' => 'core/cover', 'attrs' => array_merge( array( 'url' => 'x.jpg' ), $attrs ), 'innerBlocks' => array(), 'innerHTML' => $html, 'innerContent' => array( $html ) );
+	} else {
+		$block = array( 'blockName' => 'core/paragraph', 'attrs' => $attrs, 'innerBlocks' => array(), 'innerHTML' => '<p>x</p>', 'innerContent' => array( '<p>x</p>' ) );
+	}
+	return render_block( $block );
+}
+
+// ---------------------------------------------------------------------
+// 1. Round trip through the renderer.
+// ---------------------------------------------------------------------
+echo "\nRound trip: attributes → recipe → attributes renders the same\n";
+$mb_fixtures = array();
+foreach ( require $mb_root . '/tests/schema-defaults/cases.php' as $case ) {
+	if ( isset( $case['block'] ) && ! in_array( $case['block'], array( 'core/paragraph', 'core/group', 'core/cover' ), true ) ) {
+		continue; // Server-rendered blocks: covered by the schema-defaults check.
+	}
+	if ( isset( $case['baked'] ) ) {
+		continue; // v0.1.0 baked markup, not a recipe question.
+	}
+	$mb_fixtures[] = array( $case['label'], isset( $case['block'] ) ? $case['block'] : 'core/paragraph', $case['attrs'] );
+}
+foreach ( array( 'motion_blocks_spin_recipe_attributes', 'motion_blocks_iris_wipe_recipe_attributes', 'motion_blocks_diagonal_wipe_recipe_attributes' ) as $fn ) {
+	if ( function_exists( $fn ) ) {
+		$mb_fixtures[] = array( "Bundled recipe {$fn}", 'core/paragraph', $fn() );
+	}
+}
+$mb_fixtures[] = array( 'Stagger Group, Scroll Appear slide', 'core/group', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'slide', 'animationEntryDirection' => 'ltr', 'animationStaggerEnabled' => true, 'animationStaggerStep' => 0.25 ) );
+$mb_fixtures[] = array( 'Cover image-only Custom zoom', 'core/cover', array( 'animationMode' => 'page-load', 'animationType' => 'custom', 'animationFromToTarget' => 'img', 'animationFromScale' => 1.1, 'animationToScale' => 1, 'animationDuration' => 1.6, 'animationDelay' => 0 ) );
+$mb_fixtures[] = array( 'Scroll Interactive custom range', 'core/paragraph', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'rotate', 'animationRotateAngle' => 45, 'animationRangeStart' => 'entry 20%', 'animationRangeEnd' => 'exit 80%' ) );
+$mb_fixtures[] = array( 'Spring easing', 'core/paragraph', array( 'animationMode' => 'page-load', 'animationAcceleration' => motion_blocks_recipe_easings()['spring'] ) );
+
+foreach ( $mb_fixtures as $fx ) {
+	list( $label, $name, $attrs ) = $fx;
+	$recipe = motion_blocks_attributes_to_recipe( $attrs );
+	$back   = motion_blocks_recipe_to_attributes( $recipe, $name, $attrs );
+	if ( $back['errors'] ) {
+		mb_recipe_check( false, $label, 'recipe rejected: ' . wp_json_encode( $back['errors'] ) . ' recipe=' . wp_json_encode( $recipe ) );
+		continue;
+	}
+	$before = mb_recipe_signature( mb_recipe_render( $name, $attrs ) );
+	$after  = mb_recipe_signature( mb_recipe_render( $name, motion_blocks_apply_animation_attributes( array(), $back['attributes'] ) ) );
+	// And the recipe is stable: converting again gives the same recipe.
+	$again = motion_blocks_attributes_to_recipe( $back['attributes'] );
+	mb_recipe_check(
+		$before === $after && $again == $recipe,
+		$label,
+		$before !== $after ? "before: {$before}\n        after:  {$after}\n        recipe: " . wp_json_encode( $recipe ) : 'recipe changed on a second pass: ' . wp_json_encode( $again )
+	);
+}
+mb_recipe_check( null === motion_blocks_attributes_to_recipe( array( 'className' => 'x' ) ), 'Unanimated block reads as null' );
+
+// ---------------------------------------------------------------------
+// 2. Validation.
+// ---------------------------------------------------------------------
+echo "\nValidation\n";
+$mb_invalid = array(
+	array( 'missing version', array( 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/paragraph', 'version' ),
+	array( 'unknown mode', array( 'version' => 1, 'mode' => 'hover' ), 'core/paragraph', 'mode' ),
+	array( 'unknown effect', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'wobble' ) ), 'core/paragraph', 'effect.type' ),
+	array( 'exit effect not allowed in entry', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade-out' ) ), 'core/paragraph', 'entry.type' ),
+	array( 'bad direction', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'slide', 'direction' => 'up' ) ), 'core/paragraph', 'effect.direction' ),
+	array( 'negative duration', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => -1 ) ), 'core/paragraph', 'effect.duration' ),
+	array( 'duration as milliseconds string', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => '500ms' ) ), 'core/paragraph', 'effect.duration' ),
+	array( 'made-up easing', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => 'ease-in-cubic' ) ), 'core/paragraph', 'effect.easing' ),
+	array( 'cubic-bezier x out of range', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => 'cubic-bezier(1.5, 0, 0, 1)' ) ), 'core/paragraph', 'effect.easing' ),
+	array( 'custom without values', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'custom' ) ), 'core/paragraph', 'effect.from' ),
+	array( 'CSS injection in a value', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'custom', 'from' => array( 'translateY' => '0} body{display:none' ) ) ), 'core/paragraph', 'effect.from.translateY' ),
+	array( 'from on a preset', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'from' => array( 'opacity' => 0 ) ) ), 'core/paragraph', 'effect.from' ),
+	array( 'scroll-appear with no slots', array( 'version' => 1, 'mode' => 'scroll-appear' ), 'core/paragraph', 'entry' ),
+	array( 'image target on a paragraph', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ), 'target' => 'image' ), 'core/paragraph', 'target' ),
+	array( 'image-zoom on a paragraph', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'image-zoom' ) ), 'core/paragraph', 'effect' ),
+	array( 'stagger on a paragraph', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ), 'stagger' => array( 'step' => 0.1 ) ), 'core/paragraph', 'stagger' ),
+	array( 'stagger on scroll-interactive', array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'stagger' => array() ), 'core/group', 'stagger' ),
+	array( 'bad range', array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'range' => array( 'start' => 'top' ) ), 'core/paragraph', 'range.start' ),
+	array( 'field from another mode', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade' ), 'repeat' => 'loop' ), 'core/paragraph', 'repeat' ),
+	array( 'Custom HTML block', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/html', '' ),
+);
+foreach ( $mb_invalid as $inv ) {
+	list( $label, $recipe, $name, $want_path ) = $inv;
+	$r     = motion_blocks_recipe_to_attributes( $recipe, $name );
+	$paths = wp_list_pluck( $r['errors'], 'path' );
+	mb_recipe_check( in_array( $want_path, $paths, true ) && ! $r['attributes'], "rejects {$label}", 'errors: ' . wp_json_encode( $r['errors'] ) );
+}
+$mb_valid = array(
+	array( 'minimal fade', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/paragraph' ),
+	array( 'spring easing', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'scale', 'easing' => 'spring' ) ), 'core/paragraph' ),
+	array( 'exit only', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => null, 'exit' => array( 'type' => 'blur', 'blur' => 12 ) ), 'core/paragraph' ),
+	array( 'numbers get units', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'custom', 'from' => array( 'opacity' => 0, 'translateY' => 24, 'rotate' => -5 ), 'to' => array( 'opacity' => 1, 'translateY' => 0, 'rotate' => 0 ) ) ), 'core/paragraph' ),
+	array( 'cover image zoom', array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'image-zoom' ) ), 'core/cover' ),
+	array( 'group stagger', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'slide', 'direction' => 'btt' ), 'stagger' => array( 'step' => 0.08 ) ), 'core/group' ),
+);
+foreach ( $mb_valid as $v ) {
+	list( $label, $recipe, $name ) = $v;
+	$r = motion_blocks_recipe_to_attributes( $recipe, $name );
+	mb_recipe_check( ! $r['errors'] && $r['attributes'], "accepts {$label}", 'errors: ' . wp_json_encode( $r['errors'] ) );
+}
+$r = motion_blocks_recipe_to_attributes( $mb_valid[3][1], 'core/paragraph' );
+mb_recipe_check(
+	'24px' === $r['attributes']['animationEntryFromTranslateY'] && '-5deg' === $r['attributes']['animationEntryFromRotate'] && 0 === $r['attributes']['animationEntryDelay'],
+	'stores canonical values (24 → "24px", -5 → "-5deg") and an omitted delay as 0',
+	wp_json_encode( $r['attributes'] )
+);
+
+// ---------------------------------------------------------------------
+// 3. Abilities.
+// ---------------------------------------------------------------------
+if ( ! function_exists( 'wp_get_ability' ) ) {
+	echo "\nAbilities: skipped (needs WordPress 6.9+)\n";
+} else {
+	echo "\nAbilities\n";
+	$mb_admin = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
+	wp_set_current_user( (int) $mb_admin[0] );
+
+	$mb_content = "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Title</h2>\n<!-- /wp:heading -->\n\n"
+		. "<!-- wp:group {\"layout\":{\"type\":\"constrained\"}} -->\n<div class=\"wp-block-group\"><!-- wp:paragraph -->\n<p>One</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph {\"animationMode\":\"page-load\",\"animationDelay\":0} -->\n<p>Two</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->";
+	$mb_post = wp_insert_post(
+		array(
+			'post_type'    => 'page',
+			'post_status'  => 'publish',
+			'post_title'   => 'MB recipe check (temporary)',
+			'post_content' => $mb_content,
+		)
+	);
+
+	$names = array();
+	foreach ( wp_get_abilities() as $a ) {
+		if ( 0 === strpos( $a->get_name(), 'motion-blocks/' ) ) {
+			$names[] = $a->get_name();
+		}
+	}
+	mb_recipe_check( 6 === count( $names ), 'six motion-blocks abilities are registered', implode( ', ', $names ) );
+
+	$effects = wp_get_ability( 'motion-blocks/get-effects' )->execute();
+	mb_recipe_check( ! is_wp_error( $effects ) && isset( $effects['recipe_schema']['properties']['mode'] ), 'get-effects returns the recipe schema', is_wp_error( $effects ) ? $effects->get_error_message() : '' );
+	$ok_examples = ! is_wp_error( $effects );
+	foreach ( $ok_examples ? $effects['examples'] : array() as $example ) {
+		$ok_examples = $ok_examples && ! motion_blocks_recipe_to_attributes( $example, 'core/group' )['errors'];
+	}
+	mb_recipe_check( $ok_examples, 'get-effects examples are valid recipes' );
+
+	$list = wp_get_ability( 'motion-blocks/get-animations' )->execute( array( 'post_id' => $mb_post ) );
+	$by   = array();
+	foreach ( is_wp_error( $list ) ? array() : $list['blocks'] as $b ) {
+		$by[ implode( '.', $b['path'] ) ] = $b;
+	}
+	mb_recipe_check(
+		isset( $by['0'], $by['1'], $by['1.1'] ) && 'core/heading' === $by['0']['block_name'] && null === $by['0']['recipe'] && 'page-load' === $by['1.1']['recipe']['mode'] && 'Two' === $by['1.1']['text'],
+		'get-animations lists blocks with paths, text and recipes',
+		wp_json_encode( is_wp_error( $list ) ? $list->get_error_message() : $by )
+	);
+
+	$v = wp_get_ability( 'motion-blocks/validate-recipe' )->execute( array( 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'slide', 'direction' => 'up' ) ), 'block_name' => 'core/paragraph' ) );
+	mb_recipe_check( ! is_wp_error( $v ) && false === $v['valid'] && 'effect.direction' === $v['errors'][0]['path'], 'validate-recipe reports the problem with its path', wp_json_encode( $v ) );
+
+	$set = wp_get_ability( 'motion-blocks/set-animations' );
+	$res = $set->execute(
+		array(
+			'post_id' => $mb_post,
+			'changes' => array(
+				array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'slide', 'direction' => 'btt', 'duration' => 0.8, 'easing' => 'ease-out' ) ) ),
+				array( 'path' => array( 1 ), 'block_name' => 'core/group', 'recipe' => array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade' ), 'stagger' => array( 'step' => 0.1 ) ) ),
+				array( 'path' => array( 1, 1 ), 'block_name' => 'core/paragraph', 'recipe' => null ),
+			),
+		)
+	);
+	clean_post_cache( $mb_post );
+	$saved   = get_post( $mb_post );
+	$blocks  = parse_blocks( $saved->post_content );
+	$heading = $blocks[0]['attrs'];
+	mb_recipe_check(
+		! is_wp_error( $res ) && 'slide' === $heading['animationEntryType'] && 0.8 === (float) $heading['animationEntryDuration'] && 'publish' === $saved->post_status && $res['revision_id'],
+		'set-animations saves the published page, with a revision',
+		is_wp_error( $res ) ? $res->get_error_message() : wp_json_encode( $heading )
+	);
+	$group     = null;
+	$second_p  = null;
+	foreach ( $blocks as $blk ) {
+		if ( 'core/group' === $blk['blockName'] ) {
+			$group    = $blk;
+			$second_p = $blk['innerBlocks'][1];
+		}
+	}
+	mb_recipe_check( $group && ! empty( $group['attrs']['animationStaggerEnabled'] ) && empty( $second_p['attrs']['animationMode'] ), 'set-animations applies stagger and removes an animation (recipe null)', wp_json_encode( array( $group['attrs'], $second_p['attrs'] ) ) );
+	mb_recipe_check( false === strpos( $saved->post_content, 'animationPreview' ) && 1 === preg_match( '/<!-- wp:heading \{"animationMode":"scroll-appear","animationEntryType":"slide","animationEntryDirection":"btt","animationEntryDuration":0.8,"animationEntryDelay":0,"animationEntryAcceleration":"ease-out"\} -->/', $saved->post_content ), 'the saved block comment holds only non-default values, like the editor writes', substr( $saved->post_content, 0, 300 ) );
+	$rendered = do_blocks( $saved->post_content );
+	mb_recipe_check( false !== strpos( $rendered, 'data-mb-entry-type="slide"' ) && false !== strpos( $rendered, 'mb-stagger-parent' ), 'the front end renders the new animations' );
+
+	$before = $saved->post_content;
+	$bad    = $set->execute(
+		array(
+			'post_id' => $mb_post,
+			'changes' => array(
+				array( 'path' => array( 0 ), 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ),
+				array( 'path' => array( 1, 0 ), 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'zoom' ) ) ),
+			),
+		)
+	);
+	clean_post_cache( $mb_post );
+	$data = is_wp_error( $bad ) ? $bad->get_error_data() : array();
+	mb_recipe_check(
+		is_wp_error( $bad ) && 'motion_blocks_invalid_recipe' === $bad->get_error_code() && 1 === $data['errors'][0]['change'] && 'effect.type' === $data['errors'][0]['path'] && get_post( $mb_post )->post_content === $before,
+		'an invalid change rejects the whole batch and saves nothing',
+		is_wp_error( $bad ) ? $bad->get_error_message() : 'no error'
+	);
+	$mismatch = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/image', 'recipe' => null ) ) ) );
+	mb_recipe_check( is_wp_error( $mismatch ) && 'motion_blocks_block_mismatch' === $mismatch->get_error_code(), 'block_name guards against a stale path' );
+	$missing = $set->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 9 ), 'recipe' => null ) ) ) );
+	mb_recipe_check( is_wp_error( $missing ) && 'motion_blocks_no_block' === $missing->get_error_code(), 'a path with no block is an error' );
+
+	// Saved library.
+	$library_before = get_option( 'mb_saved_animations' );
+	$s              = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => 'Agent rise', 'recipe' => array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'custom', 'from' => array( 'opacity' => 0, 'translateY' => 24 ), 'to' => array( 'opacity' => 1, 'translateY' => 0 ) ) ) ) );
+	$all            = wp_get_ability( 'motion-blocks/list-saved-animations' )->execute();
+	$found          = null;
+	foreach ( is_wp_error( $all ) ? array() : $all['animations'] as $entry ) {
+		if ( ! is_wp_error( $s ) && $entry['id'] === $s['id'] ) {
+			$found = $entry;
+		}
+	}
+	mb_recipe_check( $found && 'Agent rise' === $found['name'] && '24px' === $found['recipe']['entry']['from']['translateY'], 'save-animation adds to the library and list-saved-animations returns it', wp_json_encode( is_wp_error( $s ) ? $s->get_error_message() : $s ) );
+	$bundled = false;
+	foreach ( is_wp_error( $all ) ? array() : $all['animations'] as $entry ) {
+		$bundled = $bundled || ( 'library' === $entry['source'] && is_array( $entry['recipe'] ) && 'spin-default' === $entry['id'] );
+	}
+	mb_recipe_check( $bundled, 'bundled library recipes read as recipes' );
+	update_option( 'mb_saved_animations', $library_before, false );
+
+	// REST.
+	$req = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/motion-blocks/get-animations/run' );
+	$req->set_query_params( array( 'input' => array( 'post_id' => $mb_post ) ) );
+	$rest = rest_do_request( $req );
+	mb_recipe_check( 200 === $rest->get_status() && isset( $rest->get_data()['blocks'] ), 'runs over REST (wp-abilities/v1)', wp_json_encode( $rest->get_data() ) );
+	$req2 = new WP_REST_Request( 'POST', '/wp-abilities/v1/abilities/motion-blocks/set-animations/run' );
+	$req2->set_header( 'Content-Type', 'application/json' );
+	$req2->set_body( wp_json_encode( array( 'input' => array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ) ) ) ) ) );
+	$rest2 = rest_do_request( $req2 );
+	mb_recipe_check( 200 === $rest2->get_status(), 'set-animations runs over REST (POST)', wp_json_encode( $rest2->get_data() ) );
+
+	// Permissions.
+	wp_set_current_user( 0 );
+	$denied = wp_get_ability( 'motion-blocks/set-animations' )->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'recipe' => null ) ) ) );
+	mb_recipe_check( is_wp_error( $denied ), 'a logged-out caller can\'t set animations' );
+	$denied_read = wp_get_ability( 'motion-blocks/get-animations' )->execute( array( 'post_id' => $mb_post ) );
+	mb_recipe_check( is_wp_error( $denied_read ), 'a logged-out caller can\'t read a post\'s animations' );
+	wp_set_current_user( (int) $mb_admin[0] );
+
+	wp_delete_post( $mb_post, true );
+}
+
+// ---------------------------------------------------------------------
+// Published schema file.
+// ---------------------------------------------------------------------
+echo "\nSchema file\n";
+$mb_file = file_exists( $mb_schema_file ) ? json_decode( file_get_contents( $mb_schema_file ), true ) : null;
+mb_recipe_check(
+	$mb_file === json_decode( wp_json_encode( mb_recipe_published_schema() ), true ),
+	'schema/animation-recipe.v1.json matches motion_blocks_recipe_schema()',
+	'Regenerate it: wp eval-file tests/recipe/check.php schema'
+);
+
+echo "\n{$GLOBALS['mb_passes']} passed, {$GLOBALS['mb_failures']} failed\n";
+// Exit code only under WP-CLI: CI runs this from a Playground blueprint
+// and reads the summary line instead.
+if ( $GLOBALS['mb_failures'] && defined( 'WP_CLI' ) && WP_CLI ) {
+	exit( 1 );
+}

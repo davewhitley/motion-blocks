@@ -87,6 +87,13 @@
 		"image-move": [ "btt", "ttb", "ltr", "rtl" ]
 	},
 
+	"_README_easingPresets": "Spring curves offered in the Acceleration menu. The stored acceleration value is the linear() string itself; agent recipes (includes/recipe.php) refer to them by name.",
+	"easingPresets": {
+		"spring": "linear(0, 0.10 5%, 0.34 10%, 0.61 15%, 0.85 20%, 1.12 30%, 1.163 36%, 1.075 50%, 1.001 60%, 0.974 73%, 0.99 90%, 1)",
+		"bouncy": "linear(0, 0.38 5%, 0.78 8%, 1.05 10%, 1.27 13%, 1.37 17%, 1.30 20%, 1.06 25%, 0.89 30%, 0.87 35%, 0.95 40%, 1.03 45%, 1.05 49%, 1.03 55%, 0.99 66%, 1.01 82%, 1)",
+		"snappy": "linear(0, 0.08 5%, 0.26 10%, 0.47 15%, 0.65 20%, 0.81 25%, 0.91 30%, 0.99 35%, 1.025 40%, 1.046 50%, 1.032 60%, 1.014 70%, 1.003 80%, 1)"
+	},
+
 	"propertyCssVar": {
 		"opacity": "opacity",
 		"translateX": "translate-x",

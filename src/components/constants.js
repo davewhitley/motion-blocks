@@ -728,12 +728,9 @@ export function materializeScrollAppearPatch( attrs, patch ) {
 // shorten the period. Tools like Jake Archibald's linear-easing
 // generator (https://linear-easing-generator.netlify.app/) can
 // regenerate these from arbitrary curves.
-const LINEAR_SPRING =
-	'linear(0, 0.10 5%, 0.34 10%, 0.61 15%, 0.85 20%, 1.12 30%, 1.163 36%, 1.075 50%, 1.001 60%, 0.974 73%, 0.99 90%, 1)';
-const LINEAR_SPRING_BOUNCY =
-	'linear(0, 0.38 5%, 0.78 8%, 1.05 10%, 1.27 13%, 1.37 17%, 1.30 20%, 1.06 25%, 0.89 30%, 0.87 35%, 0.95 40%, 1.03 45%, 1.05 49%, 1.03 55%, 0.99 66%, 1.01 82%, 1)';
-const LINEAR_SPRING_SNAPPY =
-	'linear(0, 0.08 5%, 0.26 10%, 0.47 15%, 0.65 20%, 0.81 25%, 0.91 30%, 0.99 35%, 1.025 40%, 1.046 50%, 1.032 60%, 1.014 70%, 1.003 80%, 1)';
+const LINEAR_SPRING = SHARED.easingPresets.spring;
+const LINEAR_SPRING_BOUNCY = SHARED.easingPresets.bouncy;
+const LINEAR_SPRING_SNAPPY = SHARED.easingPresets.snappy;
 
 export const ACCELERATION_OPTIONS = [
 	{ label: 'Ease', value: 'ease' },

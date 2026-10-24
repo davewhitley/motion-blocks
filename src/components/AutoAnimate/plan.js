@@ -34,7 +34,11 @@
  * `buildAutoAnimateUpdates` and dispatches them in one
  * `updateBlockAttributes` action, so the whole apply is one undo step.
  */
-import { isImageTargetUnavailable } from '../constants';
+import {
+	isImageTargetUnavailable,
+	canAnimateBlock,
+	clearAnimationAttributes,
+} from '../constants';
 
 /**
  * Block-name → category. Anything not listed is SECTION (a single unit
@@ -195,7 +199,11 @@ export function cascadeStep( count, style ) {
 	if ( count <= 1 ) {
 		return style.beat;
 	}
-	return round2( Math.min( style.beat, style.spread / ( count - 1 ) ) );
+	// Never below 10ms, or a very long gallery would play all at once.
+	return Math.max(
+		0.01,
+		round2( Math.min( style.beat, style.spread / ( count - 1 ) ) )
+	);
 }
 
 /**
@@ -210,10 +218,14 @@ export function cascadeStep( count, style ) {
 export function motionFor( role, style, block = null ) {
 	const d = style.distance;
 	if ( role === 'heroImage' ) {
-		// No fade: the hero image stays visible from the first paint
-		// (it is usually the page's largest element) and settles from a
-		// slight zoom while the content rises over it.
-		return { from: { scale: style.heroZoom }, to: { scale: 1 } };
+		// The background fades in as it settles from a slight zoom,
+		// while the content rises over it. (It can't simply stay
+		// visible: the plugin hides an image-only Cover's image, or a
+		// Page Load block, until its animation starts.)
+		return {
+			from: { opacity: 0, scale: style.heroZoom },
+			to: { opacity: 1, scale: 1 },
+		};
 	}
 	if ( role === 'media' ) {
 		const align = block?.attributes?.align;
@@ -294,8 +306,13 @@ export function attrsForItem( item, stylePreset = 'smooth' ) {
 		extra.animationStaggerStep = item.step ?? style.beat;
 	}
 
+	// Start from a cleared block, so settings left over from an earlier
+	// animation (Stagger, image-only, other Custom properties) can't
+	// leak into this one.
+	const base = clearAnimationAttributes();
 	if ( item.trigger === 'load' ) {
 		return {
+			...base,
 			animationMode: 'page-load',
 			animationType: 'custom',
 			animationDirection: '',
@@ -309,6 +326,7 @@ export function attrsForItem( item, stylePreset = 'smooth' ) {
 		};
 	}
 	return {
+		...base,
 		animationMode: 'scroll-appear',
 		animationEntryType: 'custom',
 		animationEntryDirection: '',
@@ -416,9 +434,27 @@ function meaningfulChildren( block ) {
  * @param {Object} block A core/group block.
  * @return {boolean} True to cascade it.
  */
+/**
+ * Does any direct child already carry an animation? A cascade would
+ * take over that child's animation (the parent's Stagger rules win),
+ * so such a block is walked into instead, leaving the child alone.
+ *
+ * @param {Object} block Block.
+ * @return {boolean} True when a child is animated.
+ */
+function hasAnimatedChild( block ) {
+	return ( block.innerBlocks || [] ).some(
+		( child ) => !! child.attributes?.animationMode
+	);
+}
+
 function isSection( block ) {
 	const children = meaningfulChildren( block );
-	if ( children.length < 2 || children.length > MAX_SECTION_CHILDREN ) {
+	if (
+		children.length < 2 ||
+		children.length > MAX_SECTION_CHILDREN ||
+		hasAnimatedChild( block )
+	) {
 		return false;
 	}
 	return ! children.some(
@@ -456,7 +492,12 @@ export function computeAutoAnimatePlan(
 	let openingIndex = 0;
 
 	const measure = options.isOnFirstScreen;
-	const firstTop = ( topLevelBlocks || [] )[ 0 ]?.clientId;
+	// Without a measurement, only a leading Cover counts as the first
+	// screen: guessing more could play a whole page (one wrapper Group)
+	// on load.
+	const firstBlock = ( topLevelBlocks || [] )[ 0 ];
+	const firstTop =
+		firstBlock?.name === 'core/cover' ? firstBlock.clientId : null;
 	let topLevelId = null;
 	const onFirstScreen = ( block ) => {
 		const measured = measure ? measure( block.clientId ) : null;
@@ -521,6 +562,13 @@ export function computeAutoAnimatePlan(
 			return;
 		}
 		const name = block.name;
+		// Blocks that can't keep animation settings (Classic, Custom
+		// HTML, Shortcode): the front end would ignore them, leaving a
+		// gap in a sequence.
+		if ( ! canAnimateBlock( name ) ) {
+			skipBody.push( block );
+			return;
+		}
 		const category = classifyBlock( block );
 		// A slot in the enclosing sequence (a Cover's content), taken
 		// only when something is actually queued, so skipped blocks
@@ -551,6 +599,13 @@ export function computeAutoAnimatePlan(
 		// Rows: columns, gallery images and buttons cascade in.
 		if ( CASCADE_CONTAINERS.has( name ) ) {
 			const children = meaningfulChildren( block );
+			if ( hasAnimatedChild( block ) ) {
+				// Walk in: animate the rest one by one.
+				for ( const child of block.innerBlocks || [] ) {
+					recurse( child, sequence );
+				}
+				return;
+			}
 			if ( children.length >= 2 ) {
 				push( block, 'cascade', { ...seq(), count: children.length } );
 			} else {
@@ -592,8 +647,9 @@ export function computeAutoAnimatePlan(
 
 		// Inside a Cover's sequence, text belongs to the hero, so it
 		// rises with the rest instead of being skipped as body copy.
-		if ( sequence && category === 'BODY' && name !== 'core/freeform' ) {
+		if ( sequence && category === 'BODY' ) {
 			push( block, 'rise', seq() );
+			descendantCount += count( block );
 			return;
 		}
 

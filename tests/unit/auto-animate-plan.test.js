@@ -171,12 +171,19 @@ describe( 'the opening sequence', () => {
 		}
 	} );
 
-	it( 'without a measurement, takes the first top-level block as the first screen', () => {
-		const first = section();
-		const second = section();
-		const p = computeAutoAnimatePlan( [ first, second ], () => 0 );
-		expect( p.apply[ 0 ].trigger ).toBe( 'load' );
-		expect( p.apply[ 1 ].trigger ).toBe( 'scroll' );
+	it( 'without a measurement, only a leading Cover opens the page', () => {
+		const cover = b( 'core/cover', [ heading() ], { url: 'h.jpg' } );
+		const after = section();
+		const withCover = computeAutoAnimatePlan( [ cover, after ], () => 0 );
+		expect( withCover.apply[ 0 ].trigger ).toBe( 'load' );
+		expect(
+			withCover.apply.find( ( i ) => i.clientId === after.clientId )
+				.trigger
+		).toBe( 'scroll' );
+		// A page wrapped in one Group must not all play on load.
+		const wrapped = b( 'core/group', [ section(), section() ] );
+		const p = computeAutoAnimatePlan( [ wrapped ], () => 0 );
+		expect( p.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
 	} );
 } );
 
@@ -269,9 +276,10 @@ describe( 'role-specific motion', () => {
 		);
 		const coverAttrs = attrsOf( p, 'smooth', cover );
 
-		it( 'zooms its background out without fading it (visible from first paint)', () => {
+		it( 'fades its background in as it settles from a slight zoom', () => {
 			expect( coverAttrs.animationFromToTarget ).toBe( 'img' );
-			expect( coverAttrs.animationFromOpacity ).toBeNull();
+			expect( coverAttrs.animationFromOpacity ).toBe( 0 );
+			expect( coverAttrs.animationToOpacity ).toBe( 1 );
 			expect( coverAttrs.animationFromScale ).toBeGreaterThan( 1 );
 			expect( coverAttrs.animationToScale ).toBe( 1 );
 			expect( coverAttrs.animationDelay ).toBe( 0 );
@@ -327,8 +335,15 @@ describe( 'restraint and safety', () => {
 				expect( attrs.animationMode ).toBe( 'scroll-appear' );
 				expect( attrs.animationExitType ).toBe( '' );
 				expect( attrs.animationEntryReplay ).toBe( 'once' );
+				// Legacy keys only ever at their registered default, so
+				// WordPress leaves them out of the saved block.
 				for ( const key of RETIRED ) {
-					expect( attrs ).not.toHaveProperty( key );
+					if ( key in attrs ) {
+						expect( [ key, attrs[ key ] ] ).toEqual( [
+							key,
+							SCHEMA_DEFAULTS[ key ],
+						] );
+					}
 				}
 				// The migration shim leaves the saved slot alone.
 				const view = migrateScrollAppearAttrs( {
@@ -342,6 +357,56 @@ describe( 'restraint and safety', () => {
 			}
 		}
 	);
+
+	it( 'walks into a section or row with an animated item, leaving that item alone', () => {
+		const animatedImg = b( 'core/image', [], {
+			animationMode: 'scroll-appear',
+			animationEntryType: 'fade',
+		} );
+		const h = heading();
+		const group = b( 'core/group', [ h, para(), animatedImg ] );
+		const gallery = b( 'core/gallery', [
+			image(),
+			b( 'core/image', [], { animationMode: 'page-load' } ),
+		] );
+		const p = plan( [ group, gallery ] );
+		expect( roleOf( p, group ) ).toBeUndefined();
+		expect( roleOf( p, gallery ) ).toBeUndefined();
+		expect( roleOf( p, h ) ).toBe( 'rise' );
+		expect( p.skipExisting ).toHaveLength( 2 );
+	} );
+
+	it( 'skips Custom HTML and Shortcode blocks, even inside a Cover sequence', () => {
+		const html = b( 'core/html' );
+		const h = heading();
+		const cover = b( 'core/cover', [ html, h ], { url: 'h.jpg' } );
+		const p = plan(
+			[ cover ],
+			[ cover.clientId, html.clientId, h.clientId ]
+		);
+		expect( roleOf( p, html ) ).toBeUndefined();
+		// The heading takes the first slot, with no gap before it.
+		expect(
+			p.apply.find( ( i ) => i.clientId === h.clientId ).openingIndex
+		).toBe( 0 );
+	} );
+
+	it( 'keeps a cascade even in a very long gallery', () => {
+		expect( cascadeStep( 500, STYLE_PRESETS.smooth ) ).toBeGreaterThan( 0 );
+	} );
+
+	it( 'starts from a cleared block, so leftover settings never leak in', () => {
+		const attrs = attrsForItem( {
+			role: 'rise',
+			block: heading(),
+			trigger: 'scroll',
+		} );
+		expect( attrs.animationStaggerEnabled ).toBe( false );
+		expect( attrs.animationFromToTarget ).toBe( 'block' );
+		expect( attrs.animationEntryFromRotate ).toBeNull();
+		expect( attrs.animationEntryFromBlur ).toBeNull();
+		expect( attrs.animationEntryFromClipPath ).toBeNull();
+	} );
 
 	it( 'one apply is one action: ids in plan order, one payload each', () => {
 		const blocks = [ section(), image() ];

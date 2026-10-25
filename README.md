@@ -112,7 +112,7 @@ Animations are plain JSON, and AI agents (or any script) can read and change the
 
 ### Recipes: one animation as JSON
 
-A **recipe** is the agent-readable form of one block's animation. It's versioned and documented by a JSON Schema ([`schema/animation-recipe.v1.json`](schema/animation-recipe.v1.json)), and it maps to and from the block's attributes without loss:
+A **recipe** is the agent-readable form of one block's animation. It's versioned and documented by a JSON Schema ([`schema/animation-recipe.v1.json`](schema/animation-recipe.v1.json)), and it maps to and from the block's attributes without loss. **[`schema/README.md`](schema/README.md) is the full reference:** every field, and every effect with what it looks like, its directions and options.
 
 ```json
 {
@@ -244,6 +244,10 @@ npx @wp-playground/cli@3.1.60 server --port=9400 --wp=7.1 \
 # in another terminal, once it prints "Ready!":
 npm run test:pages -- --manifest ci-output/manifest.json --login form
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how the pieces fit together and the checklists for adding an effect, a setting or a Custom property (including keeping the agent recipe format in step).
 
 ## License
 

@@ -12,53 +12,33 @@ import { isValidFromToValue } from '../css-values';
  * order) come from shared-constants.json so PHP can enumerate them for
  * the smoke-test page; only the wording lives here.
  */
-const TYPE_LABELS = {
-	fade: 'Fade In',
-	'fade-out': 'Fade Out',
-	slide: 'Slide In',
-	'slide-out': 'Slide Out',
-	wipe: 'Wipe',
-	// "Curtain Open" in Page Load, Scroll Interactive and the Scroll
-	// Appear Entry slot. The Exit slot labels the same `'curtain'`
-	// value "Curtain Close" (EXIT_TYPE_LABELS) because the slot's class
-	// prefix (`mb-exit-`) binds to the `mbCurtainClose` keyframe.
-	curtain: 'Curtain Open',
-	'curtain-out': 'Curtain Close',
-	flip: 'Flip',
-	scale: 'Scale In',
-	'scale-out': 'Scale Out',
-	blur: 'Blur In',
-	'blur-out': 'Blur Out',
-	rotate: 'Rotate In',
-	'rotate-out': 'Rotate Out',
-	'image-move': 'Image Move (Beta)',
-	'image-zoom': 'Image Zoom (Beta)',
-	custom: 'Custom',
-};
-
 /**
- * Exit-slot wording where it differs from TYPE_LABELS: the slot stores
- * the base value, and `mb-exit-` binds it to the Out keyframe.
+ * Effect and direction labels come from `effectCatalog` /
+ * `directionLabels` in shared-constants.json, the same source agents and
+ * the generated reference (schema/README.md) read, so the panel's names
+ * and the documented names can't drift apart.
+ *
+ * The Exit slot stores the base value (`'curtain'`) and `mb-exit-` binds
+ * it to the Out keyframe, so its wording comes from each entry's
+ * `exitLabel` where it differs ("Curtain Close", "Fade Out").
  */
+const TYPE_LABELS = Object.fromEntries(
+	Object.entries( SHARED.effectCatalog ).map( ( [ value, entry ] ) => [
+		value,
+		entry.label,
+	] )
+);
+
 const EXIT_TYPE_LABELS = {
 	...TYPE_LABELS,
-	fade: 'Fade Out',
-	slide: 'Slide Out',
-	scale: 'Scale Out',
-	blur: 'Blur Out',
-	rotate: 'Rotate Out',
-	flip: 'Flip Out',
-	curtain: 'Curtain Close',
+	...Object.fromEntries(
+		Object.entries( SHARED.effectCatalog )
+			.filter( ( [ , entry ] ) => entry.exitLabel )
+			.map( ( [ value, entry ] ) => [ value, entry.exitLabel ] )
+	),
 };
 
-const DIRECTION_LABELS = {
-	btt: 'Bottom to top',
-	ttb: 'Top to bottom',
-	ltr: 'Left to right',
-	rtl: 'Right to left',
-	horizontal: 'Horizontal',
-	vertical: 'Vertical',
-};
+const DIRECTION_LABELS = SHARED.directionLabels;
 
 function toOptions( values, labels ) {
 	return values.map( ( value ) => ( {

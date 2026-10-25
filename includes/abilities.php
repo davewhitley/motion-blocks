@@ -200,6 +200,9 @@ function motion_blocks_ability_get_effects() {
             'entry'              => array_values( $shared['entryTypes'] ),
             'exit'               => array_values( $shared['exitTypes'] ),
         ),
+        // Every effect: label, what it looks like, where it can be used,
+        // its directions (with labels and the default) and options.
+        'catalog'          => motion_blocks_recipe_effect_catalog(),
         'directions'       => $shared['directions'],
         'easings'          => array_keys( motion_blocks_recipe_easings() ),
         'image_only_block' => 'core/cover',
@@ -493,7 +496,7 @@ function motion_blocks_register_abilities() {
         'motion-blocks/get-effects',
         array(
             'label'               => __( 'Get animation effects', 'motion-blocks' ),
-            'description'         => __( 'Lists the animation modes, effects, directions and easings Motion Blocks supports, with the JSON Schema of an animation recipe and examples. Read this first.', 'motion-blocks' ),
+            'description'         => __( 'Lists the animation modes and every effect (what it looks like, where it can be used, its directions and options), the easings, the JSON Schema of an animation recipe, and examples. Read this first.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => array( 'object', 'null' ),

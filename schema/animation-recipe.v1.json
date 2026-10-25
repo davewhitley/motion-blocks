@@ -46,7 +46,7 @@
                         "image-zoom",
                         "custom"
                     ],
-                    "description": "Effect. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
+                    "description": "Effect. What each one looks like, its directions and options: the `catalog` from get-effects, or schema/README.md. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
                 },
                 "direction": {
                     "type": "string",
@@ -233,7 +233,7 @@
                         "image-zoom",
                         "custom"
                     ],
-                    "description": "Effect. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
+                    "description": "Effect. What each one looks like, its directions and options: the `catalog` from get-effects, or schema/README.md. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
                 },
                 "direction": {
                     "type": "string",
@@ -429,7 +429,7 @@
                         "image-zoom",
                         "custom"
                     ],
-                    "description": "Effect. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
+                    "description": "Effect. What each one looks like, its directions and options: the `catalog` from get-effects, or schema/README.md. \"custom\" uses `from` / `to`; \"image-move\" and \"image-zoom\" only work on a Cover with an image background."
                 },
                 "direction": {
                     "type": "string",

@@ -39,17 +39,84 @@ const MOTION_BLOCKS_RECIPE_FORMAT = 1;
  * @return array<string, array{0: string, 1: string|null}>
  */
 function motion_blocks_recipe_custom_props() {
-    return array(
-        'opacity'    => array( 'Opacity', null ),
-        'translateX' => array( 'TranslateX', 'px' ),
-        'translateY' => array( 'TranslateY', 'px' ),
-        'scale'      => array( 'Scale', null ),
-        'rotate'     => array( 'Rotate', 'deg' ),
-        'rotateX'    => array( 'RotateX', 'deg' ),
-        'rotateY'    => array( 'RotateY', 'deg' ),
-        'blur'       => array( 'Blur', 'px' ),
-        'clipPath'   => array( 'ClipPath', null ),
-    );
+    // From shared-constants.json, so a new Custom property reaches
+    // recipes (and the schema, and the reference) without code changes
+    // here. The attribute suffix is the id with a capital first letter.
+    $shared = motion_blocks_shared_constants();
+    $out    = array();
+    foreach ( $shared['propertyDefaultUnits'] as $id => $unit ) {
+        $out[ $id ] = array( ucfirst( $id ), '' === $unit ? null : $unit );
+    }
+    return $out;
+}
+
+/**
+ * Every effect, described for agents and people: label, what it looks
+ * like, where it can be used, its directions and options. Built from
+ * shared-constants.json (effectCatalog, the effect lists, directions).
+ *
+ * @return array[] One entry per effect, in panel order.
+ */
+function motion_blocks_recipe_effect_catalog() {
+    $shared = motion_blocks_shared_constants();
+    $out    = array();
+    foreach ( $shared['effectCatalog'] as $type => $entry ) {
+        $parts = array();
+        if ( in_array( $type, $shared['animationTypes'], true ) ) {
+            $parts[] = 'page-load';
+            $parts[] = 'scroll-interactive';
+        }
+        if ( in_array( $type, $shared['entryTypes'], true ) ) {
+            $parts[] = 'entry';
+        }
+        if ( in_array( $type, $shared['exitTypes'], true ) ) {
+            $parts[] = 'exit';
+        }
+        $base       = preg_replace( '/-out$/', '', $type );
+        $directions = isset( $shared['directions'][ $type ] ) ? $shared['directions'][ $type ] : array();
+        if ( 'scale' === $base ) {
+            $directions[] = 'none';
+        }
+        $options = array( 'duration', 'delay', 'easing' );
+        if ( $directions ) {
+            $options[] = 'direction';
+        }
+        if ( 'blur' === $base ) {
+            $options[] = 'blur';
+        }
+        if ( 'rotate' === $base ) {
+            $options[] = 'rotate';
+        }
+        if ( 'custom' === $type ) {
+            $options[] = 'from';
+            $options[] = 'to';
+        }
+        $item = array(
+            'type'        => $type,
+            'label'       => $entry['label'],
+            'description' => $entry['description'],
+            'use_in'      => $parts,
+            'options'     => $options,
+        );
+        if ( ! empty( $entry['exitLabel'] ) ) {
+            $item['exit_label'] = $entry['exitLabel'];
+        }
+        if ( $directions ) {
+            $labels = array();
+            foreach ( $directions as $d ) {
+                $labels[ $d ] = isset( $shared['directionLabels'][ $d ] ) ? $shared['directionLabels'][ $d ] : $d;
+            }
+            $item['directions'] = $labels;
+            if ( ! empty( $entry['defaultDirection'] ) ) {
+                $item['default_direction'] = $entry['defaultDirection'];
+            }
+        }
+        if ( in_array( $type, $shared['imageEffectTypes'], true ) ) {
+            $item['cover_only'] = true;
+        }
+        $out[] = $item;
+    }
+    return $out;
 }
 
 /**
@@ -156,7 +223,7 @@ function motion_blocks_recipe_schema() {
             'type'      => array(
                 'type'        => 'string',
                 'enum'        => array_values( $types ),
-                'description' => 'Effect. "custom" uses `from` / `to`; "image-move" and "image-zoom" only work on a Cover with an image background.',
+                'description' => 'Effect. What each one looks like, its directions and options: the `catalog` from get-effects, or schema/README.md. "custom" uses `from` / `to`; "image-move" and "image-zoom" only work on a Cover with an image background.',
             ),
             'direction' => array(
                 'type'        => 'string',

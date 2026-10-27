@@ -434,6 +434,52 @@ describe( 'restraint and safety', () => {
  * The Classic block can't keep animation settings (2026-10-20 review,
  * #56): no panel, and Auto-animate skips it.
  */
+describe( 'Query Loop', () => {
+	/** A Query Loop: `perPage` posts in a grid of `columns` (0 = a plain list). */
+	const card = () => b( 'core/group', [ heading(), para() ] );
+	const queryLoop = ( columns, perPage ) => {
+		const list = b( 'core/post-template', [ card() ], {
+			layout: columns
+				? { type: 'grid', columnCount: columns }
+				: { type: 'default' },
+		} );
+		return { list, query: b( 'core/query', [ list ], { query: { perPage } } ) };
+	};
+
+	it( 'cascades posts that fit on one row, as one list', () => {
+		const { list, query } = queryLoop( 3, 3 );
+		const p = plan( [ query ] );
+		expect( roleOf( p, query ) ).toBeUndefined();
+		expect( roleOf( p, list ) ).toBe( 'cascade' );
+		expect( p.apply.find( ( i ) => i.clientId === list.clientId ).count ).toBe( 3 );
+		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBeUndefined();
+		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe( true );
+	} );
+
+	it( 'makes each post rise by itself when the posts wrap onto more rows', () => {
+		const { list, query } = queryLoop( 2, 18 );
+		const p = plan( [ query ] );
+		expect( roleOf( p, query ) ).toBeUndefined();
+		expect( roleOf( p, list ) ).toBeUndefined();
+		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBe( 'rise' );
+	} );
+
+	it( 'treats a plain list layout as one post per row', () => {
+		const { list, query } = queryLoop( 0, 5 );
+		const p = plan( [ query ] );
+		expect( roleOf( p, list ) ).toBeUndefined();
+		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBe( 'rise' );
+	} );
+
+	it( 'walks into a Query Loop even when a group wraps it with a heading', () => {
+		const { list, query } = queryLoop( 3, 3 );
+		const wrapper = b( 'core/group', [ heading(), query ] );
+		const p = plan( [ wrapper ] );
+		expect( roleOf( p, wrapper ) ).toBeUndefined();
+		expect( roleOf( p, list ) ).toBe( 'cascade' );
+	} );
+} );
+
 describe( 'Classic block', () => {
 	const { canAnimateBlock } = require( '../../src/components/constants' );
 	const {

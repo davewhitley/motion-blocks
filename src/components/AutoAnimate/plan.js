@@ -457,10 +457,13 @@ function isSection( block ) {
 	) {
 		return false;
 	}
+	// A Query Loop is always a block of its own to walk into, even with
+	// just a Post Template inside: its posts are what should animate.
 	return ! children.some(
 		( child ) =>
 			COMPOSITE_BLOCKS.has( child.name ) &&
-			( child.innerBlocks || [] ).length > 1
+			( child.name === 'core/query' ||
+				( child.innerBlocks || [] ).length > 1 )
 	);
 }
 
@@ -508,6 +511,12 @@ export function computeAutoAnimatePlan(
 	};
 
 	const count = ( block ) => countDescendants( block.clientId ) || 0;
+
+	// Posts a Query Loop shows per page, while walking inside one.
+	let queryPerPage = null;
+	const DEFAULT_QUERY_COUNT = 10;
+	// Beyond this the cascade's beat is already compressed to the floor.
+	const MAX_QUERY_COUNT = 12;
 
 	/**
 	 * Queue one item. On the first screen it joins the opening sequence
@@ -593,6 +602,39 @@ export function computeAutoAnimatePlan(
 			for ( const child of block.innerBlocks || [] ) {
 				recurse( child, inner );
 			}
+			return;
+		}
+
+		// Query Loop: the posts are the cascade, not the loop as one
+		// slab. The Query block only wraps a Post Template (the block
+		// whose children render once per post), so walk into the Query
+		// and let the Post Template take the cascade below. The post
+		// count isn't known while editing, so use the query's per-page
+		// setting (the site default, 10, when it inherits).
+		if ( name === 'core/query' ) {
+			const outerPerPage = queryPerPage;
+			queryPerPage = block.attributes?.query?.perPage || DEFAULT_QUERY_COUNT;
+			for ( const child of block.innerBlocks || [] ) {
+				recurse( child, sequence );
+			}
+			queryPerPage = outerPerPage;
+			return;
+		}
+		if ( name === 'core/post-template' ) {
+			const posts = queryPerPage || DEFAULT_QUERY_COUNT;
+			const layout = block.attributes?.layout;
+			const columns = layout?.type === 'grid' ? layout.columnCount || 0 : 1;
+			// Posts that fit on one row arrive together, so they cascade.
+			// Posts that wrap onto more rows arrive as you scroll, so each
+			// post (the card it's built from) rises when it comes into view.
+			if ( columns && posts <= columns ) {
+				push( block, 'cascade', { ...seq(), count: posts } );
+			} else {
+				for ( const child of block.innerBlocks || [] ) {
+					push( child, 'rise', seq() );
+				}
+			}
+			descendantCount += count( block );
 			return;
 		}
 

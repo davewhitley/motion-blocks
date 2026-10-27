@@ -391,6 +391,45 @@ unregister_block_type( 'mb-test/own-animation' );
 $preview_total = count( $previews );
 echo "\n" . ( $preview_total - $preview_failed ) . " / {$preview_total} previews load\n";
 
-if ( $failed || $preview_failed ) {
+// --- Post Template (core/null) ---
+// WordPress renders each post through a copy of the Post Template's own
+// parsed block, renamed `core/null`. The render filter must not read
+// that copy's animation attrs: the list is animated once, and the post
+// cards inside it carry no animation of their own.
+echo "\nPost Template renders each post once\n";
+$template_post_ids = array();
+for ( $i = 1; $i <= 3; $i++ ) {
+	$template_post_ids[] = wp_insert_post(
+		array(
+			'post_title'  => "Motion Blocks test post {$i}",
+			'post_status' => 'publish',
+		)
+	);
+}
+$template_html = do_blocks(
+	'<!-- wp:query {"queryId":991,"query":{"perPage":3,"postType":"post","inherit":false}} -->'
+	. '<div class="wp-block-query"><!-- wp:post-template {"animationMode":"scroll-appear","animationEntryType":"fade","animationEntryDelay":0} -->'
+	. '<!-- wp:group --><div class="wp-block-group"><!-- wp:post-title /--></div><!-- /wp:group -->'
+	. '<!-- /wp:post-template --></div><!-- /wp:query -->'
+);
+foreach ( $template_post_ids as $template_post_id ) {
+	wp_delete_post( $template_post_id, true );
+}
+$template_animated = substr_count( $template_html, 'mb-animated' );
+$template_errors   = array();
+if ( false === strpos( $template_html, 'wp-block-post-template' ) ) {
+	$template_errors[] = 'the Post Template did not render (check the fixture)';
+} elseif ( ! preg_match( '/<ul[^>]*class="[^"]*mb-animated/', $template_html ) ) {
+	$template_errors[] = 'the Post Template list itself is not animated';
+}
+if ( 1 !== $template_animated ) {
+	$template_errors[] = "expected 1 animated element (the list), found {$template_animated}";
+}
+echo ( $template_errors ? 'FAIL' : 'PASS' ) . "  Post Template list is animated once, post cards are not\n";
+foreach ( $template_errors as $error ) {
+	echo "        {$error}\n";
+}
+
+if ( $failed || $preview_failed || $template_errors ) {
 	exit( 1 );
 }

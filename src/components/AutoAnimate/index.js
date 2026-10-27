@@ -17,14 +17,8 @@ import {
 	__experimentalVStack as VStack,
 	__experimentalHStack as HStack,
 } from '@wordpress/components';
-import {
-	useSelect,
-	useDispatch,
-	useRegistry,
-	select as dataSelect,
-} from '@wordpress/data';
+import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
-import { store as blocksStore } from '@wordpress/blocks';
 import { store as noticesStore } from '@wordpress/notices';
 import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
@@ -33,13 +27,43 @@ import {
 	STYLE_PRESETS,
 	buildAutoAnimateUpdates,
 	computeAutoAnimatePlan,
-	summarizeByBlockType,
+	summarizeChoreography,
 } from './plan';
 import { countDescendantsIn } from '../selectStable';
 
-// Module-level so it is the same reference on every render (GH #27).
-const getBlockTypeTitle = ( name ) =>
-	dataSelect( blocksStore ).getBlockType( name )?.title;
+/**
+ * Estimate which blocks start on the visitor's first screen, measured
+ * in the editor canvas. Used to build the opening sequence.
+ *
+ * The canvas isn't the front end: it has no site header, and themes put
+ * a header and often a page title above the content. So positions are
+ * measured from the top of the content, and only the first 60% of a
+ * screen (capped at 900px) counts. Erring short is harmless (a block
+ * just waits for the scroll); erring long would play a block's opening
+ * animation while it's still below the fold. Returns null for a block
+ * it can't find; the planner then falls back to "the first top-level
+ * block is the first screen".
+ *
+ * @return {Function} `(clientId) → boolean|null`.
+ */
+function measureFirstScreen() {
+	const iframe = document.querySelector( 'iframe[name="editor-canvas"]' );
+	const doc = iframe?.contentDocument || document;
+	const win = iframe?.contentWindow || window;
+	const fold = Math.min( win.innerHeight || 0, 900 ) * 0.6;
+	const first = doc.querySelector( '.is-root-container > [data-block]' );
+	if ( ! fold || ! first ) {
+		return () => null;
+	}
+	const contentTop = first.getBoundingClientRect().top;
+	return ( clientId ) => {
+		const el = doc.querySelector( `[data-block="${ clientId }"]` );
+		if ( ! el ) {
+			return null;
+		}
+		return el.getBoundingClientRect().top - contentTop < fold;
+	};
+}
 
 /**
  * Keeps the modal's hooks unmounted while it is closed: the component
@@ -90,8 +114,10 @@ function AutoAnimateModalContent( {
 	// attributes — so no need to rerun on preset change.
 	const plan = useMemo( () => {
 		const sel = registry.select( blockEditorStore );
-		return computeAutoAnimatePlan( topLevelBlocks, ( id ) =>
-			countDescendantsIn( sel, id )
+		return computeAutoAnimatePlan(
+			topLevelBlocks,
+			( id ) => countDescendantsIn( sel, id ),
+			{ isOnFirstScreen: measureFirstScreen() }
 		);
 	}, [ topLevelBlocks, registry ] );
 
@@ -106,10 +132,68 @@ function AutoAnimateModalContent( {
 		plan.skipExisting.length +
 		plan.descendantCount;
 
-	const applySummary = useMemo(
-		() => summarizeByBlockType( plan.apply, getBlockTypeTitle ),
+	const choreography = useMemo(
+		() => summarizeChoreography( plan.apply ),
 		[ plan.apply ]
 	);
+	// What the reader will see, in order.
+	const applySummary = [
+		choreography.opening > 0 &&
+			sprintf(
+				/* translators: %d: number of blocks */
+				_n(
+					'%d block opens the page as soon as it loads',
+					'%d blocks open the page in sequence as soon as it loads',
+					choreography.opening,
+					'motion-blocks'
+				),
+				choreography.opening
+			),
+		choreography.hero > 0 &&
+			sprintf(
+				/* translators: %d: number of Cover blocks */
+				_n(
+					'%d Cover background settles from a slow zoom',
+					'%d Cover backgrounds settle from a slow zoom',
+					choreography.hero,
+					'motion-blocks'
+				),
+				choreography.hero
+			),
+		choreography.cascades > 0 &&
+			sprintf(
+				/* translators: %d: number of sections and rows */
+				_n(
+					'%d section or row cascades in, item by item',
+					'%d sections and rows cascade in, item by item',
+					choreography.cascades,
+					'motion-blocks'
+				),
+				choreography.cascades
+			),
+		choreography.media > 0 &&
+			sprintf(
+				/* translators: %d: number of images and media blocks */
+				_n(
+					'%d image settles into place',
+					'%d images settle into place',
+					choreography.media,
+					'motion-blocks'
+				),
+				choreography.media
+			),
+		choreography.rises > 0 &&
+			sprintf(
+				/* translators: %d: number of blocks */
+				_n(
+					'%d other block rises into place',
+					'%d other blocks rise into place',
+					choreography.rises,
+					'motion-blocks'
+				),
+				choreography.rises
+			),
+	].filter( Boolean );
 
 	const handleApply = () => {
 		if ( applyCount === 0 ) {
@@ -117,16 +201,11 @@ function AutoAnimateModalContent( {
 			return;
 		}
 
-		// Each animated block gets its own attribute payload:
-		//   1. Direction-from-align (MEDIA): `attrsForCategory` reads
-		//      `block.attributes.align` so a left-aligned image slides
-		//      from the left and a right-aligned one from the right.
-		//   2. STAGGER_ROW gets the stagger toggle enabled + the
-		//      preset's step value — the plugin's existing stagger
-		//      CSS cascade handles the per-column delay, so no
-		//      manual delay math here anymore.
-		// They go out in one action via `uniqueByBlock` so a single
-		// Cmd/Ctrl+Z reverts the whole apply (GH #33 / #56).
+		// Each animated block gets its own payload: its role's motion,
+		// its place in the opening sequence or its section, and the
+		// preset's timing (see plan.js). They go out in one action via
+		// `uniqueByBlock` so a single Cmd/Ctrl+Z reverts the whole
+		// apply (GH #33 / #56).
 		const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
 			plan.apply,
 			stylePreset
@@ -187,6 +266,12 @@ function AutoAnimateModalContent( {
 					) }
 				</ToggleGroupControl>
 
+				<p className="mb-auto-animate-modal__intro">
+					{ __(
+						'Everything rises into place on one smooth curve, in reading order: the first screen plays as an opening sequence, and each section cascades in as it scrolls into view. Long runs of text stay still.',
+						'motion-blocks'
+					) }
+				</p>
 				{ applyCount > 0 ? (
 					<div className="mb-auto-animate-modal__section">
 						<p className="mb-auto-animate-modal__heading">
@@ -203,11 +288,7 @@ function AutoAnimateModalContent( {
 						</p>
 						<ul className="mb-auto-animate-modal__list">
 							{ applySummary.map( ( row ) => (
-								<li key={ row.name }>
-									{ row.count > 1
-										? `${ row.count } × ${ row.name }`
-										: row.name }
-								</li>
+								<li key={ row }>{ row }</li>
 							) ) }
 						</ul>
 					</div>

@@ -872,6 +872,19 @@ function motion_blocks_render_block( $block_content, $block ) {
         return $block_content;
     }
 
+    // `core/null` is WordPress's hidden per-post copy of a Post Template
+    // (or Term Template): it renders each item through a copy of the
+    // template's own parsed block, renamed `core/null`, so this filter
+    // would see the template's animation attrs once per item and write
+    // them onto each item's first tag, animating every card a second
+    // time. The real template block is handled when it renders itself.
+    // Deliberately not "skip any unregistered block name": that would
+    // also drop animations from blocks whose plugin is deactivated but
+    // whose content still displays.
+    if ( 'core/null' === $block_name ) {
+        return $block_content;
+    }
+
     // WordPress drops attrs equal to their schema default from the saved
     // block comment, and the editor refills them from the schema on load.
     // Do the same here so the front end sees what the editor panel shows

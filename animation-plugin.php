@@ -30,6 +30,17 @@ define( 'MOTION_BLOCKS_VERSION', '0.3.1' );
  */
 define( 'MOTION_BLOCKS_RECIPE_VERSION', 2 );
 
+// Agent-readable animation recipes and the WordPress abilities built
+// on them (AI agents, MCP, REST: see the README). The release zip must
+// include includes/ and schema/; guarded so a package missing them
+// loses only the abilities, not the site.
+foreach ( array( 'recipe', 'abilities' ) as $motion_blocks_include ) {
+    if ( file_exists( __DIR__ . "/includes/{$motion_blocks_include}.php" ) ) {
+        require_once __DIR__ . "/includes/{$motion_blocks_include}.php";
+    }
+}
+unset( $motion_blocks_include );
+
 /**
  * Load the shared-constants JSON file (single source of truth that
  * the JS side also imports via webpack). Cached per request — the

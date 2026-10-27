@@ -1,0 +1,41 @@
+{
+	"_README": "Where every block animation attribute lives in an agent recipe (includes/recipe.php). tests/unit/recipe-coverage.test.js fails if an attribute registered in src/index.js isn't accounted for here, and tests/recipe/check.php checks every recipe path below exists in the recipe schema. Adding an attribute? Map it here AND handle it in both motion_blocks_recipe_to_attributes() and motion_blocks_attributes_to_recipe(), add a tests/schema-defaults/cases.php case that uses it (the round trip in tests/recipe/check.php then proves it), and regenerate the schema and reference: wp eval-file tests/recipe/check.php schema. See CONTRIBUTING.md.",
+
+	"_README_effectFields": "Per-effect attributes. Each applies to the shared keys (animation{Suffix}, recipe `effect`) and to both Scroll Appear slots (animationEntry{Suffix} / animationExit{Suffix}, recipe `entry` / `exit`), except where `slotsOnly` says so.",
+	"effectFields": {
+		"Type": "type",
+		"Direction": "direction",
+		"Duration": "duration",
+		"Delay": "delay",
+		"Acceleration": "easing",
+		"CustomTimingFunction": "easing",
+		"BlurAmount": "blur",
+		"RotateAngle": "rotate",
+		"Replay": "replay"
+	},
+	"slotsOnly": [ "Replay" ],
+
+	"_README_customProperties": "Custom From / To values: animation[Entry|Exit](From|To){Prop} for every key of propertyDefaultUnits in shared-constants.json maps to `from.{prop}` / `to.{prop}` of the effect. Nothing to list here.",
+
+	"fields": {
+		"animationMode": "mode",
+		"animationRepeat": "repeat",
+		"animationPauseOffscreen": "pauseOffscreen",
+		"animationRangeStart": "range.start",
+		"animationRangeEnd": "range.end",
+		"animationFromToTarget": "target",
+		"animationStaggerEnabled": "stagger",
+		"animationStaggerStep": "stagger.step"
+	},
+
+	"notInRecipes": {
+		"animationPlayOnce": "Legacy (pre-slot) Scroll Appear flag. Read through the migration shim; never written.",
+		"animationScrollTrigger": "Legacy (pre-slot) Scroll Appear trigger. Read through the migration shim; never written.",
+		"animationPreviewEnabled": "Editor preview state (kept in the editor-preview store, not saved).",
+		"animationPreviewPlaying": "Editor preview state.",
+		"animationPreviewSlot": "Editor preview state.",
+		"animationScrubPosition": "Editor preview state.",
+		"animationFromToActiveSide": "Editor preview state.",
+		"animationFromToPreviewSide": "Editor preview state."
+	}
+}

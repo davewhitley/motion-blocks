@@ -88,6 +88,125 @@
 		"image-move": [ "btt", "ttb", "ltr", "rtl" ]
 	},
 
+	"_README_easingPresets": "Spring curves offered in the Acceleration menu. The stored acceleration value is the linear() string itself; agent recipes (includes/recipe.php) refer to them by name.",
+	"easingPresets": {
+		"spring": "linear(0, 0.10 5%, 0.34 10%, 0.61 15%, 0.85 20%, 1.12 30%, 1.163 36%, 1.075 50%, 1.001 60%, 0.974 73%, 0.99 90%, 1)",
+		"bouncy": "linear(0, 0.38 5%, 0.78 8%, 1.05 10%, 1.27 13%, 1.37 17%, 1.30 20%, 1.06 25%, 0.89 30%, 0.87 35%, 0.95 40%, 1.03 45%, 1.05 49%, 1.03 55%, 0.99 66%, 1.01 82%, 1)",
+		"snappy": "linear(0, 0.08 5%, 0.26 10%, 0.47 15%, 0.65 20%, 0.81 25%, 0.91 30%, 0.99 35%, 1.025 40%, 1.046 50%, 1.032 60%, 1.014 70%, 1.003 80%, 1)"
+	},
+
+	"_README_effectCatalog": "Label and plain-language description of every effect, keyed by the values above. The single source for the panel's effect labels (TYPE_LABELS / EXIT_TYPE_LABELS in src/components/constants.js), for agents (get-effects, includes/recipe.php) and for the generated reference schema/README.md. exitLabel is the Scroll Appear Exit slot's wording; defaultDirection is what plays when no direction is set (the CSS fallback). Every effect in animationTypes / entryTypes / exitTypes must have an entry (tests/unit/recipe-coverage.test.js).",
+	"effectCatalog": {
+		"fade": {
+			"label": "Fade In",
+			"exitLabel": "Fade Out",
+			"description": "Fades from transparent to fully visible. In an Exit it fades away."
+		},
+		"fade-out": {
+			"label": "Fade Out",
+			"description": "Fades from visible to transparent."
+		},
+		"slide": {
+			"label": "Slide In",
+			"exitLabel": "Slide Out",
+			"description": "Fades in while moving 50px into place from one side. In an Exit it fades out moving 50px towards that side.",
+			"defaultDirection": "btt"
+		},
+		"slide-out": {
+			"label": "Slide Out",
+			"description": "Fades out while moving 50px away in the chosen direction.",
+			"defaultDirection": "ttb"
+		},
+		"wipe": {
+			"label": "Wipe",
+			"description": "Reveals the block with a straight edge sweeping across it (a clip-path wipe), without fading. In an Exit it wipes the block away.",
+			"defaultDirection": "ltr"
+		},
+		"curtain": {
+			"label": "Curtain Open",
+			"exitLabel": "Curtain Close",
+			"description": "Reveals the block from the centre outwards, like curtains opening. In an Exit it closes from the edges inwards.",
+			"defaultDirection": "horizontal"
+		},
+		"curtain-out": {
+			"label": "Curtain Close",
+			"description": "Hides the block from the edges inwards, like curtains closing.",
+			"defaultDirection": "horizontal"
+		},
+		"flip": {
+			"label": "Flip",
+			"exitLabel": "Flip Out",
+			"description": "Fades in while turning 90 degrees into place in 3D, like a card flipping over. In an Exit it flips away.",
+			"defaultDirection": "rtl"
+		},
+		"scale": {
+			"label": "Scale In",
+			"exitLabel": "Scale Out",
+			"description": "Fades in while growing from 75% to full size. A direction adds a 50px drift from that side; \"none\" scales in place. In an Exit it shrinks away.",
+			"defaultDirection": "none"
+		},
+		"scale-out": {
+			"label": "Scale Out",
+			"description": "Fades out while shrinking to 75%, optionally drifting 50px in the chosen direction.",
+			"defaultDirection": "none"
+		},
+		"blur": {
+			"label": "Blur In",
+			"exitLabel": "Blur Out",
+			"description": "Fades in while going from blurred to sharp. Set the starting blur with `blur` (px, default 8). In an Exit it blurs away."
+		},
+		"blur-out": {
+			"label": "Blur Out",
+			"description": "Fades out while blurring (`blur` sets the amount in px, default 8)."
+		},
+		"rotate": {
+			"label": "Rotate In",
+			"exitLabel": "Rotate Out",
+			"description": "Fades in while turning into place from an angle. Set the angle with `rotate` (degrees, default 90; negative turns the other way). In an Exit it turns away."
+		},
+		"rotate-out": {
+			"label": "Rotate Out",
+			"description": "Fades out while turning by `rotate` degrees (default 90)."
+		},
+		"image-move": {
+			"label": "Image Move (Beta)",
+			"description": "Cover blocks with an image background only. Pans the background image (enlarged to 120%) across the frame in the chosen direction while the text stays still. Best with Scroll Interactive, for a parallax feel.",
+			"defaultDirection": "btt"
+		},
+		"image-zoom": {
+			"label": "Image Zoom (Beta)",
+			"description": "Cover blocks with an image background only. Slowly zooms the background image from 100% to 120% while the text stays still."
+		},
+		"custom": {
+			"label": "Custom",
+			"description": "Your own start and end values, in `from` and `to`: opacity, translateX, translateY, scale, rotate, rotateX, rotateY, blur and clipPath. Anything left out stays at the block's normal look."
+		}
+	},
+
+	"_README_directionLabels": "Labels for every direction value in `directions` (and \"none\" for Scale).",
+	"directionLabels": {
+		"btt": "Bottom to top",
+		"ttb": "Top to bottom",
+		"ltr": "Left to right",
+		"rtl": "Right to left",
+		"horizontal": "Horizontal",
+		"vertical": "Vertical",
+		"none": "None"
+	},
+
+	"_README_propertyDefaultUnits": "Unit a bare number gets for each Custom From / To property (\"\" = unitless). Must match PROPERTY_DEFINITIONS in src/components/constants.js (tests/unit/recipe-coverage.test.js).",
+	"propertyDefaultUnits": {
+		"opacity": "",
+		"translateX": "px",
+		"translateY": "px",
+		"scale": "",
+		"rotate": "deg",
+		"rotateX": "deg",
+		"rotateY": "deg",
+		"blur": "px",
+		"clipPath": ""
+	},
+
 	"propertyCssVar": {
 		"opacity": "opacity",
 		"translateX": "translate-x",

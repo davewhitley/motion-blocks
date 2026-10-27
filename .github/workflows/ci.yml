@@ -126,6 +126,14 @@ jobs:
       - name: Show the fixture pages
         run: cat ci-output/manifest.json
 
+      - name: Recipe and abilities check
+        # The blueprint ran tests/recipe/check.php (agent recipes and the
+        # motion-blocks/* abilities) before building the fixture pages.
+        # Fails unless it reported "0 failed".
+        run: |
+          cat ci-output/recipe-check.txt
+          grep -q " 0 failed" ci-output/recipe-check.txt
+
       - name: Run the page & editor checks
         # Logs in through wp-login.php with Playground's default
         # admin / password. Google Chrome is preinstalled on GitHub's

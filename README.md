@@ -106,6 +106,71 @@ Themes can ship animation recipes at `settings.custom.motionBlocks.savedAnimatio
 
 Recipe `attributes` are copied verbatim into the block, so the format above is exactly what the editor stores after a user configures the same animation through the panel.
 
+## AI agents and automation
+
+Animations are plain JSON, and AI agents (or any script) can read and change them through WordPress's Abilities API (WordPress 6.9+).
+
+### Recipes: one animation as JSON
+
+A **recipe** is the agent-readable form of one block's animation. It's versioned and documented by a JSON Schema ([`schema/animation-recipe.v1.json`](schema/animation-recipe.v1.json)), and it maps to and from the block's attributes without loss. **[`schema/README.md`](schema/README.md) is the full reference:** every field, and every effect with what it looks like, its directions and options.
+
+```json
+{
+  "version": 1,
+  "mode": "scroll-appear",
+  "entry": {
+    "type": "custom",
+    "duration": 0.8,
+    "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "from": { "opacity": 0, "translateY": 24 },
+    "to": { "opacity": 1, "translateY": 0 }
+  },
+  "exit": null,
+  "stagger": { "step": 0.1 }
+}
+```
+
+- `mode`: `page-load` and `scroll-interactive` take an `effect`; `scroll-appear` takes an `entry`, an `exit`, or both.
+- Times are seconds. Omitted fields take documented defaults: duration 0.6, delay 0, easing `ease`.
+- `easing`: `ease`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, `spring`, `bouncy`, `snappy`, or any CSS `cubic-bezier()`, `steps()` or `linear()`.
+- Custom `from` / `to` numbers get their default unit: px for translate and blur, deg for rotations. Strings can carry their own unit (`"50%"`, `"0.5turn"`).
+- Numbers and booleans may also be sent as strings (`"0.6"`, `"true"`), as they arrive from query strings.
+- `target: "image"` animates only a Cover's background image. `stagger` cascades the children of a Group, Columns, Buttons, Gallery or List.
+
+`null` means no animation.
+
+### Abilities
+
+All are public abilities in the `motion-blocks` category. They're available over REST at `/wp-json/wp-abilities/v1/abilities/<name>/run`, and to MCP clients (Claude, ChatGPT and others) through WordPress's [MCP Adapter](https://github.com/WordPress/mcp-adapter). Each runs as the signed-in user, with the same permissions as the editor.
+
+| Ability | What it does | Needs |
+|---|---|---|
+| `motion-blocks/get-effects` | Modes, effects, directions and easings, the recipe schema, and examples. Read this first. | `edit_posts` |
+| `motion-blocks/get-animations` | Every block of a post, page, template or pattern, with its `path`, type, a text excerpt and its recipe. | edit that post |
+| `motion-blocks/validate-recipe` | Checks a recipe and returns each problem with its path and a hint. Changes nothing. | `edit_posts` |
+| `motion-blocks/set-animations` | Sets or removes the animation of one or more blocks and saves straight away, published pages included. | edit that post |
+| `motion-blocks/list-saved-animations` | The saved library and the theme's recipes, as recipes. | `manage_options` (like the library in the editor) |
+| `motion-blocks/save-animation` | Adds a recipe to the saved library. | `manage_options` |
+
+How `set-animations` behaves:
+- **All or nothing.** Every change is validated before anything is saved. If any change is invalid, nothing is written and every problem is returned.
+- **One revision.** Valid changes are saved together as one revision, so they can be rolled back from the editor's Revisions screen.
+- **Stale-path guard.** Each change names the `block_name` that `get-animations` reported at that path. If the page changed since, it's refused.
+- **No conflicting edits.** It's refused while another user has the post open in the editor.
+- **Block content only.** Revisions, autosaves and attachments can't be read or changed.
+
+```bash
+# Read a page's blocks and animations (cookie or Application Password auth).
+curl -u admin:APP_PASSWORD "https://example.com/wp-json/wp-abilities/v1/abilities/motion-blocks/get-animations/run?input%5Bpost_id%5D=42"
+
+# Make the first block slide up as it scrolls into view.
+curl -u admin:APP_PASSWORD -X POST -H "Content-Type: application/json" \
+  "https://example.com/wp-json/wp-abilities/v1/abilities/motion-blocks/set-animations/run" \
+  -d '{"input":{"post_id":42,"changes":[{"path":[0],"block_name":"core/heading","recipe":{"version":1,"mode":"scroll-appear","entry":{"type":"slide","direction":"btt"}}}]}}'
+```
+
+In PHP, `motion_blocks_attributes_to_recipe()` and `motion_blocks_recipe_to_attributes()` (in `includes/recipe.php`) do the same conversion, with validation.
+
 ## Architecture (brief)
 
 The plugin extends existing blocks via three filters. It doesn't register any new block types.
@@ -113,6 +178,7 @@ The plugin extends existing blocks via three filters. It doesn't register any ne
 | Concern | Where |
 |---|---|
 | Block attribute schema | `src/index.js` → `addAnimationAttributes`. Defaults come from `schemaDefaults` in `shared-constants.json`, which the PHP render filter also applies, so omitted attributes resolve the same in the editor and on the front end. |
+| Agent recipes and abilities | `includes/recipe.php` (recipe ↔ attributes, validation, JSON Schema), `includes/abilities.php` (the `motion-blocks/*` abilities). The published schema is generated from PHP: `wp eval-file tests/recipe/check.php schema`. |
 | Editor UI / preview HOC | `src/index.js` → `withAnimationPreview`, components in `src/components/` |
 | Class + data-attribute emission | `animation-plugin.php` → `motion_blocks_render_block`. Render-time only; `save()` no longer emits. Editor preview gets the same classes via the HOC above. |
 | Frontend runtime | `src/frontend.js` → mode-specific init (`initPageLoadAnimations`, `initScrollAppearAnimations`, `initScrollInteractiveAnimations`) |
@@ -133,7 +199,7 @@ npm run build    # production build
 npm run start    # watch mode
 ```
 
-Build output goes to `build/`. Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
+Build output goes to `build/`. A release zip holds `LICENSE`, `README.md`, `animation-plugin.php`, `uninstall.php`, `shared-constants.json`, `css/`, `build/`, `includes/` and `schema/` under a top-level `motion-blocks/` folder (for example `git archive --prefix=motion-blocks/ <tag> LICENSE README.md animation-plugin.php uninstall.php shared-constants.json css build includes schema`). Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
 
 `tests/schema-defaults/check.php` checks that the front end renders saved blocks the way the editor panel shows them, and that server-rendered block previews (Archives, Calendar, and so on) load in the editor. Run it with WP-CLI from a site that has the plugin active (add `page` to generate a visual test page, or `audit` to list the output of every animated block on the site):
 
@@ -160,6 +226,8 @@ npm run test:pages -- --manifest /tmp/mb-manifest.json
 
 It logs in through Studio's auto-login URL; on another local site use `--login form --user <name> --password <pw>`. `node tests/self-check/run.mjs --help` lists every option (Chrome path, number of pages checked at once, `--only smoke,clean`, …).
 
+**Recipe and abilities check** (`tests/recipe/check.php`, WP-CLI): round-trips every schema-defaults fixture through a recipe and back and checks the front-end markup is unchanged. It also checks validation errors, and runs each ability end to end on a temporary page, including over REST. `wp eval-file <path-to>/motion-blocks/tests/recipe/check.php`.
+
 **CI** (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
 
 1. *Build & unit tests* (about 1 minute): `npm ci`, `npm run build`, fails if the committed `build/` differs from a fresh build (run `npm run build` and commit `build/`), then `npm run test:unit`.
@@ -176,6 +244,10 @@ npx @wp-playground/cli@3.1.60 server --port=9400 --wp=7.1 \
 # in another terminal, once it prints "Ready!":
 npm run test:pages -- --manifest ci-output/manifest.json --login form
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how the pieces fit together and the checklists for adding an effect, a setting or a Custom property (including keeping the agent recipe format in step).
 
 ## License
 

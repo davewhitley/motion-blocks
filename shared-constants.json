@@ -6,7 +6,8 @@
 		"core/columns",
 		"core/buttons",
 		"core/gallery",
-		"core/list"
+		"core/list",
+		"core/post-template"
 	],
 
 	"nonAnimatableBlocks": [

@@ -119,45 +119,51 @@ export const MOTION_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
  *                a long list compresses its beat to fit
  *   openingBeat  seconds between items of the first-screen sequence
  *   heroZoom     starting scale of the hero background's zoom-out
+ *   stagger      whether a cascade staggers its children; when false
+ *                the section rises as one block
  *
  * `ctaDuration` and `sequenceStep` are kept for older callers.
  */
 export const STYLE_PRESETS = {
 	subtle: {
 		label: 'Subtle',
-		duration: 0.6,
-		ctaDuration: 0.5,
-		distance: 12,
-		settleScale: 1.02,
-		beat: 0.06,
-		sequenceStep: 0.06,
-		spread: 0.5,
-		openingBeat: 0.1,
-		heroZoom: 1.04,
-	},
-	smooth: {
-		label: 'Smooth',
 		duration: 0.8,
 		ctaDuration: 0.6,
 		distance: 24,
 		settleScale: 1.04,
-		beat: 0.09,
-		sequenceStep: 0.09,
-		spread: 0.7,
-		openingBeat: 0.14,
-		heroZoom: 1.08,
+		// No stagger: a cascade's section rises as one block.
+		stagger: false,
+		beat: 0.08,
+		sequenceStep: 0.08,
+		spread: 0.6,
+		openingBeat: 0.12,
+		heroZoom: 1.06,
 	},
-	bold: {
-		label: 'Bold',
+	smooth: {
+		label: 'Smooth',
 		duration: 1.0,
-		ctaDuration: 0.7,
-		distance: 40,
+		ctaDuration: 0.8,
+		distance: 48,
 		settleScale: 1.08,
+		stagger: true,
 		beat: 0.12,
 		sequenceStep: 0.12,
 		spread: 0.9,
 		openingBeat: 0.18,
 		heroZoom: 1.12,
+	},
+	bold: {
+		label: 'Bold',
+		duration: 1.3,
+		ctaDuration: 1.0,
+		distance: 80,
+		settleScale: 1.14,
+		stagger: true,
+		beat: 0.16,
+		sequenceStep: 0.16,
+		spread: 1.2,
+		openingBeat: 0.24,
+		heroZoom: 1.2,
 	},
 };
 
@@ -301,7 +307,7 @@ export function attrsForItem( item, stylePreset = 'smooth' ) {
 	if ( role === 'heroImage' ) {
 		extra.animationFromToTarget = 'img';
 	}
-	if ( role === 'cascade' ) {
+	if ( role === 'cascade' && style.stagger !== false ) {
 		extra.animationStaggerEnabled = true;
 		extra.animationStaggerStep = item.step ?? style.beat;
 	}

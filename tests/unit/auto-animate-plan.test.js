@@ -200,6 +200,41 @@ describe( 'sections cascade in reading order', () => {
 		expect( p.skipBody ).toHaveLength( 0 );
 	} );
 
+	it( 'Subtle rises a section as one block, without stagger', () => {
+		const s = section();
+		const p = plan( [ s ] );
+		const subtle = attrsOf( p, 'subtle', s );
+		expect( subtle.animationStaggerEnabled ).toBeFalsy();
+		expect( subtle.animationEntryFromTranslateY ).toBe(
+			`${ STYLE_PRESETS.subtle.distance }px`
+		);
+		for ( const preset of [ 'smooth', 'bold' ] ) {
+			expect( attrsOf( p, preset, s ).animationStaggerEnabled ).toBe(
+				true
+			);
+		}
+	} );
+
+	it( 'each level moves further and longer than the one below', () => {
+		const { subtle, smooth, bold } = STYLE_PRESETS;
+		for ( const key of [
+			'duration',
+			'distance',
+			'settleScale',
+			'heroZoom',
+			'openingBeat',
+		] ) {
+			expect( [ key, subtle[ key ] < smooth[ key ] ] ).toEqual( [
+				key,
+				true,
+			] );
+			expect( [ key, smooth[ key ] < bold[ key ] ] ).toEqual( [
+				key,
+				true,
+			] );
+		}
+	} );
+
 	it( 'compresses the beat so long cascades still feel quick', () => {
 		const style = STYLE_PRESETS.smooth;
 		expect( cascadeStep( 3, style ) ).toBe( style.beat );
@@ -250,12 +285,13 @@ describe( 'role-specific motion', () => {
 		const left = image( 'left' );
 		const right = image( 'right' );
 		const p = plan( [ left, right ] );
+		const d = STYLE_PRESETS.smooth.distance;
 		expect(
 			attrsOf( p, 'smooth', left ).animationEntryFromTranslateX
-		).toBe( '-24px' );
+		).toBe( `-${ d }px` );
 		expect(
 			attrsOf( p, 'smooth', right ).animationEntryFromTranslateX
-		).toBe( '24px' );
+		).toBe( `${ d }px` );
 	} );
 
 	it( 'other images rise and settle from a slight scale', () => {
@@ -443,7 +479,10 @@ describe( 'Query Loop', () => {
 				? { type: 'grid', columnCount: columns }
 				: { type: 'default' },
 		} );
-		return { list, query: b( 'core/query', [ list ], { query: { perPage } } ) };
+		return {
+			list,
+			query: b( 'core/query', [ list ], { query: { perPage } } ),
+		};
 	};
 
 	it( 'cascades posts that fit on one row, as one list', () => {
@@ -451,9 +490,13 @@ describe( 'Query Loop', () => {
 		const p = plan( [ query ] );
 		expect( roleOf( p, query ) ).toBeUndefined();
 		expect( roleOf( p, list ) ).toBe( 'cascade' );
-		expect( p.apply.find( ( i ) => i.clientId === list.clientId ).count ).toBe( 3 );
+		expect(
+			p.apply.find( ( i ) => i.clientId === list.clientId ).count
+		).toBe( 3 );
 		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBeUndefined();
-		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe( true );
+		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe(
+			true
+		);
 	} );
 
 	it( 'makes each post rise by itself when the posts wrap onto more rows', () => {

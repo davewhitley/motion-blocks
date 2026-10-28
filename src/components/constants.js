@@ -109,8 +109,12 @@ export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
  *   first-tag rule animated whatever the user's HTML or the shortcode
  *   printed first (a <style>, one of several siblings…), while the
  *   editor preview animated the whole block. Wrap them in a Group to
- *   animate them. The render filter skips these too, so animations
- *   saved on them before are dropped on the front end.
+ *   animate them.
+ * - `core/spacer`: empty space, so an effect on it shows nothing.
+ *   Stagger skips spacers too (src/stagger-index.js).
+ *
+ * The render filter skips these too, so animations saved on them
+ * before are dropped on the front end.
  */
 export const NON_ANIMATABLE_BLOCKS = SHARED.nonAnimatableBlocks;
 

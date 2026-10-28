@@ -115,7 +115,7 @@ describe( 'an animated Stagger child', () => {
 		// The parent's stagger rule drives that child's animation, so it
 		// must still inherit the parent's direction, loop and reverse.
 		expect( css ).toMatch(
-			/\.mb-animated:not\(\.mb-stagger-parent > :where\(:not\(\.wp-block-group__inner-container\)\), \.mb-stagger-parent > :where\(\.wp-block-group__inner-container\) > \*\) \{[^}]*--mb-iteration-count: 1;/
+			/\.mb-animated:not\(\.mb-stagger-parent > :where\(:not\(\.wp-block-group__inner-container, \.wp-block-spacer, \[data-type="core\/spacer"\]\)\), \.mb-stagger-parent > :where\(\.wp-block-group__inner-container\) > :where\(:not\(\.wp-block-spacer, \[data-type="core\/spacer"\]\)\)\) \{[^}]*--mb-iteration-count: 1;/
 		);
 	} );
 } );

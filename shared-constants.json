@@ -13,7 +13,8 @@
 	"nonAnimatableBlocks": [
 		"core/freeform",
 		"core/html",
-		"core/shortcode"
+		"core/shortcode",
+		"core/spacer"
 	],
 
 	"staggerIncompatibleTypes": [

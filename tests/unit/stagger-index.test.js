@@ -108,6 +108,42 @@ describe( 'setStaggerIndices', () => {
 	} );
 } );
 
+describe( 'spacers', () => {
+	it( 'skips a Spacer without leaving a gap in the sequence', () => {
+		const group = build( `
+			<div class="wp-block-group mb-stagger-parent">
+				<h2>A</h2>
+				<div class="wp-block-spacer" aria-hidden="true"></div>
+				<p>B</p>
+				<p>C</p>
+			</div>` );
+		setStaggerIndices( group );
+		const [ a, spacer, b, c ] = group.children;
+		expect( indexOf( spacer ) ).toBe( '' );
+		expect( [ a, b, c ].map( indexOf ) ).toEqual( [ '0', '1', '2' ] );
+	} );
+
+	it( 'skips a Spacer inside the classic-theme wrapper and in the editor', () => {
+		const group = build( `
+			<div class="mb-stagger-parent">
+				<div class="wp-block-group__inner-container">
+					<p>A</p>
+					<div data-type="core/spacer"></div>
+					<p>B</p>
+				</div>
+			</div>` );
+		expect(
+			staggerTargets( group ).map( ( t ) => [
+				t.el.textContent,
+				t.index,
+			] )
+		).toEqual( [
+			[ 'A', 0 ],
+			[ 'B', 1 ],
+		] );
+	} );
+} );
+
 describe( 'frontend.js', () => {
 	afterEach( () => {
 		document.body.innerHTML = '';

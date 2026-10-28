@@ -678,7 +678,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 		// during a multi-selection, so a deselect never showed up there.
 		//
 		// Blocks that can't keep animation settings (Classic, Custom
-		// HTML, Shortcode — NON_ANIMATABLE_BLOCKS) are left out of a
+		// HTML, Shortcode, Spacer — NON_ANIMATABLE_BLOCKS) are left out of a
 		// multi-selection: the panel renders on the first block that
 		// can, its count leaves them out, and writes skip them
 		// (`animatableIds()` below).

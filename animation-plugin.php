@@ -875,7 +875,7 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     // Blocks that can't keep animation settings (Classic, Custom HTML,
-    // Shortcode — `nonAnimatableBlocks`, the editor's
+    // Shortcode, Spacer — `nonAnimatableBlocks`, the editor's
     // NON_ANIMATABLE_BLOCKS). Custom HTML and Shortcode have no wrapper
     // of their own, so the first-tag rule below would animate whatever
     // their content prints first. The editor no longer offers the

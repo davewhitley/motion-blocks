@@ -476,6 +476,161 @@ function meaningfulChildren( block ) {
 	);
 }
 
+/** Blocks that read as a heading: the opening line of a hero. */
+const HEADING_LIKE = new Set( [
+	'core/heading',
+	'core/site-title',
+	'core/post-title',
+	'core/query-title',
+] );
+
+/**
+ * Does `block` hold a block matching `test`? A template part's own
+ * contents don't count (they are the site header, not the section), and
+ * neither does a Query Loop's: its cards repeat, and aren't the opening.
+ *
+ * @param {Object}   block Block.
+ * @param {Function} test  `(block) → boolean`.
+ * @param {number}   depth How many levels down to look.
+ * @return {boolean} True when one matches.
+ */
+function holds( block, test, depth = 4 ) {
+	for ( const child of block.innerBlocks || [] ) {
+		if ( test( child ) ) {
+			return true;
+		}
+		if (
+			child.name !== 'core/template-part' &&
+			child.name !== 'core/query' &&
+			depth > 1 &&
+			holds( child, test, depth - 1 )
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** A template part, or a one-line strip: the pieces of a bar above the content. */
+function isBar( block ) {
+	if ( block.name === 'core/template-part' || block.name === 'core/paragraph' ) {
+		return true;
+	}
+	const kids = meaningfulChildren( block );
+	return (
+		block.name === 'core/group' && kids.length <= 3 && kids.every( isBar )
+	);
+}
+
+/**
+ * A Group that is a bar above the content, not a section: the header
+ * (with an announcement strip), or a one-line strip on its own. It holds
+ * nothing but template parts and short text, however deep.
+ *
+ * @param {Object} block Block.
+ * @return {boolean} True when it is site chrome.
+ */
+function isChromeWrapper( block ) {
+	return block.name === 'core/group' && isBar( block );
+}
+
+/**
+ * Does this section read as a hero? A Cover (or a section holding one),
+ * or a section that opens with a heading or a button row. Only a
+ * heading block counts, not the site title (a sidebar has that), and a
+ * Query Loop's contents never do, so a post list or a sidebar gets no
+ * opening, and everything waits for the scroll.
+ *
+ * @param {Object} block Section.
+ * @return {boolean} True for a hero.
+ */
+function isHeroLike( block ) {
+	if ( block.name === 'core/cover' ) {
+		return true;
+	}
+	return holds(
+		block,
+		( b ) =>
+			b.name === 'core/cover' ||
+			b.name === 'core/heading' ||
+			b.name === 'core/buttons'
+	);
+}
+
+/**
+ * Find the hero: the first real section of the page. This decides what
+ * plays on load, instead of guessing from pixel positions in the editor
+ * (whose canvas is narrower and shorter than a visitor's window, and
+ * measures before images load).
+ *
+ *  1. Template parts (header, footer) and header-like bars are skipped.
+ *  2. A page's loose leading blocks (heading, text, buttons… before the
+ *     first section) are the hero run.
+ *  3. Otherwise the first section, stepping into a wrapper (a Group of
+ *     sections, or a Columns that holds the page) to the first real one.
+ *  4. It only counts if it reads as a hero (see isHeroLike). If not there
+ *     is no opening, and everything waits for the scroll, which fires at
+ *     once for blocks already in view.
+ *
+ * @param {Array} topLevelBlocks `getBlocks()` (top level only).
+ * @return {{blocks: Object[]}|null} The hero's blocks, or null.
+ */
+export function findHero( topLevelBlocks ) {
+	const content = ( topLevelBlocks || [] ).filter(
+		( b ) => b.name !== 'core/template-part'
+	);
+	let i = 0;
+	while ( i < content.length && isChromeWrapper( content[ i ] ) ) {
+		i += 1;
+	}
+	const first = content[ i ];
+	if ( ! first ) {
+		return null;
+	}
+	if ( ! COMPOSITE_BLOCKS.has( first.name ) ) {
+		const run = [];
+		for (
+			let j = i;
+			j < content.length && ! COMPOSITE_BLOCKS.has( content[ j ].name );
+			j += 1
+		) {
+			run.push( content[ j ] );
+		}
+		const opens = run.some( ( b ) =>
+			[
+				...HEADING_LIKE,
+				'core/image',
+				'core/buttons',
+				'core/cover',
+			].includes( b.name )
+		);
+		return opens ? { blocks: run } : null;
+	}
+	let block = first;
+	for ( let depth = 0; depth < 8; depth += 1 ) {
+		const kids = meaningfulChildren( block );
+		const sections = kids.filter( ( k ) => COMPOSITE_BLOCKS.has( k.name ) );
+		const wrapper =
+			( block.name === 'core/group' &&
+				sections.length > 0 &&
+				( sections.length >= 2 || kids.length === 1 ) ) ||
+			( ( block.name === 'core/columns' ||
+				block.name === 'core/column' ) &&
+				holdsPage( block ) );
+		if ( ! wrapper ) {
+			break;
+		}
+		const next = ( sections.length ? sections : kids ).find(
+			( k ) => ! isChromeWrapper( k )
+		);
+		if ( ! next ) {
+			break;
+		}
+		block = next;
+	}
+	return isHeroLike( block ) ? { blocks: [ block ] } : null;
+}
+
 /**
  * Is this Group a designed section (heading, text, buttons…) that
  * should cascade, rather than a page wrapper or a long article?
@@ -526,8 +681,9 @@ function isSection( block ) {
  * @param {Object}   [options]
  * @param {Function} [options.isOnFirstScreen] `(clientId) → boolean|null`:
  *   whether the block starts on the first screen. The modal measures it
- *   in the editor canvas; `null` (or no function) means unknown, and
- *   the first top-level block is then taken as the first screen.
+ *   in the editor canvas. Only a `false` counts: it takes a block out of
+ *   the opening sequence (the hero decides what is in it). `null` (or no
+ *   function) leaves the hero as found.
  * @param {Function} [options.screensTall] `(clientId) → number|null`:
  *   how tall the block is, in screens of the editor canvas. A Columns
  *   block taller than 2 screens, or holding a Query Loop or many designed
@@ -554,20 +710,22 @@ export function computeAutoAnimatePlan(
 	let descendantCount = 0;
 	let openingIndex = 0;
 
+	// What plays on load is the hero (see findHero), not whatever a
+	// measurement puts above the fold. The measurement can only take a
+	// block out of the opening (one that starts well below the first
+	// screen), never add one.
 	const measure = options.isOnFirstScreen;
-	// Without a measurement, only a leading Cover counts as the first
-	// screen: guessing more could play a whole page (one wrapper Group)
-	// on load.
-	const firstBlock = ( topLevelBlocks || [] )[ 0 ];
-	const firstTop =
-		firstBlock?.name === 'core/cover' ? firstBlock.clientId : null;
-	let topLevelId = null;
+	const heroIds = new Set();
+	const markHero = ( block ) => {
+		heroIds.add( block.clientId );
+		( block.innerBlocks || [] ).forEach( markHero );
+	};
+	( findHero( topLevelBlocks )?.blocks || [] ).forEach( markHero );
 	const onFirstScreen = ( block ) => {
-		const measured = measure ? measure( block.clientId ) : null;
-		if ( measured === true || measured === false ) {
-			return measured;
+		if ( ! heroIds.has( block.clientId ) ) {
+			return false;
 		}
-		return topLevelId === firstTop;
+		return ( measure ? measure( block.clientId ) : null ) !== false;
 	};
 
 	const count = ( block ) => countDescendants( block.clientId ) || 0;
@@ -791,7 +949,6 @@ export function computeAutoAnimatePlan(
 	}
 
 	for ( const block of topLevelBlocks || [] ) {
-		topLevelId = block.clientId;
 		recurse( block );
 	}
 

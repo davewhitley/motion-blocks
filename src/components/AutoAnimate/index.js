@@ -33,16 +33,16 @@ import { countDescendantsIn } from '../selectStable';
 
 /**
  * Estimate which blocks start on the visitor's first screen, measured
- * in the editor canvas. Used to build the opening sequence.
+ * in the editor canvas. It only vetoes: the planner picks the hero by
+ * structure (see findHero), and a block of the hero that starts below
+ * the first screen is taken out of the opening sequence.
  *
  * The canvas isn't the front end: it has no site header, and themes put
  * a header and often a page title above the content. So positions are
- * measured from the top of the content, and only the first 60% of a
- * screen (capped at 900px) counts. Erring short is harmless (a block
- * just waits for the scroll); erring long would play a block's opening
- * animation while it's still below the fold. Returns null for a block
- * it can't find; the planner then falls back to "the first top-level
- * block is the first screen".
+ * measured from the top of the content, and a block counts as on the
+ * first screen while it starts within one screen (capped at 900px): the
+ * veto is generous because bottom-aligned hero text is common.
+ * Returns null for a block it can't find.
  *
  * @return {Function} `(clientId) → boolean|null`.
  */
@@ -50,7 +50,7 @@ function measureFirstScreen() {
 	const iframe = document.querySelector( 'iframe[name="editor-canvas"]' );
 	const doc = iframe?.contentDocument || document;
 	const win = iframe?.contentWindow || window;
-	const fold = Math.min( win.innerHeight || 0, 900 ) * 0.6;
+	const fold = Math.min( win.innerHeight || 0, 900 );
 	const first = doc.querySelector( '.is-root-container > [data-block]' );
 	if ( ! fold || ! first ) {
 		return () => null;

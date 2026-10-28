@@ -17,10 +17,12 @@ import {
 	buildAutoAnimateUpdates,
 	cascadeStep,
 	computeAutoAnimatePlan,
+	findHero,
 	summarizeChoreography,
 } from '../../src/components/AutoAnimate/plan';
 import {
 	SCHEMA_DEFAULTS,
+	STAGGER_PARENT_BLOCKS,
 	migrateScrollAppearAttrs,
 	isStaggerCompatible,
 } from '../../src/components/constants';
@@ -56,6 +58,9 @@ const plan = ( blocks, firstScreen = [] ) =>
 	computeAutoAnimatePlan( blocks, () => 0, {
 		isOnFirstScreen: ( id ) => firstScreen.includes( id ),
 	} );
+/** Planned with no measurement at all (the hero alone decides). */
+const planUnmeasured = ( blocks ) =>
+	computeAutoAnimatePlan( blocks, () => 0 );
 const roleOf = ( p, block ) =>
 	p.apply.find( ( i ) => i.clientId === block.clientId )?.role;
 const attrsOf = ( p, preset, block ) =>
@@ -180,10 +185,257 @@ describe( 'the opening sequence', () => {
 			withCover.apply.find( ( i ) => i.clientId === after.clientId )
 				.trigger
 		).toBe( 'scroll' );
-		// A page wrapped in one Group must not all play on load.
-		const wrapped = b( 'core/group', [ section(), section() ] );
+		// A page wrapped in one Group must not all play on load: only its
+		// first section opens the page.
+		const first = section();
+		const second = section();
+		const wrapped = b( 'core/group', [ first, second ] );
 		const p = computeAutoAnimatePlan( [ wrapped ], () => 0 );
+		const trig = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
+		expect( trig( first ) ).toBe( 'load' );
+		expect( trig( second ) ).toBe( 'scroll' );
+	} );
+} );
+
+describe( 'the opening sequence is capped', () => {
+	it( 'holds the first four blocks of the first screen; the rest wait for the scroll', () => {
+		const blocks = Array.from( { length: 6 }, () => heading() );
+		const p = plan( blocks, blocks.map( ( x ) => x.clientId ) );
+		const triggers = blocks.map(
+			( x ) => p.apply.find( ( i ) => i.clientId === x.clientId ).trigger
+		);
+		expect( triggers.filter( ( t ) => t === 'load' ) ).toHaveLength( 4 );
+		expect( triggers.slice( 4 ) ).toEqual( [ 'scroll', 'scroll' ] );
+	} );
+
+	it( 'does not count the hero background against the cap', () => {
+		const hero = b( 'core/cover', [ heading(), para(), buttons() ], {
+			url: 'h.jpg',
+		} );
+		const p = planUnmeasured( [ hero ] );
+		const roles = p.apply.filter( ( i ) => i.trigger === 'load' );
+		expect( roles.some( ( i ) => i.role === 'heroImage' ) ).toBe( true );
+		expect( roles.filter( ( i ) => i.role !== 'heroImage' ).length ).toBe(
+			3
+		);
+	} );
+} );
+
+describe( 'finding the hero', () => {
+	const header = () => b( 'core/template-part', [ b( 'core/site-title' ) ] );
+	const cover = () => b( 'core/cover', [ heading(), para(), buttons() ] );
+	const heroOf = ( blocks ) => findHero( blocks )?.blocks;
+
+	it( 'skips the header and takes a Cover', () => {
+		const c = cover();
+		expect( heroOf( [ header(), c ] ) ).toEqual( [ c ] );
+	} );
+
+	it( 'skips an announcement bar and header held in one Group', () => {
+		const bar = b( 'core/group', [
+			b( 'core/group', [ para() ] ),
+			header(),
+		] );
+		const c = cover();
+		expect( heroOf( [ bar, b( 'core/group', [ para() ] ), c ] ) ).toEqual( [
+			c,
+		] );
+	} );
+
+	it( 'steps into a wrapper Group to its first section', () => {
+		const hero = section();
+		const wrapper = b( 'core/group', [ hero, section(), section() ] );
+		expect( heroOf( [ wrapper ] ) ).toEqual( [ hero ] );
+	} );
+
+	it( 'steps into a Columns block that holds the page, past its header', () => {
+		const masthead = b( 'core/group', [ heading(), para(), buttons() ] );
+		const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ] );
+		const headerGroup = b( 'core/group', [ header() ] );
+		const cols = b( 'core/columns', [
+			b( 'core/column', [ headerGroup, masthead, section(), query ] ),
+			b( 'core/column', [ para() ] ),
+		] );
+		expect( heroOf( [ cols ] ) ).toEqual( [ masthead ] );
+	} );
+
+	it( 'walks into a hero built as columns, so its text and image open one after another', () => {
+		const h = heading();
+		const t = para();
+		const btns = buttons();
+		const textCol = b( 'core/column', [ h, t, btns ] );
+		const img = image();
+		const hero = b( 'core/columns', [ textCol, b( 'core/column', [ img ] ) ] );
+		const p = planUnmeasured( [ hero ] );
+		expect( roleOf( p, hero ) ).toBeUndefined();
+		// The text column's pieces cascade in; the image rises with them.
+		expect( roleOf( p, textCol ) ).toBe( 'cascade' );
+		expect( roleOf( p, img ) ).toBe( 'media' );
+		const load = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
+		expect( [ load( textCol ), load( img ) ] ).toEqual( [ 'load', 'load' ] );
+	} );
+
+	it( 'still cascades an ordinary row of columns that is not the hero', () => {
+		const hero = section();
+		const row = b( 'core/columns', [
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+		] );
+		const p = planUnmeasured( [ b( 'core/group', [ hero, row, section() ] ) ] );
+		expect( roleOf( p, row ) ).toBe( 'cascade' );
+	} );
+
+	it( 'takes a split hero whose title is the site title', () => {
+		const split = b( 'core/columns', [
+			b( 'core/column', [ b( 'core/site-title' ) ] ),
+			b( 'core/column', [ b( 'core/cover' ) ] ),
+		] );
+		expect( heroOf( [ b( 'core/group', [ split ] ) ] ) ).toEqual( [ split ] );
+	} );
+
+	it( 'takes the loose blocks that open a page, up to the first section', () => {
+		const h = heading();
+		const t = para();
+		const btns = buttons();
+		const sec = section();
+		expect( heroOf( [ h, t, btns, sec ] ) ).toEqual( [ h, t, btns ] );
+	} );
+
+	it( 'finds no hero in a post list or a magazine grid', () => {
+		const list = b( 'core/group', [
+			b( 'core/site-title' ),
+			b( 'core/query', [ b( 'core/post-template', [ section() ] ) ] ),
+		] );
+		expect( findHero( [ header(), list ] ) ).toBeNull();
+		expect( findHero( [ b( 'core/group', [ para() ] ) ] ) ).toBeNull();
+	} );
+
+	it( 'opens the page with the hero only, and with nothing when there is none', () => {
+		const hero = section();
+		const next = section();
+		const p = planUnmeasured( [ b( 'core/group', [ hero, next, section() ] ) ] );
+		const trig = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
+		expect( trig( hero ) ).toBe( 'load' );
+		expect( trig( next ) ).toBe( 'scroll' );
+		const noHero = b( 'core/group', [ para(), para(), para(), para() ] );
+		const q = planUnmeasured( [ b( 'core/group', [ noHero, section() ] ) ] );
+		expect( q.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
+	} );
+
+	it( 'reaches a hero that sits inside a Group the planner would cascade whole', () => {
+		// A top-level Group holding the header, the hero and a Cover: it reads
+		// as a section, but the hero in it must still open the page.
+		const heroHead = heading();
+		const hero = b( 'core/group', [ heroHead, para(), buttons() ] );
+		const outer = b( 'core/group', [
+			b( 'core/template-part', [], { slug: 'header', area: 'header' } ),
+			hero,
+			b( 'core/cover', [ heading() ] ),
+		] );
+		const p = planUnmeasured( [ outer ] );
+		expect( roleOf( p, outer ) ).toBeUndefined();
+		expect( p.apply.find( ( i ) => i.clientId === hero.clientId )?.trigger ).toBe( 'load' );
+	} );
+
+	it( 'lets a measurement take a block of the hero out of the opening, never put one in', () => {
+		const heroHead = heading();
+		const heroText = para();
+		const hero = b( 'core/group', [ heroHead, heroText, buttons() ] );
+		const other = section();
+		const wrapper = b( 'core/group', [ hero, other, section() ] );
+		// The hero is on the first screen; one of its blocks is not.
+		const measured = computeAutoAnimatePlan( [ wrapper ], () => 0, {
+			isOnFirstScreen: ( id ) => id === hero.clientId || id === other.clientId,
+		} );
+		const trig = ( x ) =>
+			measured.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
+		expect( trig( hero ) ).toBe( 'load' );
+		expect( trig( other ) ).toBe( 'scroll' ); // measured on it, but not the hero
+	} );
+
+	it( 'treats a hero measured below the first screen as no hero, and falls back to the measurement', () => {
+		const hero = section();
+		const wrapper = b( 'core/group', [ hero, section(), section() ] );
+		const real = heading();
+		const page = [ b( 'core/group', [ para(), para(), para(), para() ] ), real, wrapper ];
+		const p = computeAutoAnimatePlan( page, () => 0, {
+			// Only the heading sits on the first screen; the found hero is below it.
+			isOnFirstScreen: ( id ) => id === real.clientId,
+		} );
+		const trig = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
+		expect( trig( hero ) ).toBe( 'scroll' );
+		expect( trig( real ) ).toBe( 'load' );
+	} );
+} );
+
+describe( 'with no hero found, the measured first screen opens the page', () => {
+	// A sidebar-and-post-list page: no Cover, no heading block, no buttons.
+	const noHeroPage = () => {
+		const lead = [ para(), para(), para() ];
+		const first = b( 'core/group', lead );
+		const rest = b( 'core/group', [ para(), para(), para(), para() ] );
+		return { lead, first, page: [ b( 'core/group', [ first, rest ] ) ] };
+	};
+	const measuredPlan = ( blocks, onScreen ) =>
+		computeAutoAnimatePlan( blocks, () => 0, {
+			// `strict` is the fallback's cutoff, the stricter one.
+			isOnFirstScreen: ( id, strict ) => ( strict ? onScreen.includes( id ) : true ),
+		} );
+	const trig = ( p, x ) =>
+		p.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
+
+	it( 'puts measured first-screen blocks in the opening, up to the cap', () => {
+		const heads = Array.from( { length: 6 }, () => heading() );
+		const page = [ b( 'core/group', [ para(), para(), para(), para() ] ), ...heads ];
+		expect( findHero( page ) ).toBeNull();
+		const p = measuredPlan( page, heads.map( ( x ) => x.clientId ) );
+		const loads = heads.filter( ( x ) => trig( p, x ) === 'load' );
+		expect( loads ).toHaveLength( 4 );
+		expect( heads.slice( 4 ).map( ( x ) => trig( p, x ) ) ).toEqual( [
+			'scroll',
+			'scroll',
+		] );
+	} );
+
+	it( 'does nothing without a measurement', () => {
+		const { page } = noHeroPage();
+		const heads = [ heading(), heading() ];
+		const p = planUnmeasured( [ ...page, ...heads ] );
 		expect( p.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
+	} );
+
+	it( 'never opens the page with a template part (the header)', () => {
+		const header = b( 'core/template-part', [], { slug: 'header', area: 'header' } );
+		const heads = [ heading() ];
+		const p = measuredPlan( [ header, b( 'core/group', [ para(), para(), para(), para() ] ), ...heads ], [
+			header.clientId,
+			heads[ 0 ].clientId,
+		] );
+		expect( trig( p, header ) ).toBe( 'scroll' );
+		expect( trig( p, heads[ 0 ] ) ).toBe( 'load' );
+	} );
+
+	it( 'still keeps a Post Template card out of the opening', () => {
+		const card = b( 'core/group', [ heading(), para() ] );
+		const list = b( 'core/post-template', [ card ], { layout: { type: 'default' } } );
+		const query = b( 'core/query', [ list ], { query: { perPage: 6 } } );
+		const p = measuredPlan( [ b( 'core/group', [ para(), para(), para(), para() ] ), query ], [ card.clientId ] );
+		expect( trig( p, card ) ).toBe( 'scroll' );
+	} );
+
+	it( 'is not used when a hero is found: a measured block outside it still waits', () => {
+		const hero = section();
+		const other = section();
+		const p = measuredPlan( [ b( 'core/group', [ hero, other, section() ] ) ], [
+			other.clientId,
+		] );
+		expect( trig( p, hero ) ).toBe( 'load' );
+		expect( trig( p, other ) ).toBe( 'scroll' );
 	} );
 } );
 
@@ -198,6 +450,41 @@ describe( 'sections cascade in reading order', () => {
 		expect( isStaggerCompatible( attrs ) ).toBe( true );
 		// Its paragraph rides along in the cascade, not skipped.
 		expect( p.skipBody ).toHaveLength( 0 );
+	} );
+
+	it( 'Subtle rises a section as one block, without stagger', () => {
+		const s = section();
+		const p = plan( [ s ] );
+		const subtle = attrsOf( p, 'subtle', s );
+		expect( subtle.animationStaggerEnabled ).toBeFalsy();
+		expect( subtle.animationEntryFromTranslateY ).toBe(
+			`${ STYLE_PRESETS.subtle.distance }px`
+		);
+		for ( const preset of [ 'smooth', 'bold' ] ) {
+			expect( attrsOf( p, preset, s ).animationStaggerEnabled ).toBe(
+				true
+			);
+		}
+	} );
+
+	it( 'each level moves further and longer than the one below', () => {
+		const { subtle, smooth, bold } = STYLE_PRESETS;
+		for ( const key of [
+			'duration',
+			'distance',
+			'settleScale',
+			'heroZoom',
+			'openingBeat',
+		] ) {
+			expect( [ key, subtle[ key ] < smooth[ key ] ] ).toEqual( [
+				key,
+				true,
+			] );
+			expect( [ key, smooth[ key ] < bold[ key ] ] ).toEqual( [
+				key,
+				true,
+			] );
+		}
 	} );
 
 	it( 'compresses the beat so long cascades still feel quick', () => {
@@ -216,10 +503,38 @@ describe( 'sections cascade in reading order', () => {
 		] );
 		const gallery = b( 'core/gallery', [ image(), image(), image() ] );
 		const row = buttons( 3 );
-		const p = plan( [ cols, gallery, row ] );
+		// A section first, so the row isn't the page's hero.
+		const p = plan( [ section(), cols, gallery, row ] );
 		expect( [ cols, gallery, row ].map( ( x ) => roleOf( p, x ) ) ).toEqual(
 			[ 'cascade', 'cascade', 'cascade' ]
 		);
+	} );
+
+	it( 'only cascades blocks that can stagger, or the cascade silently becomes one rise', () => {
+		const textColumn = b( 'core/column', [ heading(), para(), buttons() ] );
+		const cols = b( 'core/columns', [ textColumn, b( 'core/column', [ image() ] ) ] );
+		const list = b( 'core/post-template', [ section(), section() ], {
+			layout: { type: 'grid', columnCount: 2 },
+		} );
+		// The first block is the hero, so its text column is walked into and
+		// cascades; the rows below it cascade as rows.
+		const tree = [
+			cols,
+			b( 'core/columns', [
+				b( 'core/column', [ heading(), para() ] ),
+				b( 'core/column', [ heading(), para() ] ),
+			] ),
+			b( 'core/gallery', [ image(), image(), image() ] ),
+			buttons( 3 ),
+			b( 'core/query', [ list ], { query: { perPage: 2 } } ),
+		];
+		const p = planUnmeasured( tree );
+		const cascades = p.apply.filter( ( i ) => i.role === 'cascade' );
+		expect( cascades.length ).toBeGreaterThan( 3 );
+		for ( const item of cascades ) {
+			expect( STAGGER_PARENT_BLOCKS ).toContain( item.block.name );
+		}
+		expect( roleOf( p, textColumn ) ).toBe( 'cascade' );
 	} );
 
 	it( 'walks into a page wrapper instead of moving it as one block', () => {
@@ -230,6 +545,89 @@ describe( 'sections cascade in reading order', () => {
 		expect( roleOf( p, wrapper ) ).toBeUndefined();
 		expect( roleOf( p, inner1 ) ).toBe( 'cascade' );
 		expect( roleOf( p, inner2 ) ).toBe( 'cascade' );
+	} );
+
+	describe( 'a Columns block that wraps the page', () => {
+		/** A theme's layout wrapper: two columns holding a whole page. */
+		const pageColumns = () => {
+			const sections = Array.from( { length: 5 }, () => section() );
+			return {
+				sections,
+				cols: b( 'core/columns', [
+					b( 'core/column', sections.slice( 0, 3 ) ),
+					b( 'core/column', sections.slice( 3 ) ),
+				] ),
+			};
+		};
+		const screens = ( n ) => ( {
+			isOnFirstScreen: () => false,
+			screensTall: () => n,
+		} );
+
+		it( 'is walked into when it is taller than two screens', () => {
+			const { sections, cols } = pageColumns();
+			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 4 ) );
+			expect( roleOf( p, cols ) ).toBeUndefined();
+			for ( const s of sections ) {
+				expect( roleOf( p, s ) ).toBe( 'cascade' );
+			}
+		} );
+
+		it( 'cascades as a row when it is short, however much it holds', () => {
+			const { cols } = pageColumns();
+			const p = computeAutoAnimatePlan( [ section(), cols ], () => 0, screens( 0.8 ) );
+			expect( roleOf( p, cols ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is walked into by what it holds when it can not be measured', () => {
+			const sections = Array.from( { length: 12 }, () => section() );
+			const cols = b( 'core/columns', [
+				b( 'core/column', sections.slice( 0, 6 ) ),
+				b( 'core/column', sections.slice( 6 ) ),
+			] );
+			const p = plan( [ cols ] );
+			expect( roleOf( p, cols ) ).toBeUndefined();
+			expect( roleOf( p, sections[ 0 ] ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is not walked into on a height between one and two screens', () => {
+			const { cols } = pageColumns();
+			const p = computeAutoAnimatePlan( [ section(), cols ], () => 0, screens( 1.75 ) );
+			expect( roleOf( p, cols ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is walked into by structure even when it measures short', () => {
+			const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ], {
+				query: { perPage: 6 },
+			} );
+			const cols = b( 'core/columns', [
+				b( 'core/column', [ query ] ),
+				b( 'core/column', [ para() ] ),
+			] );
+			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 0.6 ) );
+			expect( roleOf( p, cols ) ).toBeUndefined();
+		} );
+
+		it( 'is walked into when it holds a Query Loop', () => {
+			const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ], {
+				query: { perPage: 6 },
+			} );
+			const cols = b( 'core/columns', [
+				b( 'core/column', [ query ] ),
+				b( 'core/column', [ para() ] ),
+			] );
+			expect( roleOf( plan( [ cols ] ), cols ) ).toBeUndefined();
+		} );
+
+		it( 'leaves an ordinary row of cards alone', () => {
+			const card = () => b( 'core/group', [ heading(), para() ] );
+			const cols = b( 'core/columns', [
+				b( 'core/column', [ card() ] ),
+				b( 'core/column', [ card() ] ),
+				b( 'core/column', [ card() ] ),
+			] );
+			expect( roleOf( plan( [ section(), cols ] ), cols ) ).toBe( 'cascade' );
+		} );
 	} );
 
 	it( 'leaves long-form text still and animates only its headings and images', () => {
@@ -250,12 +648,13 @@ describe( 'role-specific motion', () => {
 		const left = image( 'left' );
 		const right = image( 'right' );
 		const p = plan( [ left, right ] );
+		const d = STYLE_PRESETS.smooth.distance;
 		expect(
 			attrsOf( p, 'smooth', left ).animationEntryFromTranslateX
-		).toBe( '-24px' );
+		).toBe( `-${ d }px` );
 		expect(
 			attrsOf( p, 'smooth', right ).animationEntryFromTranslateX
-		).toBe( '24px' );
+		).toBe( `${ d }px` );
 	} );
 
 	it( 'other images rise and settle from a slight scale', () => {
@@ -443,7 +842,10 @@ describe( 'Query Loop', () => {
 				? { type: 'grid', columnCount: columns }
 				: { type: 'default' },
 		} );
-		return { list, query: b( 'core/query', [ list ], { query: { perPage } } ) };
+		return {
+			list,
+			query: b( 'core/query', [ list ], { query: { perPage } } ),
+		};
 	};
 
 	it( 'cascades posts that fit on one row, as one list', () => {
@@ -451,9 +853,13 @@ describe( 'Query Loop', () => {
 		const p = plan( [ query ] );
 		expect( roleOf( p, query ) ).toBeUndefined();
 		expect( roleOf( p, list ) ).toBe( 'cascade' );
-		expect( p.apply.find( ( i ) => i.clientId === list.clientId ).count ).toBe( 3 );
+		expect(
+			p.apply.find( ( i ) => i.clientId === list.clientId ).count
+		).toBe( 3 );
 		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBeUndefined();
-		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe( true );
+		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe(
+			true
+		);
 	} );
 
 	it( 'makes each post rise by itself when the posts wrap onto more rows', () => {
@@ -462,6 +868,16 @@ describe( 'Query Loop', () => {
 		expect( roleOf( p, query ) ).toBeUndefined();
 		expect( roleOf( p, list ) ).toBeUndefined();
 		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBe( 'rise' );
+	} );
+
+	it( 'never opens the page with a post card, even when the first post is on the first screen', () => {
+		const { list, query } = queryLoop( 0, 8 );
+		const lead = heading();
+		const p = plan( [ lead, query ], [ lead.clientId, list.innerBlocks[ 0 ].clientId ] );
+		const itemFor = ( x ) => p.apply.find( ( i ) => i.clientId === x.clientId );
+		expect( itemFor( list.innerBlocks[ 0 ] ).trigger ).toBe( 'scroll' );
+		expect( itemFor( lead ).trigger ).toBe( 'load' );
+		expect( itemFor( lead ).openingIndex ).toBe( 0 );
 	} );
 
 	it( 'treats a plain list layout as one post per row', () => {
@@ -477,6 +893,107 @@ describe( 'Query Loop', () => {
 		const p = plan( [ wrapper ] );
 		expect( roleOf( p, wrapper ) ).toBeUndefined();
 		expect( roleOf( p, list ) ).toBe( 'cascade' );
+	} );
+} );
+
+describe( 'invalid blocks', () => {
+	/** A block the editor flags invalid (it offers "Attempt Block Recovery"). */
+	const invalid = ( blk ) => {
+		blk.isValid = false;
+		return blk;
+	};
+	const unmeasured = ( blocks ) => computeAutoAnimatePlan( blocks, () => 0 );
+	const clientIdsOf = ( p ) => p.apply.map( ( i ) => i.clientId );
+
+	it( 'skips an invalid block and everything inside it, and says so', () => {
+		const inside = heading();
+		const cover = invalid(
+			b( 'core/cover', [ b( 'core/group', [ inside, para() ] ) ] )
+		);
+		const ok = section();
+		const p = unmeasured( [ cover, ok ] );
+		expect( p.skipInvalid ).toEqual( [ cover ] );
+		expect( roleOf( p, cover ) ).toBeUndefined();
+		expect( roleOf( p, inside ) ).toBeUndefined();
+		expect( clientIdsOf( p ) ).toEqual( [ ok.clientId ] );
+	} );
+
+	it( 'counts what is inside the invalid block', () => {
+		const cover = invalid( b( 'core/cover', [ heading(), para() ] ) );
+		const p = computeAutoAnimatePlan( [ cover ], () => 7, {} );
+		expect( p.skipInvalid ).toHaveLength( 1 );
+		expect( p.invalidInnerCount ).toBe( 7 );
+	} );
+
+	it( 'treats a block with no validity flag as valid', () => {
+		const p = unmeasured( [ section() ] );
+		expect( p.skipInvalid ).toEqual( [] );
+		expect( p.apply.length ).toBeGreaterThan( 0 );
+	} );
+
+	it( 'does not open the page with an invalid hero, and the next section waits for the scroll', () => {
+		const hero = invalid( b( 'core/cover', [ heading(), buttons() ] ) );
+		const next = section();
+		const p = planUnmeasured( [ hero, next ] );
+		expect( roleOf( p, hero ) ).toBeUndefined();
+		expect( p.apply.length ).toBeGreaterThan( 0 );
+		expect( p.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
+	} );
+
+	it( 'skips an invalid card in a Post Template without losing the others', () => {
+		const bad = invalid( b( 'core/group', [ heading(), para() ] ) );
+		const good = b( 'core/group', [ heading(), para() ] );
+		const list = b( 'core/post-template', [ bad, good ], {
+			layout: { type: 'default' },
+		} );
+		const query = b( 'core/query', [ list ], { query: { perPage: 5 } } );
+		const p = unmeasured( [ query ] );
+		expect( p.skipInvalid ).toEqual( [ bad ] );
+		expect( roleOf( p, bad ) ).toBeUndefined();
+		expect( roleOf( p, good ) ).toBe( 'rise' );
+	} );
+} );
+
+describe( 'the footer', () => {
+	const footerPart = ( inner = [], attrs = { slug: 'footer', area: 'footer' } ) =>
+		b( 'core/template-part', inner, attrs );
+
+	it( 'is left still, and counted with the site chrome that is skipped', () => {
+		const footer = footerPart();
+		const p = planUnmeasured( [ section(), footer ] );
+		expect( roleOf( p, footer ) ).toBeUndefined();
+		expect( p.skipChrome ).toContain( footer );
+		expect( p.apply.every( ( i ) => i.block !== footer ) ).toBe( true );
+	} );
+
+	it( 'is found by its area, its slug or its tag', () => {
+		for ( const attrs of [
+			{ area: 'footer' },
+			{ slug: 'footer-columns' },
+			{ slug: 'site-end', tagName: 'footer' },
+		] ) {
+			const footer = footerPart( [], attrs );
+			const p = planUnmeasured( [ section(), footer ] );
+			expect( roleOf( p, footer ) ).toBeUndefined();
+			expect( p.skipChrome ).toContain( footer );
+		}
+	} );
+
+	it( 'is left still even when blocks are loaded inside it', () => {
+		const inner = section();
+		const footer = footerPart( [ inner ] );
+		const p = planUnmeasured( [ section(), footer ] );
+		expect( roleOf( p, footer ) ).toBeUndefined();
+		expect( roleOf( p, inner ) ).toBeUndefined();
+	} );
+
+	it( 'leaves the header animating whole', () => {
+		const header = b( 'core/template-part', [], {
+			slug: 'header',
+			area: 'header',
+		} );
+		const p = planUnmeasured( [ section(), header ] );
+		expect( roleOf( p, header ) ).toBe( 'rise' );
 	} );
 } );
 

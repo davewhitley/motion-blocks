@@ -26,8 +26,10 @@
  *     skipBody:      [ Block ],
  *     skipChrome:    [ Block ],
  *     skipBroken:    [ Block ],
+ *     skipInvalid:   [ Block ],
  *     skipExisting:  [ Block ],
  *     descendantCount: number,
+ *     invalidInnerCount: number,
  *   }
  *
  * The modal turns `apply` into per-block payloads with
@@ -105,6 +107,39 @@ const COMPOSITE_BLOCKS = new Set( [
 /** A Group with more children than this reads as an article, not a section. */
 const MAX_SECTION_CHILDREN = 12;
 
+/**
+ * A Columns block taller than this many screens of the editor canvas is
+ * the page, not a row. The canvas is narrower and shorter than a visitor's
+ * window, so a one-screen hero can read as ~1.75 there; real wrappers
+ * measure 3 to 10.
+ */
+const PAGE_SIZED_SCREENS = 2;
+
+/**
+ * A Columns block holding more designed units than this (Groups, Covers,
+ * Queries…, at any depth), or any Query Loop, is the page too, whatever
+ * its measured height: a measurement taken while images are still loading
+ * reads short, and structure doesn't change between runs.
+ */
+const MAX_ROW_COMPOSITES = 8;
+
+/** How many designed units (and Query Loops) sit anywhere inside `block`. */
+function holdsPage( block ) {
+	let composites = 0;
+	let query = false;
+	const walk = ( blocks ) => {
+		for ( const child of blocks || [] ) {
+			if ( COMPOSITE_BLOCKS.has( child.name ) ) {
+				composites += 1;
+			}
+			query = query || child.name === 'core/query';
+			walk( child.innerBlocks );
+		}
+	};
+	walk( block.innerBlocks );
+	return query || composites > MAX_ROW_COMPOSITES;
+}
+
 /** One curve for everything: fast start, long soft landing (expo-out). */
 export const MOTION_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
@@ -119,51 +154,65 @@ export const MOTION_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
  *                a long list compresses its beat to fit
  *   openingBeat  seconds between items of the first-screen sequence
  *   heroZoom     starting scale of the hero background's zoom-out
+ *   stagger      whether a cascade staggers its children; when false
+ *                the section rises as one block
  *
  * `ctaDuration` and `sequenceStep` are kept for older callers.
  */
 export const STYLE_PRESETS = {
 	subtle: {
 		label: 'Subtle',
-		duration: 0.6,
-		ctaDuration: 0.5,
-		distance: 12,
-		settleScale: 1.02,
-		beat: 0.06,
-		sequenceStep: 0.06,
-		spread: 0.5,
-		openingBeat: 0.1,
-		heroZoom: 1.04,
-	},
-	smooth: {
-		label: 'Smooth',
 		duration: 0.8,
 		ctaDuration: 0.6,
 		distance: 24,
 		settleScale: 1.04,
-		beat: 0.09,
-		sequenceStep: 0.09,
-		spread: 0.7,
-		openingBeat: 0.14,
-		heroZoom: 1.08,
+		// No stagger: a cascade's section rises as one block.
+		stagger: false,
+		beat: 0.08,
+		sequenceStep: 0.08,
+		spread: 0.6,
+		openingBeat: 0.12,
+		heroZoom: 1.06,
 	},
-	bold: {
-		label: 'Bold',
+	smooth: {
+		label: 'Smooth',
 		duration: 1.0,
-		ctaDuration: 0.7,
-		distance: 40,
+		ctaDuration: 0.8,
+		distance: 48,
 		settleScale: 1.08,
+		stagger: true,
 		beat: 0.12,
 		sequenceStep: 0.12,
 		spread: 0.9,
 		openingBeat: 0.18,
 		heroZoom: 1.12,
 	},
+	bold: {
+		label: 'Bold',
+		duration: 1.3,
+		ctaDuration: 1.0,
+		distance: 80,
+		settleScale: 1.14,
+		stagger: true,
+		beat: 0.16,
+		sequenceStep: 0.16,
+		spread: 1.2,
+		openingBeat: 0.24,
+		heroZoom: 1.2,
+	},
 };
 
 /** The opening sequence starts this long after load, and ends by `MAX_OPENING_DELAY`. */
 const OPENING_START = 0.1;
 const MAX_OPENING_DELAY = 1.2;
+
+/**
+ * Most blocks the opening sequence holds (the hero background doesn't
+ * count). It is for the hero's headline, text and buttons; anything else
+ * that happens to be on the first screen waits for the scroll, which fires
+ * as soon as the page loads for a block already in view.
+ */
+const MAX_OPENING_ITEMS = 4;
 
 /**
  * Pick a category for a block: 'HERO' | 'MEDIA' | 'SECTION' | 'CTA' |
@@ -301,7 +350,7 @@ export function attrsForItem( item, stylePreset = 'smooth' ) {
 	if ( role === 'heroImage' ) {
 		extra.animationFromToTarget = 'img';
 	}
-	if ( role === 'cascade' ) {
+	if ( role === 'cascade' && style.stagger !== false ) {
 		extra.animationStaggerEnabled = true;
 		extra.animationStaggerStep = item.step ?? style.beat;
 	}
@@ -427,6 +476,178 @@ function meaningfulChildren( block ) {
 	);
 }
 
+/** Blocks that read as a heading: the opening line of a hero. */
+const HEADING_LIKE = new Set( [
+	'core/heading',
+	'core/site-title',
+	'core/post-title',
+	'core/query-title',
+] );
+
+/**
+ * Does `block` hold a block matching `test`? A template part's own
+ * contents don't count (they are the site header, not the section), and
+ * neither does a Query Loop's: its cards repeat, and aren't the opening.
+ *
+ * @param {Object}   block Block.
+ * @param {Function} test  `(block) → boolean`.
+ * @param {number}   depth How many levels down to look.
+ * @return {boolean} True when one matches.
+ */
+function holds( block, test, depth = 4 ) {
+	for ( const child of block.innerBlocks || [] ) {
+		if ( test( child ) ) {
+			return true;
+		}
+		if (
+			child.name !== 'core/template-part' &&
+			child.name !== 'core/query' &&
+			depth > 1 &&
+			holds( child, test, depth - 1 )
+		) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Is this template part the site footer? By its area, its slug, or its
+ * tag, so it works whatever the theme calls it.
+ *
+ * @param {Object} block Block.
+ * @return {boolean} True for a footer template part.
+ */
+function isFooterPart( block ) {
+	const a = block.attributes || {};
+	return (
+		block.name === 'core/template-part' &&
+		( a.area === 'footer' ||
+			a.tagName === 'footer' ||
+			/^footer/.test( a.slug || '' ) )
+	);
+}
+
+/** A template part, or a one-line strip: the pieces of a bar above the content. */
+function isBar( block ) {
+	if ( block.name === 'core/template-part' || block.name === 'core/paragraph' ) {
+		return true;
+	}
+	const kids = meaningfulChildren( block );
+	return (
+		block.name === 'core/group' && kids.length <= 3 && kids.every( isBar )
+	);
+}
+
+/**
+ * A Group that is a bar above the content, not a section: the header
+ * (with an announcement strip), or a one-line strip on its own. It holds
+ * nothing but template parts and short text, however deep.
+ *
+ * @param {Object} block Block.
+ * @return {boolean} True when it is site chrome.
+ */
+function isChromeWrapper( block ) {
+	return block.name === 'core/group' && isBar( block );
+}
+
+/**
+ * Does this section read as a hero? A Cover (or a section holding one),
+ * or a section that opens with a heading or a button row. Only a
+ * heading block counts, not the site title (a sidebar has that), and a
+ * Query Loop's contents never do, so a post list or a sidebar gets no
+ * opening, and everything waits for the scroll.
+ *
+ * @param {Object} block Section.
+ * @return {boolean} True for a hero.
+ */
+function isHeroLike( block ) {
+	if ( block.name === 'core/cover' ) {
+		return true;
+	}
+	return holds(
+		block,
+		( b ) =>
+			b.name === 'core/cover' ||
+			b.name === 'core/heading' ||
+			b.name === 'core/buttons'
+	);
+}
+
+/**
+ * Find the hero: the first real section of the page. This decides what
+ * plays on load, instead of guessing from pixel positions in the editor
+ * (whose canvas is narrower and shorter than a visitor's window, and
+ * measures before images load).
+ *
+ *  1. Template parts (header, footer) and header-like bars are skipped.
+ *  2. A page's loose leading blocks (heading, text, buttons… before the
+ *     first section) are the hero run.
+ *  3. Otherwise the first section, stepping into a wrapper (a Group of
+ *     sections, or a Columns that holds the page) to the first real one.
+ *  4. It only counts if it reads as a hero (see isHeroLike). If not there
+ *     is no opening, and everything waits for the scroll, which fires at
+ *     once for blocks already in view.
+ *
+ * @param {Array} topLevelBlocks `getBlocks()` (top level only).
+ * @return {{blocks: Object[]}|null} The hero's blocks, or null.
+ */
+export function findHero( topLevelBlocks ) {
+	const content = ( topLevelBlocks || [] ).filter(
+		( b ) => b.name !== 'core/template-part'
+	);
+	let i = 0;
+	while ( i < content.length && isChromeWrapper( content[ i ] ) ) {
+		i += 1;
+	}
+	const first = content[ i ];
+	if ( ! first ) {
+		return null;
+	}
+	if ( ! COMPOSITE_BLOCKS.has( first.name ) ) {
+		const run = [];
+		for (
+			let j = i;
+			j < content.length && ! COMPOSITE_BLOCKS.has( content[ j ].name );
+			j += 1
+		) {
+			run.push( content[ j ] );
+		}
+		const opens = run.some( ( b ) =>
+			[
+				...HEADING_LIKE,
+				'core/image',
+				'core/buttons',
+				'core/cover',
+			].includes( b.name )
+		);
+		return opens ? { blocks: run } : null;
+	}
+	let block = first;
+	for ( let depth = 0; depth < 8; depth += 1 ) {
+		const kids = meaningfulChildren( block );
+		const sections = kids.filter( ( k ) => COMPOSITE_BLOCKS.has( k.name ) );
+		const wrapper =
+			( block.name === 'core/group' &&
+				sections.length > 0 &&
+				( sections.length >= 2 || kids.length === 1 ) ) ||
+			( ( block.name === 'core/columns' ||
+				block.name === 'core/column' ) &&
+				holdsPage( block ) );
+		if ( ! wrapper ) {
+			break;
+		}
+		const next = ( sections.length ? sections : kids ).find(
+			( k ) => ! isChromeWrapper( k )
+		);
+		if ( ! next ) {
+			break;
+		}
+		block = next;
+	}
+	return isHeroLike( block ) ? { blocks: [ block ] } : null;
+}
+
 /**
  * Is this Group a designed section (heading, text, buttons…) that
  * should cascade, rather than a page wrapper or a long article?
@@ -475,10 +696,17 @@ function isSection( block ) {
  *   modal's "nested blocks" line (passed in: pure logic doesn't read
  *   the store).
  * @param {Object}   [options]
- * @param {Function} [options.isOnFirstScreen] `(clientId) → boolean|null`:
+ * @param {Function} [options.isOnFirstScreen] `(clientId, strict?) → boolean|null`:
  *   whether the block starts on the first screen. The modal measures it
- *   in the editor canvas; `null` (or no function) means unknown, and
- *   the first top-level block is then taken as the first screen.
+ *   in the editor canvas. With a hero found, only a `false` counts: it
+ *   takes a block out of the opening sequence (the hero decides what is in
+ *   it), and `null` leaves the hero as found. With no hero, `true` (asked
+ *   with `strict`, the stricter cutoff) puts a block in the opening, up to
+ *   the cap; `null` or no function means no opening.
+ * @param {Function} [options.screensTall] `(clientId) → number|null`:
+ *   how tall the block is, in screens of the editor canvas. A Columns
+ *   block taller than 2 screens, or holding a Query Loop or many designed
+ *   units, is a page wrapper and is walked into.
  * @return {Object} Plan.
  */
 export function computeAutoAnimatePlan(
@@ -490,24 +718,73 @@ export function computeAutoAnimatePlan(
 	const skipBody = [];
 	const skipChrome = [];
 	const skipBroken = [];
+	// Invalid blocks (the editor flags `isValid: false` when a block's saved
+	// HTML doesn't match what it would generate, so it offers "Attempt
+	// Block Recovery"). An invalid block is saved as its original HTML, so a
+	// change to it or anything inside it is silently dropped on save. They
+	// are skipped, with their contents, and the modal says so.
+	const skipInvalid = [];
+	let invalidInnerCount = 0;
 	const skipExisting = [];
 	let descendantCount = 0;
 	let openingIndex = 0;
 
+	// What plays on load is the hero (see findHero), not whatever a
+	// measurement puts above the fold. With a hero, the measurement can only
+	// take a block out of the opening (one that starts well below the first
+	// screen), never add one; if it puts the whole hero below the first
+	// screen, there is no hero. With no hero it is the fallback.
 	const measure = options.isOnFirstScreen;
-	// Without a measurement, only a leading Cover counts as the first
-	// screen: guessing more could play a whole page (one wrapper Group)
-	// on load.
-	const firstBlock = ( topLevelBlocks || [] )[ 0 ];
-	const firstTop =
-		firstBlock?.name === 'core/cover' ? firstBlock.clientId : null;
-	let topLevelId = null;
+	const heroIds = new Set();
+	const heroRootIds = new Set();
+	const markHero = ( block ) => {
+		heroIds.add( block.clientId );
+		( block.innerBlocks || [] ).forEach( markHero );
+	};
+	const found = findHero( topLevelBlocks )?.blocks || [];
+	// A hero the measurement puts below the first screen isn't opening the
+	// page (the real hero was one the structure missed): count it as no
+	// hero, so the fallback below takes over. An unmeasured hero stands.
+	const heroOnScreen =
+		! measure ||
+		found.some( ( block ) => measure( block.clientId ) !== false );
+	// Blocks that contain the hero. They are always walked into: a Group the
+	// planner would otherwise cascade as one section (a hero with its header
+	// and more around it) would swallow the hero, which would never be seen.
+	const heroAncestorIds = new Set();
+	if ( heroOnScreen ) {
+		found.forEach( ( block ) => {
+			heroRootIds.add( block.clientId );
+			markHero( block );
+		} );
+		const markAncestors = ( blocks, trail ) => {
+			for ( const block of blocks || [] ) {
+				if ( heroRootIds.has( block.clientId ) ) {
+					trail.forEach( ( id ) => heroAncestorIds.add( id ) );
+				} else {
+					markAncestors( block.innerBlocks, [ ...trail, block.clientId ] );
+				}
+			}
+		};
+		markAncestors( topLevelBlocks, [] );
+	}
 	const onFirstScreen = ( block ) => {
-		const measured = measure ? measure( block.clientId ) : null;
-		if ( measured === true || measured === false ) {
-			return measured;
+		if ( heroIds.size ) {
+			if ( ! heroIds.has( block.clientId ) ) {
+				return false;
+			}
+			return ( measure ? measure( block.clientId ) : null ) !== false;
 		}
-		return topLevelId === firstTop;
+		// No hero was found (a post list, a sidebar, a hero made of plain
+		// text, a hero inside the header): fall back to the measured first
+		// screen, with its stricter cutoff, because here the measurement
+		// is all there is. Only a block it actually found counts, and the
+		// header and other template parts are left out: a header animating
+		// on load is a flash, not an opening.
+		if ( ! measure || block.name === 'core/template-part' ) {
+			return false;
+		}
+		return measure( block.clientId, true ) === true;
 	};
 
 	const count = ( block ) => countDescendants( block.clientId ) || 0;
@@ -522,10 +799,16 @@ export function computeAutoAnimatePlan(
 	 * Queue one item. On the first screen it joins the opening sequence
 	 * (page load, next slot in reading order); below it, it waits for
 	 * the scroll, offset by `sequenceIndex` within its group (a Cover's
-	 * content).
+	 * content). A `repeated` block (a Post Template's card, one design
+	 * rendered once per post) is only ever measured at its first copy, so
+	 * the answer can't stand for the others: it always waits for the scroll
+	 * and takes no slot in the opening sequence.
 	 */
-	function push( block, role, extra = {} ) {
-		const first = onFirstScreen( block );
+	function push( block, role, extra = {}, { repeated = false } = {} ) {
+		const first =
+			! repeated &&
+			( role === 'heroImage' || openingIndex < MAX_OPENING_ITEMS ) &&
+			onFirstScreen( block );
 		const item = {
 			clientId: block.clientId,
 			block,
@@ -560,8 +843,17 @@ export function computeAutoAnimatePlan(
 		return false;
 	}
 
+	function skipIfInvalid( block ) {
+		if ( block.isValid !== false ) {
+			return false;
+		}
+		skipInvalid.push( block );
+		invalidInnerCount += count( block );
+		return true;
+	}
+
 	function recurse( block, sequence = null ) {
-		if ( ! block ) {
+		if ( ! block || skipIfInvalid( block ) ) {
 			return;
 		}
 		// Already animated: that animation owns the subtree.
@@ -631,17 +923,53 @@ export function computeAutoAnimatePlan(
 				push( block, 'cascade', { ...seq(), count: posts } );
 			} else {
 				for ( const child of block.innerBlocks || [] ) {
-					push( child, 'rise', seq() );
+					if ( ! skipIfInvalid( child ) ) {
+						push( child, 'rise', seq(), { repeated: true } );
+					}
 				}
 			}
 			descendantCount += count( block );
 			return;
 		}
 
+		// The footer is left still. Animated whole it would fade in as one
+		// tall slab, and its contents can't be walked into from here: a
+		// template part's blocks live in their own editor, not in this
+		// block tree. How Auto-animate should treat template parts and
+		// synced patterns is still open (GH #41). It is listed with the
+		// site chrome that is skipped. Headers are not skipped: they are
+		// short, and animating one whole is harmless.
+		if ( isFooterPart( block ) ) {
+			skipChrome.push( block );
+			return;
+		}
+
 		// Rows: columns, gallery images and buttons cascade in.
 		if ( CASCADE_CONTAINERS.has( name ) ) {
 			const children = meaningfulChildren( block );
-			if ( hasAnimatedChild( block ) ) {
+			// A Columns block that holds the whole page (a theme's layout
+			// wrapper) would cascade as one row and skip everything in it.
+			let pageSized = false;
+			if ( name === 'core/columns' ) {
+				const tall = options.screensTall
+					? options.screensTall( block.clientId )
+					: null;
+				pageSized =
+					holdsPage( block ) ||
+					( typeof tall === 'number' && tall > PAGE_SIZED_SCREENS );
+			}
+			// A hero built as columns (copy on one side, an image on the
+			// other) is walked into too: cascading the columns would lift
+			// the whole text column as one block, where the opening should
+			// bring its heading, text and buttons in one after another.
+			const heroColumns =
+				name === 'core/columns' && heroRootIds.has( block.clientId );
+			if (
+				pageSized ||
+				heroColumns ||
+				heroAncestorIds.has( block.clientId ) ||
+				hasAnimatedChild( block )
+			) {
 				// Walk in: animate the rest one by one.
 				for ( const child of block.innerBlocks || [] ) {
 					recurse( child, sequence );
@@ -665,7 +993,7 @@ export function computeAutoAnimatePlan(
 		// buttons; a wrapper is walked into; a long article group only
 		// animates what's worth animating inside it.
 		if ( name === 'core/group' || name === 'core/column' ) {
-			if ( isSection( block ) ) {
+			if ( isSection( block ) && ! heroAncestorIds.has( block.clientId ) ) {
 				push( block, 'cascade', {
 					...seq(),
 					count: meaningfulChildren( block ).length,
@@ -703,7 +1031,6 @@ export function computeAutoAnimatePlan(
 	}
 
 	for ( const block of topLevelBlocks || [] ) {
-		topLevelId = block.clientId;
 		recurse( block );
 	}
 
@@ -712,8 +1039,10 @@ export function computeAutoAnimatePlan(
 		skipBody,
 		skipChrome,
 		skipBroken,
+		skipInvalid,
 		skipExisting,
 		descendantCount,
+		invalidInnerCount,
 	};
 }
 

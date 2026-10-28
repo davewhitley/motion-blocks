@@ -33,16 +33,23 @@ import { countDescendantsIn } from '../selectStable';
 
 /**
  * Estimate which blocks start on the visitor's first screen, measured
- * in the editor canvas. Used to build the opening sequence.
+ * in the editor canvas. The planner picks the hero by structure (see
+ * findHero), and uses this two ways:
+ *
+ *  - With a hero found, it only vetoes: a hero block that starts below the
+ *    first screen is taken out of the opening sequence. That cutoff is
+ *    generous (one screen, capped at 900px) because bottom-aligned hero
+ *    text is common.
+ *  - With no hero found, it is the fallback for what opens the page, asked
+ *    with `strict`: only the first 60% of a screen counts. Erring short is
+ *    harmless (a block just waits for the scroll, which fires at once for
+ *    a block in view); erring long would play a block's opening while it
+ *    is still below the fold.
  *
  * The canvas isn't the front end: it has no site header, and themes put
  * a header and often a page title above the content. So positions are
- * measured from the top of the content, and only the first 60% of a
- * screen (capped at 900px) counts. Erring short is harmless (a block
- * just waits for the scroll); erring long would play a block's opening
- * animation while it's still below the fold. Returns null for a block
- * it can't find; the planner then falls back to "the first top-level
- * block is the first screen".
+ * measured from the top of the content. Returns null for a block it
+ * can't find.
  *
  * @return {Function} `(clientId) → boolean|null`.
  */
@@ -50,18 +57,39 @@ function measureFirstScreen() {
 	const iframe = document.querySelector( 'iframe[name="editor-canvas"]' );
 	const doc = iframe?.contentDocument || document;
 	const win = iframe?.contentWindow || window;
-	const fold = Math.min( win.innerHeight || 0, 900 ) * 0.6;
+	const fold = Math.min( win.innerHeight || 0, 900 );
 	const first = doc.querySelector( '.is-root-container > [data-block]' );
 	if ( ! fold || ! first ) {
 		return () => null;
 	}
 	const contentTop = first.getBoundingClientRect().top;
-	return ( clientId ) => {
+	return ( clientId, strict = false ) => {
 		const el = doc.querySelector( `[data-block="${ clientId }"]` );
 		if ( ! el ) {
 			return null;
 		}
-		return el.getBoundingClientRect().top - contentTop < fold;
+		return (
+			el.getBoundingClientRect().top - contentTop <
+			( strict ? fold * 0.6 : fold )
+		);
+	};
+}
+
+/**
+ * How tall each block is in screens of the editor canvas, so the planner
+ * can tell a row of columns from a Columns block that wraps the page.
+ * Returns null for a block it can't find.
+ *
+ * @return {Function} `(clientId) → number|null`.
+ */
+function measureScreensTall() {
+	const iframe = document.querySelector( 'iframe[name="editor-canvas"]' );
+	const doc = iframe?.contentDocument || document;
+	const win = iframe?.contentWindow || window;
+	const screen = win.innerHeight || 0;
+	return ( clientId ) => {
+		const el = screen && doc.querySelector( `[data-block="${ clientId }"]` );
+		return el ? el.getBoundingClientRect().height / screen : null;
 	};
 }
 
@@ -117,7 +145,10 @@ function AutoAnimateModalContent( {
 		return computeAutoAnimatePlan(
 			topLevelBlocks,
 			( id ) => countDescendantsIn( sel, id ),
-			{ isOnFirstScreen: measureFirstScreen() }
+			{
+				isOnFirstScreen: measureFirstScreen(),
+				screensTall: measureScreensTall(),
+			}
 		);
 	}, [ topLevelBlocks, registry ] );
 
@@ -129,6 +160,8 @@ function AutoAnimateModalContent( {
 		plan.skipBody.length +
 		plan.skipChrome.length +
 		( plan.skipBroken?.length || 0 ) +
+		( plan.skipInvalid?.length || 0 ) +
+		( plan.invalidInnerCount || 0 ) +
 		plan.skipExisting.length +
 		plan.descendantCount;
 
@@ -373,6 +406,20 @@ function AutoAnimateModalContent( {
 											'motion-blocks'
 										),
 										plan.skipChrome.length
+									) }
+								</li>
+							) }
+							{ ( plan.skipInvalid?.length || 0 ) > 0 && (
+								<li>
+									{ sprintf(
+										/* translators: %d: count */
+										_n(
+											'%d invalid block (and what is inside it): choose “Attempt Block Recovery” on it, then run this again',
+											'%d invalid blocks (and what is inside them): choose “Attempt Block Recovery” on each, then run this again',
+											plan.skipInvalid.length,
+											'motion-blocks'
+										),
+										plan.skipInvalid.length
 									) }
 								</li>
 							) }

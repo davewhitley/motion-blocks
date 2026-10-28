@@ -643,6 +643,55 @@ describe( 'Query Loop', () => {
 	} );
 } );
 
+describe( 'invalid blocks', () => {
+	/** A block the editor flags invalid (it offers "Attempt Block Recovery"). */
+	const invalid = ( blk ) => {
+		blk.isValid = false;
+		return blk;
+	};
+	const unmeasured = ( blocks ) => computeAutoAnimatePlan( blocks, () => 0 );
+	const clientIdsOf = ( p ) => p.apply.map( ( i ) => i.clientId );
+
+	it( 'skips an invalid block and everything inside it, and says so', () => {
+		const inside = heading();
+		const cover = invalid(
+			b( 'core/cover', [ b( 'core/group', [ inside, para() ] ) ] )
+		);
+		const ok = section();
+		const p = unmeasured( [ cover, ok ] );
+		expect( p.skipInvalid ).toEqual( [ cover ] );
+		expect( roleOf( p, cover ) ).toBeUndefined();
+		expect( roleOf( p, inside ) ).toBeUndefined();
+		expect( clientIdsOf( p ) ).toEqual( [ ok.clientId ] );
+	} );
+
+	it( 'counts what is inside the invalid block', () => {
+		const cover = invalid( b( 'core/cover', [ heading(), para() ] ) );
+		const p = computeAutoAnimatePlan( [ cover ], () => 7, {} );
+		expect( p.skipInvalid ).toHaveLength( 1 );
+		expect( p.invalidInnerCount ).toBe( 7 );
+	} );
+
+	it( 'treats a block with no validity flag as valid', () => {
+		const p = unmeasured( [ section() ] );
+		expect( p.skipInvalid ).toEqual( [] );
+		expect( p.apply.length ).toBeGreaterThan( 0 );
+	} );
+
+	it( 'skips an invalid card in a Post Template without losing the others', () => {
+		const bad = invalid( b( 'core/group', [ heading(), para() ] ) );
+		const good = b( 'core/group', [ heading(), para() ] );
+		const list = b( 'core/post-template', [ bad, good ], {
+			layout: { type: 'default' },
+		} );
+		const query = b( 'core/query', [ list ], { query: { perPage: 5 } } );
+		const p = unmeasured( [ query ] );
+		expect( p.skipInvalid ).toEqual( [ bad ] );
+		expect( roleOf( p, bad ) ).toBeUndefined();
+		expect( roleOf( p, good ) ).toBe( 'rise' );
+	} );
+} );
+
 describe( 'Classic block', () => {
 	const { canAnimateBlock } = require( '../../src/components/constants' );
 	const {

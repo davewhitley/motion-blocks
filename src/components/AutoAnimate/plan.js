@@ -26,8 +26,10 @@
  *     skipBody:      [ Block ],
  *     skipChrome:    [ Block ],
  *     skipBroken:    [ Block ],
+ *     skipInvalid:   [ Block ],
  *     skipExisting:  [ Block ],
  *     descendantCount: number,
+ *     invalidInnerCount: number,
  *   }
  *
  * The modal turns `apply` into per-block payloads with
@@ -541,6 +543,13 @@ export function computeAutoAnimatePlan(
 	const skipBody = [];
 	const skipChrome = [];
 	const skipBroken = [];
+	// Invalid blocks (the editor flags `isValid: false` when a block's saved
+	// HTML doesn't match what it would generate, so it offers "Attempt
+	// Block Recovery"). An invalid block is saved as its original HTML, so a
+	// change to it or anything inside it is silently dropped on save. They
+	// are skipped, with their contents, and the modal says so.
+	const skipInvalid = [];
+	let invalidInnerCount = 0;
 	const skipExisting = [];
 	let descendantCount = 0;
 	let openingIndex = 0;
@@ -617,8 +626,17 @@ export function computeAutoAnimatePlan(
 		return false;
 	}
 
+	function skipIfInvalid( block ) {
+		if ( block.isValid !== false ) {
+			return false;
+		}
+		skipInvalid.push( block );
+		invalidInnerCount += count( block );
+		return true;
+	}
+
 	function recurse( block, sequence = null ) {
-		if ( ! block ) {
+		if ( ! block || skipIfInvalid( block ) ) {
 			return;
 		}
 		// Already animated: that animation owns the subtree.
@@ -688,7 +706,9 @@ export function computeAutoAnimatePlan(
 				push( block, 'cascade', { ...seq(), count: posts } );
 			} else {
 				for ( const child of block.innerBlocks || [] ) {
-					push( child, 'rise', seq(), { repeated: true } );
+					if ( ! skipIfInvalid( child ) ) {
+						push( child, 'rise', seq(), { repeated: true } );
+					}
 				}
 			}
 			descendantCount += count( block );
@@ -780,8 +800,10 @@ export function computeAutoAnimatePlan(
 		skipBody,
 		skipChrome,
 		skipBroken,
+		skipInvalid,
 		skipExisting,
 		descendantCount,
+		invalidInnerCount,
 	};
 }
 

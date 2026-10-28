@@ -150,6 +150,8 @@ function AutoAnimateModalContent( {
 		plan.skipBody.length +
 		plan.skipChrome.length +
 		( plan.skipBroken?.length || 0 ) +
+		( plan.skipInvalid?.length || 0 ) +
+		( plan.invalidInnerCount || 0 ) +
 		plan.skipExisting.length +
 		plan.descendantCount;
 
@@ -394,6 +396,20 @@ function AutoAnimateModalContent( {
 											'motion-blocks'
 										),
 										plan.skipChrome.length
+									) }
+								</li>
+							) }
+							{ ( plan.skipInvalid?.length || 0 ) > 0 && (
+								<li>
+									{ sprintf(
+										/* translators: %d: count */
+										_n(
+											'%d invalid block (and what is inside it): choose “Attempt Block Recovery” on it, then run this again',
+											'%d invalid blocks (and what is inside them): choose “Attempt Block Recovery” on each, then run this again',
+											plan.skipInvalid.length,
+											'motion-blocks'
+										),
+										plan.skipInvalid.length
 									) }
 								</li>
 							) }

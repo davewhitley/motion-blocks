@@ -716,11 +716,15 @@ export function computeAutoAnimatePlan(
 	// screen), never add one.
 	const measure = options.isOnFirstScreen;
 	const heroIds = new Set();
+	const heroRootIds = new Set();
 	const markHero = ( block ) => {
 		heroIds.add( block.clientId );
 		( block.innerBlocks || [] ).forEach( markHero );
 	};
-	( findHero( topLevelBlocks )?.blocks || [] ).forEach( markHero );
+	( findHero( topLevelBlocks )?.blocks || [] ).forEach( ( block ) => {
+		heroRootIds.add( block.clientId );
+		markHero( block );
+	} );
 	const onFirstScreen = ( block ) => {
 		if ( ! heroIds.has( block.clientId ) ) {
 			return false;
@@ -887,7 +891,13 @@ export function computeAutoAnimatePlan(
 					holdsPage( block ) ||
 					( typeof tall === 'number' && tall > PAGE_SIZED_SCREENS );
 			}
-			if ( pageSized || hasAnimatedChild( block ) ) {
+			// A hero built as columns (copy on one side, an image on the
+			// other) is walked into too: cascading the columns would lift
+			// the whole text column as one block, where the opening should
+			// bring its heading, text and buttons in one after another.
+			const heroColumns =
+				name === 'core/columns' && heroRootIds.has( block.clientId );
+			if ( pageSized || heroColumns || hasAnimatedChild( block ) ) {
 				// Walk in: animate the rest one by one.
 				for ( const child of block.innerBlocks || [] ) {
 					recurse( child, sequence );

@@ -22,6 +22,7 @@ import {
 } from '../../src/components/AutoAnimate/plan';
 import {
 	SCHEMA_DEFAULTS,
+	STAGGER_PARENT_BLOCKS,
 	migrateScrollAppearAttrs,
 	isStaggerCompatible,
 } from '../../src/components/constants';
@@ -259,6 +260,34 @@ describe( 'finding the hero', () => {
 		expect( heroOf( [ cols ] ) ).toEqual( [ masthead ] );
 	} );
 
+	it( 'walks into a hero built as columns, so its text and image open one after another', () => {
+		const h = heading();
+		const t = para();
+		const btns = buttons();
+		const textCol = b( 'core/column', [ h, t, btns ] );
+		const img = image();
+		const hero = b( 'core/columns', [ textCol, b( 'core/column', [ img ] ) ] );
+		const p = planUnmeasured( [ hero ] );
+		expect( roleOf( p, hero ) ).toBeUndefined();
+		// The text column's pieces cascade in; the image rises with them.
+		expect( roleOf( p, textCol ) ).toBe( 'cascade' );
+		expect( roleOf( p, img ) ).toBe( 'media' );
+		const load = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
+		expect( [ load( textCol ), load( img ) ] ).toEqual( [ 'load', 'load' ] );
+	} );
+
+	it( 'still cascades an ordinary row of columns that is not the hero', () => {
+		const hero = section();
+		const row = b( 'core/columns', [
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+		] );
+		const p = planUnmeasured( [ b( 'core/group', [ hero, row, section() ] ) ] );
+		expect( roleOf( p, row ) ).toBe( 'cascade' );
+	} );
+
 	it( 'takes a split hero whose title is the site title', () => {
 		const split = b( 'core/columns', [
 			b( 'core/column', [ b( 'core/site-title' ) ] ),
@@ -375,10 +404,38 @@ describe( 'sections cascade in reading order', () => {
 		] );
 		const gallery = b( 'core/gallery', [ image(), image(), image() ] );
 		const row = buttons( 3 );
-		const p = plan( [ cols, gallery, row ] );
+		// A section first, so the row isn't the page's hero.
+		const p = plan( [ section(), cols, gallery, row ] );
 		expect( [ cols, gallery, row ].map( ( x ) => roleOf( p, x ) ) ).toEqual(
 			[ 'cascade', 'cascade', 'cascade' ]
 		);
+	} );
+
+	it( 'only cascades blocks that can stagger, or the cascade silently becomes one rise', () => {
+		const textColumn = b( 'core/column', [ heading(), para(), buttons() ] );
+		const cols = b( 'core/columns', [ textColumn, b( 'core/column', [ image() ] ) ] );
+		const list = b( 'core/post-template', [ section(), section() ], {
+			layout: { type: 'grid', columnCount: 2 },
+		} );
+		// The first block is the hero, so its text column is walked into and
+		// cascades; the rows below it cascade as rows.
+		const tree = [
+			cols,
+			b( 'core/columns', [
+				b( 'core/column', [ heading(), para() ] ),
+				b( 'core/column', [ heading(), para() ] ),
+			] ),
+			b( 'core/gallery', [ image(), image(), image() ] ),
+			buttons( 3 ),
+			b( 'core/query', [ list ], { query: { perPage: 2 } } ),
+		];
+		const p = planUnmeasured( tree );
+		const cascades = p.apply.filter( ( i ) => i.role === 'cascade' );
+		expect( cascades.length ).toBeGreaterThan( 3 );
+		for ( const item of cascades ) {
+			expect( STAGGER_PARENT_BLOCKS ).toContain( item.block.name );
+		}
+		expect( roleOf( p, textColumn ) ).toBe( 'cascade' );
 	} );
 
 	it( 'walks into a page wrapper instead of moving it as one block', () => {
@@ -419,7 +476,7 @@ describe( 'sections cascade in reading order', () => {
 
 		it( 'cascades as a row when it is short, however much it holds', () => {
 			const { cols } = pageColumns();
-			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 0.8 ) );
+			const p = computeAutoAnimatePlan( [ section(), cols ], () => 0, screens( 0.8 ) );
 			expect( roleOf( p, cols ) ).toBe( 'cascade' );
 		} );
 
@@ -436,7 +493,7 @@ describe( 'sections cascade in reading order', () => {
 
 		it( 'is not walked into on a height between one and two screens', () => {
 			const { cols } = pageColumns();
-			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 1.75 ) );
+			const p = computeAutoAnimatePlan( [ section(), cols ], () => 0, screens( 1.75 ) );
 			expect( roleOf( p, cols ) ).toBe( 'cascade' );
 		} );
 
@@ -470,7 +527,7 @@ describe( 'sections cascade in reading order', () => {
 				b( 'core/column', [ card() ] ),
 				b( 'core/column', [ card() ] ),
 			] );
-			expect( roleOf( plan( [ cols ] ), cols ) ).toBe( 'cascade' );
+			expect( roleOf( plan( [ section(), cols ] ), cols ) ).toBe( 'cascade' );
 		} );
 	} );
 

@@ -696,11 +696,13 @@ function isSection( block ) {
  *   modal's "nested blocks" line (passed in: pure logic doesn't read
  *   the store).
  * @param {Object}   [options]
- * @param {Function} [options.isOnFirstScreen] `(clientId) → boolean|null`:
+ * @param {Function} [options.isOnFirstScreen] `(clientId, strict?) → boolean|null`:
  *   whether the block starts on the first screen. The modal measures it
- *   in the editor canvas. Only a `false` counts: it takes a block out of
- *   the opening sequence (the hero decides what is in it). `null` (or no
- *   function) leaves the hero as found.
+ *   in the editor canvas. With a hero found, only a `false` counts: it
+ *   takes a block out of the opening sequence (the hero decides what is in
+ *   it), and `null` leaves the hero as found. With no hero, `true` (asked
+ *   with `strict`, the stricter cutoff) puts a block in the opening, up to
+ *   the cap; `null` or no function means no opening.
  * @param {Function} [options.screensTall] `(clientId) → number|null`:
  *   how tall the block is, in screens of the editor canvas. A Columns
  *   block taller than 2 screens, or holding a Query Loop or many designed
@@ -728,9 +730,10 @@ export function computeAutoAnimatePlan(
 	let openingIndex = 0;
 
 	// What plays on load is the hero (see findHero), not whatever a
-	// measurement puts above the fold. The measurement can only take a
-	// block out of the opening (one that starts well below the first
-	// screen), never add one.
+	// measurement puts above the fold. With a hero, the measurement can only
+	// take a block out of the opening (one that starts well below the first
+	// screen), never add one; if it puts the whole hero below the first
+	// screen, there is no hero. With no hero it is the fallback.
 	const measure = options.isOnFirstScreen;
 	const heroIds = new Set();
 	const heroRootIds = new Set();
@@ -738,15 +741,50 @@ export function computeAutoAnimatePlan(
 		heroIds.add( block.clientId );
 		( block.innerBlocks || [] ).forEach( markHero );
 	};
-	( findHero( topLevelBlocks )?.blocks || [] ).forEach( ( block ) => {
-		heroRootIds.add( block.clientId );
-		markHero( block );
-	} );
+	const found = findHero( topLevelBlocks )?.blocks || [];
+	// A hero the measurement puts below the first screen isn't opening the
+	// page (the real hero was one the structure missed): count it as no
+	// hero, so the fallback below takes over. An unmeasured hero stands.
+	const heroOnScreen =
+		! measure ||
+		found.some( ( block ) => measure( block.clientId ) !== false );
+	// Blocks that contain the hero. They are always walked into: a Group the
+	// planner would otherwise cascade as one section (a hero with its header
+	// and more around it) would swallow the hero, which would never be seen.
+	const heroAncestorIds = new Set();
+	if ( heroOnScreen ) {
+		found.forEach( ( block ) => {
+			heroRootIds.add( block.clientId );
+			markHero( block );
+		} );
+		const markAncestors = ( blocks, trail ) => {
+			for ( const block of blocks || [] ) {
+				if ( heroRootIds.has( block.clientId ) ) {
+					trail.forEach( ( id ) => heroAncestorIds.add( id ) );
+				} else {
+					markAncestors( block.innerBlocks, [ ...trail, block.clientId ] );
+				}
+			}
+		};
+		markAncestors( topLevelBlocks, [] );
+	}
 	const onFirstScreen = ( block ) => {
-		if ( ! heroIds.has( block.clientId ) ) {
+		if ( heroIds.size ) {
+			if ( ! heroIds.has( block.clientId ) ) {
+				return false;
+			}
+			return ( measure ? measure( block.clientId ) : null ) !== false;
+		}
+		// No hero was found (a post list, a sidebar, a hero made of plain
+		// text, a hero inside the header): fall back to the measured first
+		// screen, with its stricter cutoff, because here the measurement
+		// is all there is. Only a block it actually found counts, and the
+		// header and other template parts are left out: a header animating
+		// on load is a flash, not an opening.
+		if ( ! measure || block.name === 'core/template-part' ) {
 			return false;
 		}
-		return ( measure ? measure( block.clientId ) : null ) !== false;
+		return measure( block.clientId, true ) === true;
 	};
 
 	const count = ( block ) => countDescendants( block.clientId ) || 0;
@@ -926,7 +964,12 @@ export function computeAutoAnimatePlan(
 			// bring its heading, text and buttons in one after another.
 			const heroColumns =
 				name === 'core/columns' && heroRootIds.has( block.clientId );
-			if ( pageSized || heroColumns || hasAnimatedChild( block ) ) {
+			if (
+				pageSized ||
+				heroColumns ||
+				heroAncestorIds.has( block.clientId ) ||
+				hasAnimatedChild( block )
+			) {
 				// Walk in: animate the rest one by one.
 				for ( const child of block.innerBlocks || [] ) {
 					recurse( child, sequence );
@@ -950,7 +993,7 @@ export function computeAutoAnimatePlan(
 		// buttons; a wrapper is walked into; a long article group only
 		// animates what's worth animating inside it.
 		if ( name === 'core/group' || name === 'core/column' ) {
-			if ( isSection( block ) ) {
+			if ( isSection( block ) && ! heroAncestorIds.has( block.clientId ) ) {
 				push( block, 'cascade', {
 					...seq(),
 					count: meaningfulChildren( block ).length,

@@ -33,16 +33,23 @@ import { countDescendantsIn } from '../selectStable';
 
 /**
  * Estimate which blocks start on the visitor's first screen, measured
- * in the editor canvas. It only vetoes: the planner picks the hero by
- * structure (see findHero), and a block of the hero that starts below
- * the first screen is taken out of the opening sequence.
+ * in the editor canvas. The planner picks the hero by structure (see
+ * findHero), and uses this two ways:
+ *
+ *  - With a hero found, it only vetoes: a hero block that starts below the
+ *    first screen is taken out of the opening sequence. That cutoff is
+ *    generous (one screen, capped at 900px) because bottom-aligned hero
+ *    text is common.
+ *  - With no hero found, it is the fallback for what opens the page, asked
+ *    with `strict`: only the first 60% of a screen counts. Erring short is
+ *    harmless (a block just waits for the scroll, which fires at once for
+ *    a block in view); erring long would play a block's opening while it
+ *    is still below the fold.
  *
  * The canvas isn't the front end: it has no site header, and themes put
  * a header and often a page title above the content. So positions are
- * measured from the top of the content, and a block counts as on the
- * first screen while it starts within one screen (capped at 900px): the
- * veto is generous because bottom-aligned hero text is common.
- * Returns null for a block it can't find.
+ * measured from the top of the content. Returns null for a block it
+ * can't find.
  *
  * @return {Function} `(clientId) → boolean|null`.
  */
@@ -56,12 +63,15 @@ function measureFirstScreen() {
 		return () => null;
 	}
 	const contentTop = first.getBoundingClientRect().top;
-	return ( clientId ) => {
+	return ( clientId, strict = false ) => {
 		const el = doc.querySelector( `[data-block="${ clientId }"]` );
 		if ( ! el ) {
 			return null;
 		}
-		return el.getBoundingClientRect().top - contentTop < fold;
+		return (
+			el.getBoundingClientRect().top - contentTop <
+			( strict ? fold * 0.6 : fold )
+		);
 	};
 }
 

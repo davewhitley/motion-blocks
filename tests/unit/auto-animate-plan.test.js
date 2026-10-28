@@ -326,17 +326,116 @@ describe( 'finding the hero', () => {
 		expect( q.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
 	} );
 
-	it( 'lets a measurement take a block out of the opening, never put one in', () => {
-		const hero = section();
+	it( 'reaches a hero that sits inside a Group the planner would cascade whole', () => {
+		// A top-level Group holding the header, the hero and a Cover: it reads
+		// as a section, but the hero in it must still open the page.
+		const heroHead = heading();
+		const hero = b( 'core/group', [ heroHead, para(), buttons() ] );
+		const outer = b( 'core/group', [
+			b( 'core/template-part', [], { slug: 'header', area: 'header' } ),
+			hero,
+			b( 'core/cover', [ heading() ] ),
+		] );
+		const p = planUnmeasured( [ outer ] );
+		expect( roleOf( p, outer ) ).toBeUndefined();
+		expect( p.apply.find( ( i ) => i.clientId === hero.clientId )?.trigger ).toBe( 'load' );
+	} );
+
+	it( 'lets a measurement take a block of the hero out of the opening, never put one in', () => {
+		const heroHead = heading();
+		const heroText = para();
+		const hero = b( 'core/group', [ heroHead, heroText, buttons() ] );
 		const other = section();
 		const wrapper = b( 'core/group', [ hero, other, section() ] );
+		// The hero is on the first screen; one of its blocks is not.
 		const measured = computeAutoAnimatePlan( [ wrapper ], () => 0, {
-			isOnFirstScreen: ( id ) => id === other.clientId,
+			isOnFirstScreen: ( id ) => id === hero.clientId || id === other.clientId,
 		} );
 		const trig = ( x ) =>
-			measured.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
-		expect( trig( hero ) ).toBe( 'scroll' ); // measured below the fold
+			measured.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
+		expect( trig( hero ) ).toBe( 'load' );
 		expect( trig( other ) ).toBe( 'scroll' ); // measured on it, but not the hero
+	} );
+
+	it( 'treats a hero measured below the first screen as no hero, and falls back to the measurement', () => {
+		const hero = section();
+		const wrapper = b( 'core/group', [ hero, section(), section() ] );
+		const real = heading();
+		const page = [ b( 'core/group', [ para(), para(), para(), para() ] ), real, wrapper ];
+		const p = computeAutoAnimatePlan( page, () => 0, {
+			// Only the heading sits on the first screen; the found hero is below it.
+			isOnFirstScreen: ( id ) => id === real.clientId,
+		} );
+		const trig = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
+		expect( trig( hero ) ).toBe( 'scroll' );
+		expect( trig( real ) ).toBe( 'load' );
+	} );
+} );
+
+describe( 'with no hero found, the measured first screen opens the page', () => {
+	// A sidebar-and-post-list page: no Cover, no heading block, no buttons.
+	const noHeroPage = () => {
+		const lead = [ para(), para(), para() ];
+		const first = b( 'core/group', lead );
+		const rest = b( 'core/group', [ para(), para(), para(), para() ] );
+		return { lead, first, page: [ b( 'core/group', [ first, rest ] ) ] };
+	};
+	const measuredPlan = ( blocks, onScreen ) =>
+		computeAutoAnimatePlan( blocks, () => 0, {
+			// `strict` is the fallback's cutoff, the stricter one.
+			isOnFirstScreen: ( id, strict ) => ( strict ? onScreen.includes( id ) : true ),
+		} );
+	const trig = ( p, x ) =>
+		p.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
+
+	it( 'puts measured first-screen blocks in the opening, up to the cap', () => {
+		const heads = Array.from( { length: 6 }, () => heading() );
+		const page = [ b( 'core/group', [ para(), para(), para(), para() ] ), ...heads ];
+		expect( findHero( page ) ).toBeNull();
+		const p = measuredPlan( page, heads.map( ( x ) => x.clientId ) );
+		const loads = heads.filter( ( x ) => trig( p, x ) === 'load' );
+		expect( loads ).toHaveLength( 4 );
+		expect( heads.slice( 4 ).map( ( x ) => trig( p, x ) ) ).toEqual( [
+			'scroll',
+			'scroll',
+		] );
+	} );
+
+	it( 'does nothing without a measurement', () => {
+		const { page } = noHeroPage();
+		const heads = [ heading(), heading() ];
+		const p = planUnmeasured( [ ...page, ...heads ] );
+		expect( p.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
+	} );
+
+	it( 'never opens the page with a template part (the header)', () => {
+		const header = b( 'core/template-part', [], { slug: 'header', area: 'header' } );
+		const heads = [ heading() ];
+		const p = measuredPlan( [ header, b( 'core/group', [ para(), para(), para(), para() ] ), ...heads ], [
+			header.clientId,
+			heads[ 0 ].clientId,
+		] );
+		expect( trig( p, header ) ).toBe( 'scroll' );
+		expect( trig( p, heads[ 0 ] ) ).toBe( 'load' );
+	} );
+
+	it( 'still keeps a Post Template card out of the opening', () => {
+		const card = b( 'core/group', [ heading(), para() ] );
+		const list = b( 'core/post-template', [ card ], { layout: { type: 'default' } } );
+		const query = b( 'core/query', [ list ], { query: { perPage: 6 } } );
+		const p = measuredPlan( [ b( 'core/group', [ para(), para(), para(), para() ] ), query ], [ card.clientId ] );
+		expect( trig( p, card ) ).toBe( 'scroll' );
+	} );
+
+	it( 'is not used when a hero is found: a measured block outside it still waits', () => {
+		const hero = section();
+		const other = section();
+		const p = measuredPlan( [ b( 'core/group', [ hero, other, section() ] ) ], [
+			other.clientId,
+		] );
+		expect( trig( p, hero ) ).toBe( 'load' );
+		expect( trig( p, other ) ).toBe( 'scroll' );
 	} );
 } );
 

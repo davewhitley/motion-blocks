@@ -105,13 +105,19 @@ const COMPOSITE_BLOCKS = new Set( [
 /** A Group with more children than this reads as an article, not a section. */
 const MAX_SECTION_CHILDREN = 12;
 
-/** A Columns block taller than this many screens is the page, not a row. */
-const PAGE_SIZED_SCREENS = 1.5;
+/**
+ * A Columns block taller than this many screens of the editor canvas is
+ * the page, not a row. The canvas is narrower and shorter than a visitor's
+ * window, so a one-screen hero can read as ~1.75 there; real wrappers
+ * measure 3 to 10.
+ */
+const PAGE_SIZED_SCREENS = 2;
 
 /**
- * Without a measurement, a Columns block holding more designed units
- * than this (Groups, Covers, Queries…, at any depth) is taken to be the
- * page, not a row of cards. A row of cards holds one or two per column.
+ * A Columns block holding more designed units than this (Groups, Covers,
+ * Queries…, at any depth), or any Query Loop, is the page too, whatever
+ * its measured height: a measurement taken while images are still loading
+ * reads short, and structure doesn't change between runs.
  */
 const MAX_ROW_COMPOSITES = 8;
 
@@ -514,8 +520,8 @@ function isSection( block ) {
  *   the first top-level block is then taken as the first screen.
  * @param {Function} [options.screensTall] `(clientId) → number|null`:
  *   how tall the block is, in screens of the editor canvas. A Columns
- *   block taller than 1.5 screens is a page wrapper and is walked into;
- *   `null` (or no function) falls back to counting what it holds.
+ *   block taller than 2 screens, or holding a Query Loop or many designed
+ *   units, is a page wrapper and is walked into.
  * @return {Object} Plan.
  */
 export function computeAutoAnimatePlan(
@@ -686,9 +692,8 @@ export function computeAutoAnimatePlan(
 					? options.screensTall( block.clientId )
 					: null;
 				pageSized =
-					typeof tall === 'number'
-						? tall > PAGE_SIZED_SCREENS
-						: holdsPage( block );
+					holdsPage( block ) ||
+					( typeof tall === 'number' && tall > PAGE_SIZED_SCREENS );
 			}
 			if ( pageSized || hasAnimatedChild( block ) ) {
 				// Walk in: animate the rest one by one.

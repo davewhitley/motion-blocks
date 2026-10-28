@@ -284,7 +284,7 @@ describe( 'sections cascade in reading order', () => {
 			screensTall: () => n,
 		} );
 
-		it( 'is walked into when it is taller than a screen and a half', () => {
+		it( 'is walked into when it is taller than two screens', () => {
 			const { sections, cols } = pageColumns();
 			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 4 ) );
 			expect( roleOf( p, cols ) ).toBeUndefined();
@@ -308,6 +308,24 @@ describe( 'sections cascade in reading order', () => {
 			const p = plan( [ cols ] );
 			expect( roleOf( p, cols ) ).toBeUndefined();
 			expect( roleOf( p, sections[ 0 ] ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is not walked into on a height between one and two screens', () => {
+			const { cols } = pageColumns();
+			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 1.75 ) );
+			expect( roleOf( p, cols ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is walked into by structure even when it measures short', () => {
+			const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ], {
+				query: { perPage: 6 },
+			} );
+			const cols = b( 'core/columns', [
+				b( 'core/column', [ query ] ),
+				b( 'core/column', [ para() ] ),
+			] );
+			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 0.6 ) );
+			expect( roleOf( p, cols ) ).toBeUndefined();
 		} );
 
 		it( 'is walked into when it holds a Query Loop', () => {

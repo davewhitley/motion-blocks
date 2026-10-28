@@ -205,6 +205,14 @@ const OPENING_START = 0.1;
 const MAX_OPENING_DELAY = 1.2;
 
 /**
+ * Most blocks the opening sequence holds (the hero background doesn't
+ * count). It is for the hero's headline, text and buttons; anything else
+ * that happens to be on the first screen waits for the scroll, which fires
+ * as soon as the page loads for a block already in view.
+ */
+const MAX_OPENING_ITEMS = 4;
+
+/**
  * Pick a category for a block: 'HERO' | 'MEDIA' | 'SECTION' | 'CTA' |
  * 'BODY' | 'CHROME' | 'BROKEN'.
  *
@@ -565,10 +573,16 @@ export function computeAutoAnimatePlan(
 	 * Queue one item. On the first screen it joins the opening sequence
 	 * (page load, next slot in reading order); below it, it waits for
 	 * the scroll, offset by `sequenceIndex` within its group (a Cover's
-	 * content).
+	 * content). A `repeated` block (a Post Template's card, one design
+	 * rendered once per post) is only ever measured at its first copy, so
+	 * the answer can't stand for the others: it always waits for the scroll
+	 * and takes no slot in the opening sequence.
 	 */
-	function push( block, role, extra = {} ) {
-		const first = onFirstScreen( block );
+	function push( block, role, extra = {}, { repeated = false } = {} ) {
+		const first =
+			! repeated &&
+			( role === 'heroImage' || openingIndex < MAX_OPENING_ITEMS ) &&
+			onFirstScreen( block );
 		const item = {
 			clientId: block.clientId,
 			block,
@@ -674,7 +688,7 @@ export function computeAutoAnimatePlan(
 				push( block, 'cascade', { ...seq(), count: posts } );
 			} else {
 				for ( const child of block.innerBlocks || [] ) {
-					push( child, 'rise', seq() );
+					push( child, 'rise', seq(), { repeated: true } );
 				}
 			}
 			descendantCount += count( block );

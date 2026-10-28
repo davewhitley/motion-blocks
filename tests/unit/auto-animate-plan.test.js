@@ -187,6 +187,33 @@ describe( 'the opening sequence', () => {
 	} );
 } );
 
+describe( 'the opening sequence is capped', () => {
+	it( 'holds the first four blocks of the first screen; the rest wait for the scroll', () => {
+		const blocks = Array.from( { length: 6 }, () => heading() );
+		const p = plan( blocks, blocks.map( ( x ) => x.clientId ) );
+		const triggers = blocks.map(
+			( x ) => p.apply.find( ( i ) => i.clientId === x.clientId ).trigger
+		);
+		expect( triggers.filter( ( t ) => t === 'load' ) ).toHaveLength( 4 );
+		expect( triggers.slice( 4 ) ).toEqual( [ 'scroll', 'scroll' ] );
+	} );
+
+	it( 'does not count the hero background against the cap', () => {
+		const cover = b( 'core/cover', [ heading() ], { url: 'h.jpg' } );
+		const blocks = Array.from( { length: 4 }, () => heading() );
+		const p = plan(
+			[ cover, ...blocks ],
+			[ cover, ...blocks ].map( ( x ) => x.clientId )
+		);
+		const triggers = p.apply.map( ( i ) => i.trigger );
+		// The cover's background and heading, then the four slots.
+		expect( p.apply.find( ( i ) => i.role === 'heroImage' ).trigger ).toBe(
+			'load'
+		);
+		expect( triggers.filter( ( t ) => t === 'load' ).length ).toBe( 5 );
+	} );
+} );
+
 describe( 'sections cascade in reading order', () => {
 	it( 'a heading + text + buttons Group cascades as one section', () => {
 		const s = section();
@@ -588,6 +615,16 @@ describe( 'Query Loop', () => {
 		expect( roleOf( p, query ) ).toBeUndefined();
 		expect( roleOf( p, list ) ).toBeUndefined();
 		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBe( 'rise' );
+	} );
+
+	it( 'never opens the page with a post card, even when the first post is on the first screen', () => {
+		const { list, query } = queryLoop( 0, 8 );
+		const lead = heading();
+		const p = plan( [ lead, query ], [ lead.clientId, list.innerBlocks[ 0 ].clientId ] );
+		const itemFor = ( x ) => p.apply.find( ( i ) => i.clientId === x.clientId );
+		expect( itemFor( list.innerBlocks[ 0 ] ).trigger ).toBe( 'scroll' );
+		expect( itemFor( lead ).trigger ).toBe( 'load' );
+		expect( itemFor( lead ).openingIndex ).toBe( 0 );
 	} );
 
 	it( 'treats a plain list layout as one post per row', () => {

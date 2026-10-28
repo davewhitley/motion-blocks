@@ -4,6 +4,7 @@
 	"staggerParentBlocks": [
 		"core/group",
 		"core/columns",
+		"core/column",
 		"core/buttons",
 		"core/gallery",
 		"core/list",

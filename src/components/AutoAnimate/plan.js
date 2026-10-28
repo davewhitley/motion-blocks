@@ -105,6 +105,33 @@ const COMPOSITE_BLOCKS = new Set( [
 /** A Group with more children than this reads as an article, not a section. */
 const MAX_SECTION_CHILDREN = 12;
 
+/** A Columns block taller than this many screens is the page, not a row. */
+const PAGE_SIZED_SCREENS = 1.5;
+
+/**
+ * Without a measurement, a Columns block holding more designed units
+ * than this (Groups, Covers, Queries…, at any depth) is taken to be the
+ * page, not a row of cards. A row of cards holds one or two per column.
+ */
+const MAX_ROW_COMPOSITES = 8;
+
+/** How many designed units (and Query Loops) sit anywhere inside `block`. */
+function holdsPage( block ) {
+	let composites = 0;
+	let query = false;
+	const walk = ( blocks ) => {
+		for ( const child of blocks || [] ) {
+			if ( COMPOSITE_BLOCKS.has( child.name ) ) {
+				composites += 1;
+			}
+			query = query || child.name === 'core/query';
+			walk( child.innerBlocks );
+		}
+	};
+	walk( block.innerBlocks );
+	return query || composites > MAX_ROW_COMPOSITES;
+}
+
 /** One curve for everything: fast start, long soft landing (expo-out). */
 export const MOTION_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
@@ -485,6 +512,10 @@ function isSection( block ) {
  *   whether the block starts on the first screen. The modal measures it
  *   in the editor canvas; `null` (or no function) means unknown, and
  *   the first top-level block is then taken as the first screen.
+ * @param {Function} [options.screensTall] `(clientId) → number|null`:
+ *   how tall the block is, in screens of the editor canvas. A Columns
+ *   block taller than 1.5 screens is a page wrapper and is walked into;
+ *   `null` (or no function) falls back to counting what it holds.
  * @return {Object} Plan.
  */
 export function computeAutoAnimatePlan(
@@ -647,7 +678,19 @@ export function computeAutoAnimatePlan(
 		// Rows: columns, gallery images and buttons cascade in.
 		if ( CASCADE_CONTAINERS.has( name ) ) {
 			const children = meaningfulChildren( block );
-			if ( hasAnimatedChild( block ) ) {
+			// A Columns block that holds the whole page (a theme's layout
+			// wrapper) would cascade as one row and skip everything in it.
+			let pageSized = false;
+			if ( name === 'core/columns' ) {
+				const tall = options.screensTall
+					? options.screensTall( block.clientId )
+					: null;
+				pageSized =
+					typeof tall === 'number'
+						? tall > PAGE_SIZED_SCREENS
+						: holdsPage( block );
+			}
+			if ( pageSized || hasAnimatedChild( block ) ) {
 				// Walk in: animate the rest one by one.
 				for ( const child of block.innerBlocks || [] ) {
 					recurse( child, sequence );

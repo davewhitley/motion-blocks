@@ -66,6 +66,24 @@ function measureFirstScreen() {
 }
 
 /**
+ * How tall each block is in screens of the editor canvas, so the planner
+ * can tell a row of columns from a Columns block that wraps the page.
+ * Returns null for a block it can't find.
+ *
+ * @return {Function} `(clientId) → number|null`.
+ */
+function measureScreensTall() {
+	const iframe = document.querySelector( 'iframe[name="editor-canvas"]' );
+	const doc = iframe?.contentDocument || document;
+	const win = iframe?.contentWindow || window;
+	const screen = win.innerHeight || 0;
+	return ( clientId ) => {
+		const el = screen && doc.querySelector( `[data-block="${ clientId }"]` );
+		return el ? el.getBoundingClientRect().height / screen : null;
+	};
+}
+
+/**
  * Keeps the modal's hooks unmounted while it is closed: the component
  * is always mounted from the Document panel, and running the plan
  * against the whole block tree on every store change while nobody can
@@ -117,7 +135,10 @@ function AutoAnimateModalContent( {
 		return computeAutoAnimatePlan(
 			topLevelBlocks,
 			( id ) => countDescendantsIn( sel, id ),
-			{ isOnFirstScreen: measureFirstScreen() }
+			{
+				isOnFirstScreen: measureFirstScreen(),
+				screensTall: measureScreensTall(),
+			}
 		);
 	}, [ topLevelBlocks, registry ] );
 

@@ -267,6 +267,71 @@ describe( 'sections cascade in reading order', () => {
 		expect( roleOf( p, inner2 ) ).toBe( 'cascade' );
 	} );
 
+	describe( 'a Columns block that wraps the page', () => {
+		/** A theme's layout wrapper: two columns holding a whole page. */
+		const pageColumns = () => {
+			const sections = Array.from( { length: 5 }, () => section() );
+			return {
+				sections,
+				cols: b( 'core/columns', [
+					b( 'core/column', sections.slice( 0, 3 ) ),
+					b( 'core/column', sections.slice( 3 ) ),
+				] ),
+			};
+		};
+		const screens = ( n ) => ( {
+			isOnFirstScreen: () => false,
+			screensTall: () => n,
+		} );
+
+		it( 'is walked into when it is taller than a screen and a half', () => {
+			const { sections, cols } = pageColumns();
+			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 4 ) );
+			expect( roleOf( p, cols ) ).toBeUndefined();
+			for ( const s of sections ) {
+				expect( roleOf( p, s ) ).toBe( 'cascade' );
+			}
+		} );
+
+		it( 'cascades as a row when it is short, however much it holds', () => {
+			const { cols } = pageColumns();
+			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 0.8 ) );
+			expect( roleOf( p, cols ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is walked into by what it holds when it can not be measured', () => {
+			const sections = Array.from( { length: 12 }, () => section() );
+			const cols = b( 'core/columns', [
+				b( 'core/column', sections.slice( 0, 6 ) ),
+				b( 'core/column', sections.slice( 6 ) ),
+			] );
+			const p = plan( [ cols ] );
+			expect( roleOf( p, cols ) ).toBeUndefined();
+			expect( roleOf( p, sections[ 0 ] ) ).toBe( 'cascade' );
+		} );
+
+		it( 'is walked into when it holds a Query Loop', () => {
+			const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ], {
+				query: { perPage: 6 },
+			} );
+			const cols = b( 'core/columns', [
+				b( 'core/column', [ query ] ),
+				b( 'core/column', [ para() ] ),
+			] );
+			expect( roleOf( plan( [ cols ] ), cols ) ).toBeUndefined();
+		} );
+
+		it( 'leaves an ordinary row of cards alone', () => {
+			const card = () => b( 'core/group', [ heading(), para() ] );
+			const cols = b( 'core/columns', [
+				b( 'core/column', [ card() ] ),
+				b( 'core/column', [ card() ] ),
+				b( 'core/column', [ card() ] ),
+			] );
+			expect( roleOf( plan( [ cols ] ), cols ) ).toBe( 'cascade' );
+		} );
+	} );
+
 	it( 'leaves long-form text still and animates only its headings and images', () => {
 		const article = b( 'core/group', [
 			heading(),

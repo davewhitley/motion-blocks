@@ -855,6 +855,49 @@ describe( 'invalid blocks', () => {
 	} );
 } );
 
+describe( 'the footer', () => {
+	const footerPart = ( inner = [], attrs = { slug: 'footer', area: 'footer' } ) =>
+		b( 'core/template-part', inner, attrs );
+
+	it( 'is left still, and counted with the site chrome that is skipped', () => {
+		const footer = footerPart();
+		const p = planUnmeasured( [ section(), footer ] );
+		expect( roleOf( p, footer ) ).toBeUndefined();
+		expect( p.skipChrome ).toContain( footer );
+		expect( p.apply.every( ( i ) => i.block !== footer ) ).toBe( true );
+	} );
+
+	it( 'is found by its area, its slug or its tag', () => {
+		for ( const attrs of [
+			{ area: 'footer' },
+			{ slug: 'footer-columns' },
+			{ slug: 'site-end', tagName: 'footer' },
+		] ) {
+			const footer = footerPart( [], attrs );
+			const p = planUnmeasured( [ section(), footer ] );
+			expect( roleOf( p, footer ) ).toBeUndefined();
+			expect( p.skipChrome ).toContain( footer );
+		}
+	} );
+
+	it( 'is left still even when blocks are loaded inside it', () => {
+		const inner = section();
+		const footer = footerPart( [ inner ] );
+		const p = planUnmeasured( [ section(), footer ] );
+		expect( roleOf( p, footer ) ).toBeUndefined();
+		expect( roleOf( p, inner ) ).toBeUndefined();
+	} );
+
+	it( 'leaves the header animating whole', () => {
+		const header = b( 'core/template-part', [], {
+			slug: 'header',
+			area: 'header',
+		} );
+		const p = planUnmeasured( [ section(), header ] );
+		expect( roleOf( p, header ) ).toBe( 'rise' );
+	} );
+} );
+
 describe( 'Classic block', () => {
 	const { canAnimateBlock } = require( '../../src/components/constants' );
 	const {

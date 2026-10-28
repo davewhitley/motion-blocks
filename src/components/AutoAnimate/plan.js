@@ -511,6 +511,23 @@ function holds( block, test, depth = 4 ) {
 	return false;
 }
 
+/**
+ * Is this template part the site footer? By its area, its slug, or its
+ * tag, so it works whatever the theme calls it.
+ *
+ * @param {Object} block Block.
+ * @return {boolean} True for a footer template part.
+ */
+function isFooterPart( block ) {
+	const a = block.attributes || {};
+	return (
+		block.name === 'core/template-part' &&
+		( a.area === 'footer' ||
+			a.tagName === 'footer' ||
+			/^footer/.test( a.slug || '' ) )
+	);
+}
+
 /** A template part, or a one-line strip: the pieces of a bar above the content. */
 function isBar( block ) {
 	if ( block.name === 'core/template-part' || block.name === 'core/paragraph' ) {
@@ -874,6 +891,18 @@ export function computeAutoAnimatePlan(
 				}
 			}
 			descendantCount += count( block );
+			return;
+		}
+
+		// The footer is left still. Animated whole it would fade in as one
+		// tall slab, and its contents can't be walked into from here: a
+		// template part's blocks live in their own editor, not in this
+		// block tree. How Auto-animate should treat template parts and
+		// synced patterns is still open (GH #41). It is listed with the
+		// site chrome that is skipped. Headers are not skipped: they are
+		// short, and animating one whole is harmless.
+		if ( isFooterPart( block ) ) {
+			skipChrome.push( block );
 			return;
 		}
 

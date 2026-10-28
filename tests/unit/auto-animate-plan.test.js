@@ -1007,6 +1007,7 @@ describe( 'Classic block', () => {
 		expect( canAnimateBlock( 'core/freeform' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/html' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/shortcode' ) ).toBe( false );
+		expect( canAnimateBlock( 'core/spacer' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/paragraph' ) ).toBe( true );
 		expect( canAnimateBlock( 'acme/custom' ) ).toBe( true );
 	} );

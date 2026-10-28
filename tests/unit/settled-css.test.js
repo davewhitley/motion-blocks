@@ -39,6 +39,7 @@ function settledRules() {
 }
 
 const IC = '.wp-block-group__inner-container';
+const SPACER = '.wp-block-spacer, [data-type="core/spacer"]';
 
 describe( 'settled state CSS (GH #20)', () => {
 	const rules = settledRules();
@@ -53,8 +54,8 @@ describe( 'settled state CSS (GH #20)', () => {
 		expect( dropRule ).toBeDefined();
 		expect( dropRule.selectors ).toEqual( [
 			'.mb-animated.mb-settled',
-			`.mb-stagger-parent.mb-settled > :where(:not(${ IC }))`,
-			`.mb-stagger-parent.mb-settled > :where(${ IC }) > *`,
+			`.mb-stagger-parent.mb-settled > :where(:not(${ IC }, ${ SPACER }))`,
+			`.mb-stagger-parent.mb-settled > :where(${ IC }) > :where(:not(${ SPACER }))`,
 			'[data-mb-target="img"].mb-settled > img:first-of-type',
 			'[data-mb-target="img"].mb-settled > picture > img:first-of-type',
 		] );
@@ -67,8 +68,8 @@ describe( 'settled state CSS (GH #20)', () => {
 		);
 		expect( flatRule.selectors ).toEqual( [
 			'.mb-enter-flip.mb-settled',
-			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(${ IC }))`,
-			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(${ IC }) > *`,
+			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(${ IC }, ${ SPACER }))`,
+			`.mb-stagger-parent.mb-enter-flip.mb-settled > :where(${ IC }) > :where(:not(${ SPACER }))`,
 			'[data-mb-target="img"].mb-enter-flip.mb-settled > img:first-of-type',
 			'[data-mb-target="img"].mb-enter-flip.mb-settled > picture > img:first-of-type',
 		] );

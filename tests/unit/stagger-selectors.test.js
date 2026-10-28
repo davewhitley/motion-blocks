@@ -6,12 +6,14 @@
  * children in `.wp-block-group__inner-container`. Every stagger "child"
  * selector therefore comes as a pair:
  *
- *   X > :where(:not(.wp-block-group__inner-container))
- *   X > :where(.wp-block-group__inner-container) > *
+ *   X > :where(:not(.wp-block-group__inner-container, <spacer>))
+ *   X > :where(.wp-block-group__inner-container) > :where(:not(<spacer>))
  *
  * A bare `X > *` would match only the wrapper again, and a lone first
- * form would skip the wrapper's children. This guard fails if a new
- * rule (a new effect, say) forgets either half.
+ * form would skip the wrapper's children. Both forms leave Spacers out
+ * (they're empty, and stagger-index.js doesn't number them). This
+ * guard fails if a new rule (a new effect, say) forgets either half or
+ * the spacer skip.
  *
  * Run: npm run test:unit
  */
@@ -19,8 +21,9 @@ const fs = require( 'fs' );
 const path = require( 'path' );
 
 const IC = '.wp-block-group__inner-container';
-const EXCLUDE = ` > :where(:not(${ IC }))`;
-const THROUGH = ` > :where(${ IC }) > `;
+const SPACER = '.wp-block-spacer, [data-type="core/spacer"]';
+const EXCLUDE = ` > :where(:not(${ IC }, ${ SPACER }))`;
+const THROUGH = ` > :where(${ IC }) > :where(:not(${ SPACER }))`;
 
 const css = fs
 	.readFileSync(
@@ -104,10 +107,10 @@ function staggerSelectorLists() {
  */
 function twinOf( selector ) {
 	if ( selector.endsWith( EXCLUDE ) ) {
-		return selector.slice( 0, -EXCLUDE.length ) + THROUGH + '*';
+		return selector.slice( 0, -EXCLUDE.length ) + THROUGH;
 	}
-	if ( selector.endsWith( THROUGH + '*' ) ) {
-		return selector.slice( 0, -( THROUGH.length + 1 ) ) + EXCLUDE;
+	if ( selector.endsWith( THROUGH ) ) {
+		return selector.slice( 0, -THROUGH.length ) + EXCLUDE;
 	}
 	return null;
 }
@@ -149,10 +152,14 @@ describe( 'stagger child selectors (GH #66)', () => {
 	} );
 
 	it( "steps the delay by each child's --mb-stagger-index, both forms", () => {
-		const rule = css.match(
-			/\.mb-stagger-parent\.mb-triggered > :where\(:not\(\.wp-block-group__inner-container\)\),\s*\.mb-stagger-parent\.mb-triggered > :where\(\.wp-block-group__inner-container\) > \*\s*\{([^}]*)\}/
-		);
-		expect( rule ).not.toBeNull();
+		const head = `.mb-stagger-parent.mb-triggered${ EXCLUDE }, .mb-stagger-parent.mb-triggered${ THROUGH } {`;
+		const flat = css.replace( /\s+/g, ' ' );
+		const at = flat.indexOf( head );
+		expect( at ).toBeGreaterThan( -1 );
+		const rule = [
+			null,
+			flat.slice( at + head.length, flat.indexOf( '}', at ) ),
+		];
 		expect( rule[ 1 ].replace( /\s+/g, ' ' ) ).toContain(
 			'animation-delay: calc(var(--mb-delay, 0s) + var(--mb-stagger-index, 0) * var(--mb-stagger-step, 0.1s));'
 		);

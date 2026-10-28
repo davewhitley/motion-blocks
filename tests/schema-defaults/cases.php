@@ -383,6 +383,20 @@ return array(
 			'no_class' => array( 'mb-animated' ),
 		),
 	),
+	array(
+		'label'    => 'Spacer with a saved Page Load animation',
+		'panel'    => 'No Motion Effects panel on this block',
+		'behavior' => 'The spacer is empty space, not animated.',
+		'block'    => 'core/spacer',
+		'html'     => '<div style="height:40px" aria-hidden="true" class="wp-block-spacer mbtest-spacer"></div>',
+		'attrs'    => array(
+			'animationMode' => 'page-load',
+		),
+		'expect'   => array(
+			'animated' => false,
+			'no_class' => array( 'mb-animated' ),
+		),
+	),
 	// Server-rendered (dynamic) blocks. In the editor these preview
 	// through the block-renderer endpoint, which used to reject the
 	// animation attributes ("Error loading block", GH #24).

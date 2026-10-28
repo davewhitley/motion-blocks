@@ -33,22 +33,6 @@ import { imgTargetsOf } from './img-target';
 	// offers would make sense to wait through while scrolling.
 	var STUCK_AFTER_MS = 1500;
 
-	/**
-	 * The elements a stagger parent animates. Classic themes (and
-	 * Groups saved before WordPress 5.9) wrap a Group's children in
-	 * `.wp-block-group__inner-container`; animations.css skips that
-	 * wrapper and staggers its children instead (GH #66).
-	 *
-	 * @param {Element} el Stagger parent.
-	 * @return {HTMLCollection} Its staggered children.
-	 */
-	function staggerChildren( el ) {
-		var inner = el.querySelector(
-			':scope > .wp-block-group__inner-container'
-		);
-		return inner ? inner.children : el.children;
-	}
-
 	// Cap on descendants scanned per block for the fixed-position check.
 	var FIXED_SCAN_LIMIT = 1500;
 
@@ -236,7 +220,7 @@ import { imgTargetsOf } from './img-target';
 					? imgTargetsOf( el )[ 0 ] || null
 					: null;
 			var target = el.classList.contains( 'mb-stagger-parent' )
-				? staggerChildren( el )[ 0 ] || el
+				? ( staggerTargets( el )[ 0 ] || { el: el } ).el
 				: image || el;
 			if ( getComputedStyle( target ).opacity !== '0' ) {
 				return;

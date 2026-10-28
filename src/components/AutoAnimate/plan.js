@@ -863,14 +863,15 @@ export function computeAutoAnimatePlan(
 			return;
 		}
 		const name = block.name;
+		const category = classifyBlock( block );
 		// Blocks that can't keep animation settings (Classic, Custom
-		// HTML, Shortcode): the front end would ignore them, leaving a
-		// gap in a sequence.
+		// HTML, Shortcode, Spacer): the front end would ignore them,
+		// leaving a gap in a sequence. A Spacer still counts as chrome
+		// in the summary.
 		if ( ! canAnimateBlock( name ) ) {
-			skipBody.push( block );
+			( category === 'CHROME' ? skipChrome : skipBody ).push( block );
 			return;
 		}
-		const category = classifyBlock( block );
 		// A slot in the enclosing sequence (a Cover's content), taken
 		// only when something is actually queued, so skipped blocks
 		// leave no gap in the timing.
@@ -905,7 +906,8 @@ export function computeAutoAnimatePlan(
 		// setting (the site default, 10, when it inherits).
 		if ( name === 'core/query' ) {
 			const outerPerPage = queryPerPage;
-			queryPerPage = block.attributes?.query?.perPage || DEFAULT_QUERY_COUNT;
+			queryPerPage =
+				block.attributes?.query?.perPage || DEFAULT_QUERY_COUNT;
 			for ( const child of block.innerBlocks || [] ) {
 				recurse( child, sequence );
 			}
@@ -915,7 +917,8 @@ export function computeAutoAnimatePlan(
 		if ( name === 'core/post-template' ) {
 			const posts = queryPerPage || DEFAULT_QUERY_COUNT;
 			const layout = block.attributes?.layout;
-			const columns = layout?.type === 'grid' ? layout.columnCount || 0 : 1;
+			const columns =
+				layout?.type === 'grid' ? layout.columnCount || 0 : 1;
 			// Posts that fit on one row arrive together, so they cascade.
 			// Posts that wrap onto more rows arrive as you scroll, so each
 			// post (the card it's built from) rises when it comes into view.

@@ -11,14 +11,15 @@
  * writes it once, as `--mb-stagger-index`, on each element a stagger
  * parent animates. Shared by the front end (frontend.js init) and the
  * editor preview (withAnimationPreview), so both count the same way.
- * Once `sibling-index()` is widely supported, this file can go.
  *
- * Counting mirrors `:nth-child()` exactly, which is what the delay
- * rules used before: a 0-based position among element siblings,
- * including ones that aren't blocks (a Gallery caption, the editor's
- * appender). In classic themes a Group's children sit one level down
- * inside `.wp-block-group__inner-container` (GH #66); the wrapper
- * itself isn't animated, and its children count from 0 inside it.
+ * Counting is a 0-based position among element siblings, including
+ * ones that aren't blocks (a Gallery caption, the editor's appender).
+ * Spacers are skipped and don't use up a position: they're empty, so
+ * animating one shows nothing and only puts a pause in the cascade.
+ * animations.css leaves them out of every stagger rule too. In classic
+ * themes a Group's children sit one level down inside
+ * `.wp-block-group__inner-container` (GH #66); the wrapper itself
+ * isn't animated, and its children count from 0 inside it.
  *
  * Dependency-free so the front-end bundle stays small.
  */
@@ -28,11 +29,25 @@ export const STAGGER_INDEX_VAR = '--mb-stagger-index';
 const INNER_CONTAINER_CLASS = 'wp-block-group__inner-container';
 
 /**
+ * Whether a stagger parent leaves this child alone: a Spacer, by its
+ * front-end class or its editor `data-type`.
+ *
+ * @param {Element} el Child element.
+ * @return {boolean} True for a Spacer.
+ */
+export function isStaggerSkipped( el ) {
+	return (
+		el.classList.contains( 'wp-block-spacer' ) ||
+		el.getAttribute( 'data-type' ) === 'core/spacer'
+	);
+}
+
+/**
  * The elements a stagger parent animates, with their positions.
  *
  * Matches the CSS selector pair used throughout animations.css:
- *   parent > :where(:not(.wp-block-group__inner-container))
- *   parent > :where(.wp-block-group__inner-container) > *
+ *   parent > :where(:not(.wp-block-group__inner-container, <spacer>))
+ *   parent > :where(.wp-block-group__inner-container) > :where(:not(<spacer>))
  *
  * @param {Element} parent Stagger parent.
  * @return {Array<{el: Element, index: number}>} Animated children.
@@ -40,15 +55,20 @@ const INNER_CONTAINER_CLASS = 'wp-block-group__inner-container';
 export function staggerTargets( parent ) {
 	const targets = [];
 	const children = parent.children;
+	let index = 0;
 	for ( let i = 0; i < children.length; i++ ) {
 		const child = children[ i ];
 		if ( child.classList.contains( INNER_CONTAINER_CLASS ) ) {
 			const inner = child.children;
+			let innerIndex = 0;
 			for ( let j = 0; j < inner.length; j++ ) {
-				targets.push( { el: inner[ j ], index: j } );
+				if ( ! isStaggerSkipped( inner[ j ] ) ) {
+					targets.push( { el: inner[ j ], index: innerIndex++ } );
+				}
 			}
-		} else {
-			targets.push( { el: child, index: i } );
+			index++;
+		} else if ( ! isStaggerSkipped( child ) ) {
+			targets.push( { el: child, index: index++ } );
 		}
 	}
 	return targets;

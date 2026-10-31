@@ -1829,6 +1829,11 @@ const withAnimationPreview = createHigherOrderComponent(
 				) {
 					staggerStyle[ '--mb-stagger-anim-name' ] =
 						customKeyframe.name;
+					// The parent itself doesn't animate. Drop the inline
+					// binding the preview set above: animations.css
+					// suppresses the parent's keyframe with a class rule,
+					// and an inline name would out-rank it (#53).
+					delete staggerStyle.animationName;
 				}
 				computedWrapperProps = {
 					...computedWrapperProps,

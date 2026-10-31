@@ -125,9 +125,14 @@
  * hide rules re-apply and the triggers reveal / animate the blocks
  * as usual. Don't add a JS reduced-motion bail-out instead: blocks
  * would stay blank once the hide rules match again.
+ *
+ * A Stagger parent is left out of both wrapper hide rules: it never
+ * animates itself, so it stays visible and its children carry the
+ * hide (see "Stagger cascade"). `:where()` keeps the exclusion at
+ * zero specificity, so the override rules below are unaffected.
  * -------------------------------------------------------------- */
 @media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-mode-page-load:not(.mb-triggered) {
+    :where(html.mb-js) .mb-mode-page-load:where(:not(.mb-stagger-parent)):not(.mb-triggered) {
         opacity: 0;
     }
 }
@@ -138,7 +143,7 @@
    starts visible — its exit animation hides it via forwards fill
    when the user scrolls past. */
 @media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) {
+    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry:where(:not(.mb-stagger-parent)):not(.mb-triggered):not(.mb-exit-triggered) {
         opacity: 0;
     }
 }
@@ -252,9 +257,10 @@
  *
  * Gated on `@supports`: without a view timeline the 1ms animation
  * would run once on the document timeline and hold its END frame.
- * Browsers without scroll-driven animations get the "Scroll
- * Interactive fallback" further down instead (block shown at rest,
- * GH #42).
+ * The per-effect Scroll Interactive bindings below are gated the
+ * same way, and frontend.js skips binding a Custom keyframe, so
+ * browsers without scroll-driven animations show the block at rest
+ * (GH #42).
  * -------------------------------------------------------------- */
 @supports (animation-timeline: view()) {
     .mb-mode-scroll-interactive {
@@ -272,8 +278,7 @@
  * -------------------------------------------------------------- */
 
 /* Fade In */
-.mb-enter-fade.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-fade {
+.mb-enter-fade.mb-triggered {
     animation-name: mbFadeIn;
 }
 
@@ -285,14 +290,12 @@
 /* Fade Out (entrance plays the Out keyframe — element starts
    visible and fades away when triggered). The Out variant's "exit"
    half (for Mirror) plays mbFadeIn in reverse. */
-.mb-enter-fade-out.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-fade-out {
+.mb-enter-fade-out.mb-triggered {
     animation-name: mbFadeOut;
 }
 
 /* Slide In — direction via --mb-slide-x, --mb-slide-y */
-.mb-enter-slide.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-slide {
+.mb-enter-slide.mb-triggered {
     animation-name: mbSlideIn;
 }
 
@@ -309,14 +312,12 @@
 
 /* Slide Out — plays mbSlideOut. Direction vars name the END
    position so the motion direction matches the In variant. */
-.mb-enter-slide-out.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-slide-out {
+.mb-enter-slide-out.mb-triggered {
     animation-name: mbSlideOut;
 }
 
 /* Wipe In — direction via --mb-wipe-from */
-.mb-enter-wipe.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-wipe {
+.mb-enter-wipe.mb-triggered {
     animation-name: mbWipeIn;
 }
 
@@ -326,8 +327,7 @@
 }
 
 /* Curtain Reveal — direction via --mb-curtain-from */
-.mb-enter-curtain.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-curtain {
+.mb-enter-curtain.mb-triggered {
     animation-name: mbCurtainReveal;
 }
 
@@ -340,8 +340,7 @@
    mbCurtainClose (defined further down in the Exit Keyframes
    section) so the binding stays DRY across Scroll Appear's Exit
    slot and Page Load / Scroll Interactive's class-based path. */
-.mb-enter-curtain-out.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-curtain-out {
+.mb-enter-curtain-out.mb-triggered {
     animation-name: mbCurtainClose;
 }
 
@@ -355,13 +354,11 @@
    (2026-10-20 review, #53). Stagger parents and "Animate image only"
    Covers don't animate themselves (their children / image carry the
    3D context in their own rules below), so they never get it. */
-.mb-enter-flip.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-flip {
+.mb-enter-flip.mb-triggered {
     animation-name: mbFlipIn;
 }
 
-.mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]),
-.mb-mode-scroll-interactive.mb-enter-flip:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+.mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]) {
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
@@ -378,8 +375,7 @@
 }
 
 /* Scale In */
-.mb-enter-scale.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-scale {
+.mb-enter-scale.mb-triggered {
     animation-name: mbScaleIn;
 }
 
@@ -396,14 +392,12 @@
 
 /* Scale Out — plays mbScaleOut. Direction vars name the END
    position so the motion direction matches the In variant. */
-.mb-enter-scale-out.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-scale-out {
+.mb-enter-scale-out.mb-triggered {
     animation-name: mbScaleOut;
 }
 
 /* Blur In — blur amount via --mb-blur-amount */
-.mb-enter-blur.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-blur {
+.mb-enter-blur.mb-triggered {
     animation-name: mbBlurIn;
 }
 
@@ -419,14 +413,12 @@
 }
 
 /* Blur Out — plays mbBlurOut (visible/sharp → invisible/blurred). */
-.mb-enter-blur-out.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-blur-out {
+.mb-enter-blur-out.mb-triggered {
     animation-name: mbBlurOut;
 }
 
 /* Rotate In — angle via --mb-rotate-angle */
-.mb-enter-rotate.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-rotate {
+.mb-enter-rotate.mb-triggered {
     animation-name: mbRotateIn;
 }
 
@@ -442,9 +434,61 @@
 }
 
 /* Rotate Out — plays mbRotateOut (0deg → angle, opacity 1 → 0). */
-.mb-enter-rotate-out.mb-triggered,
-.mb-mode-scroll-interactive.mb-enter-rotate-out {
+.mb-enter-rotate-out.mb-triggered {
     animation-name: mbRotateOut;
+}
+
+/* Scroll Interactive bindings for the effects above. Gated like the
+   timeline base rule (GH #42): without scroll-driven animations the
+   block never binds a keyframe, so it shows at rest with no reset
+   rule needed (#53). */
+@supports (animation-timeline: view()) {
+    .mb-mode-scroll-interactive.mb-enter-fade {
+        animation-name: mbFadeIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-fade-out {
+        animation-name: mbFadeOut;
+    }
+    .mb-mode-scroll-interactive.mb-enter-slide {
+        animation-name: mbSlideIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-slide-out {
+        animation-name: mbSlideOut;
+    }
+    .mb-mode-scroll-interactive.mb-enter-wipe {
+        animation-name: mbWipeIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-curtain {
+        animation-name: mbCurtainReveal;
+    }
+    .mb-mode-scroll-interactive.mb-enter-curtain-out {
+        animation-name: mbCurtainClose;
+    }
+    .mb-mode-scroll-interactive.mb-enter-flip {
+        animation-name: mbFlipIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-flip:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+        backface-visibility: hidden;
+        transform-style: preserve-3d;
+    }
+    .mb-mode-scroll-interactive.mb-enter-scale {
+        animation-name: mbScaleIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-scale-out {
+        animation-name: mbScaleOut;
+    }
+    .mb-mode-scroll-interactive.mb-enter-blur {
+        animation-name: mbBlurIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-blur-out {
+        animation-name: mbBlurOut;
+    }
+    .mb-mode-scroll-interactive.mb-enter-rotate {
+        animation-name: mbRotateIn;
+    }
+    .mb-mode-scroll-interactive.mb-enter-rotate-out {
+        animation-name: mbRotateOut;
+    }
 }
 
 /* Custom (Start / End) animations don't have a static keyframe rule.
@@ -697,90 +741,125 @@
 /* Per-type animation-name on the img descendant. Mirrors the
    wrapper-target bindings higher up in this file. */
 [data-mb-target="img"].mb-enter-fade.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-fade.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-fade.mb-triggered > picture > img:first-of-type {
     animation-name: mbFadeIn;
 }
 [data-mb-target="img"].mb-enter-fade-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-fade-out.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-fade-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbFadeOut;
 }
 [data-mb-target="img"].mb-enter-slide.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-slide.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-slide.mb-triggered > picture > img:first-of-type {
     animation-name: mbSlideIn;
 }
 [data-mb-target="img"].mb-enter-slide-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-slide-out.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-slide-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbSlideOut;
 }
 [data-mb-target="img"].mb-enter-scale.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-scale.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-scale.mb-triggered > picture > img:first-of-type {
     animation-name: mbScaleIn;
 }
 [data-mb-target="img"].mb-enter-scale-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-scale-out.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-scale-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbScaleOut;
 }
 [data-mb-target="img"].mb-enter-blur.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-blur.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-blur.mb-triggered > picture > img:first-of-type {
     animation-name: mbBlurIn;
 }
 [data-mb-target="img"].mb-enter-blur-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-blur-out.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-blur-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbBlurOut;
 }
 [data-mb-target="img"].mb-enter-rotate.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-rotate.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-rotate.mb-triggered > picture > img:first-of-type {
     animation-name: mbRotateIn;
 }
 [data-mb-target="img"].mb-enter-rotate-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-rotate-out.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-rotate-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbRotateOut;
 }
 [data-mb-target="img"].mb-enter-wipe.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-wipe.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-wipe.mb-triggered > picture > img:first-of-type {
     animation-name: mbWipeIn;
 }
 [data-mb-target="img"].mb-enter-curtain.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-curtain.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-curtain.mb-triggered > picture > img:first-of-type {
     animation-name: mbCurtainReveal;
 }
 [data-mb-target="img"].mb-enter-curtain-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-curtain-out.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-curtain-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbCurtainClose;
 }
 [data-mb-target="img"].mb-enter-flip.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-flip.mb-triggered > picture > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > img:first-of-type,
-[data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-flip.mb-triggered > picture > img:first-of-type {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
+}
+
+/* Scroll Interactive bindings on the img, gated like the wrapper
+   bindings above. */
+@supports (animation-timeline: view()) {
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > picture > img:first-of-type {
+        animation-name: mbFadeIn;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > picture > img:first-of-type {
+        animation-name: mbFadeOut;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > picture > img:first-of-type {
+        animation-name: mbSlideIn;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > picture > img:first-of-type {
+        animation-name: mbSlideOut;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > picture > img:first-of-type {
+        animation-name: mbScaleIn;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > picture > img:first-of-type {
+        animation-name: mbScaleOut;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > picture > img:first-of-type {
+        animation-name: mbBlurIn;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > picture > img:first-of-type {
+        animation-name: mbBlurOut;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > picture > img:first-of-type {
+        animation-name: mbRotateIn;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > picture > img:first-of-type {
+        animation-name: mbRotateOut;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > picture > img:first-of-type {
+        animation-name: mbWipeIn;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > picture > img:first-of-type {
+        animation-name: mbCurtainReveal;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > picture > img:first-of-type {
+        animation-name: mbCurtainClose;
+    }
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > img:first-of-type,
+    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > picture > img:first-of-type {
+        animation-name: mbFlipIn;
+        backface-visibility: hidden;
+        transform-style: preserve-3d;
+    }
 }
 
 /* ----------------------------------------------------------------
@@ -834,31 +913,6 @@
     animation-name: mbFlipOut;
     backface-visibility: hidden;
     transform-style: preserve-3d;
-}
-
-/* ----------------------------------------------------------------
- * Scroll Interactive fallback (no scroll-driven animations, GH #42)
- *
- * The per-type `animation-name` bindings above apply to Scroll
- * Interactive blocks whether or not the browser supports view().
- * Without a view timeline the 1ms animation would run once on the
- * document timeline and hold its END frame through fill-mode, so Out
- * presets (and Custom effects ending at opacity 0) would stay
- * invisible. Instead the block is shown at rest, without the effect.
- *
- * `!important` to beat the inline `animation-name` frontend.js sets
- * for Custom, and the runtime-injected `[data-mb-uid] > img:first-of-type`
- * rules (Custom / Image Move / Image Zoom on the Cover image) — same
- * pattern as the Reduced Motion and per-device blocks below. Kept to
- * Scroll Interactive wrappers and their own img target, so nested
- * animated images in other modes are untouched.
- * -------------------------------------------------------------- */
-@supports not (animation-timeline: view()) {
-    .mb-mode-scroll-interactive,
-    [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive > picture > img:first-of-type {
-        animation-name: none !important;
-    }
 }
 
 /* ----------------------------------------------------------------
@@ -1079,14 +1133,23 @@
     initial-value: 0;
 }
 
-/* Suppress the parent's own animation. Stays visible from frame 0 so
-   the children can fade/slide/etc. into the static container. */
-.mb-stagger-parent.mb-animated {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-    clip-path: none !important;
+/* Suppress the parent's own animation, so the children fade / slide
+   / etc. into a static container.
+
+   Only `animation-name` is touched. The parent's opacity, transform,
+   filter and clip-path are left to the theme: the wrapper hide rules
+   skip Stagger parents (see "Initial Hidden States"), Flip's 3D rules
+   skip them too, and every other effect value comes from a keyframe,
+   which this rule unbinds. Forcing them with `!important` used to
+   wipe a theme's own styling on the block (#53).
+
+   No `!important` either. The parent's bindings are all class rules
+   of at most (0,3,0) (the Scroll Appear Custom slot rules), so this
+   (0,3,0) rule, later in the file, wins. frontend.js and the editor
+   don't bind a Custom keyframe inline on a Stagger parent; they only
+   hand its name to the children through `--mb-stagger-anim-name`. */
+.mb-stagger-parent.mb-animated:is(.mb-triggered, .mb-exit-triggered, .mb-mode-scroll-interactive) {
+    animation-name: none;
 }
 
 /* Initial hidden state for children — mirrors the parent's

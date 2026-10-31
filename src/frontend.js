@@ -671,6 +671,21 @@ import {
 	}
 
 	/**
+	 * Whether the browser supports scroll-driven animations. Same test
+	 * as the `@supports (animation-timeline: view())` gates in
+	 * animations.css.
+	 *
+	 * @return {boolean} True when `animation-timeline: view()` is valid.
+	 */
+	function supportsViewTimeline() {
+		return !! (
+			window.CSS &&
+			CSS.supports &&
+			CSS.supports( 'animation-timeline', 'view()' )
+		);
+	}
+
+	/**
 	 * For a custom-type element: build its @keyframes rule, append
 	 * it to the shared style element, set animation-name inline.
 	 * No-op if neither side has any added properties.
@@ -773,7 +788,20 @@ import {
 				document.createTextNode( scopedCSS )
 			);
 		} else {
-			el.style.animationName = name;
+			// The block binds the keyframe itself, except:
+			// - a Stagger parent, which never animates itself (its
+			//   children read the name below), and
+			// - Scroll Interactive without scroll-driven animations,
+			//   where the block is shown at rest (GH #42).
+			// animations.css handles both cases with plain class rules,
+			// which an inline name would out-rank (#53).
+			var bindsItself =
+				! el.classList.contains( 'mb-stagger-parent' ) &&
+				( el.dataset.mbMode !== 'scroll-interactive' ||
+					supportsViewTimeline() );
+			if ( bindsItself ) {
+				el.style.animationName = name;
+			}
 			// Stagger cascade for Custom: inner blocks bind their
 			// animation-name to this same per-block keyframe via
 			// `--mb-stagger-anim-name` (see animations.css). Custom

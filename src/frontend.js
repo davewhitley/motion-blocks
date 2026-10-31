@@ -687,8 +687,12 @@ import {
 
 	/**
 	 * For a custom-type element: build its @keyframes rule, append
-	 * it to the shared style element, set animation-name inline.
-	 * No-op if neither side has any added properties.
+	 * it to the shared style element and name it in the block's
+	 * `--mb-custom-anim-name`, which the Custom class rules in
+	 * animations.css read. A variable, not an inline `animation-name`,
+	 * so the Settled State rules and the image-effect safety net can
+	 * unbind it without `!important` (#53). No keyframe if neither
+	 * side has any added properties.
 	 *
 	 * For target='img', also inject a scoped CSS rule that animates
 	 * the first img descendant instead of the block wrapper, with
@@ -793,14 +797,14 @@ import {
 			//   children read the name below), and
 			// - Scroll Interactive without scroll-driven animations,
 			//   where the block is shown at rest (GH #42).
-			// animations.css handles both cases with plain class rules,
-			// which an inline name would out-rank (#53).
+			// animations.css skips both with class rules too. Left
+			// unset, the variable is `none` (declared on `.mb-animated`).
 			var bindsItself =
 				! el.classList.contains( 'mb-stagger-parent' ) &&
 				( el.dataset.mbMode !== 'scroll-interactive' ||
 					supportsViewTimeline() );
 			if ( bindsItself ) {
-				el.style.animationName = name;
+				el.style.setProperty( '--mb-custom-anim-name', name );
 			}
 			// Stagger cascade for Custom: inner blocks bind their
 			// animation-name to this same per-block keyframe via

@@ -1105,37 +1105,21 @@ const withAnimationPreview = createHigherOrderComponent(
 					: innerImg
 					? [ blockEl, innerImg ]
 					: [ blockEl ];
-				// Capture any inline `animation-name` BEFORE zeroing.
-				// Preset effects bind their keyframe via a CSS class rule
-				// (`.mb-enter-fade.mb-triggered { animation-name: mbFadeIn }`)
-				// so their inline animation-name is '' — the restore below
-				// is a no-op for them. But Custom in Page Load mode has NO
-				// backing class rule (there's a `.mb-mode-scroll-appear.
-				// mb-enter-custom` rule but none for page-load), so its
-				// keyframe is bound ONLY by the inline animation-name the
-				// HOC set. The old "Step 2: clear to ''" wiped that sole
-				// binding, and React never re-applied it (the style prop
-				// value was unchanged across the play toggle), leaving the
-				// block with no animation. Frontend was unaffected because
-				// it sets animation-name inline once and never clears it.
-				// Save and restore instead of clearing.
-				const savedNames = restartTargets.map(
-					( el ) => el.style.animationName
-				);
+				// Every keyframe here is bound by a class rule: presets by
+				// name, Custom through `--mb-custom-anim-name`, Stagger
+				// children through `--mb-stagger-anim-name` and the image
+				// through the injected scoped CSS. None is inline (#53),
+				// so clearing the inline shorthand afterwards loses
+				// nothing.
 				// Step 1: zero animation on every target to force a fresh
 				// cycle.
 				restartTargets.forEach( ( el ) => {
 					el.style.animation = 'none';
 				} );
 				void blockEl.offsetWidth;
-				// Step 2: clear the shorthand so CSS class-bound timing
-				// longhands (duration/delay/etc. via --mb-* vars on
-				// `.mb-animated.mb-triggered`) take over again, then
-				// restore the inline animation-name binding (load-bearing
-				// for Custom; '' no-op for presets).
-				restartTargets.forEach( ( el, i ) => {
+				// Step 2: clear it so the class rules take over again.
+				restartTargets.forEach( ( el ) => {
 					el.style.animation = '';
-					el.style.animationName = savedNames[ i ];
 				} );
 				// Step 3: class-toggle. With the inline reset above,
 				// this is now redundant for the "same animation-name"
@@ -1751,10 +1735,13 @@ const withAnimationPreview = createHigherOrderComponent(
 							( animationRotateAngle ?? 90 ) + 'deg';
 					}
 					// Custom-like types (custom, image-move, image-zoom)
-					// bind animation-name to the per-block keyframe via
-					// inline style (or scoped CSS for img-target). Inline
-					// style wins over the class-based binding so the
-					// unique keyframe runs instead of any shared one.
+					// name their per-block keyframe in
+					// `--mb-custom-anim-name`, which the Custom class rules
+					// in animations.css read (or bind it through scoped
+					// CSS for img-target), like the front end. Not inline
+					// `animation-name` (#53). Left unset, the variable is
+					// `none` (declared on `.mb-animated`), so the cases
+					// below that don't animate the wrapper set nothing.
 					const isCustomLikePreview =
 						animationType === 'custom' ||
 						animationType === 'image-move' ||
@@ -1767,7 +1754,6 @@ const withAnimationPreview = createHigherOrderComponent(
 							// Wrapper doesn't animate; the scoped CSS
 							// drives the img. The CSS reads timing
 							// vars from the wrapper via inheritance.
-							previewStyles.animationName = 'none';
 							if ( imgTargetCSS ) {
 								injectedKeyframeRule = imgTargetCSS;
 							}
@@ -1779,14 +1765,12 @@ const withAnimationPreview = createHigherOrderComponent(
 							// behavior. No-op to match the frontend.
 							// Only genuine `custom` falls through to
 							// the wrapper-keyframe branch below.
-							previewStyles.animationName = 'none';
 						} else if ( customKeyframe ) {
-							previewStyles.animationName = customKeyframe.name;
+							previewStyles[ '--mb-custom-anim-name' ] =
+								customKeyframe.name;
 							injectedKeyframeRule = customKeyframe.rule;
-						} else {
-							// No properties added — disable animation.
-							previewStyles.animationName = 'none';
 						}
+						// else: no properties added, nothing to bind.
 					}
 					computedWrapperProps = {
 						...wrapperProps,
@@ -1829,11 +1813,10 @@ const withAnimationPreview = createHigherOrderComponent(
 				) {
 					staggerStyle[ '--mb-stagger-anim-name' ] =
 						customKeyframe.name;
-					// The parent itself doesn't animate. Drop the inline
-					// binding the preview set above: animations.css
-					// suppresses the parent's keyframe with a class rule,
-					// and an inline name would out-rank it (#53).
-					delete staggerStyle.animationName;
+					// The parent itself doesn't animate (animations.css
+					// unbinds it with a class rule), so it names no
+					// keyframe, as on the front end.
+					delete staggerStyle[ '--mb-custom-anim-name' ];
 				}
 				computedWrapperProps = {
 					...computedWrapperProps,

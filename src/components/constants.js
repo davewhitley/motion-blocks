@@ -444,7 +444,9 @@ export const ENTER_KEYFRAME_MAP = {
 	rotate: 'mbRotateIn',
 	'rotate-out': 'mbRotateOut',
 	// `custom` intentionally not mapped — its keyframe name is
-	// generated per-block (mb-custom-{clientId}) and bound inline.
+	// generated per-block (mb-custom-{clientId}) and named in
+	// `--mb-custom-anim-name` for the class rules in animations.css
+	// (the Scroll Interactive scrub and live previews set it inline).
 };
 
 /**

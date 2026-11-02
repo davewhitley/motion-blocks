@@ -416,8 +416,12 @@ import {
 	 *
 	 * For each custom-type element, we synthesize a unique
 	 * `@keyframes mb-custom-{n}` rule from its data attrs, append it
-	 * to a shared <style> in <head>, and bind it via inline
-	 * animation-name on the element.
+	 * to a shared <style> in <head>, and name it in a CSS variable
+	 * (`--mb-custom-anim-name`, or `--mb-entry-anim-name` /
+	 * `--mb-exit-anim-name` for Scroll Appear) that class rules in
+	 * animations.css read. Never inline `animation-name`: the Settled
+	 * State rules and the image-effect safety net couldn't unbind it
+	 * without `!important` (#53).
 	 * ------------------------------------------------------------- */
 
 	// Definition list mirrors PROPERTY_DEFINITIONS in constants.js.
@@ -683,8 +687,12 @@ import {
 
 	/**
 	 * For a custom-type element: build its @keyframes rule, append
-	 * it to the shared style element, set animation-name inline.
-	 * No-op if neither side has any added properties.
+	 * it to the shared style element and name it in the block's
+	 * `--mb-custom-anim-name`, which the Custom class rules in
+	 * animations.css read. A variable, not an inline `animation-name`,
+	 * so the Settled State rules and the image-effect safety net can
+	 * unbind it without `!important` (#53). No keyframe if neither
+	 * side has any added properties.
 	 *
 	 * For target='img', also inject a scoped CSS rule that animates
 	 * the first img descendant instead of the block wrapper, with
@@ -789,14 +797,14 @@ import {
 			//   children read the name below), and
 			// - Scroll Interactive without scroll-driven animations,
 			//   where the block is shown at rest (GH #42).
-			// animations.css handles both cases with plain class rules,
-			// which an inline name would out-rank (#53).
+			// animations.css skips both with class rules too. Left
+			// unset, the variable is `none` (declared on `.mb-animated`).
 			var bindsItself =
 				! el.classList.contains( 'mb-stagger-parent' ) &&
 				( el.dataset.mbMode !== 'scroll-interactive' ||
 					supportsViewTimeline );
 			if ( bindsItself ) {
-				el.style.animationName = name;
+				el.style.setProperty( '--mb-custom-anim-name', name );
 			}
 			// Stagger cascade for Custom: inner blocks bind their
 			// animation-name to this same per-block keyframe via
@@ -835,26 +843,28 @@ import {
 		var entryName = null;
 		var exitName = null;
 
-		// Image effects are v1-scoped to Cover blocks. Strip orphaned
-		// legacy selections on non-Cover blocks so they don't render
-		// without a clip frame. See the non-slot path above for the
-		// same gate + rationale.
-		//
-		// Also strip when img target is unavailable (Cover with
-		// Fixed/Repeated bg). Same reasoning as the non-slot path:
-		// without an `<img>` to scope to, the wrapper-fallback below
-		// would bind the synthesized keyframe to the Cover wrapper.
-		// The earlier "image effects always imply imgTarget" comment
-		// no longer holds — the render filter drops the target attr
-		// when no img will exist.
+		// Image effects are v1-scoped to Cover blocks. An orphaned
+		// legacy selection on a non-Cover block, or one on a Cover
+		// whose img target is unavailable (Fixed/Repeated bg: the
+		// render filter drops the target attr when no img will exist),
+		// would bind its keyframe to the wrapper with no clip frame.
+		// See the non-slot path above for the same gate + rationale.
 		var isCover = el.classList.contains( 'wp-block-cover' );
-		if ( ! isCover || ! imgTarget ) {
-			if ( entryType === 'image-move' || entryType === 'image-zoom' ) {
-				entryType = '';
-			}
-			if ( exitType === 'image-move' || exitType === 'image-zoom' ) {
-				exitType = '';
-			}
+		var isImageEffect = function ( type ) {
+			return type === 'image-move' || type === 'image-zoom';
+		};
+		if (
+			( ! isCover || ! imgTarget ) &&
+			( isImageEffect( entryType ) || isImageEffect( exitType ) )
+		) {
+			// The wrapper doesn't animate at all, not even the other
+			// slot: the image-effect safety net in animations.css keeps
+			// its keyframes off, but a Custom slot's class rule
+			// out-weighs it, so don't build one. 'none', not unset, so
+			// the variables can't inherit an outer block's keyframes.
+			el.style.setProperty( '--mb-entry-anim-name', 'none' );
+			el.style.setProperty( '--mb-exit-anim-name', 'none' );
+			return;
 		}
 
 		// Entry slot. Three flavors share the same synthesis path:

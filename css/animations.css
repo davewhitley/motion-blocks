@@ -16,11 +16,15 @@
  * CSS Custom Properties
  * -------------------------------------------------------------- */
 /* Timing applies to every animated block, Stagger children included
-   (they take their own duration / delay / timing). */
+   (they take their own duration / delay / timing). So does the Custom
+   keyframe name: a block that names none mustn't inherit an outer
+   block's, and a Stagger child never needs its parent's (it reads
+   `--mb-stagger-anim-name`). */
 .mb-animated {
     --mb-duration: 0.6s;
     --mb-delay: 0.4s;
     --mb-timing: ease;
+    --mb-custom-anim-name: none;
 }
 
 /* Every other per-effect setting is declared on each animated block
@@ -356,12 +360,15 @@
    Flip block was trapped even before the block was ever scrolled to
    (2026-10-20 review, #53). Stagger parents and "Animate image only"
    Covers don't animate themselves (their children / image carry the
-   3D context in their own rules below), so they never get it. */
+   3D context in their own rules below), so they never get it. Nor does
+   a settled block (GH #20): `:not(.mb-settled)` here and on the Stagger
+   child and image rules drops the 3D context once the block is at rest,
+   so the Settled State rules need no Flip reset of their own (#53). */
 .mb-enter-flip.mb-triggered {
     animation-name: mbFlipIn;
 }
 
-.mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+.mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]):not(.mb-settled) {
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
@@ -470,6 +477,11 @@
     .mb-mode-scroll-interactive.mb-enter-flip {
         animation-name: mbFlipIn;
     }
+    /* Custom: the keyframe frontend.js builds (see the Page Load
+       Custom rule). */
+    .mb-mode-scroll-interactive.mb-enter-custom {
+        animation-name: var(--mb-custom-anim-name, none);
+    }
     .mb-mode-scroll-interactive.mb-enter-flip:not(.mb-stagger-parent):not([data-mb-target="img"]) {
         backface-visibility: hidden;
         transform-style: preserve-3d;
@@ -497,8 +509,9 @@
 /* Custom (Start / End) animations don't have a static keyframe rule.
  * Each block gets a unique `@keyframes mb-custom-{uid}` injected at
  * runtime by the frontend script (or in the editor by the
- * withAnimationPreview HOC). The `animation-name` is set inline on
- * each block so the static class binding isn't needed. */
+ * withAnimationPreview HOC). Its name goes in `--mb-custom-anim-name`
+ * (or the Scroll Appear slot variables), which the Custom class rules
+ * read. */
 
 /* ----------------------------------------------------------------
  * Exit Keyframes & Class Bindings
@@ -662,8 +675,21 @@
     animation-name: var(--mb-exit-anim-name);
 }
 
-/* Custom exit (Page Load / Scroll Interactive): animation-name is
-   set inline by frontend.js — no class binding needed. */
+/* Custom (Page Load). frontend.js builds the block's keyframe and
+   names it in `--mb-custom-anim-name`, set on the block. A class rule,
+   not an inline `animation-name`, so the Settled State rules and the
+   image-effect safety net can unbind it without `!important` (#53).
+   The editor preview sets the same variable, and its Scroll Appear
+   preview (no `mb-mode-*` class) reads it for either slot. The
+   Scroll Appear rules above out-rank this one on the front end.
+
+   A Custom block that is itself a Stagger child plays its parent's
+   stagger effect, like every other animated child: the Stagger child
+   rules (0,3,0) out-weigh this (0,2,0) rule. */
+.mb-enter-custom.mb-triggered,
+.mb-exit-custom.mb-exit-triggered {
+    animation-name: var(--mb-custom-anim-name, none);
+}
 
 /* ----------------------------------------------------------------
  * Img-target redirect for preset effects
@@ -697,18 +723,18 @@
  * background, which renders a <div> bg instead of an <img>. The render
  * filter correctly drops `data-mb-target="img"` in that case but the
  * `mb-enter-image-*` / `mb-exit-image-*` class still ships, which
- * would otherwise leave the wrapper bound to a synthesized keyframe
- * (inline `animation-name` from frontend.js / the editor HOC). These
- * effects are img-only by design — there is no meaningful wrapper
- * fallback — so suppress wrapper animation entirely. `!important` to
- * beat inline `animation-name` set by the editor preview HOC and
- * frontend.js. The JS-side guards below also bail out at synthesis
- * time; this rule is defense in depth. */
+ * would otherwise leave the wrapper bound to a synthesized keyframe.
+ * These effects are img-only by design — there is no meaningful
+ * wrapper fallback — so suppress wrapper animation entirely. No
+ * `!important`: nothing binds a keyframe to these wrappers inline any
+ * more, and no class rule names one for `mb-*-image-*` (#53). The
+ * JS-side guards in frontend.js and the editor also bail out at
+ * synthesis time; this rule is defense in depth. */
 .mb-enter-image-move:not([data-mb-target="img"]),
 .mb-enter-image-zoom:not([data-mb-target="img"]),
 .mb-exit-image-move:not([data-mb-target="img"]),
 .mb-exit-image-zoom:not([data-mb-target="img"]) {
-    animation-name: none !important;
+    animation-name: none;
 }
 
 /* Apply timed-animation props on the inner img for Page Load /
@@ -795,8 +821,8 @@
 [data-mb-target="img"].mb-enter-curtain-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbCurtainClose;
 }
-[data-mb-target="img"].mb-enter-flip.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-flip.mb-triggered > picture > img:first-of-type {
+[data-mb-target="img"].mb-enter-flip.mb-triggered:not(.mb-settled) > img:first-of-type,
+[data-mb-target="img"].mb-enter-flip.mb-triggered:not(.mb-settled) > picture > img:first-of-type {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
@@ -1257,8 +1283,8 @@
 .mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainReveal; }
 .mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
 .mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainClose; }
-.mb-stagger-parent.mb-enter-flip.mb-triggered    > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-flip.mb-triggered    > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+.mb-stagger-parent.mb-enter-flip.mb-triggered:not(.mb-settled) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+.mb-stagger-parent.mb-enter-flip.mb-triggered:not(.mb-settled) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
@@ -1340,9 +1366,17 @@
  * that never animate again and whose last frame is their natural look
  * (see src/settle.js). These rules then drop the animation on exactly
  * the targets it ran on: the wrapper, Stagger children (both forms,
- * GH #66) and the img-target image. `!important` out-ranks the inline
- * Custom `animation-name` and the runtime img rules, as Reduced Motion
- * does.
+ * GH #66) and the img-target image.
+ *
+ * No `!important` (#53). Each selector carries `.mb-triggered` (a
+ * settled block always has it) so it weighs as much as the heaviest
+ * rule that can bind an animation to the same target: (0,3,0) for the
+ * wrapper and Stagger children, (0,4,1) / (0,4,2) for the image. Ties
+ * go to these rules because they come last in the file. Custom binds
+ * through `--mb-custom-anim-name` and class rules, not inline, and the
+ * runtime img rules frontend.js injects weigh at most (0,3,2). Flip's
+ * 3D context is dropped by `:not(.mb-settled)` on the Flip rules.
+ * tests/unit/settled-css.test.js checks the weights.
  *
  * Two traps: (1) ending a keyframe at `transform: none` doesn't help,
  * it still resolves to a matrix; (2) removing `.mb-settled` replays
@@ -1351,20 +1385,10 @@
  * Written as plain selector lists, not `:is()`, so they can't be
  * mistaken for the motion-off rest rules above.
  * -------------------------------------------------------------- */
-.mb-animated.mb-settled,
-.mb-stagger-parent.mb-settled > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-settled > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-[data-mb-target="img"].mb-settled > img:first-of-type,
-[data-mb-target="img"].mb-settled > picture > img:first-of-type {
-    animation: none !important;
-}
-
-/* Flip's 3D context, on the same targets. */
-.mb-enter-flip.mb-settled,
-.mb-stagger-parent.mb-enter-flip.mb-settled > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-flip.mb-settled > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-[data-mb-target="img"].mb-enter-flip.mb-settled > img:first-of-type,
-[data-mb-target="img"].mb-enter-flip.mb-settled > picture > img:first-of-type {
-    transform-style: flat !important;
-    backface-visibility: visible !important;
+.mb-animated.mb-triggered.mb-settled,
+.mb-stagger-parent.mb-triggered.mb-settled > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+.mb-stagger-parent.mb-triggered.mb-settled > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+[data-mb-target="img"].mb-triggered.mb-settled > img:first-of-type,
+[data-mb-target="img"].mb-triggered.mb-settled > picture > img:first-of-type {
+    animation: none;
 }

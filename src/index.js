@@ -88,6 +88,25 @@ const LIVE_SCROLL_PREVIEW_OK =
 	typeof window !== 'undefined' && !! window.motionBlocksBetaLivePreview;
 
 /**
+ * Inline animation longhands an editor preview can set (the Scroll
+ * Interactive scrub and live previews, Custom at rest). Play saves and
+ * restores them around its `animation: none` reset.
+ */
+const INLINE_ANIMATION_LONGHANDS = [
+	'animationName',
+	'animationDuration',
+	'animationTimingFunction',
+	'animationDelay',
+	'animationIterationCount',
+	'animationDirection',
+	'animationFillMode',
+	'animationPlayState',
+	'animationTimeline',
+	'animationRangeStart',
+	'animationRangeEnd',
+];
+
+/**
  * Get the entrance keyframe name for a given animation type.
  */
 function getEnterKeyframe( type ) {
@@ -1105,22 +1124,20 @@ const withAnimationPreview = createHigherOrderComponent(
 					: innerImg
 					? [ blockEl, innerImg ]
 					: [ blockEl ];
-				// Capture any inline `animation-name` BEFORE zeroing.
-				// Preset effects bind their keyframe via a CSS class rule
-				// (`.mb-enter-fade.mb-triggered { animation-name: mbFadeIn }`)
-				// so their inline animation-name is '' — the restore below
-				// is a no-op for them. But Custom in Page Load mode has NO
-				// backing class rule (there's a `.mb-mode-scroll-appear.
-				// mb-enter-custom` rule but none for page-load), so its
-				// keyframe is bound ONLY by the inline animation-name the
-				// HOC set. The old "Step 2: clear to ''" wiped that sole
-				// binding, and React never re-applied it (the style prop
-				// value was unchanged across the play toggle), leaving the
-				// block with no animation. Frontend was unaffected because
-				// it sets animation-name inline once and never clears it.
-				// Save and restore instead of clearing.
-				const savedNames = restartTargets.map(
-					( el ) => el.style.animationName
+				// This block's own keyframes are bound by class rules:
+				// presets by name, Custom through `--mb-custom-anim-name`,
+				// Stagger children through `--mb-stagger-anim-name` and
+				// the image through the injected scoped CSS (#53). But a
+				// Stagger child can be an animated block of its own whose
+				// preview sets animation longhands inline (a Scroll
+				// Interactive scrub, a Custom block at rest), and React
+				// won't re-apply them: its style prop didn't change. So
+				// save every inline longhand and put it back after the
+				// reset, instead of losing it to the shorthand.
+				const saved = restartTargets.map( ( el ) =>
+					INLINE_ANIMATION_LONGHANDS.map(
+						( prop ) => el.style[ prop ]
+					)
 				);
 				// Step 1: zero animation on every target to force a fresh
 				// cycle.
@@ -1128,14 +1145,15 @@ const withAnimationPreview = createHigherOrderComponent(
 					el.style.animation = 'none';
 				} );
 				void blockEl.offsetWidth;
-				// Step 2: clear the shorthand so CSS class-bound timing
-				// longhands (duration/delay/etc. via --mb-* vars on
-				// `.mb-animated.mb-triggered`) take over again, then
-				// restore the inline animation-name binding (load-bearing
-				// for Custom; '' no-op for presets).
+				// Step 2: clear it so the class rules take over again,
+				// then restore whatever was inline before.
 				restartTargets.forEach( ( el, i ) => {
 					el.style.animation = '';
-					el.style.animationName = savedNames[ i ];
+					INLINE_ANIMATION_LONGHANDS.forEach( ( prop, j ) => {
+						if ( saved[ i ][ j ] ) {
+							el.style[ prop ] = saved[ i ][ j ];
+						}
+					} );
 				} );
 				// Step 3: class-toggle. With the inline reset above,
 				// this is now redundant for the "same animation-name"
@@ -1575,13 +1593,20 @@ const withAnimationPreview = createHigherOrderComponent(
 						animationType === 'custom' ||
 						animationType === 'image-move' ||
 						animationType === 'image-zoom';
-					const liveAnimationName = targetIsImg
-						? 'none'
-						: isCustomLive
-						? customKeyframe
-							? customKeyframe.name
-							: 'none'
-						: getEnterKeyframe( animationType );
+					// Image effects without an img target (Cover with a
+					// Fixed/Repeated background) leave the block still,
+					// as the scrub branch above and the front end do.
+					const isImageEffectLive =
+						animationType === 'image-move' ||
+						animationType === 'image-zoom';
+					const liveAnimationName =
+						targetIsImg || isImageEffectLive
+							? 'none'
+							: isCustomLive
+							? customKeyframe
+								? customKeyframe.name
+								: 'none'
+							: getEnterKeyframe( animationType );
 					const liveStyles = {
 						...( wrapperProps.style || {} ),
 						...dirStyles,
@@ -1751,10 +1776,13 @@ const withAnimationPreview = createHigherOrderComponent(
 							( animationRotateAngle ?? 90 ) + 'deg';
 					}
 					// Custom-like types (custom, image-move, image-zoom)
-					// bind animation-name to the per-block keyframe via
-					// inline style (or scoped CSS for img-target). Inline
-					// style wins over the class-based binding so the
-					// unique keyframe runs instead of any shared one.
+					// name their per-block keyframe in
+					// `--mb-custom-anim-name`, which the Custom class rules
+					// in animations.css read (or bind it through scoped
+					// CSS for img-target), like the front end. Not inline
+					// `animation-name` (#53). Left unset, the variable is
+					// `none` (declared on `.mb-animated`), so the cases
+					// below that don't animate the wrapper set nothing.
 					const isCustomLikePreview =
 						animationType === 'custom' ||
 						animationType === 'image-move' ||
@@ -1767,7 +1795,6 @@ const withAnimationPreview = createHigherOrderComponent(
 							// Wrapper doesn't animate; the scoped CSS
 							// drives the img. The CSS reads timing
 							// vars from the wrapper via inheritance.
-							previewStyles.animationName = 'none';
 							if ( imgTargetCSS ) {
 								injectedKeyframeRule = imgTargetCSS;
 							}
@@ -1779,14 +1806,18 @@ const withAnimationPreview = createHigherOrderComponent(
 							// behavior. No-op to match the frontend.
 							// Only genuine `custom` falls through to
 							// the wrapper-keyframe branch below.
-							previewStyles.animationName = 'none';
 						} else if ( customKeyframe ) {
-							previewStyles.animationName = customKeyframe.name;
+							// A Stagger parent doesn't animate itself
+							// (animations.css unbinds it), so it names
+							// no keyframe, as on the front end; its
+							// children get the name below.
+							if ( ! staggerActive ) {
+								previewStyles[ '--mb-custom-anim-name' ] =
+									customKeyframe.name;
+							}
 							injectedKeyframeRule = customKeyframe.rule;
-						} else {
-							// No properties added — disable animation.
-							previewStyles.animationName = 'none';
 						}
+						// else: no properties added, nothing to bind.
 					}
 					computedWrapperProps = {
 						...wrapperProps,
@@ -1829,11 +1860,6 @@ const withAnimationPreview = createHigherOrderComponent(
 				) {
 					staggerStyle[ '--mb-stagger-anim-name' ] =
 						customKeyframe.name;
-					// The parent itself doesn't animate. Drop the inline
-					// binding the preview set above: animations.css
-					// suppresses the parent's keyframe with a class rule,
-					// and an inline name would out-rank it (#53).
-					delete staggerStyle.animationName;
 				}
 				computedWrapperProps = {
 					...computedWrapperProps,

@@ -39,7 +39,8 @@ function settledRules() {
 }
 
 const IC = '.wp-block-group__inner-container';
-const SPACER = '.wp-block-spacer, [data-type="core/spacer"]';
+const SPACER =
+	'.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent';
 
 describe( 'settled state CSS (GH #20)', () => {
 	const rules = settledRules();

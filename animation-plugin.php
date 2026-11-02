@@ -1328,9 +1328,9 @@ function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type,
     // Stagger is only offered in the Page Load / Scroll Appear panels,
     // and animations.css has no scroll-driven child bindings. A flag
     // left over on a Scroll Interactive block would otherwise add
-    // mb-stagger-parent, whose `.mb-stagger-parent.mb-animated
-    // { animation: none !important }` rule suppresses the wrapper's
-    // own animation (GH #48). Allowlist, so new modes opt in.
+    // mb-stagger-parent, whose `.mb-stagger-parent.mb-animated`
+    // rule suppresses the wrapper's own animation (GH #48).
+    // Allowlist, so new modes opt in.
     if ( $mode !== 'page-load' && $mode !== 'scroll-appear' ) {
         return false;
     }

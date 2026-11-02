@@ -571,6 +571,10 @@ import {
 	 * delay rule reads `--mb-stagger-index`, which frontend.js writes at
 	 * init. One without it starts together with the first inner block
 	 * instead of in turn (GH #53: the delay used to stop at the 30th).
+	 * Inner blocks hidden at this screen size (core's "Hide on mobile")
+	 * don't use up a position; a shown one whose position still counts
+	 * a hidden sibling starts a step late, so the cascade pauses where
+	 * the hidden block would be.
 	 */
 	function checkStaggerOrder() {
 		var found = [];
@@ -578,30 +582,60 @@ import {
 			.querySelectorAll( '.mb-stagger-parent' )
 			.forEach( function ( el ) {
 				var targets = staggerTargets( el );
-				var missing = targets.filter( function ( target ) {
-					return (
-						target.el.style
-							.getPropertyValue( STAGGER_INDEX_VAR )
-							.trim() !== String( target.index )
-					);
+				// The same children, counting the hidden ones too.
+				var counted = staggerTargets( el, function () {
+					return false;
+				} );
+				var wrong = 0;
+				var gaps = 0;
+				targets.forEach( function ( target, i ) {
+					var value = target.el.style
+						.getPropertyValue( STAGGER_INDEX_VAR )
+						.trim();
+					if ( target.hidden || value === String( target.index ) ) {
+						return;
+					}
+					if ( value === String( counted[ i ].index ) ) {
+						gaps++;
+					} else {
+						wrong++;
+					}
+				} );
+				var shown = targets.filter( function ( target ) {
+					return ! target.hidden;
 				} ).length;
-				if ( ! missing ) {
-					return;
+				if ( wrong ) {
+					found.push(
+						issue(
+							'stagger-order',
+							'warning',
+							el,
+							blockLabel( el ) +
+								' has ' +
+								wrong +
+								' of ' +
+								shown +
+								' inner blocks without a stagger position, so they start together instead of one after another.',
+							53
+						)
+					);
 				}
-				found.push(
-					issue(
-						'stagger-order',
-						'warning',
-						el,
-						blockLabel( el ) +
-							' has ' +
-							missing +
-							' of ' +
-							targets.length +
-							' inner blocks without a stagger position, so they start together instead of one after another.',
-						53
-					)
-				);
+				if ( gaps ) {
+					found.push(
+						issue(
+							'stagger-hidden-gap',
+							'warning',
+							el,
+							blockLabel( el ) +
+								' has ' +
+								gaps +
+								' of ' +
+								shown +
+								' inner blocks whose stagger position counts a sibling hidden at this screen size, so the cascade pauses where the hidden block would be.',
+							53
+						)
+					);
+				}
 			} );
 		return found;
 	}

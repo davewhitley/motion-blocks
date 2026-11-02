@@ -1176,8 +1176,13 @@ const withAnimationPreview = createHigherOrderComponent(
 			// reordered, added or removed; the MutationObserver catches
 			// children that mount later or move without an order change
 			// (the appender, a Custom child's <style> sibling, inner
-			// blocks rendered asynchronously). Writing a style property
-			// isn't a childList mutation, so the observer can't loop.
+			// blocks rendered asynchronously). It also watches the
+			// children's classes: core's per-block visibility adds
+			// `.is-block-hidden` to a child hidden at the previewed
+			// device size, and a hidden child doesn't use up a position
+			// (stagger-index.js). Writing a style property is neither a
+			// childList nor a class mutation, so the observer can't
+			// loop.
 			const staggerActive = isStaggerPreviewActive(
 				props.name,
 				attributes
@@ -1202,16 +1207,29 @@ const withAnimationPreview = createHigherOrderComponent(
 				if ( ! view || ! view.MutationObserver ) {
 					return;
 				}
-				const observer = new view.MutationObserver( () =>
-					setStaggerIndices( blockEl )
-				);
-				observer.observe( blockEl, { childList: true } );
 				const inner = blockEl.querySelector(
 					':scope > .wp-block-group__inner-container'
 				);
-				if ( inner ) {
-					observer.observe( inner, { childList: true } );
-				}
+				const holds = ( el ) =>
+					el === blockEl || ( !! inner && el === inner );
+				const observer = new view.MutationObserver( ( records ) => {
+					// Changes deeper down (typing, selection, hover, a
+					// nested block's own preview) don't move anything.
+					const relevant = records.some( ( record ) =>
+						record.type === 'childList'
+							? holds( record.target )
+							: holds( record.target.parentElement )
+					);
+					if ( relevant ) {
+						setStaggerIndices( blockEl );
+					}
+				} );
+				observer.observe( blockEl, {
+					childList: true,
+					subtree: true,
+					attributes: true,
+					attributeFilter: [ 'class' ],
+				} );
 				return () => observer.disconnect();
 			}, [ staggerActive, clientId, innerBlockOrder ] );
 			const {

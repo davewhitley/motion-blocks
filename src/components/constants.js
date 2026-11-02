@@ -5,40 +5,23 @@
  * to shared-constants.json and re-export it below.
  */
 import SHARED from '../../shared-constants.json';
+import { __ } from '@wordpress/i18n';
 import { isValidFromToValue } from '../css-values';
+import { EFFECT_LABELS, EXIT_EFFECT_LABELS, DIRECTION_LABELS } from './labels';
 
 /**
- * Dropdown labels per effect value. The values themselves (and their
- * order) come from shared-constants.json so PHP can enumerate them for
- * the smoke-test page; only the wording lives here.
- */
-/**
- * Effect and direction labels come from `effectCatalog` /
+ * Effect and direction labels. The English wording is `effectCatalog` /
  * `directionLabels` in shared-constants.json, the same source agents and
- * the generated reference (schema/README.md) read, so the panel's names
- * and the documented names can't drift apart.
+ * the generated reference (schema/README.md) read; labels.js repeats it
+ * as translatable strings, and a unit test keeps the two in step.
  *
  * The Exit slot stores the base value (`'curtain'`) and `mb-exit-` binds
  * it to the Out keyframe, so its wording comes from each entry's
  * `exitLabel` where it differs ("Curtain Close", "Fade Out").
  */
-const TYPE_LABELS = Object.fromEntries(
-	Object.entries( SHARED.effectCatalog ).map( ( [ value, entry ] ) => [
-		value,
-		entry.label,
-	] )
-);
+const TYPE_LABELS = EFFECT_LABELS;
 
-const EXIT_TYPE_LABELS = {
-	...TYPE_LABELS,
-	...Object.fromEntries(
-		Object.entries( SHARED.effectCatalog )
-			.filter( ( [ , entry ] ) => entry.exitLabel )
-			.map( ( [ value, entry ] ) => [ value, entry.exitLabel ] )
-	),
-};
-
-const DIRECTION_LABELS = SHARED.directionLabels;
+const EXIT_TYPE_LABELS = { ...EFFECT_LABELS, ...EXIT_EFFECT_LABELS };
 
 function toOptions( values, labels ) {
 	return values.map( ( value ) => ( {
@@ -458,9 +441,9 @@ export const ENTER_KEYFRAME_MAP = {
  * animations are deferred to v3.
  */
 export const SCROLL_TRIGGER_OPTIONS = [
-	{ label: 'Enter viewport', value: 'enter' },
-	{ label: 'Exit viewport', value: 'exit' },
-	{ label: 'Mirror', value: 'mirror' },
+	{ label: __( 'Enter viewport', 'motion-blocks' ), value: 'enter' },
+	{ label: __( 'Exit viewport', 'motion-blocks' ), value: 'exit' },
+	{ label: __( 'Mirror', 'motion-blocks' ), value: 'mirror' },
 ];
 
 /**
@@ -717,21 +700,21 @@ const LINEAR_SPRING_BOUNCY = SHARED.easingPresets.bouncy;
 const LINEAR_SPRING_SNAPPY = SHARED.easingPresets.snappy;
 
 export const ACCELERATION_OPTIONS = [
-	{ label: 'Ease', value: 'ease' },
-	{ label: 'Linear', value: 'linear' },
-	{ label: 'Ease In', value: 'ease-in' },
-	{ label: 'Ease Out', value: 'ease-out' },
-	{ label: 'Ease In-Out', value: 'ease-in-out' },
+	{ label: __( 'Ease', 'motion-blocks' ), value: 'ease' },
+	{ label: __( 'Linear', 'motion-blocks' ), value: 'linear' },
+	{ label: __( 'Ease In', 'motion-blocks' ), value: 'ease-in' },
+	{ label: __( 'Ease Out', 'motion-blocks' ), value: 'ease-out' },
+	{ label: __( 'Ease In-Out', 'motion-blocks' ), value: 'ease-in-out' },
 	// Spring presets built on CSS `linear()`. Each is a damped
 	// harmonic oscillator with different damping ratio (ζ) and
 	// angular frequency (ω):
 	//   Spring — ζ≈0.5, ω≈10: visible overshoot + tiny undershoot.
 	//   Bouncy — ζ≈0.3, ω≈20: 2–3 decaying oscillations.
 	//   Snappy — ζ≈0.7, ω≈9:  small overshoot, very quick settle.
-	{ label: 'Spring', value: LINEAR_SPRING },
-	{ label: 'Bouncy', value: LINEAR_SPRING_BOUNCY },
-	{ label: 'Snappy', value: LINEAR_SPRING_SNAPPY },
-	{ label: 'Custom', value: 'custom' },
+	{ label: __( 'Spring', 'motion-blocks' ), value: LINEAR_SPRING },
+	{ label: __( 'Bouncy', 'motion-blocks' ), value: LINEAR_SPRING_BOUNCY },
+	{ label: __( 'Snappy', 'motion-blocks' ), value: LINEAR_SPRING_SNAPPY },
+	{ label: __( 'Custom', 'motion-blocks' ), value: 'custom' },
 ];
 
 /**
@@ -757,9 +740,9 @@ export function resolveTimingFunction( acceleration, customValue ) {
  * Repeat options (page-load only).
  */
 export const REPEAT_OPTIONS = [
-	{ label: 'Play once', value: 'once' },
-	{ label: 'Loop continuously', value: 'loop' },
-	{ label: 'Back and forth', value: 'alternate' },
+	{ label: __( 'Play once', 'motion-blocks' ), value: 'once' },
+	{ label: __( 'Loop continuously', 'motion-blocks' ), value: 'loop' },
+	{ label: __( 'Back and forth', 'motion-blocks' ), value: 'alternate' },
 ];
 
 export const BLUR_SETTINGS = {
@@ -814,9 +797,9 @@ export const BLUR_SETTINGS = {
  * Reads the same enum from `migrateScrollAppearAttrs` for legacy blocks.
  */
 export const REPLAY_OPTIONS = [
-	{ label: 'Once', value: 'once' },
-	{ label: 'Repeat', value: 'repeat' },
-	{ label: 'Reverse', value: 'reverse' },
+	{ label: __( 'Once', 'motion-blocks' ), value: 'once' },
+	{ label: __( 'Repeat', 'motion-blocks' ), value: 'repeat' },
+	{ label: __( 'Reverse', 'motion-blocks' ), value: 'reverse' },
 ];
 
 export const TRANSLATE_UNIT_OPTIONS = [
@@ -845,7 +828,7 @@ export const PROPERTY_DEFINITIONS = [
 	// it just render the input control alone, full-width or paired.
 	{
 		id: 'opacity',
-		label: 'Opacity',
+		label: __( 'Opacity', 'motion-blocks' ),
 		kind: 'number',
 		min: 0,
 		max: 1,
@@ -863,7 +846,7 @@ export const PROPERTY_DEFINITIONS = [
 	},
 	{
 		id: 'scale',
-		label: 'Scale',
+		label: __( 'Scale', 'motion-blocks' ),
 		kind: 'number',
 		min: 0,
 		// No `max` — input accepts arbitrarily large values. The
@@ -876,21 +859,21 @@ export const PROPERTY_DEFINITIONS = [
 	},
 	{
 		id: 'translateX',
-		label: 'Move X',
+		label: __( 'Move X', 'motion-blocks' ),
 		kind: 'length',
 		identity: '0px',
 		halfWidth: true,
 	},
 	{
 		id: 'translateY',
-		label: 'Move Y',
+		label: __( 'Move Y', 'motion-blocks' ),
 		kind: 'length',
 		identity: '0px',
 		halfWidth: true,
 	},
 	{
 		id: 'rotate',
-		label: 'Rotate',
+		label: __( 'Rotate', 'motion-blocks' ),
 		kind: 'number',
 		// Widened from ±180° to ±360° so spin animations are
 		// expressible end-to-end on the slider without typing.
@@ -916,7 +899,7 @@ export const PROPERTY_DEFINITIONS = [
 	// has visible depth (matches the legacy Flip preset).
 	{
 		id: 'rotateX',
-		label: '3D Rotate X',
+		label: __( '3D Rotate X', 'motion-blocks' ),
 		kind: 'number',
 		step: 1,
 		identity: '0deg',
@@ -925,7 +908,7 @@ export const PROPERTY_DEFINITIONS = [
 	},
 	{
 		id: 'rotateY',
-		label: '3D Rotate Y',
+		label: __( '3D Rotate Y', 'motion-blocks' ),
 		kind: 'number',
 		step: 1,
 		identity: '0deg',
@@ -934,7 +917,7 @@ export const PROPERTY_DEFINITIONS = [
 	},
 	{
 		id: 'blur',
-		label: 'Blur',
+		label: __( 'Blur', 'motion-blocks' ),
 		kind: 'number',
 		min: 0,
 		step: 1,
@@ -946,7 +929,7 @@ export const PROPERTY_DEFINITIONS = [
 	// (fully visible) so an unedited side reveals the element.
 	{
 		id: 'clipPath',
-		label: 'Clip path',
+		label: __( 'Clip path', 'motion-blocks' ),
 		kind: 'text',
 		identity: 'inset(0)',
 		placeholder: 'inset(0 50% 0 50%)',
@@ -2174,15 +2157,15 @@ export function resetPreviewUiAttributes( attrs, blockType ) {
  */
 export const MODE_META = {
 	'page-load': {
-		label: 'On page load',
+		label: __( 'On page load', 'motion-blocks' ),
 		iconName: 'desktop',
 	},
 	'scroll-appear': {
-		label: 'Appear on scroll',
+		label: __( 'Appear on scroll', 'motion-blocks' ),
 		iconName: 'seen',
 	},
 	'scroll-interactive': {
-		label: 'Interactive scroll',
+		label: __( 'Interactive scroll', 'motion-blocks' ),
 		iconName: 'scrollInteractive', // custom icon, see icons.js
 	},
 };

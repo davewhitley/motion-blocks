@@ -34,7 +34,7 @@ import {
 	Notice,
 } from '@wordpress/components';
 import { useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	arrowUp,
 	arrowDown,
@@ -627,7 +627,11 @@ export default function SlotControls( {
 					opt.value === slotReplayDefault
 						? {
 								...opt,
-								label: `${ opt.label } (default)`,
+								label: sprintf(
+									/* translators: %s: name of a Replay option, such as "Once". */
+									__( '%s (default)', 'motion-blocks' ),
+									opt.label
+								),
 						  }
 						: opt
 				) }

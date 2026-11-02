@@ -16,7 +16,9 @@
  * ones that aren't blocks (a Gallery caption, the editor's appender).
  * Spacers are skipped and don't use up a position: they're empty, so
  * animating one shows nothing and only puts a pause in the cascade.
- * animations.css leaves them out of every stagger rule too. In classic
+ * So is a nested stagger parent, which runs its own cascade and never
+ * animates itself (#53). animations.css leaves both out of every
+ * stagger rule too. In classic
  * themes a Group's children sit one level down inside
  * `.wp-block-group__inner-container` (GH #66); the wrapper itself
  * isn't animated, and its children count from 0 inside it.
@@ -30,15 +32,17 @@ const INNER_CONTAINER_CLASS = 'wp-block-group__inner-container';
 
 /**
  * Whether a stagger parent leaves this child alone: a Spacer, by its
- * front-end class or its editor `data-type`.
+ * front-end class or its editor `data-type`, or a nested stagger
+ * parent.
  *
  * @param {Element} el Child element.
- * @return {boolean} True for a Spacer.
+ * @return {boolean} True for a Spacer or a nested stagger parent.
  */
 export function isStaggerSkipped( el ) {
 	return (
 		el.classList.contains( 'wp-block-spacer' ) ||
-		el.getAttribute( 'data-type' ) === 'core/spacer'
+		el.getAttribute( 'data-type' ) === 'core/spacer' ||
+		el.classList.contains( 'mb-stagger-parent' )
 	);
 }
 
@@ -46,8 +50,8 @@ export function isStaggerSkipped( el ) {
  * The elements a stagger parent animates, with their positions.
  *
  * Matches the CSS selector pair used throughout animations.css:
- *   parent > :where(:not(.wp-block-group__inner-container, <spacer>))
- *   parent > :where(.wp-block-group__inner-container) > :where(:not(<spacer>))
+ *   parent > :where(:not(.wp-block-group__inner-container, <skipped>))
+ *   parent > :where(.wp-block-group__inner-container) > :where(:not(<skipped>))
  *
  * @param {Element} parent Stagger parent.
  * @return {Array<{el: Element, index: number}>} Animated children.

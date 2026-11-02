@@ -93,7 +93,8 @@ function formOf( selector ) {
 }
 
 const IC = '.wp-block-group__inner-container';
-const SPACER = '.wp-block-spacer, [data-type="core/spacer"]';
+const SPACER =
+	'.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent';
 
 const rules = styleRules();
 const settledRules = rules.filter( ( r ) =>

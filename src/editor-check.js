@@ -110,6 +110,38 @@ function canvasDocument() {
 const PREVIEW_STORE = 'motion-blocks/editor-preview';
 
 /**
+ * Waits for the canvas to carry `html.mb-motion`. The class comes from
+ * an inline script in the canvas iframe's <head>, so it's there as soon
+ * as the canvas document is; but the iframe starts out as a blank page
+ * and is rebuilt whenever the editor's asset list changes, and on a slow
+ * machine the blocks can be in the store before the canvas has loaded.
+ *
+ * @param {number} timeoutMs How long to wait.
+ * @return {Promise<string|null>} null when the class is there, otherwise
+ *                                 what the canvas looked like.
+ */
+async function waitForMotionGate( timeoutMs ) {
+	const start = Date.now();
+	for ( ;; ) {
+		const doc = canvasDocument();
+		if ( doc.documentElement.classList.contains( 'mb-motion' ) ) {
+			return null;
+		}
+		if ( Date.now() - start >= timeoutMs ) {
+			const iframe = document.querySelector(
+				'iframe[name="editor-canvas"]'
+			);
+			return iframe
+				? `iframed canvas, ${ doc.readyState }, ${
+						doc.URL.split( ':' )[ 0 ]
+				  } document, classes "${ doc.documentElement.className }"`
+				: `canvas not iframed, classes "${ doc.documentElement.className }"`;
+		}
+		await wait( 200 );
+	}
+}
+
+/**
  * Press Play on the first plain Page Load block (a preset effect on the
  * block itself) and wait for one of our animations to run on it in the
  * canvas. Returns an issue, or null when it played or there was nothing
@@ -237,11 +269,11 @@ async function editorCheck( options = {} ) {
 	// Motion gate (#53): the animation rules only apply under
 	// `html.mb-motion`, which motion_blocks_enqueue_block_assets() adds
 	// to the canvas unconditionally.
-	if ( ! canvasDocument().documentElement.classList.contains( 'mb-motion' ) ) {
+	const gateMissing = await waitForMotionGate( options.timeoutMs ?? 10000 );
+	if ( gateMissing ) {
 		results.push( {
 			id: 'motion-gate',
-			message:
-				'The editor canvas has no html.mb-motion class, so animation previews can’t play.',
+			message: `The editor canvas has no html.mb-motion class, so animation previews can’t play (${ gateMissing }).`,
 		} );
 	} else if ( options.playPreview !== false ) {
 		const notPlaying = await checkPreviewPlays();

@@ -21,11 +21,16 @@ const fs = require( 'fs' );
 const path = require( 'path' );
 const postcss = require( 'postcss' );
 
+// The motion gate prefix (`:where(html.mb-motion) `, which adds no
+// weight) is stripped here; tests/unit/motion-off-reset.test.js checks
+// that every motion rule carries it.
 const root = postcss.parse(
-	fs.readFileSync(
-		path.join( __dirname, '..', '..', 'css', 'animations.css' ),
-		'utf8'
-	)
+	fs
+		.readFileSync(
+			path.join( __dirname, '..', '..', 'css', 'animations.css' ),
+			'utf8'
+		)
+		.replace( /:where\(html\.mb-motion\) /g, '' )
 );
 
 const collapse = ( text ) => text.replace( /\s+/g, ' ' ).trim();
@@ -76,12 +81,8 @@ describe( 'Stagger parents keep theme styles (#53)', () => {
 			return out.split( /\s*[\s>+~]\s*/ ).pop();
 		};
 		const wrapperOpacity = rules
-			.filter(
-				( r ) =>
-					! /reduced-motion: reduce/.test( r.context ) &&
-					r.decls.some(
-						( d ) => d.prop === 'opacity' && ! d.important
-					)
+			.filter( ( r ) =>
+				r.decls.some( ( d ) => d.prop === 'opacity' && ! d.important )
 			)
 			.flatMap( ( r ) => r.selectors )
 			.filter(
@@ -121,10 +122,8 @@ describe( 'Scroll Interactive without view timelines (GH #42)', () => {
 				r.decls.some( ( d ) => d.prop.startsWith( 'animation' ) )
 			)
 			.flatMap( ( r ) =>
-				r.selectors.filter(
-					( s ) =>
-						s.includes( '.mb-mode-scroll-interactive' ) &&
-						! /reduced|mb-disabled/.test( s + r.context )
+				r.selectors.filter( ( s ) =>
+					s.includes( '.mb-mode-scroll-interactive' )
 				)
 			)
 			.filter( ( s ) => ! s.includes( '.mb-stagger-parent' ) );

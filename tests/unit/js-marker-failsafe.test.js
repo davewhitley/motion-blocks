@@ -1,70 +1,91 @@
 /**
- * No-JS marker failsafe (GH #57): `html.mb-js` must not outlive a
- * front-end bundle that never ran, or every hidden block stays at
- * opacity 0. Runs the real inline script from animation-plugin.php
- * and the real src/frontend.js in jsdom.
+ * No-JS marker failsafe (GH #57): `html.mb-js` and the motion gate
+ * `html.mb-motion` (#53) must not outlive a front-end bundle that never
+ * ran, or every hidden block stays at opacity 0. Runs the real head
+ * script from animation-plugin.php and the real src/frontend.js in
+ * jsdom.
  *
  * Run: npm run test:unit
  */
 const fs = require( 'fs' );
 const path = require( 'path' );
+const { readGateScript, fakeMatchMedia } = require( './helpers/motion-gate' );
 
-/**
- * The JS that motion_blocks_print_js_marker() prints: the
- * single-quoted PHP string pieces inside its wp_print_inline_script_tag
- * call, joined.
- */
-function readMarkerScript() {
-	const php = fs.readFileSync(
-		path.join( __dirname, '../../animation-plugin.php' ),
+const shared = JSON.parse(
+	fs.readFileSync(
+		path.join( __dirname, '../../shared-constants.json' ),
 		'utf8'
-	);
-	const fn = php.match(
-		/function motion_blocks_print_js_marker\(\)\s*\{[\s\S]*?wp_print_inline_script_tag\(\s*([\s\S]*?),\s*array\(/
-	);
-	expect( fn ).not.toBeNull();
-	const pieces = fn[ 1 ].match( /'[^']*'/g );
-	return pieces.map( ( p ) => p.slice( 1, -1 ) ).join( '' );
-}
-
-function runMarker() {
-	// eslint-disable-next-line no-new-func
-	new Function( readMarkerScript() )();
-}
+	)
+);
 
 const html = document.documentElement;
+
+function runMarker( disabled = [] ) {
+	// eslint-disable-next-line no-new-func
+	new Function( 'h', 'q', 'd', '(' + readGateScript() + ')(h,q,d);' )(
+		html,
+		shared.deviceQueries,
+		disabled
+	);
+}
 
 beforeEach( () => {
 	html.className = '';
 	delete window.motionBlocksReady;
+	window.matchMedia = fakeMatchMedia( { width: 1280, reduced: false } );
 } );
 
-describe( 'mb-js marker failsafe', () => {
-	it( 'adds mb-js as soon as the head script runs', () => {
+afterEach( () => {
+	delete window.matchMedia;
+} );
+
+describe( 'head script failsafe', () => {
+	it( 'adds mb-js and mb-motion as soon as it runs', () => {
 		runMarker();
 		expect( html.classList.contains( 'mb-js' ) ).toBe( true );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( true );
 	} );
 
-	it( 'removes mb-js on load when frontend.js never ran', () => {
+	it( 'removes both on load when frontend.js never ran', () => {
 		runMarker();
 		window.dispatchEvent( new Event( 'load' ) );
 		expect( html.classList.contains( 'mb-js' ) ).toBe( false );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( false );
 	} );
 
-	it( 'keeps mb-js on load when frontend.js finished init', () => {
+	it( 'stops updating mb-motion after the failsafe fired', () => {
+		runMarker();
+		window.dispatchEvent( new Event( 'load' ) );
+		window.matchMedia.set( { reduced: true } );
+		window.matchMedia.set( { reduced: false } );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( false );
+	} );
+
+	it( 'keeps both on load when frontend.js finished init', () => {
 		runMarker();
 		window.motionBlocksReady = true;
 		window.dispatchEvent( new Event( 'load' ) );
 		expect( html.classList.contains( 'mb-js' ) ).toBe( true );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( true );
 	} );
 } );
 
 describe( 'frontend.js ready flag', () => {
-	it( 'sets motionBlocksReady and re-asserts mb-js after init', () => {
+	it( 'sets motionBlocksReady and re-asserts mb-js and mb-motion after init', () => {
 		jest.isolateModules( () => {
 			require( '../../src/frontend.js' );
 		} );
 		expect( window.motionBlocksReady ).toBe( true );
 		expect( html.classList.contains( 'mb-js' ) ).toBe( true );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( true );
+	} );
+
+	it( 'leaves mb-motion off with reduced motion on', () => {
+		window.matchMedia = fakeMatchMedia( { width: 1280, reduced: true } );
+		jest.isolateModules( () => {
+			require( '../../src/frontend.js' );
+		} );
+		expect( html.classList.contains( 'mb-js' ) ).toBe( true );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( false );
 	} );
 } );

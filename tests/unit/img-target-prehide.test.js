@@ -6,8 +6,8 @@
  * animation rule needs a trigger class, so without a matching image
  * rule the Cover image showed at full opacity until the Entry fired,
  * then snapped to the keyframe's hidden from-state. This guard keeps
- * that rule in place, scoped the same way as the wrapper pre-hide, and
- * checks Reduced Motion and per-device disable still win over it.
+ * that rule in place, behind the motion gate like the wrapper pre-hide,
+ * so it never applies with reduced motion or on a disabled device (#53).
  *
  * Run: npm run test:unit
  */
@@ -94,30 +94,25 @@ describe( 'img-target image pre-hide (GH #53)', () => {
 		expect( prehide[ 0 ].body ).toMatch( /(^|;)\s*opacity:\s*0\s*;/ );
 	} );
 
-	it( 'is scoped like the wrapper pre-hide (mb-js, no-preference)', () => {
-		expect( prehide[ 0 ].prelude.startsWith( ':where(html.mb-js)' ) ).toBe(
-			true
-		);
-		expect( prehide[ 0 ].media ).toBe(
-			'@media (prefers-reduced-motion: no-preference)'
-		);
-	} );
-
-	it( 'is still overridden by Reduced Motion and per-device disable', () => {
-		const overrides = all.filter(
+	it( 'is behind the motion gate, like the wrapper pre-hide', () => {
+		const wrapper = all.find(
 			( r ) =>
-				r.prelude.includes( ':is(' ) &&
-				r.prelude.includes( IMG ) &&
-				r.body.includes( 'opacity: 1 !important' )
+				r.prelude.includes(
+					'.mb-mode-scroll-appear.mb-has-entry:where('
+				) && /opacity:\s*0\s*;/.test( r.body )
 		);
-		const media = overrides.map( ( r ) => r.media ).sort();
-		expect( media ).toEqual(
-			[
-				'@media (max-width: 767px), (width < 768px)',
-				'@media (min-width: 1024px), (width >= 1024px)',
-				'@media (min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px)',
-				'@media (prefers-reduced-motion: reduce)',
-			].sort()
-		);
+		expect( wrapper ).toBeDefined();
+		[ wrapper, ...prehide ].forEach( ( r ) => {
+			r.prelude
+				.split( ',' )
+				.forEach( ( sel ) =>
+					expect(
+						sel.trim().startsWith( ':where(html.mb-motion) ' )
+					).toBe( true )
+				);
+			// No media query of its own: the gate already covers
+			// reduced motion and per-device disable.
+			expect( r.media ).toBe( '' );
+		} );
 	} );
 } );

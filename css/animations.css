@@ -10,6 +10,21 @@
  *
  * Direction is parameterized via CSS custom properties set by frontend.js,
  * so a single keyframe per type handles all directions.
+ *
+ * Motion gate (#53). Every rule that animates, pre-hides or transforms a
+ * block (anything setting animation-*, opacity, transform, filter,
+ * clip-path, transform-style or backface-visibility) is scoped under
+ * `:where(html.mb-motion)`. The class is on <html> only while motion is
+ * on: JavaScript ran, the visitor hasn't asked for reduced motion, and
+ * animations aren't disabled for this page on the current device
+ * (motion_blocks_print_js_marker() in animation-plugin.php and
+ * src/motion-gate.js). With it off, this file sets nothing on the block,
+ * so the theme's own styles show untouched: there is nothing to reset
+ * and no `!important` anywhere. The editor canvas always has the class,
+ * so previews play. `:where()` adds no weight, so every rule weighs
+ * what it would without the gate. Left ungated: the custom-property
+ * defaults and the page overflow clip, which never move anything.
+ * tests/unit/motion-off-reset.test.js checks both rules.
  */
 
 /* ----------------------------------------------------------------
@@ -111,34 +126,36 @@
  * Scroll in view (enter / both): hidden until scrolled into view.
  * Scroll in view (exit only): visible by default, no initial hide.
  *
- * No-JS contract: every HIDE rule (opacity: 0) is scoped under
- * `:where(html.mb-js)` — the marker class a synchronous head script
- * adds on the frontend (motion_blocks_print_js_marker). If JS never
- * runs, the rules don't match and content stays visible; the same
- * script drops the class on `load` if frontend.js never finished
- * init (GH #57), so a broken bundle also leaves content visible.
- * `:where()` adds ZERO specificity, so all the `opacity: 1` override rules
- * below keep winning unchanged. The editor canvas is unaffected
- * either way: it never carries `mb-mode-*` classes (the preview HOC
- * deliberately omits them — see src/index.js withAnimationPreview).
+ * Like every motion rule, the HIDE rules (opacity: 0) are behind the
+ * motion gate, `:where(html.mb-motion)` (see the top of this file):
  *
- * Reduced-motion contract (GH #26): every HIDE rule also sits inside
- * `@media (prefers-reduced-motion: no-preference)`, so nothing is
- * pre-hidden when the visitor asks for reduced motion. frontend.js
- * still wires every block, so if the OS setting flips mid-visit the
- * hide rules re-apply and the triggers reveal / animate the blocks
- * as usual. Don't add a JS reduced-motion bail-out instead: blocks
- * would stay blank once the hide rules match again.
+ * - No JS: a synchronous head script adds the class
+ *   (motion_blocks_print_js_marker), so if JS never runs nothing is
+ *   pre-hidden and content stays visible. The same script drops it on
+ *   `load` if frontend.js never finished init (GH #57), so a broken
+ *   bundle also leaves content visible.
+ * - Reduced motion (GH #26) and per-device disable (GH #44): the class
+ *   is off, so nothing is pre-hidden. frontend.js still wires every
+ *   block, and the class follows the OS setting and the device bucket
+ *   mid-visit, so when motion comes back on the hide rules re-apply
+ *   and the triggers reveal / animate the blocks as usual. Don't add a
+ *   JS reduced-motion bail-out instead: blocks would stay blank once
+ *   the hide rules match again.
+ *
+ * `:where()` adds ZERO specificity, so the `opacity: 1` override rules
+ * below keep winning unchanged. They're gated too: without motion
+ * there's no hide to undo, and `opacity: 1` would override the theme's.
+ * The editor canvas never matches the hide rules: it never carries
+ * `mb-mode-*` classes (the preview HOC deliberately omits them — see
+ * src/index.js withAnimationPreview).
  *
  * A Stagger parent is left out of both wrapper hide rules: it never
  * animates itself, so it stays visible and its children carry the
  * hide (see "Stagger cascade"). `:where()` keeps the exclusion at
  * zero specificity, so the override rules below are unaffected.
  * -------------------------------------------------------------- */
-@media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-mode-page-load:where(:not(.mb-stagger-parent)):not(.mb-triggered) {
-        opacity: 0;
-    }
+:where(html.mb-motion) .mb-mode-page-load:where(:not(.mb-stagger-parent)):not(.mb-triggered) {
+    opacity: 0;
 }
 
 /* Scroll Appear initial-hide (slot model): hide the element only
@@ -146,16 +163,14 @@
    class is active. An Exit-only block (`.mb-has-entry` absent)
    starts visible — its exit animation hides it via forwards fill
    when the user scrolls past. */
-@media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry:where(:not(.mb-stagger-parent)):not(.mb-triggered):not(.mb-exit-triggered) {
-        opacity: 0;
-    }
+:where(html.mb-motion) .mb-mode-scroll-appear.mb-has-entry:where(:not(.mb-stagger-parent)):not(.mb-triggered):not(.mb-exit-triggered) {
+    opacity: 0;
 }
 /* img-target ("Animate image only", any effect): the wrapper never
    animates — only the first img descendant does. Keep the Cover's
    overlay and inner blocks visible by opting the wrapper out of the
    pre-hide above; the image carries the pre-hide instead (next rule). */
-.mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered) {
+:where(html.mb-motion) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered) {
     opacity: 1;
 }
 /* img-target image pre-hide. Every img animation rule needs a
@@ -170,17 +185,14 @@
      visible image (frontend.js buildImageMoveSides /
      buildImageZoomSides), so hiding it would add a pop-in.
    - Exit-only blocks never match (no `.mb-has-entry`).
-   - Per-device disable wins through the `opacity: 1 !important` img
-     rules at the end of this file; reduced motion never matches
-     because of the media query.
+   - With reduced motion or a disabled device it never matches: the
+     motion gate is off (see the top of this file).
    - Same `> img:first-of-type` scope as the animation rules
      (and frontend.js scoped CSS), so every image hidden here has an
      animation that reveals it. Narrow both together, never one. */
-@media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > img:first-of-type,
-    :where(html.mb-js) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > picture > img:first-of-type {
-        opacity: 0;
-    }
+:where(html.mb-motion) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > img:first-of-type,
+:where(html.mb-motion) .mb-mode-scroll-appear.mb-has-entry[data-mb-target="img"]:not(.mb-triggered):not(.mb-exit-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom) > picture > img:first-of-type {
+    opacity: 0;
 }
 
 /* "Out" preset variants for Page Load and Scroll Interactive
@@ -191,7 +203,7 @@
    never hidden (see the hide rules above), so it's left out here
    too, where `opacity: 1` would override the theme's own opacity
    (#53). */
-.mb-mode-page-load:where(:not(.mb-stagger-parent)):is(
+:where(html.mb-motion) .mb-mode-page-load:where(:not(.mb-stagger-parent)):is(
         .mb-enter-fade-out,
         .mb-enter-slide-out,
         .mb-enter-scale-out,
@@ -205,7 +217,7 @@
 /* ----------------------------------------------------------------
  * Triggered State — Entrance (page-load + scroll-appear)
  * -------------------------------------------------------------- */
-.mb-animated.mb-triggered {
+:where(html.mb-motion) .mb-animated.mb-triggered {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-fill-mode: var(--mb-fill-mode, both);
@@ -244,7 +256,7 @@
  * (handleSlotEnterBack sets `--mb-direction: reverse`). Stagger
  * children consume the same variable in their own exit rule below.
  * -------------------------------------------------------------- */
-.mb-animated.mb-exit-triggered {
+:where(html.mb-motion) .mb-animated.mb-exit-triggered {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay, 0s);
     animation-fill-mode: var(--mb-fill-mode, both);
@@ -257,7 +269,8 @@
  * Mode: Interactive Scroll (CSS Scroll-Driven Animations)
  *
  * The view() timeline and the default range are declared here, so
- * the block scroll-drives from first paint and without JS.
+ * the block scroll-drives from first paint (once the head script has
+ * opened the motion gate; without JS it stays at rest).
  * frontend.js re-applies them inline with the block's own range and
  * emits `--mb-range-start` / `--mb-range-end`, which this rule (and
  * the img-target rule further down) reads.
@@ -270,7 +283,7 @@
  * (GH #42).
  * -------------------------------------------------------------- */
 @supports (animation-timeline: view()) {
-    .mb-mode-scroll-interactive {
+    :where(html.mb-motion) .mb-mode-scroll-interactive {
         animation-timeline: view();
         animation-range-start: var(--mb-range-start, entry 0%);
         animation-range-end: var(--mb-range-end, exit 100%);
@@ -285,7 +298,7 @@
  * -------------------------------------------------------------- */
 
 /* Fade In */
-.mb-enter-fade.mb-triggered {
+:where(html.mb-motion) .mb-enter-fade.mb-triggered {
     animation-name: mbFadeIn;
 }
 
@@ -297,12 +310,12 @@
 /* Fade Out (entrance plays the Out keyframe — element starts
    visible and fades away when triggered). The Out variant's "exit"
    half (for Mirror) plays mbFadeIn in reverse. */
-.mb-enter-fade-out.mb-triggered {
+:where(html.mb-motion) .mb-enter-fade-out.mb-triggered {
     animation-name: mbFadeOut;
 }
 
 /* Slide In — direction via --mb-slide-x, --mb-slide-y */
-.mb-enter-slide.mb-triggered {
+:where(html.mb-motion) .mb-enter-slide.mb-triggered {
     animation-name: mbSlideIn;
 }
 
@@ -319,12 +332,12 @@
 
 /* Slide Out — plays mbSlideOut. Direction vars name the END
    position so the motion direction matches the In variant. */
-.mb-enter-slide-out.mb-triggered {
+:where(html.mb-motion) .mb-enter-slide-out.mb-triggered {
     animation-name: mbSlideOut;
 }
 
 /* Wipe In — direction via --mb-wipe-from */
-.mb-enter-wipe.mb-triggered {
+:where(html.mb-motion) .mb-enter-wipe.mb-triggered {
     animation-name: mbWipeIn;
 }
 
@@ -334,7 +347,7 @@
 }
 
 /* Curtain Reveal — direction via --mb-curtain-from */
-.mb-enter-curtain.mb-triggered {
+:where(html.mb-motion) .mb-enter-curtain.mb-triggered {
     animation-name: mbCurtainReveal;
 }
 
@@ -347,7 +360,7 @@
    mbCurtainClose (defined further down in the Exit Keyframes
    section) so the binding stays DRY across Scroll Appear's Exit
    slot and Page Load / Scroll Interactive's class-based path. */
-.mb-enter-curtain-out.mb-triggered {
+:where(html.mb-motion) .mb-enter-curtain-out.mb-triggered {
     animation-name: mbCurtainClose;
 }
 
@@ -364,11 +377,11 @@
    a settled block (GH #20): `:not(.mb-settled)` here and on the Stagger
    child and image rules drops the 3D context once the block is at rest,
    so the Settled State rules need no Flip reset of their own (#53). */
-.mb-enter-flip.mb-triggered {
+:where(html.mb-motion) .mb-enter-flip.mb-triggered {
     animation-name: mbFlipIn;
 }
 
-.mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]):not(.mb-settled) {
+:where(html.mb-motion) .mb-enter-flip.mb-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]):not(.mb-settled) {
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
@@ -385,7 +398,7 @@
 }
 
 /* Scale In */
-.mb-enter-scale.mb-triggered {
+:where(html.mb-motion) .mb-enter-scale.mb-triggered {
     animation-name: mbScaleIn;
 }
 
@@ -402,12 +415,12 @@
 
 /* Scale Out — plays mbScaleOut. Direction vars name the END
    position so the motion direction matches the In variant. */
-.mb-enter-scale-out.mb-triggered {
+:where(html.mb-motion) .mb-enter-scale-out.mb-triggered {
     animation-name: mbScaleOut;
 }
 
 /* Blur In — blur amount via --mb-blur-amount */
-.mb-enter-blur.mb-triggered {
+:where(html.mb-motion) .mb-enter-blur.mb-triggered {
     animation-name: mbBlurIn;
 }
 
@@ -423,12 +436,12 @@
 }
 
 /* Blur Out — plays mbBlurOut (visible/sharp → invisible/blurred). */
-.mb-enter-blur-out.mb-triggered {
+:where(html.mb-motion) .mb-enter-blur-out.mb-triggered {
     animation-name: mbBlurOut;
 }
 
 /* Rotate In — angle via --mb-rotate-angle */
-.mb-enter-rotate.mb-triggered {
+:where(html.mb-motion) .mb-enter-rotate.mb-triggered {
     animation-name: mbRotateIn;
 }
 
@@ -444,7 +457,7 @@
 }
 
 /* Rotate Out — plays mbRotateOut (0deg → angle, opacity 1 → 0). */
-.mb-enter-rotate-out.mb-triggered {
+:where(html.mb-motion) .mb-enter-rotate-out.mb-triggered {
     animation-name: mbRotateOut;
 }
 
@@ -453,55 +466,55 @@
    block never binds a keyframe, so it shows at rest with no reset
    rule needed (#53). */
 @supports (animation-timeline: view()) {
-    .mb-mode-scroll-interactive.mb-enter-fade {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-fade {
         animation-name: mbFadeIn;
     }
-    .mb-mode-scroll-interactive.mb-enter-fade-out {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-fade-out {
         animation-name: mbFadeOut;
     }
-    .mb-mode-scroll-interactive.mb-enter-slide {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-slide {
         animation-name: mbSlideIn;
     }
-    .mb-mode-scroll-interactive.mb-enter-slide-out {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-slide-out {
         animation-name: mbSlideOut;
     }
-    .mb-mode-scroll-interactive.mb-enter-wipe {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-wipe {
         animation-name: mbWipeIn;
     }
-    .mb-mode-scroll-interactive.mb-enter-curtain {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-curtain {
         animation-name: mbCurtainReveal;
     }
-    .mb-mode-scroll-interactive.mb-enter-curtain-out {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-curtain-out {
         animation-name: mbCurtainClose;
     }
-    .mb-mode-scroll-interactive.mb-enter-flip {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-flip {
         animation-name: mbFlipIn;
     }
     /* Custom: the keyframe frontend.js builds (see the Page Load
        Custom rule). */
-    .mb-mode-scroll-interactive.mb-enter-custom {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-custom {
         animation-name: var(--mb-custom-anim-name, none);
     }
-    .mb-mode-scroll-interactive.mb-enter-flip:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-flip:not(.mb-stagger-parent):not([data-mb-target="img"]) {
         backface-visibility: hidden;
         transform-style: preserve-3d;
     }
-    .mb-mode-scroll-interactive.mb-enter-scale {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-scale {
         animation-name: mbScaleIn;
     }
-    .mb-mode-scroll-interactive.mb-enter-scale-out {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-scale-out {
         animation-name: mbScaleOut;
     }
-    .mb-mode-scroll-interactive.mb-enter-blur {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-blur {
         animation-name: mbBlurIn;
     }
-    .mb-mode-scroll-interactive.mb-enter-blur-out {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-blur-out {
         animation-name: mbBlurOut;
     }
-    .mb-mode-scroll-interactive.mb-enter-rotate {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-rotate {
         animation-name: mbRotateIn;
     }
-    .mb-mode-scroll-interactive.mb-enter-rotate-out {
+    :where(html.mb-motion) .mb-mode-scroll-interactive.mb-enter-rotate-out {
         animation-name: mbRotateOut;
     }
 }
@@ -518,7 +531,7 @@
  * -------------------------------------------------------------- */
 
 /* Fade Out */
-.mb-exit-fade.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-fade.mb-exit-triggered {
     animation-name: mbFadeOut;
 }
 
@@ -529,12 +542,12 @@
 
 /* Fade Out preset's exit half — reverse of its entrance, so the
    element fades back IN. Drives Mirror's return phase. */
-.mb-exit-fade-out.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-fade-out.mb-exit-triggered {
     animation-name: mbFadeIn;
 }
 
 /* Slide Out — direction via --mb-slide-x, --mb-slide-y */
-.mb-exit-slide.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-slide.mb-exit-triggered {
     animation-name: mbSlideOut;
 }
 
@@ -550,12 +563,12 @@
 }
 
 /* Slide Out preset's exit half — drives Mirror's return phase. */
-.mb-exit-slide-out.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-slide-out.mb-exit-triggered {
     animation-name: mbSlideIn;
 }
 
 /* Wipe Out — direction via --mb-wipe-from */
-.mb-exit-wipe.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-wipe.mb-exit-triggered {
     animation-name: mbWipeOut;
 }
 
@@ -565,7 +578,7 @@
 }
 
 /* Curtain Close — direction via --mb-curtain-from */
-.mb-exit-curtain.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-curtain.mb-exit-triggered {
     animation-name: mbCurtainClose;
 }
 
@@ -575,7 +588,7 @@
 }
 
 /* Scale Out */
-.mb-exit-scale.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-scale.mb-exit-triggered {
     animation-name: mbScaleOut;
 }
 
@@ -591,12 +604,12 @@
 }
 
 /* Scale Out preset's exit half — drives Mirror's return phase. */
-.mb-exit-scale-out.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-scale-out.mb-exit-triggered {
     animation-name: mbScaleIn;
 }
 
 /* Blur Out — blur amount via --mb-blur-amount */
-.mb-exit-blur.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-blur.mb-exit-triggered {
     animation-name: mbBlurOut;
 }
 
@@ -612,12 +625,12 @@
 }
 
 /* Blur Out preset's exit half — drives Mirror's return phase. */
-.mb-exit-blur-out.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-blur-out.mb-exit-triggered {
     animation-name: mbBlurIn;
 }
 
 /* Rotate Out — angle via --mb-rotate-angle */
-.mb-exit-rotate.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-rotate.mb-exit-triggered {
     animation-name: mbRotateOut;
 }
 
@@ -633,7 +646,7 @@
 }
 
 /* Rotate Out preset's exit half — drives Mirror's return phase. */
-.mb-exit-rotate-out.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-rotate-out.mb-exit-triggered {
     animation-name: mbRotateIn;
 }
 
@@ -644,11 +657,11 @@
    transform-style) for the rotation to read as a flip rather than a
    squash. Only while the Exit is triggered, for the same reason as
    Flip In above. */
-.mb-exit-flip.mb-exit-triggered {
+:where(html.mb-motion) .mb-exit-flip.mb-exit-triggered {
     animation-name: mbFlipOut;
 }
 
-.mb-exit-flip.mb-exit-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]) {
+:where(html.mb-motion) .mb-exit-flip.mb-exit-triggered:not(.mb-stagger-parent):not([data-mb-target="img"]) {
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
@@ -668,10 +681,10 @@
    come from the frontend script via these CSS custom properties.
    Each phase reads its own var so Entry and Exit can hold
    independent Custom keyframes. */
-.mb-mode-scroll-appear.mb-enter-custom.mb-triggered {
+:where(html.mb-motion) .mb-mode-scroll-appear.mb-enter-custom.mb-triggered {
     animation-name: var(--mb-entry-anim-name);
 }
-.mb-mode-scroll-appear.mb-exit-custom.mb-exit-triggered {
+:where(html.mb-motion) .mb-mode-scroll-appear.mb-exit-custom.mb-exit-triggered {
     animation-name: var(--mb-exit-anim-name);
 }
 
@@ -686,8 +699,8 @@
    A Custom block that is itself a Stagger child plays its parent's
    stagger effect, like every other animated child: the Stagger child
    rules (0,3,0) out-weigh this (0,2,0) rule. */
-.mb-enter-custom.mb-triggered,
-.mb-exit-custom.mb-exit-triggered {
+:where(html.mb-motion) .mb-enter-custom.mb-triggered,
+:where(html.mb-motion) .mb-exit-custom.mb-exit-triggered {
     animation-name: var(--mb-custom-anim-name, none);
 }
 
@@ -713,8 +726,8 @@
  * -------------------------------------------------------------- */
 
 /* Suppress wrapper animation when targeting the img. */
-[data-mb-target="img"].mb-animated.mb-triggered,
-[data-mb-target="img"].mb-mode-scroll-interactive {
+:where(html.mb-motion) [data-mb-target="img"].mb-animated.mb-triggered,
+:where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive {
     animation-name: none;
 }
 
@@ -730,10 +743,10 @@
  * more, and no class rule names one for `mb-*-image-*` (#53). The
  * JS-side guards in frontend.js and the editor also bail out at
  * synthesis time; this rule is defense in depth. */
-.mb-enter-image-move:not([data-mb-target="img"]),
-.mb-enter-image-zoom:not([data-mb-target="img"]),
-.mb-exit-image-move:not([data-mb-target="img"]),
-.mb-exit-image-zoom:not([data-mb-target="img"]) {
+:where(html.mb-motion) .mb-enter-image-move:not([data-mb-target="img"]),
+:where(html.mb-motion) .mb-enter-image-zoom:not([data-mb-target="img"]),
+:where(html.mb-motion) .mb-exit-image-move:not([data-mb-target="img"]),
+:where(html.mb-motion) .mb-exit-image-zoom:not([data-mb-target="img"]) {
     animation-name: none;
 }
 
@@ -741,8 +754,8 @@
    Scroll Appear. The CSS variables are set on the wrapper inline
    and inherit down. Animation-name comes from the per-type rules
    below. */
-[data-mb-target="img"].mb-animated.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-animated.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-animated.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-animated.mb-triggered > picture > img:first-of-type {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-timing-function: var(--mb-timing);
@@ -756,8 +769,8 @@
    Wrapper holds the range vars; img reads them via inheritance.
    Gated like the wrapper base above (GH #42). */
 @supports (animation-timeline: view()) {
-    [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive > picture > img:first-of-type {
         animation-timeline: view();
         animation-range-start: var(--mb-range-start, entry 0%);
         animation-range-end: var(--mb-range-end, exit 100%);
@@ -769,60 +782,60 @@
 
 /* Per-type animation-name on the img descendant. Mirrors the
    wrapper-target bindings higher up in this file. */
-[data-mb-target="img"].mb-enter-fade.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-fade.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-fade.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-fade.mb-triggered > picture > img:first-of-type {
     animation-name: mbFadeIn;
 }
-[data-mb-target="img"].mb-enter-fade-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-fade-out.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-fade-out.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-fade-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbFadeOut;
 }
-[data-mb-target="img"].mb-enter-slide.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-slide.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-slide.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-slide.mb-triggered > picture > img:first-of-type {
     animation-name: mbSlideIn;
 }
-[data-mb-target="img"].mb-enter-slide-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-slide-out.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-slide-out.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-slide-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbSlideOut;
 }
-[data-mb-target="img"].mb-enter-scale.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-scale.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-scale.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-scale.mb-triggered > picture > img:first-of-type {
     animation-name: mbScaleIn;
 }
-[data-mb-target="img"].mb-enter-scale-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-scale-out.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-scale-out.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-scale-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbScaleOut;
 }
-[data-mb-target="img"].mb-enter-blur.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-blur.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-blur.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-blur.mb-triggered > picture > img:first-of-type {
     animation-name: mbBlurIn;
 }
-[data-mb-target="img"].mb-enter-blur-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-blur-out.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-blur-out.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-blur-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbBlurOut;
 }
-[data-mb-target="img"].mb-enter-rotate.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-rotate.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-rotate.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-rotate.mb-triggered > picture > img:first-of-type {
     animation-name: mbRotateIn;
 }
-[data-mb-target="img"].mb-enter-rotate-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-rotate-out.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-rotate-out.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-rotate-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbRotateOut;
 }
-[data-mb-target="img"].mb-enter-wipe.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-wipe.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-wipe.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-wipe.mb-triggered > picture > img:first-of-type {
     animation-name: mbWipeIn;
 }
-[data-mb-target="img"].mb-enter-curtain.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-curtain.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-curtain.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-curtain.mb-triggered > picture > img:first-of-type {
     animation-name: mbCurtainReveal;
 }
-[data-mb-target="img"].mb-enter-curtain-out.mb-triggered > img:first-of-type,
-[data-mb-target="img"].mb-enter-curtain-out.mb-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-curtain-out.mb-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-curtain-out.mb-triggered > picture > img:first-of-type {
     animation-name: mbCurtainClose;
 }
-[data-mb-target="img"].mb-enter-flip.mb-triggered:not(.mb-settled) > img:first-of-type,
-[data-mb-target="img"].mb-enter-flip.mb-triggered:not(.mb-settled) > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-flip.mb-triggered:not(.mb-settled) > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-enter-flip.mb-triggered:not(.mb-settled) > picture > img:first-of-type {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
@@ -831,60 +844,60 @@
 /* Scroll Interactive bindings on the img, gated like the wrapper
    bindings above. */
 @supports (animation-timeline: view()) {
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade > picture > img:first-of-type {
         animation-name: mbFadeIn;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-fade-out > picture > img:first-of-type {
         animation-name: mbFadeOut;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide > picture > img:first-of-type {
         animation-name: mbSlideIn;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-slide-out > picture > img:first-of-type {
         animation-name: mbSlideOut;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale > picture > img:first-of-type {
         animation-name: mbScaleIn;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-scale-out > picture > img:first-of-type {
         animation-name: mbScaleOut;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur > picture > img:first-of-type {
         animation-name: mbBlurIn;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-blur-out > picture > img:first-of-type {
         animation-name: mbBlurOut;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate > picture > img:first-of-type {
         animation-name: mbRotateIn;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-rotate-out > picture > img:first-of-type {
         animation-name: mbRotateOut;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-wipe > picture > img:first-of-type {
         animation-name: mbWipeIn;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain > picture > img:first-of-type {
         animation-name: mbCurtainReveal;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-curtain-out > picture > img:first-of-type {
         animation-name: mbCurtainClose;
     }
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > img:first-of-type,
-    [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > picture > img:first-of-type {
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > img:first-of-type,
+    :where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive.mb-enter-flip > picture > img:first-of-type {
         animation-name: mbFlipIn;
         backface-visibility: hidden;
         transform-style: preserve-3d;
@@ -903,7 +916,7 @@
  * -------------------------------------------------------------- */
 
 /* Suppress wrapper animation on exit when targeting the img. */
-[data-mb-target="img"].mb-animated.mb-exit-triggered {
+:where(html.mb-motion) [data-mb-target="img"].mb-animated.mb-exit-triggered {
     animation-name: none;
 }
 
@@ -912,8 +925,8 @@
    per-type rules below supply the animation-name. `--mb-delay` is the
    Exit slot's Delay going forward and 0s on the reverse round trip
    (frontend.js handleSlotEnterBack). */
-[data-mb-target="img"].mb-animated.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-animated.mb-exit-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-animated.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-animated.mb-exit-triggered > picture > img:first-of-type {
     animation-duration: var(--mb-duration);
     animation-delay: var(--mb-delay);
     animation-timing-function: var(--mb-timing);
@@ -923,186 +936,25 @@
 }
 
 /* Per-type exit animation-name on the img descendant. */
-[data-mb-target="img"].mb-exit-fade.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-fade.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbFadeOut; }
-[data-mb-target="img"].mb-exit-slide.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-slide.mb-exit-triggered > picture > img:first-of-type   { animation-name: mbSlideOut; }
-[data-mb-target="img"].mb-exit-scale.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-scale.mb-exit-triggered > picture > img:first-of-type   { animation-name: mbScaleOut; }
-[data-mb-target="img"].mb-exit-blur.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-blur.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbBlurOut; }
-[data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > picture > img:first-of-type  { animation-name: mbRotateOut; }
-[data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbWipeOut; }
-[data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > picture > img:first-of-type { animation-name: mbCurtainClose; }
-[data-mb-target="img"].mb-exit-flip.mb-exit-triggered > img:first-of-type,
-[data-mb-target="img"].mb-exit-flip.mb-exit-triggered > picture > img:first-of-type {
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-fade.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-fade.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbFadeOut; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-slide.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-slide.mb-exit-triggered > picture > img:first-of-type   { animation-name: mbSlideOut; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-scale.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-scale.mb-exit-triggered > picture > img:first-of-type   { animation-name: mbScaleOut; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-blur.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-blur.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbBlurOut; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-rotate.mb-exit-triggered > picture > img:first-of-type  { animation-name: mbRotateOut; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-wipe.mb-exit-triggered > picture > img:first-of-type    { animation-name: mbWipeOut; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-curtain.mb-exit-triggered > picture > img:first-of-type { animation-name: mbCurtainClose; }
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-flip.mb-exit-triggered > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-exit-flip.mb-exit-triggered > picture > img:first-of-type {
     animation-name: mbFlipOut;
     backface-visibility: hidden;
     transform-style: preserve-3d;
-}
-
-/* ----------------------------------------------------------------
- * Accessibility: Reduced Motion
- *
- * Pins everything Motion Blocks can animate at its visible rest
- * state: block wrappers, Scroll Interactive wrappers, Stagger
- * children (the parent hands its animation down to them) and the
- * Cover's inner image (Image Zoom / Image Move and every "Animate
- * image only" effect run on `img:first-of-type`, not the wrapper).
- *
- * This selector list MUST stay identical to the three per-device
- * blocks below (GH #26 / #44 — the lists used to drift apart and
- * each missed a different target).
- *
- * `!important` stays: Out presets and Custom effects that end at
- * opacity 0 would otherwise finish hidden through fill-mode, and the
- * runtime-injected Custom / image-effect CSS must not out-rank it.
- *
- * Flip's 3D context (`transform-style: preserve-3d` +
- * `backface-visibility: hidden`) is reset too. It comes from class
- * rules, not the keyframes, so `animation: none` leaves it in place,
- * and `preserve-3d` alone makes the block a containing block for
- * `position: fixed` descendants (GH #20 / #33): a Navigation overlay
- * inside a Flip block stayed trapped even with nothing animating.
- *
- * `filter` is reset in a separate rule that never reaches the Cover
- * image: core duotone sets `filter: url(#wp-duotone-…)` on
- * `.wp-block-cover__image-background`, and with `animation: none`
- * there is no keyframe filter left on the img to clear anyway.
- * -------------------------------------------------------------- */
-@media (prefers-reduced-motion: reduce) {
-    :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        [data-mb-target="img"] > img:first-of-type,
-        [data-mb-target="img"] > picture > img:first-of-type
-    ) {
-        animation: none !important;
-        animation-timeline: none !important;
-        opacity: 1 !important;
-        transform: none !important;
-        clip-path: none !important;
-        transform-style: flat !important;
-        backface-visibility: visible !important;
-    }
-    :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent))
-    ) {
-        filter: none !important;
-    }
-}
-
-/* ----------------------------------------------------------------
- * Per-device disable (post meta → body class → media query)
- *
- *   .mb-disabled-desktop  →  width ≥ 1024px
- *   .mb-disabled-tablet   →  768px ≤ width < 1024px
- *   .mb-disabled-mobile   →  width < 768px
- *
- * Three non-overlapping ranges so a viewport falls into exactly
- * one bucket. Disabling all three is "off everywhere". Each query is
- * a list: the integer min-/max-width form for engines without range
- * syntax (Safari < 16.4), which drop the range part, and the range
- * form, so fractional viewport widths, e.g. 767.5px under browser
- * zoom, still land in exactly one bucket (GH #33). In engines with
- * range syntax the list's union equals the range. DEVICE_QUERIES in
- * src/self-check.js mirrors these.
- *
- * Each rule pins the wrapper, Stagger children and the Cover image
- * at their visible rest state, using the same list as Reduced Motion
- * above, so a disabled animation doesn't play or leave the block
- * stuck at its hidden start frame. The initial-hide rules still
- * match on a disabled device; the `opacity: 1 !important` here is
- * what keeps the block (and each Stagger child) visible. The same rest
- * state flattens Flip's 3D context (see Reduced Motion above).
- * -------------------------------------------------------------- */
-@media (min-width: 1024px), (width >= 1024px) {
-    body.mb-disabled-desktop :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        [data-mb-target="img"] > img:first-of-type,
-        [data-mb-target="img"] > picture > img:first-of-type
-    ) {
-        animation: none !important;
-        animation-timeline: none !important;
-        opacity: 1 !important;
-        transform: none !important;
-        clip-path: none !important;
-        transform-style: flat !important;
-        backface-visibility: visible !important;
-    }
-    body.mb-disabled-desktop :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent))
-    ) {
-        filter: none !important;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px) {
-    body.mb-disabled-tablet :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        [data-mb-target="img"] > img:first-of-type,
-        [data-mb-target="img"] > picture > img:first-of-type
-    ) {
-        animation: none !important;
-        animation-timeline: none !important;
-        opacity: 1 !important;
-        transform: none !important;
-        clip-path: none !important;
-        transform-style: flat !important;
-        backface-visibility: visible !important;
-    }
-    body.mb-disabled-tablet :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent))
-    ) {
-        filter: none !important;
-    }
-}
-
-@media (max-width: 767px), (width < 768px) {
-    body.mb-disabled-mobile :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        [data-mb-target="img"] > img:first-of-type,
-        [data-mb-target="img"] > picture > img:first-of-type
-    ) {
-        animation: none !important;
-        animation-timeline: none !important;
-        opacity: 1 !important;
-        transform: none !important;
-        clip-path: none !important;
-        transform-style: flat !important;
-        backface-visibility: visible !important;
-    }
-    body.mb-disabled-mobile :is(
-        .mb-animated,
-        .mb-mode-scroll-interactive,
-        .mb-stagger-parent > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-        .mb-stagger-parent > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent))
-    ) {
-        filter: none !important;
-    }
 }
 
 /* ----------------------------------------------------------------
@@ -1143,7 +995,6 @@
  * there exactly as the wrapper's own children would. `:where()` adds
  * no specificity, so both forms
  * weigh exactly what `> *` did and block-theme output is unchanged.
- * The Reduced Motion and per-device lists above use the same pair.
  *
  * Spacers are skipped in both forms. They're empty, so animating
  * one shows nothing, and it used to take a step in the sequence, so
@@ -1184,7 +1035,7 @@
    (0,3,0) rule, later in the file, wins. frontend.js and the editor
    don't bind a Custom keyframe inline on a Stagger parent; they only
    hand its name to the children through `--mb-stagger-anim-name`. */
-.mb-stagger-parent.mb-animated:is(.mb-triggered, .mb-exit-triggered, .mb-mode-scroll-interactive) {
+:where(html.mb-motion) .mb-stagger-parent.mb-animated:is(.mb-triggered, .mb-exit-triggered, .mb-mode-scroll-interactive) {
     animation-name: none;
 }
 
@@ -1192,28 +1043,27 @@
    "before triggered" rule but applied to the kids. Scroll Appear
    gates on `.mb-has-entry` (slot model) so Exit-only blocks don't
    hide their kids before the entry animation has anything to do.
-   Not armed under reduced motion (see Initial Hidden States). */
-@media (prefers-reduced-motion: no-preference) {
-    :where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-    :where(html.mb-js) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-    :where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-    :where(html.mb-js) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
-        opacity: 0;
-    }
+   Behind the motion gate like the wrapper hide rules (see Initial
+   Hidden States). */
+:where(html.mb-motion) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-mode-page-load:not(.mb-triggered) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-mode-scroll-appear.mb-has-entry:not(.mb-triggered):not(.mb-exit-triggered) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+    opacity: 0;
 }
 
 /* Page Load "Out" preset inner blocks start visible — invert the
    hide above. Scroll Appear no longer uses Out variants under the
    slot model (the Exit slot's `mb-exit-{type}` class encodes
    direction directly), so no Scroll Appear selectors here. */
-.mb-stagger-parent:is(
+:where(html.mb-motion) .mb-stagger-parent:is(
         .mb-enter-fade-out,
         .mb-enter-slide-out,
         .mb-enter-scale-out,
         .mb-enter-blur-out,
         .mb-enter-rotate-out
     ).mb-mode-page-load:not(.mb-triggered) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent:is(
+:where(html.mb-motion) .mb-stagger-parent:is(
         .mb-enter-fade-out,
         .mb-enter-slide-out,
         .mb-enter-scale-out,
@@ -1237,8 +1087,8 @@
    the parent. Specificity (0,2,0), after `.mb-animated.mb-triggered`
    in source order, so a child that is itself animated still takes
    the stagger delay. */
-.mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+:where(html.mb-motion) .mb-stagger-parent.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-duration: var(--mb-duration);
     animation-fill-mode: var(--mb-fill-mode, both);
     animation-timing-function: var(--mb-timing);
@@ -1257,40 +1107,40 @@
    inherits down the cascade to inner blocks, which read it back
    here. `image-move` is excluded — it's a scroll-interactive
    parallax preset which doesn't use the `.mb-triggered` toggle. */
-.mb-stagger-parent.mb-enter-fade.mb-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-fade.mb-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbFadeIn; }
-.mb-stagger-parent.mb-enter-fade-out.mb-triggered   > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-fade-out.mb-triggered   > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbFadeOut; }
-.mb-stagger-parent.mb-enter-slide.mb-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-slide.mb-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbSlideIn; }
-.mb-stagger-parent.mb-enter-slide-out.mb-triggered  > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-slide-out.mb-triggered  > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbSlideOut; }
-.mb-stagger-parent.mb-enter-scale.mb-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-scale.mb-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbScaleIn; }
-.mb-stagger-parent.mb-enter-scale-out.mb-triggered  > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-scale-out.mb-triggered  > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbScaleOut; }
-.mb-stagger-parent.mb-enter-rotate.mb-triggered     > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-rotate.mb-triggered     > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbRotateIn; }
-.mb-stagger-parent.mb-enter-rotate-out.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-rotate-out.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbRotateOut; }
-.mb-stagger-parent.mb-enter-blur.mb-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-blur.mb-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbBlurIn; }
-.mb-stagger-parent.mb-enter-blur-out.mb-triggered   > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-blur-out.mb-triggered   > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbBlurOut; }
-.mb-stagger-parent.mb-enter-wipe.mb-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-wipe.mb-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbWipeIn; }
-.mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainReveal; }
-.mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainClose; }
-.mb-stagger-parent.mb-enter-flip.mb-triggered:not(.mb-settled) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-flip.mb-triggered:not(.mb-settled) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-fade.mb-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-fade.mb-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbFadeIn; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-fade-out.mb-triggered   > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-fade-out.mb-triggered   > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbFadeOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-slide.mb-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-slide.mb-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbSlideIn; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-slide-out.mb-triggered  > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-slide-out.mb-triggered  > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbSlideOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-scale.mb-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-scale.mb-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbScaleIn; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-scale-out.mb-triggered  > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-scale-out.mb-triggered  > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbScaleOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-rotate.mb-triggered     > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-rotate.mb-triggered     > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbRotateIn; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-rotate-out.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-rotate-out.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbRotateOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-blur.mb-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-blur.mb-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbBlurIn; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-blur-out.mb-triggered   > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-blur-out.mb-triggered   > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbBlurOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-wipe.mb-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-wipe.mb-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbWipeIn; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-curtain.mb-triggered    > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainReveal; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-curtain-out.mb-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainClose; }
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-flip.mb-triggered:not(.mb-settled) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-flip.mb-triggered:not(.mb-settled) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-name: mbFlipIn;
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
-.mb-stagger-parent.mb-enter-custom.mb-triggered  > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-enter-custom.mb-triggered  > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-custom.mb-triggered  > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-enter-custom.mb-triggered  > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-name: var(--mb-stagger-anim-name, none);
 }
 
@@ -1298,30 +1148,30 @@
    Exit slot filled, inner blocks need their own animation-name on
    `.mb-exit-triggered`. Mirrors the enter-phase bindings above —
    one rule per type. */
-.mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbFadeOut; }
-.mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbSlideOut; }
-.mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbScaleOut; }
-.mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbRotateOut; }
-.mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbBlurOut; }
-.mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbWipeOut; }
-.mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainClose; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-fade.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbFadeOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-slide.mb-exit-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbSlideOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-scale.mb-exit-triggered      > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbScaleOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-rotate.mb-exit-triggered     > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbRotateOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-blur.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbBlurOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-wipe.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbWipeOut; }
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-curtain.mb-exit-triggered    > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) { animation-name: mbCurtainClose; }
 /* Flip needs the 3D context on each child, like the enter-phase
    stagger rule above — a plain one-liner would squash instead. */
-.mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-flip.mb-exit-triggered       > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-name: mbFlipOut;
     backface-visibility: hidden;
     transform-style: preserve-3d;
 }
-.mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-custom.mb-exit-triggered     > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-name: var(--mb-exit-anim-name, none);
 }
 
@@ -1334,8 +1184,8 @@
    animate (see the stagger-parent suppression above), so without
    this the children replayed the Out keyframe forward on the way
    back up and stayed hidden (GH #51). */
-.mb-stagger-parent.mb-exit-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-exit-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-triggered > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-exit-triggered > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
     animation-duration: var(--mb-duration);
     animation-fill-mode: both;
     animation-timing-function: var(--mb-timing);
@@ -1381,14 +1231,11 @@
  * Two traps: (1) ending a keyframe at `transform: none` doesn't help,
  * it still resolves to a matrix; (2) removing `.mb-settled` replays
  * the animation, so nothing may ever remove it.
- *
- * Written as plain selector lists, not `:is()`, so they can't be
- * mistaken for the motion-off rest rules above.
  * -------------------------------------------------------------- */
-.mb-animated.mb-triggered.mb-settled,
-.mb-stagger-parent.mb-triggered.mb-settled > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-.mb-stagger-parent.mb-triggered.mb-settled > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
-[data-mb-target="img"].mb-triggered.mb-settled > img:first-of-type,
-[data-mb-target="img"].mb-triggered.mb-settled > picture > img:first-of-type {
+:where(html.mb-motion) .mb-animated.mb-triggered.mb-settled,
+:where(html.mb-motion) .mb-stagger-parent.mb-triggered.mb-settled > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) .mb-stagger-parent.mb-triggered.mb-settled > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+:where(html.mb-motion) [data-mb-target="img"].mb-triggered.mb-settled > img:first-of-type,
+:where(html.mb-motion) [data-mb-target="img"].mb-triggered.mb-settled > picture > img:first-of-type {
     animation: none;
 }

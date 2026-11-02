@@ -211,7 +211,8 @@ function mb_self_check_list( $count, $attrs, $color = null ) {
 	for ( $i = 1; $i <= $count; $i++ ) {
 		$items .= "<!-- wp:list-item --><li>Item {$i}</li><!-- /wp:list-item -->";
 	}
-	return mb_self_check_block( 'list', $attrs, "<ul class=\"wp-block-list{$class}\"{$style}>{$items}</ul>" );
+	$theme = empty( $attrs['className'] ) ? '' : ' ' . esc_attr( $attrs['className'] );
+	return mb_self_check_block( 'list', $attrs, "<ul class=\"wp-block-list{$theme}{$class}\"{$style}>{$items}</ul>" );
 }
 
 /**
@@ -313,14 +314,128 @@ function mb_self_check_cover( $image, $attrs, $label = 'Cover · Page Load · Im
 		),
 		$attrs
 	);
-	$url  = esc_url( $image['url'] );
-	$html = '<div class="wp-block-cover">'
+	$url   = esc_url( $image['url'] );
+	$class = empty( $attrs['className'] ) ? '' : ' ' . esc_attr( $attrs['className'] );
+	$html  = "<div class=\"wp-block-cover{$class}\">"
 		. "<img class=\"wp-block-cover__image-background wp-image-{$image['id']}\" alt=\"\" src=\"{$url}\" data-object-fit=\"cover\"/>"
 		. '<span aria-hidden="true" class="wp-block-cover__background has-background-dim-0 has-background-dim"></span>'
 		. '<div class="wp-block-cover__inner-container">'
 		. mb_self_check_paragraph( $label )
 		. '</div></div>';
 	return mb_self_check_block( 'cover', $attrs, $html );
+}
+
+/**
+ * An animated group carrying a theme class (styled by the theme-styles
+ * pages' <style>), for the motion-off fixtures (#53).
+ */
+function mb_self_check_themed_group( $label, $theme_class, $attrs, $color ) {
+	$attrs['className'] = $theme_class;
+	$attrs['layout']    = array( 'type' => 'constrained' );
+	list( $attrs, $class, $style ) = mb_self_check_tint( $attrs, $color );
+	return mb_self_check_block(
+		'group',
+		$attrs,
+		"<div class=\"wp-block-group {$theme_class}{$class}\"{$style}>\n"
+		. mb_self_check_paragraph( $label )
+		. '</div>'
+	);
+}
+
+/**
+ * Animated blocks whose theme CSS sets the properties the motion rules
+ * use (opacity, transform, filter, clip-path), on the wrapper, on
+ * Stagger children and on a Cover image. With motion off, all of it
+ * must show exactly as the theme wrote it (#53).
+ */
+function mb_self_check_theme_styled( $image ) {
+	$page_load = array(
+		'animationMode'     => 'page-load',
+		'animationDuration' => 0.4,
+		'animationDelay'    => 0,
+	);
+	$scroll = array(
+		'animationMode'       => 'scroll-appear',
+		'animationEntryDelay' => 0,
+	);
+	$out = mb_self_check_block(
+		'html',
+		array(),
+		'<style>'
+		. '.mb-sc-th-opacity{opacity:.6}'
+		. '.mb-sc-th-transform{transform:rotate(-2deg)}'
+		. '.mb-sc-th-filter{filter:saturate(.2)}'
+		. '.mb-sc-th-clip{clip-path:inset(0 0 0 24px round 16px)}'
+		. '.mb-sc-th-items>li{opacity:.6;transform:translateX(16px);filter:saturate(.2)}'
+		. '.mb-sc-th-img>img{opacity:.6}'
+		. '</style>'
+	)
+		. mb_self_check_themed_group(
+			'Group · Page Load · Fade Out · theme opacity 0.6',
+			'mb-sc-th-opacity',
+			array_merge( $page_load, array( 'animationType' => 'fade-out' ) ),
+			MB_SELF_CHECK_COLORS['paragraph']
+		)
+		. mb_self_check_themed_group(
+			'Group · Page Load · Slide up · theme opacity 0.6 + rotate(-2deg)',
+			'mb-sc-th-opacity mb-sc-th-transform',
+			array_merge(
+				$page_load,
+				array(
+					'animationType'      => 'slide',
+					'animationDirection' => 'btt',
+				)
+			),
+			MB_SELF_CHECK_COLORS['slide']
+		)
+		. mb_self_check_themed_group(
+			'Group · Scroll Appear · Entry: Blur · theme filter saturate(0.2)',
+			'mb-sc-th-filter',
+			array_merge( $scroll, array( 'animationEntryType' => 'blur' ) ),
+			MB_SELF_CHECK_COLORS['group']
+		)
+		. mb_self_check_themed_group(
+			'Group · Scroll Appear · Entry: Wipe · theme clip-path (24px off the left, rounded)',
+			'mb-sc-th-clip',
+			array_merge( $scroll, array( 'animationEntryType' => 'wipe' ) ),
+			MB_SELF_CHECK_COLORS['group']
+		)
+		. mb_self_check_themed_group(
+			'Group · Scroll Interactive · Rotate · theme rotate(-2deg)',
+			'mb-sc-th-transform',
+			array(
+				'animationMode' => 'scroll-interactive',
+				'animationType' => 'rotate',
+			),
+			MB_SELF_CHECK_COLORS['scroll-interactive']
+		)
+		. mb_self_check_list(
+			3,
+			array_merge(
+				$page_load,
+				array(
+					'className'               => 'mb-sc-th-items',
+					'animationType'           => 'slide',
+					'animationStaggerEnabled' => true,
+				)
+			),
+			MB_SELF_CHECK_COLORS['list']
+		);
+	if ( $image ) {
+		$out .= mb_self_check_cover(
+			$image,
+			array_merge(
+				$page_load,
+				array(
+					'className'             => 'mb-sc-th-img',
+					'animationType'         => 'fade',
+					'animationFromToTarget' => 'img',
+				)
+			),
+			'Cover · Page Load · Fade · Animate image only · theme image opacity 0.6'
+		);
+	}
+	return $out;
 }
 
 /**
@@ -990,6 +1105,26 @@ function mb_self_check_fixtures( $image ) {
 	} else {
 		mb_self_check_warn( 'No image available (empty media library and no GD): skipping the motion-off fixture.' );
 	}
+
+	$theme_note = 'Each block\'s theme CSS sets one of the properties Motion Blocks animates: opacity 0.6 on a Fade Out and a Slide group, rotate(-2deg) on the Slide and Scroll Interactive groups, a desaturating filter on a Blur group, a rounded clip-path on a Wipe group, all three on each item of a staggered list, and opacity 0.6 on a Cover image set to "Animate image only". ';
+	$fixtures['theme-styles'] = array(
+		'title'                 => 'Theme styles, reduced motion',
+		'note'                  => $theme_note . 'With reduced motion on, nothing moves and every block shows exactly those styles: faded, tilted, desaturated, clipped (#53). With reduced motion off, the blocks animate as usual.',
+		'content'               => mb_self_check_theme_styled( $image ),
+		'expect'                => array(),
+		'expect_reduced_motion' => array(),
+	);
+	$fixtures['theme-styles-device-off'] = array(
+		'title'   => 'Theme styles, animations off',
+		'note'    => $theme_note . 'Animations are turned off for this page on every device, so nothing moves and every block shows exactly those styles: faded, tilted, desaturated, clipped (#53).',
+		'content' => mb_self_check_theme_styled( $image ),
+		'meta'    => array(
+			'mb_disabled_desktop' => '1',
+			'mb_disabled_tablet'  => '1',
+			'mb_disabled_mobile'  => '1',
+		),
+		'expect'  => array(),
+	);
 
 	$fixtures['no-animations'] = array(
 		'title'   => 'No animations',

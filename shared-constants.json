@@ -272,5 +272,11 @@
 		"animationFromToTarget": "block",
 		"animationStaggerEnabled": false,
 		"animationStaggerStep": 0.1
+	},
+	"_README_deviceQueries": "Viewport bucket for each per-device disable toggle (post meta mb_disabled_desktop / _tablet / _mobile). Three non-overlapping ranges, so every width lands in exactly one bucket. Each is a list: the integer min-/max-width form for engines without range syntax (Safari < 16.4), which drop the range part, and the range form, so fractional widths (767.5px under browser zoom) still land in exactly one bucket (GH #33). Read by the head script in motion_blocks_print_js_marker(), src/motion-gate.js and the self-check (tests/unit/device-breakpoints.test.js).",
+	"deviceQueries": {
+		"desktop": "(min-width: 1024px), (width >= 1024px)",
+		"tablet": "(min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px)",
+		"mobile": "(max-width: 767px), (width < 768px)"
 	}
 }

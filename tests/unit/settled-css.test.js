@@ -257,3 +257,26 @@ describe( 'image-effect safety net (#53)', () => {
 		expect( others ).toEqual( [] );
 	} );
 } );
+
+describe( 'no inline keyframe binding (#53)', () => {
+	const read = ( file ) =>
+		fs
+			.readFileSync(
+				path.join( __dirname, '..', '..', 'src', file ),
+				'utf8'
+			)
+			// Comments may describe the old binding.
+			.replace( /\/\*[\s\S]*?\*\//g, '' )
+			.replace( /\/\/.*$/gm, '' );
+
+	// Without `!important`, the settled rule and the safety net lose to
+	// an inline `animation-name`, so the front end must never set one.
+	// (A wrapper whose other Scroll Appear slot is an image effect
+	// without its image isn't left to the safety net either: the Custom
+	// slot rules out-weigh it, so frontend.js builds no keyframe there.)
+	it( 'frontend.js names keyframes in variables, never inline', () => {
+		expect( read( 'frontend.js' ) ).not.toMatch(
+			/style\.animationName\s*=|setProperty\(\s*'animation-name'/
+		);
+	} );
+} );

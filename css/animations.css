@@ -16,11 +16,15 @@
  * CSS Custom Properties
  * -------------------------------------------------------------- */
 /* Timing applies to every animated block, Stagger children included
-   (they take their own duration / delay / timing). */
+   (they take their own duration / delay / timing). So does the Custom
+   keyframe name: a block that names none mustn't inherit an outer
+   block's, and a Stagger child never needs its parent's (it reads
+   `--mb-stagger-anim-name`). */
 .mb-animated {
     --mb-duration: 0.6s;
     --mb-delay: 0.4s;
     --mb-timing: ease;
+    --mb-custom-anim-name: none;
 }
 
 /* Every other per-effect setting is declared on each animated block
@@ -53,7 +57,6 @@
     --mb-flip-transform: rotateY(90deg);
     --mb-range-start: entry 0%;
     --mb-range-end: exit 100%;
-    --mb-custom-anim-name: none;
 }
 
 /* ----------------------------------------------------------------
@@ -678,10 +681,12 @@
    image-effect safety net can unbind it without `!important` (#53).
    The editor preview sets the same variable, and its Scroll Appear
    preview (no `mb-mode-*` class) reads it for either slot. The
-   Scroll Appear rules above out-rank both rules on the front end. */
-.mb-enter-custom.mb-triggered {
-    animation-name: var(--mb-custom-anim-name, none);
-}
+   Scroll Appear rules above out-rank this one on the front end.
+
+   A Custom block that is itself a Stagger child plays its parent's
+   stagger effect, like every other animated child: the Stagger child
+   rules (0,3,0) out-weigh this (0,2,0) rule. */
+.mb-enter-custom.mb-triggered,
 .mb-exit-custom.mb-exit-triggered {
     animation-name: var(--mb-custom-anim-name, none);
 }

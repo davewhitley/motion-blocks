@@ -707,7 +707,8 @@
 
 // Custom (Start / End) — no shared keyframe. Each block gets a
 // unique @keyframes injected by withAnimationPreview as a sibling
-// <style> next to BlockListBlock. animation-name is set inline.
+// <style> next to BlockListBlock. Its name goes in
+// `--mb-custom-anim-name`, which the Custom rules in animations.css read.
 
 // Exit
 @keyframes mbFadeOut { from { opacity: 1; } to { opacity: 0; } }

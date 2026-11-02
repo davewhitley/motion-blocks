@@ -22,6 +22,13 @@
 
 import { staggerTargets, STAGGER_INDEX_VAR } from './stagger-index';
 import { imgTargetsOf } from './img-target';
+import {
+	MOTION_CLASS,
+	currentDevice as deviceFor,
+	deviceQueries,
+	disabledDevicesFrom,
+	motionWanted,
+} from './motion-gate';
 
 ( function () {
 	'use strict';
@@ -45,13 +52,20 @@ import { imgTargetsOf } from './img-target';
 		'(prefers-reduced-motion: reduce)'
 	);
 
-	// Per-device disable breakpoints. Mirror the media queries in
-	// animations.css ("Per-device disable").
-	var DEVICE_QUERIES = {
-		desktop: '(min-width: 1024px), (width >= 1024px)',
-		tablet: '(min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px)',
-		mobile: '(max-width: 767px), (width < 768px)',
-	};
+	// Properties the motion rules set. With motion off, the plugin's CSS
+	// must leave every one of them to the theme (#53).
+	var MOTION_PROPS = [
+		'opacity',
+		'transform',
+		'translate',
+		'rotate',
+		'scale',
+		'filter',
+		'clip-path',
+		'transform-style',
+		'backface-visibility',
+		'animation-name',
+	];
 
 	// Element → first time it was seen on screen, hidden and untriggered.
 	var hiddenSince = new Map();
@@ -106,27 +120,33 @@ import { imgTargetsOf } from './img-target';
 		return list.filter( isOurAnimation );
 	}
 
+	// Per-device disable buckets: core's viewport breakpoints, as PHP
+	// printed them (motion_blocks_device_media_queries()).
+	var DEVICE_QUERIES = deviceQueries( window );
+
 	function currentDevice() {
-		for ( var device in DEVICE_QUERIES ) {
-			if ( window.matchMedia( DEVICE_QUERIES[ device ] ).matches ) {
-				return device;
-			}
-		}
-		return null;
+		return deviceFor( function ( query ) {
+			return window.matchMedia( query );
+		}, DEVICE_QUERIES );
 	}
 
 	/**
-	 * Reduced motion, or animations disabled for this page on this
-	 * device: the CSS pins every block at rest, so nothing is hidden and
-	 * nothing is expected to play.
+	 * The motion gate is closed (`html.mb-motion` off: reduced motion,
+	 * or animations disabled for this page on this device): none of the
+	 * plugin's motion rules apply, so nothing is hidden and nothing is
+	 * expected to play. Whether the class is right is checkMotionGate's
+	 * job.
 	 */
 	function motionIsOff() {
-		var device = currentDevice();
-		return (
-			reducedMotionQuery.matches ||
-			( !! device &&
-				document.body.classList.contains( 'mb-disabled-' + device ) )
-		);
+		return ! document.documentElement.classList.contains( MOTION_CLASS );
+	}
+
+	/**
+	 * Whether motion should be on, from the actual reduced-motion
+	 * setting, device bucket and disabled devices (src/motion-gate.js).
+	 */
+	function motionShouldBeOn() {
+		return motionWanted( window, disabledDevicesFrom( document.body ) );
 	}
 
 	function issue( id, severity, el, message, ref ) {
@@ -616,8 +636,9 @@ import { imgTargetsOf } from './img-target';
 	}
 
 	/**
-	 * The elements a block's animation runs on, which the motion-off
-	 * and `.mb-settled` CSS pin at rest: the wrapper, a Stagger parent's
+	 * The elements a block's animation runs on, which the `.mb-settled`
+	 * CSS returns to rest and which the motion gate leaves to the theme
+	 * when it's closed: the wrapper, a Stagger parent's
 	 * children (both forms, GH #66) and an img-target block's
 	 * `> img:first-of-type` (it can't hold a fixed descendant, so the
 	 * scan below finds nothing there, but its animations count).
@@ -649,22 +670,30 @@ import { imgTargetsOf } from './img-target';
 	 * that can animate again (a Replay, an Exit, loops) keep their fill
 	 * by design and are still reported, so the check stays proven.
 	 *
-	 * With motion off (reduced motion or a disabled device) nothing
-	 * runs, and once a block has settled its animation is dropped, so
-	 * instead every element the CSS pins at rest must be free of
-	 * containing-block sources: Flip's `transform-style: preserve-3d`
-	 * comes from a class rule, not a keyframe, so `animation: none`
-	 * alone doesn't remove it.
+	 * Once a block has settled its animation is dropped, so instead
+	 * every element it ran on must be free of containing-block sources:
+	 * Flip's `transform-style: preserve-3d` comes from a class rule, not
+	 * a keyframe, so `animation: none` alone doesn't remove it.
+	 *
+	 * With motion off (reduced motion or a disabled device) none of the
+	 * plugin's motion rules apply, so a transform or filter left on a
+	 * block is the theme's. checkThemeStyles proves that, so this check
+	 * stands down (#53).
 	 */
 	function checkFixedTrap() {
 		var found = [];
-		var off = motionIsOff();
+		if ( motionIsOff() ) {
+			return found;
+		}
 		document.querySelectorAll( '.mb-animated' ).forEach( function ( el ) {
 			var targets = restTargets( el );
-			var settled = el.classList.contains( 'mb-settled' );
 			var t;
-			if ( off || settled ) {
-				for ( t = 0; t < targets.length; t++ ) {
+			if ( el.classList.contains( 'mb-settled' ) ) {
+				// A settled Stagger parent never animated itself, and the
+				// settled CSS leaves it alone, so a transform or filter on
+				// it is the theme's, not ours (#53).
+				var skipParent = el.classList.contains( 'mb-stagger-parent' );
+				for ( t = skipParent ? 1 : 0; t < targets.length; t++ ) {
 					if ( ! containsFixed( targets[ t ] ) ) {
 						continue;
 					}
@@ -676,10 +705,7 @@ import { imgTargetsOf } from './img-target';
 								'error',
 								el,
 								blockLabel( targets[ t ] ) +
-									( off
-										? ' is pinned at rest because motion is off'
-										: ' has settled after its animation finished' ) +
-									', but still traps fixed-position content, so the ' +
+									' has settled after its animation finished, but still traps fixed-position content, so the ' +
 									blockLabel( trapped ) +
 									' inside it is placed relative to the block instead of the screen.',
 								null
@@ -728,6 +754,155 @@ import { imgTargetsOf } from './img-target';
 		return found;
 	}
 
+	/**
+	 * `html.mb-motion` must match the visitor's actual state: on unless
+	 * reduced motion is on or animations are disabled for this page on
+	 * the current device. Set by the head script
+	 * (motion_blocks_print_js_marker) and by frontend.js after init; a
+	 * drift between their copies of the decision, or a listener that
+	 * missed a change, shows up here (#53).
+	 */
+	function checkMotionGate() {
+		var want = motionShouldBeOn();
+		if ( want === ! motionIsOff() ) {
+			return [];
+		}
+		var why;
+		if ( reducedMotionQuery.matches ) {
+			why = 'reduced motion is on';
+		} else if ( ! want ) {
+			why =
+				'animations are disabled on ' +
+				currentDevice() +
+				' for this page';
+		} else {
+			why =
+				'reduced motion is off and animations aren’t disabled on ' +
+				( currentDevice() || 'this device' );
+		}
+		return [
+			issue(
+				'motion-gate-mismatch',
+				'error',
+				document.body,
+				'Motion is ' +
+					( want ? 'off' : 'on' ) +
+					' (html.' +
+					MOTION_CLASS +
+					' is ' +
+					( want ? 'missing' : 'set' ) +
+					'), but ' +
+					why +
+					'.',
+				53
+			),
+		];
+	}
+
+	/**
+	 * The plugin's stylesheet and the CSS frontend.js injects.
+	 */
+	function ourStyleSheets() {
+		var sheets = [];
+		document
+			.querySelectorAll( '#motion-blocks-styles-css, style[data-mb-custom]' )
+			.forEach( function ( node ) {
+				if ( node.sheet ) {
+					sheets.push( node.sheet );
+				}
+			} );
+		return sheets;
+	}
+
+	function motionStyles( el ) {
+		var cs = getComputedStyle( el );
+		return MOTION_PROPS.map( function ( prop ) {
+			return cs.getPropertyValue( prop );
+		} );
+	}
+
+	/**
+	 * With motion off, the plugin's CSS must leave the theme's styles
+	 * alone: every block, Stagger child and Cover image must look exactly
+	 * as it would without the plugin's stylesheets. The reset rules this
+	 * gate replaced forced `opacity: 1`, `transform: none`, `filter:
+	 * none` and `clip-path: none` with `!important`, wiping a theme's
+	 * styling on every animated block (#53).
+	 *
+	 * Measured by switching the stylesheets off for a moment (no frame is
+	 * painted in between), against the actual reduced-motion and device
+	 * state rather than the class, so a wrong class can't hide a leak.
+	 */
+	function checkThemeStyles() {
+		if ( motionShouldBeOn() ) {
+			return [];
+		}
+		var sheets = ourStyleSheets();
+		if ( ! sheets.length ) {
+			return [];
+		}
+		var pairs = [];
+		document.querySelectorAll( '.mb-animated' ).forEach( function ( el ) {
+			restTargets( el ).forEach( function ( target ) {
+				pairs.push( { block: el, target: target } );
+			} );
+		} );
+		var shown = pairs.map( function ( pair ) {
+			return motionStyles( pair.target );
+		} );
+		var theme;
+		try {
+			sheets.forEach( function ( sheet ) {
+				sheet.disabled = true;
+			} );
+			theme = pairs.map( function ( pair ) {
+				return motionStyles( pair.target );
+			} );
+		} finally {
+			sheets.forEach( function ( sheet ) {
+				sheet.disabled = false;
+			} );
+		}
+		var found = [];
+		var reported = new Set();
+		pairs.forEach( function ( pair, i ) {
+			if ( reported.has( pair.block ) ) {
+				return;
+			}
+			for ( var p = 0; p < MOTION_PROPS.length; p++ ) {
+				if ( shown[ i ][ p ] === theme[ i ][ p ] ) {
+					continue;
+				}
+				reported.add( pair.block );
+				var part =
+					pair.target === pair.block
+						? ''
+						: pair.target.tagName === 'IMG'
+						? ' (its image)'
+						: ' (its inner blocks)';
+				found.push(
+					issue(
+						'theme-style-overridden',
+						'error',
+						pair.block,
+						blockLabel( pair.block ) +
+							part +
+							' shows ' +
+							MOTION_PROPS[ p ] +
+							': ' +
+							shown[ i ][ p ] +
+							' instead of the theme’s ' +
+							theme[ i ][ p ] +
+							', although motion is off. With motion off, Motion Blocks must leave the theme’s styles alone.',
+						53
+					)
+				);
+				return;
+			}
+		} );
+		return found;
+	}
+
 	/* ---------------------------------------------------------------
 	 * Run
 	 * ------------------------------------------------------------- */
@@ -762,7 +937,9 @@ import { imgTargetsOf } from './img-target';
 			.concat( checkDisabledDevice() )
 			.concat( checkNeverAnimated( api ) )
 			.concat( checkStaggerOrder() )
-			.concat( checkFixedTrap() );
+			.concat( checkFixedTrap() )
+			.concat( checkMotionGate() )
+			.concat( checkThemeStyles() );
 	}
 
 	var followUpTimer = null;

@@ -13,9 +13,14 @@
  *   - missing-block:  a block type that isn't registered
  *   - block-warning:  a warning or crash notice rendered in the canvas
  *   - console-error:  console errors and uncaught exceptions since load
+ *   - motion-gate:    the canvas has no `html.mb-motion`, so no preview
+ *                     can play (#53)
+ *   - preview-not-playing: pressing Play on the first Page Load block
+ *                     started no animation in the canvas (checked with
+ *                     reduced motion on too: previews always play)
  */
 
-import { select } from '@wordpress/data';
+import { select, dispatch } from '@wordpress/data';
 import { menuOverlayBlockers } from './components/menuOverlay';
 
 /**
@@ -102,6 +107,99 @@ function canvasDocument() {
 	return ( iframe && iframe.contentDocument ) || document;
 }
 
+const PREVIEW_STORE = 'motion-blocks/editor-preview';
+
+/**
+ * Waits for the canvas to carry `html.mb-motion`. The class comes from
+ * an inline script in the canvas iframe's <head>, so it's there as soon
+ * as the canvas document is; but the iframe starts out as a blank page
+ * and is rebuilt whenever the editor's asset list changes, and on a slow
+ * machine the blocks can be in the store before the canvas has loaded.
+ *
+ * @param {number} timeoutMs How long to wait.
+ * @return {Promise<string|null>} null when the class is there, otherwise
+ *                                 what the canvas looked like.
+ */
+async function waitForMotionGate( timeoutMs ) {
+	const start = Date.now();
+	for ( ;; ) {
+		const doc = canvasDocument();
+		if ( doc.documentElement.classList.contains( 'mb-motion' ) ) {
+			return null;
+		}
+		if ( Date.now() - start >= timeoutMs ) {
+			const iframe = document.querySelector(
+				'iframe[name="editor-canvas"]'
+			);
+			return iframe
+				? `iframed canvas, ${ doc.readyState }, ${
+						doc.URL.split( ':' )[ 0 ]
+				  } document, classes "${ doc.documentElement.className }"`
+				: `canvas not iframed, classes "${ doc.documentElement.className }"`;
+		}
+		await wait( 200 );
+	}
+}
+
+/**
+ * Press Play on the first plain Page Load block (a preset effect on the
+ * block itself) and wait for one of our animations to run on it in the
+ * canvas. Returns an issue, or null when it played or there was nothing
+ * to try. The block has to be selected: unselected blocks defer their
+ * updates, and Play stops when the block leaves the selection.
+ */
+async function checkPreviewPlays() {
+	let target = null;
+	walk( select( 'core/block-editor' ).getBlocks(), ( block ) => {
+		const a = block.attributes || {};
+		if (
+			! target &&
+			block.isValid !== false &&
+			a.animationMode === 'page-load' &&
+			a.animationType &&
+			! /^(custom|image-)/.test( a.animationType ) &&
+			! a.animationStaggerEnabled &&
+			a.animationFromToTarget !== 'img'
+		) {
+			target = block;
+		}
+	} );
+	const preview = dispatch( PREVIEW_STORE );
+	if ( ! target || ! preview || ! preview.setPreview ) {
+		return null;
+	}
+	const editor = dispatch( 'core/block-editor' );
+	const id = target.clientId;
+	editor.selectBlock( id );
+	await wait( 300 );
+	preview.setPreview( [ id ], { animationPreviewPlaying: true } );
+	let played = false;
+	for ( let i = 0; i < 30 && ! played; i++ ) {
+		await wait( 100 );
+		const el = canvasDocument().querySelector( `[data-block="${ id }"]` );
+		played =
+			!! el &&
+			el
+				.getAnimations( { subtree: true } )
+				.some( ( anim ) => /^mb/i.test( anim.animationName || '' ) );
+	}
+	preview.setPreview( [ id ], { animationPreviewPlaying: false } );
+	editor.clearSelectedBlock();
+	if ( played ) {
+		return null;
+	}
+	const reduced = window.matchMedia(
+		'(prefers-reduced-motion: reduce)'
+	).matches;
+	return {
+		id: 'preview-not-playing',
+		clientId: id,
+		message: `Pressing Play on ${ describe( target ) } started no animation in the canvas${
+			reduced ? ' (reduced motion is on; previews should play anyway)' : ''
+		}.`,
+	};
+}
+
 async function editorCheck( options = {} ) {
 	// Give blocks a moment to render after the editor is ready, so
 	// render-time crashes and warnings are on the page.
@@ -167,6 +265,22 @@ async function editorCheck( options = {} ) {
 					.slice( 0, 160 ) }”`,
 			} );
 		} );
+
+	// Motion gate (#53): the animation rules only apply under
+	// `html.mb-motion`, which motion_blocks_enqueue_block_assets() adds
+	// to the canvas unconditionally.
+	const gateMissing = await waitForMotionGate( options.timeoutMs ?? 10000 );
+	if ( gateMissing ) {
+		results.push( {
+			id: 'motion-gate',
+			message: `The editor canvas has no html.mb-motion class, so animation previews can’t play (${ gateMissing }).`,
+		} );
+	} else if ( options.playPreview !== false ) {
+		const notPlaying = await checkPreviewPlays();
+		if ( notPlaying ) {
+			results.push( notPlaying );
+		}
+	}
 
 	consoleErrors.forEach( ( message ) => {
 		if ( message.startsWith( 'Block validation:' ) ) {

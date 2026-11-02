@@ -152,6 +152,14 @@ function motion_blocks_enqueue_editor_assets() {
         plugin_dir_path( __FILE__ ) . 'languages'
     );
 
+    // The Page panel's per-device toggles show the range each one
+    // covers, from the same queries the front end uses.
+    wp_add_inline_script(
+        'motion-blocks-editor',
+        motion_blocks_device_queries_script(),
+        'before'
+    );
+
     // Beta flag bridge: expose the live-preview opt-in to the editor
     // bundle as a global it reads at load (LIVE_SCROLL_PREVIEW_OK in
     // src/index.js). 'before' so it runs prior to the bundle.
@@ -376,7 +384,7 @@ function motion_blocks_request_has_animated_content() {
 
 /**
  * Whether this front-end page loads the animation CSS, the runtime and
- * the html.mb-js marker in <head>.
+ * the html.mb-js / html.mb-motion head script in <head>.
  *
  * One decision for all three, so the marker can never be printed
  * without the stylesheet it scopes. Detection: on block-template pages
@@ -462,6 +470,15 @@ function motion_blocks_enqueue_frontend_assets() {
             $frontend_asset['dependencies'],
             $frontend_asset['version'],
             true
+        );
+
+        // The device buckets for per-device disable, for the motion
+        // gate frontend.js keeps current (src/motion-gate.js) and the
+        // self-check. Same source as the head script.
+        wp_add_inline_script(
+            'motion-blocks-frontend',
+            motion_blocks_device_queries_script(),
+            'before'
         );
 
         // Opt-in trigger lines (GH #86): two lines showing where
@@ -593,6 +610,22 @@ function motion_blocks_enqueue_block_assets() {
     // The editor loads animations.css unconditionally, so the preview
     // works on posts that have no animations yet.
     motion_blocks_enqueue_animations_css();
+
+    // Motion gate (#53): the animation rules only apply under
+    // `html.mb-motion`. In the editor previews always play, even with
+    // reduced motion on (pressing Play is a deliberate request), and
+    // per-device disable is front-end only, so the class goes on
+    // unconditionally. A script with no file of its own just prints its
+    // inline code. This hook runs for the iframed canvas
+    // (_wp_get_iframed_editor_assets(), WordPress 6.3+) and for the
+    // admin page itself, which is the canvas when the editor isn't
+    // iframed.
+    wp_register_script( 'motion-blocks-editor-motion', false, array(), MOTION_BLOCKS_VERSION, false );
+    wp_add_inline_script(
+        'motion-blocks-editor-motion',
+        'document.documentElement.classList.add("mb-motion");'
+    );
+    wp_enqueue_script( 'motion-blocks-editor-motion' );
 }
 add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
 
@@ -607,8 +640,9 @@ add_action( 'enqueue_block_assets', 'motion_blocks_enqueue_block_assets' );
  * print_late_styles() (on classic themes, WordPress 6.9+ hoists it back
  * into <head> through its template output buffer) and frontend.js was
  * already registered for the footer. There is deliberately no head
- * marker on this path: frontend.js adds `mb-js` itself once its init
- * has finished, so missing JS or CSS still leaves content visible.
+ * marker on this path: frontend.js adds `mb-js` and `mb-motion` itself
+ * once its init has finished, so missing JS or CSS still leaves content
+ * visible.
  * The trade-off: the page first paints
  * with these blocks at rest; Page Load blocks and Scroll Appear blocks
  * already in view then replay from their hidden "from" state when init
@@ -642,52 +676,90 @@ function motion_blocks_note_animated_block() {
 }
 
 /**
- * JS-detection marker for the no-JS visibility fallback.
+ * JS-detection marker and motion gate, printed in <head>.
  *
- * The initial-hide rules in css/animations.css are scoped to
- * `html.mb-js`; when JavaScript never runs (disabled, blocked,
- * stripped), the class is absent and animated content stays visible
- * instead of being stranded at opacity 0.
+ * Two classes on <html>:
+ *
+ * - `mb-js`: JavaScript runs. Kept as a public marker (the README
+ *   documents it).
+ * - `mb-motion`: motion is on. Every rule in css/animations.css that
+ *   animates, pre-hides or transforms a block is scoped under
+ *   `:where(html.mb-motion)`, so with the class off the plugin's CSS
+ *   sets nothing on the block and the theme's own opacity, transform,
+ *   filter and clip-path show untouched (#53). On while JavaScript
+ *   ran, the visitor hasn't asked for reduced motion, and the current
+ *   device isn't disabled for this page (motion_blocks_disabled_devices();
+ *   the device buckets come from motion_blocks_device_media_queries()). matchMedia
+ *   listeners keep it current when either changes mid-visit.
+ *   src/motion-gate.js holds the same decision for frontend.js and the
+ *   self-check; tests/unit/motion-gate.test.js runs both.
+ *
+ * No JavaScript (disabled, blocked, stripped) means no `mb-motion`:
+ * nothing is pre-hidden and nothing animates, so content stays visible.
  *
  * Printed synchronously in <head> (priority 0) so it lands before
  * first paint. Order relative to stylesheets is irrelevant — class
  * selectors re-match retroactively — only order vs. paint matters.
  *
- * Frontend only (wp_head): the editor canvas never carries the
- * `mb-mode-*` classes these rules key on (the preview HOC manages
- * its own classes — see `withAnimationPreview` in src/index.js), so
- * the scoped rules are inert there by design.
+ * Front end only (wp_head). The editor sets `mb-motion` on its canvas
+ * unconditionally (motion_blocks_enqueue_block_assets()).
  *
  * Failsafe (GH #57): the marker only proves *some* JS ran, not that
  * build/frontend.js did. If the bundle 404s, is blocked, or throws
  * (e.g. inside an optimiser's combined bundle), nothing ever adds
  * `.mb-triggered` and every hidden block stays at opacity 0. So
  * frontend.js sets `window.motionBlocksReady` once its init has
- * finished, and on window `load` the marker drops `mb-js` again if
- * that flag is missing. Footer and async scripts all run before
- * `load`, so this is not a timing guess. frontend.js re-adds `mb-js`
- * in init, for scripts an optimiser delays until after `load`.
+ * finished, and on window `load` this script drops `mb-js` and
+ * `mb-motion` again (and stops updating them) if that flag is missing.
+ * Footer and async scripts all run before `load`, so this is not a
+ * timing guess. frontend.js re-adds both in init, for scripts an
+ * optimiser delays until after `load`.
  *
  * Printed only on pages that load the assets in <head>: the marker and
  * the head enqueue share one decision
- * (motion_blocks_should_load_frontend_assets()), so `mb-js` never
- * appears without animations.css. A page whose assets arrive late (an
+ * (motion_blocks_should_load_frontend_assets()), so the classes never
+ * appear without animations.css. A page whose assets arrive late (an
  * animated block first rendered after <head>, see
- * motion_blocks_note_animated_block()) gets no head marker; frontend.js
- * adds `mb-js` itself after init there, so missing JS or missing CSS
- * still leaves content visible.
+ * motion_blocks_note_animated_block()) gets no head script; frontend.js
+ * adds both classes itself after init there, reading the disabled
+ * devices from the body classes, so missing JS or missing CSS still
+ * leaves content visible.
  */
 function motion_blocks_print_js_marker() {
     if ( ! motion_blocks_should_load_frontend_assets() ) {
         return;
     }
     wp_print_inline_script_tag(
-        '(function(h){h.classList.add("mb-js");'
-            . 'window.addEventListener("load",function(){'
-            . 'if(!window.motionBlocksReady){h.classList.remove("mb-js");}'
-            . '});})(document.documentElement);',
+        '(' . motion_blocks_motion_gate_script() . ')(document.documentElement,'
+            . wp_json_encode( (object) motion_blocks_device_media_queries() ) . ','
+            . wp_json_encode( motion_blocks_disabled_devices() ) . ');',
         array( 'id' => 'motion-blocks-js-marker' )
     );
+}
+
+/**
+ * The head script's function: `function ( html, deviceQueries,
+ * disabledDevices )`. See motion_blocks_print_js_marker().
+ *
+ * Plain string literals only, so tests/unit/js-marker-failsafe.test.js
+ * and motion-gate.test.js can run it as printed.
+ *
+ * @return string JavaScript function expression.
+ */
+function motion_blocks_motion_gate_script() {
+    return 'function(h,q,d){'
+        . 'var off=0,r=matchMedia("(prefers-reduced-motion: reduce)");'
+        . 'function on(){if(r.matches){return false;}'
+        . 'for(var k in q){if(matchMedia(q[k]).matches){return d.indexOf(k)<0;}}'
+        . 'return true;}'
+        . 'function sync(){if(!off){h.classList.toggle("mb-motion",on());}}'
+        . 'function watch(l){if(l.addEventListener){l.addEventListener("change",sync);}else if(l.addListener){l.addListener(sync);}}'
+        . 'watch(r);'
+        . 'if(d.length){for(var k in q){watch(matchMedia(q[k]));}}'
+        . 'h.classList.add("mb-js");sync();'
+        . 'window.addEventListener("load",function(){'
+        . 'if(!window.motionBlocksReady){off=1;h.classList.remove("mb-js");h.classList.remove("mb-motion");}'
+        . '});}';
 }
 add_action( 'wp_head', 'motion_blocks_print_js_marker', 0 );
 
@@ -1361,9 +1433,9 @@ function motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type,
     // Stagger is only offered in the Page Load / Scroll Appear panels,
     // and animations.css has no scroll-driven child bindings. A flag
     // left over on a Scroll Interactive block would otherwise add
-    // mb-stagger-parent, whose `.mb-stagger-parent.mb-animated
-    // { animation: none !important }` rule suppresses the wrapper's
-    // own animation (GH #48). Allowlist, so new modes opt in.
+    // mb-stagger-parent, whose `.mb-stagger-parent.mb-animated`
+    // rule suppresses the wrapper's own animation (GH #48).
+    // Allowlist, so new modes opt in.
     if ( $mode !== 'page-load' && $mode !== 'scroll-appear' ) {
         return false;
     }
@@ -1447,9 +1519,12 @@ add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10,
  * symmetric and avoids a fourth "all" key whose state would have
  * to stay in sync with the others.
  *
- *   mb_disabled_desktop  → width ≥ 1024px viewports
- *   mb_disabled_tablet   → 768px ≤ width < 1024px viewports
- *   mb_disabled_mobile   → width < 768px viewports
+ *   mb_disabled_mobile   → core's mobile viewport (width ≤ 480px by default)
+ *   mb_disabled_tablet   → core's tablet viewport (480px < width ≤ 782px)
+ *   mb_disabled_desktop  → wider than that
+ *
+ * The ranges follow the theme's `settings.viewport` breakpoints; see
+ * motion_blocks_device_media_queries().
  *
  * Exposed in REST so the editor's `useEntityProp` can read/write
  * them. Registered on every public post type that supports the
@@ -1524,8 +1599,9 @@ add_action( 'registered_post_type', 'motion_blocks_register_meta_for_post_type' 
  *        add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
  *
  * 2. `mb-disabled-{device}` — singular views only, sourced from
- *    per-post meta. Used by the device-disable setting in
- *    PageSettingsPanel.
+ *    per-post meta (motion_blocks_disabled_devices()). frontend.js
+ *    reads them to keep `html.mb-motion` off on those devices when
+ *    the assets load after <head>; the self-check reads them too.
  *
  * @param array $classes Existing body classes.
  * @return array
@@ -1538,28 +1614,114 @@ function motion_blocks_body_class( $classes ) {
         $classes[] = 'mb-clip-page-overflow';
     }
 
-    // Per-page device-disable classes are singular-only; the meta
-    // lives on the queried post.
-    if ( ! is_singular() ) {
-        return $classes;
-    }
-    $post_id = get_queried_object_id();
-    if ( ! $post_id ) {
-        return $classes;
-    }
-    $map = array(
-        'mb_disabled_desktop' => 'mb-disabled-desktop',
-        'mb_disabled_tablet'  => 'mb-disabled-tablet',
-        'mb_disabled_mobile'  => 'mb-disabled-mobile',
-    );
-    foreach ( $map as $meta_key => $class_name ) {
-        if ( get_post_meta( $post_id, $meta_key, true ) ) {
-            $classes[] = $class_name;
-        }
+    foreach ( motion_blocks_disabled_devices() as $device ) {
+        $classes[] = 'mb-disabled-' . $device;
     }
     return $classes;
 }
 add_filter( 'body_class', 'motion_blocks_body_class' );
+
+/**
+ * The device buckets animations are disabled on for this page.
+ *
+ * Singular views only: the meta lives on the queried post. Read by the
+ * `mb-disabled-{device}` body classes and the head script's motion gate
+ * (motion_blocks_print_js_marker()), so the two always agree.
+ *
+ * @return string[] Subset of 'desktop', 'tablet', 'mobile'.
+ */
+function motion_blocks_disabled_devices() {
+    if ( ! is_singular() ) {
+        return array();
+    }
+    $post_id = get_queried_object_id();
+    if ( ! $post_id ) {
+        return array();
+    }
+    $devices = array();
+    foreach ( array( 'desktop', 'tablet', 'mobile' ) as $device ) {
+        if ( get_post_meta( $post_id, 'mb_disabled_' . $device, true ) ) {
+            $devices[] = $device;
+        }
+    }
+    return $devices;
+}
+
+/**
+ * The screen-size range each per-device toggle covers, as bare media
+ * query conditions: `array( 'mobile' => '(width <= 480px)', … )`.
+ *
+ * The single source for every place that decides the current device:
+ * the head script (motion_blocks_print_js_marker()), frontend.js and the
+ * self-check (window.motionBlocksDeviceQueries, src/motion-gate.js), and
+ * the editor's Page panel, which shows each toggle's range.
+ *
+ * WordPress 7.1+ defines viewport breakpoints in theme.json
+ * (`settings.viewport`, default mobile 480px / tablet 782px), used by
+ * core's per-block visibility and responsive styles. These are the same
+ * queries, from core's own builder, so "Mobile" means what it means
+ * everywhere else in WordPress and follows the theme.
+ *
+ * Core only returns the devices the theme's breakpoints define: a
+ * theme that sets just one breakpoint gets two buckets, and the missing
+ * device's toggle then never matches. Core's queries use range syntax
+ * only (`width <= 480px`), which Safari before 16.4 ignores; matching
+ * core, there is no min-/max-width fallback.
+ *
+ * @return array<string,string> Device => media condition, in the order
+ *                              mobile, tablet, desktop (missing keys
+ *                              are devices the breakpoints don't define).
+ */
+function motion_blocks_device_media_queries() {
+    $core = null;
+    if ( method_exists( 'WP_Theme_JSON', 'get_viewport_media_queries' ) ) {
+        $core = WP_Theme_JSON::get_viewport_media_queries(
+            wp_get_global_settings( array( 'viewport' ) ),
+            array( 'include_desktop' => true )
+        );
+    }
+    return motion_blocks_device_media_queries_from( $core );
+}
+
+/**
+ * motion_blocks_device_media_queries() from core's output.
+ *
+ * @param array|null $core WP_Theme_JSON::get_viewport_media_queries()
+ *                         output (`'@mobile' => '@media (…)'`), or null
+ *                         before WordPress 7.1.
+ * @return array<string,string> Device => media condition.
+ */
+function motion_blocks_device_media_queries_from( $core ) {
+    if ( ! is_array( $core ) ) {
+        // Before 7.1: the plugin's own fixed ranges. Each is a list: the
+        // integer min-/max-width form for engines without range syntax
+        // and the range form, so fractional widths (767.5px under browser
+        // zoom) still land in exactly one bucket (GH #33).
+        return array(
+            'mobile'  => '(max-width: 767px), (width < 768px)',
+            'tablet'  => '(min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px)',
+            'desktop' => '(min-width: 1024px), (width >= 1024px)',
+        );
+    }
+    $queries = array();
+    foreach ( array( 'mobile', 'tablet', 'desktop' ) as $device ) {
+        if ( isset( $core[ '@' . $device ] ) && is_string( $core[ '@' . $device ] ) ) {
+            $queries[ $device ] = trim( preg_replace( '/^\s*@media\s+/i', '', $core[ '@' . $device ] ) );
+        }
+    }
+    return $queries;
+}
+
+/**
+ * Inline script handing motion_blocks_device_media_queries() to the
+ * front-end and editor bundles.
+ *
+ * @return string JavaScript.
+ */
+function motion_blocks_device_queries_script() {
+    return 'window.motionBlocksDeviceQueries = '
+        . wp_json_encode( (object) motion_blocks_device_media_queries() ) . ';';
+}
 
 /**
  * Register the saved-animation library as a site option.

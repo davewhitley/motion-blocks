@@ -6,14 +6,14 @@
  * children in `.wp-block-group__inner-container`. Every stagger "child"
  * selector therefore comes as a pair:
  *
- *   X > :where(:not(.wp-block-group__inner-container, <spacer>))
- *   X > :where(.wp-block-group__inner-container) > :where(:not(<spacer>))
+ *   X > :where(:not(.wp-block-group__inner-container, <skipped>))
+ *   X > :where(.wp-block-group__inner-container) > :where(:not(<skipped>))
  *
  * A bare `X > *` would match only the wrapper again, and a lone first
- * form would skip the wrapper's children. Both forms leave Spacers out
- * (they're empty, and stagger-index.js doesn't number them). This
- * guard fails if a new rule (a new effect, say) forgets either half or
- * the spacer skip.
+ * form would skip the wrapper's children. Both forms leave Spacers and
+ * nested stagger parents out (stagger-index.js doesn't number them
+ * either). This guard fails if a new rule (a new effect, say) forgets
+ * either half or the skip list.
  *
  * Run: npm run test:unit
  */
@@ -21,16 +21,21 @@ const fs = require( 'fs' );
 const path = require( 'path' );
 
 const IC = '.wp-block-group__inner-container';
-const SPACER = '.wp-block-spacer, [data-type="core/spacer"]';
+const SPACER =
+	'.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent';
 const EXCLUDE = ` > :where(:not(${ IC }, ${ SPACER }))`;
 const THROUGH = ` > :where(${ IC }) > :where(:not(${ SPACER }))`;
 
+// The motion gate prefix (`:where(html.mb-motion) `, which adds no
+// weight) is stripped here; tests/unit/motion-off-reset.test.js checks
+// that every motion rule carries it.
 const css = fs
 	.readFileSync(
 		path.join( __dirname, '..', '..', 'css', 'animations.css' ),
 		'utf8'
 	)
-	.replace( /\/\*[\s\S]*?\*\//g, '' );
+	.replace( /\/\*[\s\S]*?\*\//g, '' )
+	.replace( /:where\(html\.mb-motion\) /g, '' );
 
 /**
  * Split on commas that are not inside parentheses.
@@ -61,8 +66,8 @@ function splitTopLevel( text ) {
 
 /**
  * Every selector list in the file that mentions a stagger child, as
- * arrays of complex selectors. `:is( … )` lists (Reduced Motion and the
- * per-device blocks) are unpacked into their own list.
+ * arrays of complex selectors. `:is( … )` lists are unpacked into their
+ * own list.
  *
  * @return {string[][]} Selector lists.
  */

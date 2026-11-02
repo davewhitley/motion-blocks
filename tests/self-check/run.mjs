@@ -5,21 +5,27 @@
  * each page is expected to report.
  *
  * Input is the manifest that `fixtures.php json` prints (one entry per
- * fixture page: url, edit_url, expect, expect_reduced_motion). For each
- * page the runner:
+ * fixture page: url, edit_url, expect, expect_reduced_motion, and
+ * optionally viewport_width / expect_motion). For each page the runner:
  *
  *   1. opens the page and runs `await motionBlocksSelfCheck({ sweep: true })`
  *      (scrolls the whole page and collects every problem seen), and
  *      compares the sorted, de-duplicated `id#issue` list with `expect`;
  *   2. does the same with prefers-reduced-motion emulated, against
  *      `expect_reduced_motion`;
+ *      (both at `viewport_width` when the page sets one, 1280px otherwise;
+ *      with `expect_motion` they also check html.mb-motion is on or off);
  *   3. opens the page in the block editor and runs
- *      `await motionBlocksEditorCheck()`, which must report nothing.
+ *      `await motionBlocksEditorCheck()`, which must report nothing
+ *      (it also presses Play on a block and checks the preview runs);
+ *   4. does the same with prefers-reduced-motion emulated: previews
+ *      always play in the editor (#53).
  *
  * A page with `assets: false` in the manifest has no animated blocks,
  * so steps 1 and 2 instead check that none of the front-end assets
- * loaded (stylesheet, runtime, self-check, the html.mb-js marker).
- * Step 3 still runs: the editor loads its CSS on every post.
+ * loaded (stylesheet, runtime, self-check, the html.mb-js / mb-motion
+ * head script).
+ * Steps 3 and 4 still run: the editor loads its CSS on every post.
  *
  * The self-check scripts only load for a logged-in user while the
  * `mb_debug_markers` option (Settings → Motion Blocks → Self-check) is
@@ -377,12 +383,7 @@ async function openTab() {
 	};
 	await tab.send( 'Page.enable' );
 	await tab.send( 'Emulation.setFocusEmulationEnabled', { enabled: true } );
-	await tab.send( 'Emulation.setDeviceMetricsOverride', {
-		width: 1280,
-		height: 800,
-		deviceScaleFactor: 1,
-		mobile: false,
-	} );
+	await setWidth( tab );
 	return tab;
 }
 
@@ -431,8 +432,33 @@ async function logIn( tab ) {
 
 const sortedUnique = ( list ) => [ ...new Set( list ) ].sort();
 
-/** Front-end sweep, with or without reduced motion. */
+/** Sets the tab's viewport width (default 1280px). */
+function setWidth( tab, width ) {
+	return tab.send( 'Emulation.setDeviceMetricsOverride', {
+		width: width || 1280,
+		height: 800,
+		deviceScaleFactor: 1,
+		mobile: false,
+	} );
+}
+
+/**
+ * Front-end sweep, with or without reduced motion, at the page's
+ * `viewport_width` if it has one. A page with `expect_motion` also
+ * checks `html.mb-motion` (always off with reduced motion).
+ */
 async function pageCheck( tab, fx, reduced ) {
+	await setWidth( tab, fx.viewport_width );
+	try {
+		return await sweepCheck( tab, fx, reduced );
+	} finally {
+		if ( fx.viewport_width ) {
+			await setWidth( tab );
+		}
+	}
+}
+
+async function sweepCheck( tab, fx, reduced ) {
 	await tab.send( 'Emulation.setEmulatedMedia', {
 		features: [
 			{
@@ -462,12 +488,31 @@ async function pageCheck( tab, fx, reduced ) {
 	}
 	const gotIds = sortedUnique( got.map( ( s ) => s.split( ' :: ' )[ 0 ] ) );
 	const want = [ ...( reduced ? fx.expect_reduced_motion : fx.expect ) ].sort();
-	const ok = JSON.stringify( gotIds ) === JSON.stringify( want );
+	let ok = JSON.stringify( gotIds ) === JSON.stringify( want );
+	let motion = '';
+	if ( typeof fx.expect_motion === 'boolean' ) {
+		const wantMotion = reduced ? false : fx.expect_motion;
+		const on = await tab.evaluate(
+			`document.documentElement.classList.contains( 'mb-motion' )`
+		);
+		motion = `  motion=${ on ? 'on' : 'off' }`;
+		if ( on !== wantMotion ) {
+			ok = false;
+			got.push(
+				`html.mb-motion is ${ on ? 'on' : 'off' } at ${
+					fx.viewport_width || 1280
+				}px, expected ${ wantMotion ? 'on' : 'off' }`
+			);
+		}
+	}
+	const width = fx.viewport_width ? ` @${ fx.viewport_width }px` : '';
 	return {
 		ok,
 		line: `${ ok ? 'PASS' : 'FAIL' } ${ reduced ? '[reduced] ' : '' }${
 			fx.key
-		}  want=${ JSON.stringify( want ) } got=${ JSON.stringify( gotIds ) }`,
+		}${ width }  want=${ JSON.stringify( want ) } got=${ JSON.stringify(
+			gotIds
+		) }${ motion }`,
 		details: ok ? [] : got,
 	};
 }
@@ -486,9 +531,11 @@ async function assetsAbsentCheck( tab, fx, reduced ) {
 				'#motion-blocks-self-check-js',
 				'#motion-blocks-js-marker',
 			].filter( ( s ) => document.querySelector( s ) );
-			if ( document.documentElement.classList.contains( 'mb-js' ) ) {
-				found.push( 'html.mb-js' );
-			}
+			[ 'mb-js', 'mb-motion' ].forEach( ( c ) => {
+				if ( document.documentElement.classList.contains( c ) ) {
+					found.push( 'html.' + c );
+				}
+			} );
 			if ( typeof motionBlocksSelfCheck !== 'undefined' ) {
 				found.push( 'motionBlocksSelfCheck' );
 			}
@@ -509,9 +556,17 @@ async function assetsAbsentCheck( tab, fx, reduced ) {
 	};
 }
 
-/** The page must open in the editor with no invalid blocks or errors. */
-async function editorCheck( tab, fx ) {
-	await tab.send( 'Emulation.setEmulatedMedia', { features: [] } );
+/**
+ * The page must open in the editor with no invalid blocks or errors,
+ * and Play must start a preview. Also run with reduced motion
+ * emulated: previews play regardless (#53).
+ */
+async function editorCheck( tab, fx, reduced ) {
+	await tab.send( 'Emulation.setEmulatedMedia', {
+		features: reduced
+			? [ { name: 'prefers-reduced-motion', value: 'reduce' } ]
+			: [],
+	} );
 	await tab.go( fx.edit_url );
 	let got;
 	try {
@@ -530,7 +585,9 @@ async function editorCheck( tab, fx ) {
 	const ok = got.length === 0;
 	return {
 		ok,
-		line: `${ ok ? 'PASS' : 'FAIL' } [editor] ${ fx.key }`,
+		line: `${ ok ? 'PASS' : 'FAIL' } [editor${
+			reduced ? ', reduced' : ''
+		}] ${ fx.key }`,
 		details: got,
 	};
 }
@@ -540,11 +597,13 @@ async function editorCheck( tab, fx ) {
  * ---------------------------------------------------------------- */
 
 // Every check is an independent job. They're listed in report order
-// (all pages, then all pages with reduced motion, then the editor).
+// (all pages, then all pages with reduced motion, then the editor,
+// without and with reduced motion).
 const jobs = [
 	...manifest.map( ( fx ) => ( tab ) => pageCheck( tab, fx, false ) ),
 	...manifest.map( ( fx ) => ( tab ) => pageCheck( tab, fx, true ) ),
-	...manifest.map( ( fx ) => ( tab ) => editorCheck( tab, fx ) ),
+	...manifest.map( ( fx ) => ( tab ) => editorCheck( tab, fx, false ) ),
+	...manifest.map( ( fx ) => ( tab ) => editorCheck( tab, fx, true ) ),
 ];
 
 // The order they're handed out to the tabs: each page's two sweeps
@@ -554,7 +613,7 @@ const jobs = [
 const n = manifest.length;
 const queue = [
 	...manifest.flatMap( ( fx, i ) => [ i, n + i ] ),
-	...manifest.map( ( fx, i ) => 2 * n + i ),
+	...manifest.flatMap( ( fx, i ) => [ 2 * n + i, 3 * n + i ] ),
 ];
 
 function withTimeout( promise, ms, what ) {

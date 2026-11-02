@@ -673,17 +673,13 @@ import {
 	/**
 	 * Whether the browser supports scroll-driven animations. Same test
 	 * as the `@supports (animation-timeline: view())` gates in
-	 * animations.css.
-	 *
-	 * @return {boolean} True when `animation-timeline: view()` is valid.
+	 * animations.css; checked once per page.
 	 */
-	function supportsViewTimeline() {
-		return !! (
-			window.CSS &&
-			CSS.supports &&
-			CSS.supports( 'animation-timeline', 'view()' )
-		);
-	}
+	var supportsViewTimeline = !! (
+		window.CSS &&
+		CSS.supports &&
+		CSS.supports( 'animation-timeline', 'view()' )
+	);
 
 	/**
 	 * For a custom-type element: build its @keyframes rule, append
@@ -798,7 +794,7 @@ import {
 			var bindsItself =
 				! el.classList.contains( 'mb-stagger-parent' ) &&
 				( el.dataset.mbMode !== 'scroll-interactive' ||
-					supportsViewTimeline() );
+					supportsViewTimeline );
 			if ( bindsItself ) {
 				el.style.animationName = name;
 			}

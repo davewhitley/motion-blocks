@@ -6,14 +6,14 @@
  * children in `.wp-block-group__inner-container`. Every stagger "child"
  * selector therefore comes as a pair:
  *
- *   X > :where(:not(.wp-block-group__inner-container, <spacer>))
- *   X > :where(.wp-block-group__inner-container) > :where(:not(<spacer>))
+ *   X > :where(:not(.wp-block-group__inner-container, <skipped>))
+ *   X > :where(.wp-block-group__inner-container) > :where(:not(<skipped>))
  *
  * A bare `X > *` would match only the wrapper again, and a lone first
- * form would skip the wrapper's children. Both forms leave Spacers out
- * (they're empty, and stagger-index.js doesn't number them). This
- * guard fails if a new rule (a new effect, say) forgets either half or
- * the spacer skip.
+ * form would skip the wrapper's children. Both forms leave Spacers and
+ * nested stagger parents out (stagger-index.js doesn't number them
+ * either). This guard fails if a new rule (a new effect, say) forgets
+ * either half or the skip list.
  *
  * Run: npm run test:unit
  */
@@ -21,7 +21,8 @@ const fs = require( 'fs' );
 const path = require( 'path' );
 
 const IC = '.wp-block-group__inner-container';
-const SPACER = '.wp-block-spacer, [data-type="core/spacer"]';
+const SPACER =
+	'.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent';
 const EXCLUDE = ` > :where(:not(${ IC }, ${ SPACER }))`;
 const THROUGH = ` > :where(${ IC }) > :where(:not(${ SPACER }))`;
 

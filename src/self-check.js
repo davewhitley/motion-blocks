@@ -664,7 +664,13 @@ import { imgTargetsOf } from './img-target';
 			var settled = el.classList.contains( 'mb-settled' );
 			var t;
 			if ( off || settled ) {
-				for ( t = 0; t < targets.length; t++ ) {
+				// A settled Stagger parent never animated itself, and the
+				// settled CSS leaves it alone, so a transform or filter on
+				// it is the theme's, not ours (#53). With motion off the
+				// reset rules still pin it, so it's checked then.
+				var skipParent =
+					! off && el.classList.contains( 'mb-stagger-parent' );
+				for ( t = skipParent ? 1 : 0; t < targets.length; t++ ) {
 					if ( ! containsFixed( targets[ t ] ) ) {
 						continue;
 					}

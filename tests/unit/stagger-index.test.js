@@ -144,6 +144,26 @@ describe( 'spacers', () => {
 	} );
 } );
 
+describe( 'nested stagger parents (#53)', () => {
+	it( 'skips a nested stagger parent, which runs its own cascade', () => {
+		const outer = build( `
+			<div class="wp-block-group mb-stagger-parent">
+				<h2>A</h2>
+				<div class="wp-block-group mb-stagger-parent"><p>X</p></div>
+				<p>B</p>
+			</div>` );
+		expect(
+			staggerTargets( outer ).map( ( t ) => [
+				t.el.textContent.trim(),
+				t.index,
+			] )
+		).toEqual( [
+			[ 'A', 0 ],
+			[ 'B', 1 ],
+		] );
+	} );
+} );
+
 describe( 'frontend.js', () => {
 	afterEach( () => {
 		document.body.innerHTML = '';

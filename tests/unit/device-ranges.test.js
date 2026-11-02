@@ -4,8 +4,26 @@
  * front end uses: core's default viewport breakpoints, a theme's custom
  * ones, a theme that sets only one, and the pre-7.1 fallback.
  *
+ * `@wordpress/i18n` is provided by WordPress at runtime and isn't a
+ * dependency of this repo, so it's stubbed here: `__` returns the
+ * string, `sprintf` fills `%s` / `%1$s` placeholders.
+ *
  * Run: npm run test:unit
  */
+jest.mock(
+	'@wordpress/i18n',
+	() => ( {
+		__: ( text ) => text,
+		sprintf: ( format, ...args ) => {
+			let next = 0;
+			return format.replace( /%(?:(\d+)\$)?s/g, ( m, n ) =>
+				String( args[ n ? Number( n ) - 1 : next++ ] )
+			);
+		},
+	} ),
+	{ virtual: true }
+);
+
 import { deviceRangeHelp } from '../../src/components/deviceRanges';
 import { deviceQueryRange } from '../../src/motion-gate';
 

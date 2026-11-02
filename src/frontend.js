@@ -17,6 +17,7 @@ import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
 import { imgTargetSelector, imgFrameSelector } from './img-target';
+import { startMotionGate } from './motion-gate';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
@@ -106,10 +107,15 @@ import {
 		// Read by the head failsafe on `load` (GH #57,
 		// motion_blocks_print_js_marker): set only once every mode is
 		// wired, so a throw above still reveals the content. Re-assert
-		// the marker too, in case an optimiser delayed this script past
-		// `load` and the failsafe already removed it (no-op otherwise).
+		// the marker and the motion gate too (#53): an optimiser may
+		// have delayed this script past `load`, after the failsafe
+		// removed them, and a page whose assets load after <head> has
+		// no head script at all. The gate reads the disabled devices
+		// from the body classes and follows reduced motion and device
+		// changes from here on (src/motion-gate.js).
 		window.motionBlocksReady = true;
 		document.documentElement.classList.add( 'mb-js' );
+		startMotionGate( window );
 		if ( DEBUG ) {
 			debugApi.ready = true;
 		}
@@ -567,6 +573,16 @@ import {
 	}
 
 	/**
+	 * Selector for one block's injected img rules, behind the motion
+	 * gate like every animation rule in animations.css (#53): with
+	 * `html.mb-motion` off, the injected CSS sets nothing either.
+	 * `:where()` keeps the weight unchanged.
+	 */
+	function gatedScope( uid ) {
+		return ':where(html.mb-motion) [data-mb-uid="' + uid + '"]';
+	}
+
+	/**
 	 * Build the scoped CSS rule string for target='img' mode.
 	 * Mirrors buildImgTargetCSS in src/index.js — see that for the
 	 * full reasoning. Selectors cover the common WP image markup
@@ -575,7 +591,7 @@ import {
 	 * parent the clipping frame without injecting any wrapper.
 	 */
 	function buildImgScopedCSS( uid, keyframeName, mode ) {
-		var scope = '[data-mb-uid="' + uid + '"]';
+		var scope = gatedScope( uid );
 		// The Cover's background image: a direct child of the wrapper.
 		// A descendant selector also caught the first image of every
 		// sibling group in the Cover's inner blocks (a logo would
@@ -968,7 +984,7 @@ import {
 	 * natural border.
 	 */
 	function buildScrollAppearImgScopedCSS( uid, entryName, exitName ) {
-		var scope = '[data-mb-uid="' + uid + '"]';
+		var scope = gatedScope( uid );
 		var imgSelector = imgTargetSelector( scope );
 		var parentSelector = imgFrameSelector( scope );
 		var rules = [];

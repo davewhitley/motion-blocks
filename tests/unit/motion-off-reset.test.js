@@ -1,122 +1,151 @@
 /**
- * The motion-off rest state in css/animations.css (Reduced Motion and
- * the three per-device disable blocks) must also drop Flip's 3D context.
+ * Motion off leaves the theme's styles alone (#53).
  *
- * Flip sets `transform-style: preserve-3d` + `backface-visibility:
- * hidden` in plain class rules, not in its keyframes, so `animation:
- * none` leaves them in place. `preserve-3d` alone makes the block a
- * containing block for `position: fixed` descendants (GH #20 / #33),
- * so a Flip block kept trapping e.g. a Navigation overlay even though
- * nothing animated. This guard fails if the reset loses either
- * property, if the four lists drift apart (GH #26 / #44), or if a new
- * effect adds a 3D context the reset doesn't know about.
+ * Reduced motion and per-device disable used to pin every animated
+ * block at rest with reset rules (`animation: none; opacity: 1;
+ * transform: none; filter: none; clip-path: none`, all `!important`),
+ * which wiped a theme's own styling on those blocks. Now every rule
+ * that animates, pre-hides or transforms a block is scoped under
+ * `:where(html.mb-motion)`, a class that is only on <html> while motion
+ * is on (src/motion-gate.js), and there is nothing to reset.
+ *
+ * Guards:
+ *   - no `!important` anywhere in the file;
+ *   - every rule that sets a motion property is gated, on every
+ *     selector in its list, and nothing else is (the custom-property
+ *     defaults and the page overflow clip stay ungated);
+ *   - no reset rule and no media query for reduced motion or device
+ *     buckets left to keep in step (GH #26 / #44);
+ *   - the img rules frontend.js injects at runtime are gated too;
+ *   - Flip's 3D context still only comes from Flip rules (GH #33).
  *
  * Run: npm run test:unit
  */
 const fs = require( 'fs' );
 const path = require( 'path' );
+const postcss = require( 'postcss' );
+const selectorParser = require( 'postcss-selector-parser' );
 
-const css = fs
-	.readFileSync(
-		path.join( __dirname, '..', '..', 'css', 'animations.css' ),
-		'utf8'
-	)
-	.replace( /\/\*[\s\S]*?\*\//g, '' );
+const root = path.join( __dirname, '..', '..' );
+const css = postcss.parse(
+	fs.readFileSync( path.join( root, 'css', 'animations.css' ), 'utf8' )
+);
 
-const collapse = ( text ) => text.replace( /\s+/g, ' ' ).trim();
+const GATE = ':where(html.mb-motion) ';
+const MOTION_PROP =
+	/^(animation(-[a-z-]+)?|opacity|transform|translate|rotate|scale|filter|clip-path|transform-style|backface-visibility)$/;
 
-/**
- * Every plain style rule in the file (at-rule preludes skipped, so
- * rules nested in @media / @supports come through as their own rule).
- *
- * @return {{selector: string, body: string}[]} Rules.
- */
-function rules() {
-	const found = [];
-	const re = /([^{}]+)\{([^{}]*)\}/g;
-	let match;
-	while ( ( match = re.exec( css ) ) ) {
-		const selector = collapse( match[ 1 ] );
-		if ( ! selector.startsWith( '@' ) ) {
-			found.push( { selector, body: collapse( match[ 2 ] ) } );
-		}
-	}
-	return found;
-}
-
-/**
- * The four rest-state rules: the first `:is( … )` rule in the Reduced
- * Motion block and in each `body.mb-disabled-*` block (the one that
- * pins `animation: none`, not the separate `filter` rule).
- *
- * @return {Object<string, {list: string, body: string}>} By block.
- */
-function restRules() {
-	const byKey = {};
-	rules().forEach( ( { selector, body } ) => {
-		const isList = selector.match( /^(.*?):is\((.*)\)$/ );
-		if ( ! isList || ! body.includes( 'animation: none !important' ) ) {
+/** Every style rule outside @keyframes, with its complex selectors. */
+function styleRules() {
+	const out = [];
+	css.walkRules( ( rule ) => {
+		if ( /keyframes$/.test( rule.parent?.name || '' ) ) {
 			return;
 		}
-		const scope = isList[ 1 ].trim();
-		let key = null;
-		if ( scope === '' ) {
-			key = 'reduced-motion';
-		} else {
-			const device = scope.match( /^body\.mb-disabled-(\w+)$/ );
-			key = device ? device[ 1 ] : null;
-		}
-		if ( key && ! byKey[ key ] ) {
-			byKey[ key ] = { list: collapse( isList[ 2 ] ), body };
-		}
+		const selectors = [];
+		selectorParser( ( list ) => {
+			list.each( ( sel ) => {
+				selectors.push( sel.toString().replace( /\s+/g, ' ' ).trim() );
+			} );
+		} ).processSync( rule.selector );
+		const props = [];
+		rule.walkDecls( ( d ) => props.push( d.prop ) );
+		out.push( {
+			selectors,
+			props,
+			motion: props.some( ( p ) => MOTION_PROP.test( p ) ),
+		} );
 	} );
-	return byKey;
+	return out;
 }
 
-describe( 'motion-off rest state resets Flip 3D context (GH #33)', () => {
-	const rest = restRules();
+const rules = styleRules();
 
-	it( 'finds the Reduced Motion and three per-device rules', () => {
-		expect( Object.keys( rest ).sort() ).toEqual( [
-			'desktop',
-			'mobile',
-			'reduced-motion',
-			'tablet',
+describe( 'motion gate in animations.css (#53)', () => {
+	it( 'has no !important declarations', () => {
+		const important = [];
+		css.walkDecls( ( d ) => {
+			if ( d.important ) {
+				important.push( `${ d.parent.selector } { ${ d.prop } }` );
+			}
+		} );
+		expect( important ).toEqual( [] );
+	} );
+
+	it( 'gates every selector of every rule that sets a motion property', () => {
+		const ungated = rules
+			.filter( ( r ) => r.motion )
+			.flatMap( ( r ) => r.selectors )
+			.filter( ( s ) => ! s.startsWith( GATE ) );
+		expect( ungated ).toEqual( [] );
+	} );
+
+	it( 'leaves only the custom-property defaults and the overflow clip ungated', () => {
+		const ungated = rules.filter( ( r ) => ! r.motion );
+		ungated.forEach( ( r ) => {
+			r.selectors.forEach( ( s ) => expect( s ).not.toContain( GATE ) );
+			r.props.forEach( ( p ) =>
+				expect( p === 'overflow-x' || p.startsWith( '--' ) ).toBe(
+					true
+				)
+			);
+		} );
+		expect( ungated.map( ( r ) => r.selectors[ 0 ] ) ).toEqual( [
+			'.mb-animated',
+			expect.stringMatching( /^\.mb-animated:not\(/ ),
+			':where(body.mb-clip-page-overflow)',
 		] );
 	} );
 
-	it( 'keeps the four selector lists identical', () => {
-		const lists = new Set( Object.values( rest ).map( ( r ) => r.list ) );
-		expect( lists.size ).toBe( 1 );
+	it( 'puts the gate on <html> with no weight', () => {
+		rules
+			.filter( ( r ) => r.motion )
+			.flatMap( ( r ) => r.selectors )
+			.forEach( ( s ) => {
+				// One gate, at the start, and nothing else on <html>.
+				expect( s.split( 'html.' ) ).toHaveLength( 2 );
+			} );
 	} );
 
-	it( 'keeps the four rule bodies identical', () => {
-		const bodies = new Set( Object.values( rest ).map( ( r ) => r.body ) );
-		expect( bodies.size ).toBe( 1 );
+	it( 'has no reset rules or media queries for motion-off states left', () => {
+		const text = css.toString().replace( /\/\*[\s\S]*?\*\//g, '' );
+		expect( text ).not.toMatch( /prefers-reduced-motion/ );
+		expect( text ).not.toMatch( /mb-disabled-/ );
+		expect( text ).not.toMatch( /html\.mb-js/ );
+		const media = [];
+		css.walkAtRules( 'media', ( at ) => media.push( at.params ) );
+		expect( media ).toEqual( [] );
 	} );
 
-	it.each( [ 'reduced-motion', 'desktop', 'tablet', 'mobile' ] )(
-		'%s flattens the 3D context',
-		( key ) => {
-			expect( rest[ key ].body ).toContain(
-				'transform-style: flat !important'
-			);
-			expect( rest[ key ].body ).toContain(
-				'backface-visibility: visible !important'
-			);
-		}
-	);
-
-	it( 'only sets preserve-3d on Flip rules', () => {
-		const stray = rules()
-			.filter( ( { body } ) =>
-				/transform-style:\s*preserve-3d/.test( body )
-			)
-			.map( ( { selector } ) => selector )
-			.filter(
-				( selector ) =>
-					! /\.mb-(enter|exit)-flip\b/.test( selector )
-			);
+	it( 'only sets preserve-3d on Flip rules (GH #33)', () => {
+		const stray = [];
+		css.walkDecls( 'transform-style', ( d ) => {
+			if (
+				d.value === 'preserve-3d' &&
+				! /\.mb-(enter|exit)-flip\b/.test( d.parent.selector )
+			) {
+				stray.push( d.parent.selector );
+			}
+		} );
 		expect( stray ).toEqual( [] );
+	} );
+} );
+
+describe( 'motion gate in the CSS frontend.js injects (#53)', () => {
+	const frontend = fs
+		.readFileSync( path.join( root, 'src', 'frontend.js' ), 'utf8' )
+		.replace( /\/\*[\s\S]*?\*\//g, '' )
+		.replace( /\/\/.*$/gm, '' );
+
+	it( 'scopes every per-block rule through the gated scope', () => {
+		const scopes = frontend.match( /\[data-mb-uid="' \+ uid/g ) || [];
+		expect( scopes ).toHaveLength( 1 );
+		expect( frontend ).toContain(
+			`return '${ GATE }[data-mb-uid="' + uid + '"]';`
+		);
+		expect(
+			( frontend.match( /var scope = gatedScope\( uid \);/g ) || [] )
+				.length
+		).toBe( 2 );
 	} );
 } );

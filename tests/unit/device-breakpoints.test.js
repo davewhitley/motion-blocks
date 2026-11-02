@@ -1,14 +1,15 @@
 /**
  * Per-device disable breakpoints cover every viewport width (GH #33).
  *
- * The three `body.mb-disabled-*` blocks in animations.css used
- * integer min-/max-width bounds, which left 1px holes at fractional
- * widths (767.5px, 1023.5px under browser zoom) where no bucket
- * matched and a disabled page animated anyway. This guard checks the
- * three preludes partition [0, ∞) exactly, keeps the whole-pixel
+ * The device buckets used integer min-/max-width bounds, which left 1px
+ * holes at fractional widths (767.5px, 1023.5px under browser zoom)
+ * where no bucket matched and a disabled page animated anyway. This
+ * guard checks the three queries in shared-constants.json
+ * (`deviceQueries`) partition [0, ∞) exactly, keeps the whole-pixel
  * mapping unchanged, keeps the min-/max-width fallback that engines
- * without range syntax (Safari < 16.4) fall back on, and keeps the
- * self-check's DEVICE_QUERIES in step with the CSS.
+ * without range syntax (Safari < 16.4) fall back on, and checks every
+ * reader (the head script, src/motion-gate.js, the self-check) takes
+ * them from there rather than keeping its own copy (#53).
  *
  * Run: npm run test:unit
  */
@@ -17,63 +18,13 @@ const path = require( 'path' );
 
 const root = path.join( __dirname, '..', '..' );
 
-const css = fs
-	.readFileSync( path.join( root, 'css', 'animations.css' ), 'utf8' )
-	.replace( /\/\*[\s\S]*?\*\//g, '' );
-
-const selfCheck = fs.readFileSync(
-	path.join( root, 'src', 'self-check.js' ),
-	'utf8'
+const shared = JSON.parse(
+	fs.readFileSync( path.join( root, 'shared-constants.json' ), 'utf8' )
 );
 
+const read = ( file ) => fs.readFileSync( path.join( root, file ), 'utf8' );
+
 const DEVICES = [ 'desktop', 'tablet', 'mobile' ];
-
-/**
- * Prelude (without `@media `) of every top-level @media block whose
- * body mentions `body.mb-disabled-<device>`, keyed by device.
- *
- * @return {Object<string, string[]>} Device → media query lists.
- */
-function cssQueries() {
-	const out = {};
-	DEVICES.forEach( ( d ) => ( out[ d ] = [] ) );
-	const re = /@media\s+([^{]+)\{/g;
-	let m;
-	while ( ( m = re.exec( css ) ) ) {
-		// Walk to the matching closing brace.
-		let depth = 1;
-		let i = re.lastIndex;
-		while ( depth && i < css.length ) {
-			if ( css[ i ] === '{' ) {
-				depth++;
-			} else if ( css[ i ] === '}' ) {
-				depth--;
-			}
-			i++;
-		}
-		const block = css.slice( re.lastIndex, i );
-		DEVICES.forEach( ( d ) => {
-			if ( block.includes( `body.mb-disabled-${ d }` ) ) {
-				out[ d ].push( m[ 1 ].replace( /\s+/g, ' ' ).trim() );
-			}
-		} );
-		re.lastIndex = i;
-	}
-	return out;
-}
-
-/**
- * DEVICE_QUERIES from src/self-check.js, in source order.
- *
- * @return {[string, string][]} [device, query] pairs.
- */
-function selfCheckQueries() {
-	const block = selfCheck.match( /DEVICE_QUERIES\s*=\s*\{([\s\S]*?)\}/ );
-	expect( block ).not.toBeNull();
-	return [ ...block[ 1 ].matchAll( /(\w+)\s*:\s*'([^']+)'/g ) ].map(
-		( m ) => [ m[ 1 ], m[ 2 ] ]
-	);
-}
 
 /**
  * Evaluates one media query (no commas). Supports the range forms
@@ -173,21 +124,30 @@ function legacyMatches( list, width ) {
 }
 
 describe( 'per-device disable breakpoints (GH #33)', () => {
-	const fromCss = cssQueries();
-	const fromSelfCheck = selfCheckQueries();
-	const query = {};
-	DEVICES.forEach( ( d ) => ( query[ d ] = fromCss[ d ][ 0 ] ) );
+	const query = shared.deviceQueries;
 
-	it( 'has one @media block per device', () => {
-		DEVICES.forEach( ( d ) => {
-			expect( fromCss[ d ] ).toHaveLength( 1 );
-		} );
+	it( 'has one query per device, in order', () => {
+		expect( Object.keys( query ) ).toEqual( DEVICES );
 	} );
 
-	it( 'keeps the self-check DEVICE_QUERIES identical to the CSS', () => {
-		expect( fromSelfCheck.map( ( [ d ] ) => d ) ).toEqual( DEVICES );
-		fromSelfCheck.forEach( ( [ d, q ] ) => {
-			expect( q ).toBe( query[ d ] );
+	it( 'is read from shared-constants.json everywhere', () => {
+		expect( read( 'src/motion-gate.js' ) ).toContain(
+			'SHARED.deviceQueries'
+		);
+		expect( read( 'animation-plugin.php' ) ).toContain(
+			"motion_blocks_shared_constants()['deviceQueries']"
+		);
+		// No hand-kept copy: nothing else spells out a device query.
+		[
+			'css/animations.css',
+			'src/self-check.js',
+			'src/frontend.js',
+			'src/motion-gate.js',
+			'animation-plugin.php',
+		].forEach( ( file ) => {
+			expect( read( file ) ).not.toMatch(
+				/\(\d+px <= width|width >= \d+px/
+			);
 		} );
 	} );
 

@@ -22,11 +22,16 @@ const selectorParser = require( 'postcss-selector-parser' );
 const { selectorSpecificity } = require( '@csstools/selector-specificity' );
 import { imgTargetSelector } from '../../src/img-target';
 
+// The motion gate prefix (`:where(html.mb-motion) `, which adds no
+// weight) is stripped here; tests/unit/motion-off-reset.test.js checks
+// that every motion rule carries it.
 const root = postcss.parse(
-	fs.readFileSync(
-		path.join( __dirname, '..', '..', 'css', 'animations.css' ),
-		'utf8'
-	)
+	fs
+		.readFileSync(
+			path.join( __dirname, '..', '..', 'css', 'animations.css' ),
+			'utf8'
+		)
+		.replace( /:where\(html\.mb-motion\) /g, '' )
 );
 
 const collapse = ( text ) => text.replace( /\s+/g, ' ' ).trim();
@@ -202,8 +207,7 @@ describe( 'settled state CSS (GH #20)', () => {
 		settleable.forEach( ( text ) => {
 			expect( text ).toContain( ':not(.mb-settled)' );
 		} );
-		// No settled Flip reset: the only `flat` left is the reduced
-		// motion and per-device overrides, which keep `!important`.
+		// No settled Flip reset: `:not(.mb-settled)` above is enough.
 		settledRules.forEach( ( r ) => {
 			r.decls.forEach( ( d ) => {
 				expect( d.prop ).not.toMatch(

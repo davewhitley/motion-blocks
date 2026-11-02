@@ -14,12 +14,16 @@
  *   2. does the same with prefers-reduced-motion emulated, against
  *      `expect_reduced_motion`;
  *   3. opens the page in the block editor and runs
- *      `await motionBlocksEditorCheck()`, which must report nothing.
+ *      `await motionBlocksEditorCheck()`, which must report nothing
+ *      (it also presses Play on a block and checks the preview runs);
+ *   4. does the same with prefers-reduced-motion emulated: previews
+ *      always play in the editor (#53).
  *
  * A page with `assets: false` in the manifest has no animated blocks,
  * so steps 1 and 2 instead check that none of the front-end assets
- * loaded (stylesheet, runtime, self-check, the html.mb-js marker).
- * Step 3 still runs: the editor loads its CSS on every post.
+ * loaded (stylesheet, runtime, self-check, the html.mb-js / mb-motion
+ * head script).
+ * Steps 3 and 4 still run: the editor loads its CSS on every post.
  *
  * The self-check scripts only load for a logged-in user while the
  * `mb_debug_markers` option (Settings → Motion Blocks → Self-check) is
@@ -486,9 +490,11 @@ async function assetsAbsentCheck( tab, fx, reduced ) {
 				'#motion-blocks-self-check-js',
 				'#motion-blocks-js-marker',
 			].filter( ( s ) => document.querySelector( s ) );
-			if ( document.documentElement.classList.contains( 'mb-js' ) ) {
-				found.push( 'html.mb-js' );
-			}
+			[ 'mb-js', 'mb-motion' ].forEach( ( c ) => {
+				if ( document.documentElement.classList.contains( c ) ) {
+					found.push( 'html.' + c );
+				}
+			} );
 			if ( typeof motionBlocksSelfCheck !== 'undefined' ) {
 				found.push( 'motionBlocksSelfCheck' );
 			}
@@ -509,9 +515,17 @@ async function assetsAbsentCheck( tab, fx, reduced ) {
 	};
 }
 
-/** The page must open in the editor with no invalid blocks or errors. */
-async function editorCheck( tab, fx ) {
-	await tab.send( 'Emulation.setEmulatedMedia', { features: [] } );
+/**
+ * The page must open in the editor with no invalid blocks or errors,
+ * and Play must start a preview. Also run with reduced motion
+ * emulated: previews play regardless (#53).
+ */
+async function editorCheck( tab, fx, reduced ) {
+	await tab.send( 'Emulation.setEmulatedMedia', {
+		features: reduced
+			? [ { name: 'prefers-reduced-motion', value: 'reduce' } ]
+			: [],
+	} );
 	await tab.go( fx.edit_url );
 	let got;
 	try {
@@ -530,7 +544,9 @@ async function editorCheck( tab, fx ) {
 	const ok = got.length === 0;
 	return {
 		ok,
-		line: `${ ok ? 'PASS' : 'FAIL' } [editor] ${ fx.key }`,
+		line: `${ ok ? 'PASS' : 'FAIL' } [editor${
+			reduced ? ', reduced' : ''
+		}] ${ fx.key }`,
 		details: got,
 	};
 }
@@ -540,11 +556,13 @@ async function editorCheck( tab, fx ) {
  * ---------------------------------------------------------------- */
 
 // Every check is an independent job. They're listed in report order
-// (all pages, then all pages with reduced motion, then the editor).
+// (all pages, then all pages with reduced motion, then the editor,
+// without and with reduced motion).
 const jobs = [
 	...manifest.map( ( fx ) => ( tab ) => pageCheck( tab, fx, false ) ),
 	...manifest.map( ( fx ) => ( tab ) => pageCheck( tab, fx, true ) ),
-	...manifest.map( ( fx ) => ( tab ) => editorCheck( tab, fx ) ),
+	...manifest.map( ( fx ) => ( tab ) => editorCheck( tab, fx, false ) ),
+	...manifest.map( ( fx ) => ( tab ) => editorCheck( tab, fx, true ) ),
 ];
 
 // The order they're handed out to the tabs: each page's two sweeps
@@ -554,7 +572,7 @@ const jobs = [
 const n = manifest.length;
 const queue = [
 	...manifest.flatMap( ( fx, i ) => [ i, n + i ] ),
-	...manifest.map( ( fx, i ) => 2 * n + i ),
+	...manifest.flatMap( ( fx, i ) => [ 2 * n + i, 3 * n + i ] ),
 ];
 
 function withTimeout( promise, ms, what ) {

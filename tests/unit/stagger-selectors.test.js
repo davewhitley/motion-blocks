@@ -26,12 +26,16 @@ const SPACER =
 const EXCLUDE = ` > :where(:not(${ IC }, ${ SPACER }))`;
 const THROUGH = ` > :where(${ IC }) > :where(:not(${ SPACER }))`;
 
+// The motion gate prefix (`:where(html.mb-motion) `, which adds no
+// weight) is stripped here; tests/unit/motion-off-reset.test.js checks
+// that every motion rule carries it.
 const css = fs
 	.readFileSync(
 		path.join( __dirname, '..', '..', 'css', 'animations.css' ),
 		'utf8'
 	)
-	.replace( /\/\*[\s\S]*?\*\//g, '' );
+	.replace( /\/\*[\s\S]*?\*\//g, '' )
+	.replace( /:where\(html\.mb-motion\) /g, '' );
 
 /**
  * Split on commas that are not inside parentheses.
@@ -62,8 +66,8 @@ function splitTopLevel( text ) {
 
 /**
  * Every selector list in the file that mentions a stagger child, as
- * arrays of complex selectors. `:is( … )` lists (Reduced Motion and the
- * per-device blocks) are unpacked into their own list.
+ * arrays of complex selectors. `:is( … )` lists are unpacked into their
+ * own list.
  *
  * @return {string[][]} Selector lists.
  */

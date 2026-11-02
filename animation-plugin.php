@@ -8,6 +8,7 @@
  * Author: Dave Whitley
  * License: GPL-2.0-or-later
  * Text Domain: motion-blocks
+ * Domain Path: /languages
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -40,6 +41,18 @@ foreach ( array( 'recipe', 'abilities' ) as $motion_blocks_include ) {
     }
 }
 unset( $motion_blocks_include );
+
+/**
+ * Load the PHP translations (GH #54, #89). The plugin isn't on
+ * WordPress.org, so no language packs arrive by themselves: this reads
+ * motion-blocks-{locale}.mo from wp-content/languages/plugins or the
+ * plugin's languages/ folder. The editor's strings are loaded with
+ * wp_set_script_translations() in motion_blocks_enqueue_editor_assets().
+ */
+function motion_blocks_load_textdomain() {
+    load_plugin_textdomain( 'motion-blocks', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+}
+add_action( 'init', 'motion_blocks_load_textdomain' );
 
 /**
  * Load the shared-constants JSON file (single source of truth that
@@ -127,6 +140,16 @@ function motion_blocks_enqueue_editor_assets() {
         $asset['dependencies'],
         $asset['version'],
         true
+    );
+
+    // Translations for the panel's strings (GH #54, #89). WordPress
+    // looks in wp-content/languages/plugins first, then in the plugin's
+    // languages/ folder: motion-blocks-{locale}-{md5}.json, made with
+    // `wp i18n make-json`.
+    wp_set_script_translations(
+        'motion-blocks-editor',
+        'motion-blocks',
+        plugin_dir_path( __FILE__ ) . 'languages'
     );
 
     // The Page panel's per-device toggles show the range each one
@@ -464,9 +487,16 @@ function motion_blocks_enqueue_frontend_assets() {
         // frontend.js draws them only on pages with a Scroll Appear
         // block.
         if ( get_option( 'mb_debug_trigger_lines' ) && current_user_can( 'edit_posts' ) ) {
+            // The line labels, translated here so frontend.js needs
+            // no wp-i18n on the front end.
             wp_add_inline_script(
                 'motion-blocks-frontend',
-                'window.motionBlocksTriggerLines = true;',
+                'window.motionBlocksTriggerLines = ' . wp_json_encode(
+                    array(
+                        'entry' => __( 'Motion Blocks • Entry trigger', 'motion-blocks' ),
+                        'exit'  => __( 'Motion Blocks • Exit trigger', 'motion-blocks' ),
+                    )
+                ) . ';',
                 'before'
             );
         }
@@ -573,6 +603,9 @@ function motion_blocks_enqueue_block_assets() {
         array(),
         $editor_css_ver
     );
+    // Right-to-left admin languages get build/index-rtl.css, which
+    // wp-scripts builds with the sides flipped (GH #54).
+    wp_style_add_data( 'motion-blocks-editor-styles', 'rtl', 'replace' );
 
     // The editor loads animations.css unconditionally, so the preview
     // works on posts that have no animations yet.

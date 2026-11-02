@@ -66,7 +66,8 @@ import {
 	// the flag off nothing is exposed and nothing else changes.
 	var DEBUG = window.motionBlocksDebug === true;
 	// Settings → Motion Blocks → Trigger lines (logged-in users only).
-	var TRIGGER_LINES = window.motionBlocksTriggerLines === true;
+	// PHP passes the translated line labels: `{ entry, exit }`.
+	var TRIGGER_LINES = !! window.motionBlocksTriggerLines;
 	var debugApi = null;
 	if ( DEBUG ) {
 		debugApi = {
@@ -1878,8 +1879,15 @@ import {
 			return line;
 		}
 
-		var entry = makeLine( 'entry', 'Motion Blocks • Entry trigger' );
-		var exit = makeLine( 'exit', 'Motion Blocks • Exit trigger' );
+		var labels = window.motionBlocksTriggerLines || {};
+		var entry = makeLine(
+			'entry',
+			labels.entry || 'Motion Blocks • Entry trigger'
+		);
+		var exit = makeLine(
+			'exit',
+			labels.exit || 'Motion Blocks • Exit trigger'
+		);
 
 		return {
 			update: function ( docHeight ) {

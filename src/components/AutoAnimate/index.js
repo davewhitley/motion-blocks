@@ -31,6 +31,13 @@ import {
 } from './plan';
 import { countDescendantsIn } from '../selectStable';
 
+/** Style names for the picker; plan.js keeps no UI strings. */
+const STYLE_LABELS = {
+	subtle: __( 'Subtle', 'motion-blocks' ),
+	smooth: __( 'Smooth', 'motion-blocks' ),
+	bold: __( 'Bold', 'motion-blocks' ),
+};
+
 /**
  * Estimate which blocks start on the visitor's first screen, measured
  * in the editor canvas. The planner picks the hero by structure (see
@@ -293,7 +300,7 @@ function AutoAnimateModalContent( {
 							<ToggleGroupControlOption
 								key={ key }
 								value={ key }
-								label={ preset.label }
+								label={ STYLE_LABELS[ key ] || preset.label }
 							/>
 						)
 					) }

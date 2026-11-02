@@ -111,7 +111,7 @@ function PropertyInput( { def, value, onChange } ) {
 	if ( def.kind === 'length' ) {
 		return (
 			<UnitControl
-				label={ __( def.label, 'motion-blocks' ) }
+				label={ def.label }
 				value={ value ?? '0px' }
 				onChange={ ( v ) => onChange( v || def.identity ) }
 				units={ TRANSLATE_UNIT_OPTIONS }
@@ -144,7 +144,7 @@ function PropertyInput( { def, value, onChange } ) {
 				: undefined;
 		return (
 			<TextControl
-				label={ __( def.label, 'motion-blocks' ) }
+				label={ def.label }
 				value={
 					value === null || value === undefined ? '' : String( value )
 				}
@@ -181,7 +181,7 @@ function PropertyInput( { def, value, onChange } ) {
 		} )();
 		return (
 			<UnitControl
-				label={ __( def.label, 'motion-blocks' ) }
+				label={ def.label }
 				value={ stringValue }
 				onChange={ ( v ) => {
 					if ( ! v ) {
@@ -214,7 +214,7 @@ function PropertyInput( { def, value, onChange } ) {
 
 	return (
 		<NumberControl
-			label={ __( def.label, 'motion-blocks' ) }
+			label={ def.label }
 			value={ value === null || value === undefined ? '' : value }
 			min={ def.min }
 			max={ def.max }
@@ -288,7 +288,7 @@ function PropertyRow( { def, value, onChange } ) {
 			</FlexBlock>
 			<FlexBlock>
 				<RangeControl
-					label={ __( def.label, 'motion-blocks' ) }
+					label={ def.label }
 					hideLabelFromVision
 					value={ numericValue }
 					onChange={ handleSliderChange }
@@ -521,7 +521,7 @@ export default function FromToControls( {
 						<ToolsPanelItem
 							key={ def.id }
 							panelId={ panelId }
-							label={ __( def.label, 'motion-blocks' ) }
+							label={ def.label }
 							hasValue={ () => isPropertyAdded( value ) }
 							onSelect={ () =>
 								setAttributes( {
@@ -583,7 +583,7 @@ export default function FromToControls( {
 											onClose();
 										} }
 									>
-										{ __( def.label, 'motion-blocks' ) }
+										{ def.label }
 									</MenuItem>
 								) ) }
 							</MenuGroup>

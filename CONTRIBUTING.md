@@ -21,6 +21,7 @@ A block's animation is stored as `animation*` block attributes. Several places r
 
 1. Add its value to `animationTypes` and/or `entryTypes` / `exitTypes` in `shared-constants.json`, and its directions to `directions` if it has any.
 2. Add an `effectCatalog` entry: `label` (shown in the panel), `description` (one or two plain sentences for people and AI agents), `exitLabel` if the Exit slot words it differently, and `defaultDirection` (what plays with no direction set).
+   Repeat the `label` (and `exitLabel`) in `src/components/labels.js`, where it's translatable. `tests/unit/translatable-labels.test.js` fails until the two match.
 3. Add the keyframes and the `mb-enter-{type}` / `mb-exit-{type}` rules in `css/animations.css`, and any direction variables in `src/frontend.js` (`DIRECTION_VARS`) and `src/components/constants.js`.
 4. Regenerate the agent reference: `wp eval-file tests/recipe/check.php schema` (writes `schema/README.md` and the schema).
 
@@ -70,6 +71,20 @@ wp eval-file <path-to>/motion-blocks/tests/recipe/check.php
 
 Then run the page and editor checks as described under **Tests** in the README. CI runs all of these on every pull request.
 
+## Translations
+
+Every string people see goes through `__()` (or `_n()`, `_x()`, `sprintf()` with a `/* translators: */` comment) with the `motion-blocks` text domain, and the text itself is a string literal. `wp i18n make-pot` only finds literals, so `__( someVariable, … )` never reaches translators. Put the literal where it's defined instead, as `src/components/labels.js` and the option lists in `constants.js` do.
+
+After changing strings, regenerate the template from the plugin folder:
+
+```bash
+wp i18n make-pot . languages/motion-blocks.pot --domain=motion-blocks --exclude=src,tests,node_modules,schema,docs,examples,languages
+```
+
+It reads `build/`, so run `npm run build` first. A translator turns it into `motion-blocks-{locale}.po`, then makes the `.mo` file and the editor's `.json` files with `wp i18n make-mo` and `wp i18n make-json`. The plugin loads them from `languages/` or `wp-content/languages/plugins/`.
+
+The agent-facing recipe schema and its descriptions (`includes/recipe.php`, `schema/`) stay in English on purpose: they're read by AI agents and published as a fixed reference.
+
 ## Releases
 
-The release zip holds `LICENSE`, `README.md`, `animation-plugin.php`, `uninstall.php`, `shared-constants.json`, `css/`, `build/`, `includes/` and `schema/` under a top-level `motion-blocks/` folder. The exact command is in the README's Development section.
+The release zip holds `LICENSE`, `README.md`, `animation-plugin.php`, `uninstall.php`, `shared-constants.json`, `css/`, `build/`, `includes/`, `schema/` and `languages/` under a top-level `motion-blocks/` folder. The exact command is in the README's Development section.

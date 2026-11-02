@@ -1126,6 +1126,58 @@ function mb_self_check_fixtures( $image ) {
 		'expect'  => array(),
 	);
 
+	$fixtures['device-core-breakpoints'] = array(
+		'title'          => 'Device buckets follow core',
+		'note'           => 'Animations are turned off for this page on Tablet only. The per-device toggles use WordPress core\'s viewport breakpoints (default: mobile up to 480px, tablet 481px to 782px), so at 600px wide this page counts as tablet and nothing animates: both blocks below are simply visible. The plugin\'s old ranges called 600px mobile, so they animated here. The checks run at 600px; at desktop width both blocks fade in as usual.',
+		'content'        => mb_self_check_paragraph( 'Paragraph · Page Load · Fade', $page_load_fade, MB_SELF_CHECK_COLORS['paragraph'] )
+			. mb_self_check_frame(
+				mb_self_check_paragraph( 'Paragraph · Scroll Appear · Entry: Fade', $scroll_fade, MB_SELF_CHECK_COLORS['group'] )
+			),
+		'meta'           => array(
+			'mb_disabled_tablet' => '1',
+		),
+		'viewport_width' => 600,
+		'expect_motion'  => false,
+		'expect'         => array(),
+	);
+
+	$hidden_on_mobile = array(
+		'metadata' => array(
+			'blockVisibility' => array(
+				'viewport' => array( 'mobile' => false ),
+			),
+		),
+	);
+	$stagger_step     = array_merge(
+		$page_load_fade,
+		array(
+			'animationType'           => 'slide',
+			'animationDirection'      => 'btt',
+			'animationStaggerEnabled' => true,
+			'animationStaggerStep'    => 0.3,
+		)
+	);
+	$fixtures['block-visibility-mobile'] = array(
+		'title'          => 'Core "hide on mobile"',
+		'note'           => 'Uses WordPress core\'s per-block visibility ("Hide on mobile", block settings → Visibility). The pink paragraph is animated and hidden on mobile. The orange group staggers four paragraphs 0.3s apart, and its second paragraph is hidden on mobile. The checks run at 400px wide (mobile): the pink paragraph isn\'t there, and the group shows items 1, 3 and 4. The stagger still counts the hidden item: item 3 starts 0.6s after item 1 instead of 0.3s, so the cascade pauses for one step where item 2 would be. That gap is known and not fixed yet; the self-check doesn\'t flag it.',
+		'content'        => mb_self_check_paragraph(
+			'Paragraph · Page Load · Fade · hidden on mobile',
+			array_merge( $page_load_fade, $hidden_on_mobile ),
+			MB_SELF_CHECK_COLORS['injected']
+		)
+			. mb_self_check_group(
+				mb_self_check_paragraph( 'Item 1' )
+				. mb_self_check_paragraph( 'Item 2 · hidden on mobile', $hidden_on_mobile )
+				. mb_self_check_paragraph( 'Item 3' )
+				. mb_self_check_paragraph( 'Item 4' ),
+				$stagger_step,
+				MB_SELF_CHECK_COLORS['stagger']
+			),
+		'viewport_width' => 400,
+		'expect_motion'  => true,
+		'expect'         => array(),
+	);
+
 	$fixtures['no-animations'] = array(
 		'title'   => 'No animations',
 		'note'    => 'Plain paragraphs only, no animated blocks. The page must not load the Motion Blocks CSS, JS, self-check or the html.mb-js marker. The runner checks that instead of running the self-check (which isn\'t loaded here). The editor must still load the animation CSS for this page.',
@@ -1589,6 +1641,10 @@ foreach ( $mb_fixtures as $key => $fixture ) {
 			? $fixture['expect_reduced_motion']
 			: $fixture['expect'],
 		'assets'                => $fixture['assets'] ?? true,
+		// Optional: the viewport width the front-end checks run at, and
+		// whether html.mb-motion must be on there (without reduced motion).
+		'viewport_width'        => $fixture['viewport_width'] ?? null,
+		'expect_motion'         => $fixture['expect_motion'] ?? null,
 	);
 }
 

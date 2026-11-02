@@ -20,26 +20,46 @@
  *   - the editor, unconditionally: previews always play (an inline
  *     script in motion_blocks_enqueue_block_assets()).
  *
- * Shared by frontend.js and the self-check. Dependency-free apart from
- * the device breakpoints in shared-constants.json.
+ * The device buckets are WordPress core's viewport breakpoints (theme.json
+ * `settings.viewport`), built in PHP by motion_blocks_device_media_queries()
+ * and handed over as `window.motionBlocksDeviceQueries`. Nothing here
+ * keeps its own copy.
+ *
+ * Shared by frontend.js, the self-check and the editor's Page panel.
+ * Dependency-free.
  */
-import SHARED from '../shared-constants.json';
 
 export const MOTION_CLASS = 'mb-motion';
 
 export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-/**
- * Per-device disable buckets: device → media query list. Three
- * non-overlapping ranges, so every viewport width is in exactly one.
- */
-export const DEVICE_QUERIES = SHARED.deviceQueries;
-
-export const DEVICES = Object.keys( DEVICE_QUERIES );
+/** The per-device disable toggles, in core's order. */
+export const DEVICES = [ 'mobile', 'tablet', 'desktop' ];
 
 // The window startMotionGate() is listening on, so a second call only
 // re-syncs.
 let watching = null;
+
+/**
+ * The device buckets PHP printed: device → media condition. A device the
+ * theme's breakpoints don't define has no entry, and its toggle never
+ * matches.
+ *
+ * @param {Window} win Window holding `motionBlocksDeviceQueries`.
+ * @return {Object<string,string>} Device → media condition.
+ */
+export function deviceQueries( win ) {
+	const given = win && win.motionBlocksDeviceQueries;
+	const queries = {};
+	if ( given && typeof given === 'object' ) {
+		DEVICES.forEach( ( device ) => {
+			if ( typeof given[ device ] === 'string' && given[ device ] ) {
+				queries[ device ] = given[ device ];
+			}
+		} );
+	}
+	return queries;
+}
 
 /**
  * Whether motion is on. Pure: the whole decision, for unit tests and
@@ -60,12 +80,14 @@ export function motionAllowed( reducedMotion, device, disabledDevices ) {
 /**
  * The device bucket the viewport is in.
  *
- * @param {Function} matchMedia `query => MediaQueryList`.
- * @return {string|null} 'desktop', 'tablet', 'mobile', or null.
+ * @param {Function}              matchMedia `query => MediaQueryList`.
+ * @param {Object<string,string>} queries    Device → media condition.
+ * @return {string|null} 'mobile', 'tablet', 'desktop', or null.
  */
-export function currentDevice( matchMedia ) {
+export function currentDevice( matchMedia, queries ) {
 	for ( let i = 0; i < DEVICES.length; i++ ) {
-		if ( matchMedia( DEVICE_QUERIES[ DEVICES[ i ] ] ).matches ) {
+		const query = queries[ DEVICES[ i ] ];
+		if ( query && matchMedia( query ).matches ) {
 			return DEVICES[ i ];
 		}
 	}
@@ -88,18 +110,20 @@ export function disabledDevicesFrom( body ) {
 /**
  * Whether motion should be on right now in `win`.
  *
- * @param {Window}   win             Window to read media queries from.
- * @param {string[]} disabledDevices Buckets disabled for this page.
+ * @param {Window}                win             Window to read media queries from.
+ * @param {string[]}              disabledDevices Buckets disabled for this page.
+ * @param {Object<string,string>} [queries]       Device buckets (default:
+ *                                                the ones PHP printed).
  * @return {boolean} True when blocks may animate.
  */
-export function motionWanted( win, disabledDevices ) {
+export function motionWanted( win, disabledDevices, queries ) {
 	if ( typeof win.matchMedia !== 'function' ) {
 		return true;
 	}
 	const matchMedia = ( query ) => win.matchMedia( query );
 	return motionAllowed(
 		matchMedia( REDUCED_MOTION_QUERY ).matches,
-		currentDevice( matchMedia ),
+		currentDevice( matchMedia, queries || deviceQueries( win ) ),
 		disabledDevices
 	);
 }
@@ -113,10 +137,11 @@ export function motionWanted( win, disabledDevices ) {
  */
 export function startMotionGate( win ) {
 	const doc = win.document;
+	const queries = deviceQueries( win );
 	const sync = () => {
 		doc.documentElement.classList.toggle(
 			MOTION_CLASS,
-			motionWanted( win, disabledDevicesFrom( doc.body ) )
+			motionWanted( win, disabledDevicesFrom( doc.body ), queries )
 		);
 	};
 	sync();
@@ -125,7 +150,7 @@ export function startMotionGate( win ) {
 	}
 	watching = win;
 	[ REDUCED_MOTION_QUERY ]
-		.concat( DEVICES.map( ( device ) => DEVICE_QUERIES[ device ] ) )
+		.concat( Object.keys( queries ).map( ( device ) => queries[ device ] ) )
 		.forEach( ( query ) => {
 			const list = win.matchMedia( query );
 			if ( list.addEventListener ) {
@@ -134,4 +159,52 @@ export function startMotionGate( win ) {
 				list.addListener( sync );
 			}
 		} );
+}
+
+/**
+ * The width range a device query covers, for the editor's help text.
+ * Reads core's range form (`(width <= 480px)`, `(480px < width <=
+ * 782px)`, `(width > 782px)`) and the pre-7.1 fallback's min-/max-width
+ * form (`(min-width: 768px) and (max-width: 1023px), …`).
+ *
+ * @param {string} query Media condition.
+ * @return {{min: string|null, minInclusive: boolean, max: string|null}|null}
+ *         Bounds (null = open), or null for a form it doesn't know.
+ */
+export function deviceQueryRange( query ) {
+	if ( typeof query !== 'string' ) {
+		return null;
+	}
+	// The first query of a list; the fallback's second is its range twin.
+	const first = query.split( /,(?![^(]*\))/ )[ 0 ].trim();
+	const len = '(\\d*\\.?\\d+(?:px|em|rem))';
+	let m = first.match( new RegExp( `^\\(width <= ${ len }\\)$` ) );
+	if ( m ) {
+		return { min: null, minInclusive: false, max: m[ 1 ] };
+	}
+	m = first.match( new RegExp( `^\\(${ len } < width <= ${ len }\\)$` ) );
+	if ( m ) {
+		return { min: m[ 1 ], minInclusive: false, max: m[ 2 ] };
+	}
+	m = first.match( new RegExp( `^\\(width > ${ len }\\)$` ) );
+	if ( m ) {
+		return { min: m[ 1 ], minInclusive: false, max: null };
+	}
+	m = first.match( new RegExp( `^\\(max-width: ${ len }\\)$` ) );
+	if ( m ) {
+		return { min: null, minInclusive: false, max: m[ 1 ] };
+	}
+	m = first.match(
+		new RegExp(
+			`^\\(min-width: ${ len }\\) and \\(max-width: ${ len }\\)$`
+		)
+	);
+	if ( m ) {
+		return { min: m[ 1 ], minInclusive: true, max: m[ 2 ] };
+	}
+	m = first.match( new RegExp( `^\\(min-width: ${ len }\\)$` ) );
+	if ( m ) {
+		return { min: m[ 1 ], minInclusive: true, max: null };
+	}
+	return null;
 }

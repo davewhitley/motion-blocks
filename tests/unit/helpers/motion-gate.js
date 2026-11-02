@@ -28,9 +28,27 @@ function readGateScript() {
 		.join( '' );
 }
 
+/** CSS length in px (em / rem at the default 16px). */
+function px( length ) {
+	const m = /^(\d*\.?\d+)(px|em|rem)$/.exec( length );
+	if ( ! m ) {
+		throw new Error( `Unsupported length: ${ length }` );
+	}
+	return Number( m[ 1 ] ) * ( m[ 2 ] === 'px' ? 1 : 16 );
+}
+
+const COMPARE = {
+	'<': ( a, b ) => a < b,
+	'<=': ( a, b ) => a <= b,
+	'>': ( a, b ) => a > b,
+	'>=': ( a, b ) => a >= b,
+};
+
 /**
  * Whether one media query (no top-level commas) matches. Supports the
- * forms the plugin uses; anything else throws.
+ * forms the plugin and core use: range syntax with one or two bounds
+ * (`(width <= 480px)`, `(480px < width <= 782px)`), min-/max-width and
+ * their `and` pair, and prefers-reduced-motion. Anything else throws.
  *
  * @param {string} query Single media query.
  * @param {Object} state { width, reduced }.
@@ -41,32 +59,67 @@ function matchesOne( query, state ) {
 	if ( query === '(prefers-reduced-motion: reduce)' ) {
 		return state.reduced;
 	}
-	let m = query.match( /^\(width < (\d+)px\)$/ );
+	const len = '(\\d*\\.?\\d+(?:px|em|rem))';
+	let m = query.match( new RegExp( `^\\(width (<=?|>=?) ${ len }\\)$` ) );
 	if ( m ) {
-		return width < Number( m[ 1 ] );
+		return COMPARE[ m[ 1 ] ]( width, px( m[ 2 ] ) );
 	}
-	m = query.match( /^\((\d+)px <= width < (\d+)px\)$/ );
+	m = query.match(
+		new RegExp( `^\\(${ len } (<=?) width (<=?) ${ len }\\)$` )
+	);
 	if ( m ) {
-		return Number( m[ 1 ] ) <= width && width < Number( m[ 2 ] );
+		return (
+			COMPARE[ m[ 2 ] ]( px( m[ 1 ] ), width ) &&
+			COMPARE[ m[ 3 ] ]( width, px( m[ 4 ] ) )
+		);
 	}
-	m = query.match( /^\(width >= (\d+)px\)$/ );
-	if ( m ) {
-		return width >= Number( m[ 1 ] );
-	}
-	m = query.match( /^\(max-width: (\d+)px\)$/ );
-	if ( m ) {
-		return width <= Number( m[ 1 ] );
-	}
-	m = query.match( /^\(min-width: (\d+)px\)$/ );
-	if ( m ) {
-		return width >= Number( m[ 1 ] );
-	}
-	m = query.match( /^\(min-width: (\d+)px\) and \(max-width: (\d+)px\)$/ );
-	if ( m ) {
-		return Number( m[ 1 ] ) <= width && width <= Number( m[ 2 ] );
-	}
-	throw new Error( `Unsupported media query: ${ query }` );
+	return query.split( /\s+and\s+/ ).every( ( part ) => {
+		const mm = part.match(
+			new RegExp( `^\\((min|max)-width: ${ len }\\)$` )
+		);
+		if ( ! mm ) {
+			throw new Error( `Unsupported media query: ${ query }` );
+		}
+		return mm[ 1 ] === 'min'
+			? width >= px( mm[ 2 ] )
+			: width <= px( mm[ 2 ] );
+	} );
 }
+
+/**
+ * Device queries the way PHP prints them
+ * (motion_blocks_device_media_queries()), for the cases the tests use.
+ */
+const QUERY_SETS = {
+	// Core 7.1 defaults: mobile 480px, tablet 782px.
+	core: {
+		mobile: '(width <= 480px)',
+		tablet: '(480px < width <= 782px)',
+		desktop: '(width > 782px)',
+	},
+	// A theme with `settings.viewport` { mobile: 600px, tablet: 1000px }.
+	custom: {
+		mobile: '(width <= 600px)',
+		tablet: '(600px < width <= 1000px)',
+		desktop: '(width > 1000px)',
+	},
+	// A theme that sets only `mobile`: no tablet bucket.
+	mobileOnly: {
+		mobile: '(width <= 600px)',
+		desktop: '(width > 600px)',
+	},
+	// A theme that sets only `tablet`: no mobile bucket.
+	tabletOnly: {
+		tablet: '(width <= 900px)',
+		desktop: '(width > 900px)',
+	},
+	// Before WordPress 7.1: the plugin's own ranges.
+	legacy: {
+		mobile: '(max-width: 767px), (width < 768px)',
+		tablet: '(min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px)',
+		desktop: '(min-width: 1024px), (width >= 1024px)',
+	},
+};
 
 function matches( list, state ) {
 	return list
@@ -114,4 +167,4 @@ function fakeMatchMedia( initial ) {
 	return matchMedia;
 }
 
-module.exports = { readGateScript, fakeMatchMedia, matches };
+module.exports = { readGateScript, fakeMatchMedia, matches, QUERY_SETS };

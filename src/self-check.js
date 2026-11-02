@@ -25,6 +25,7 @@ import { imgTargetsOf } from './img-target';
 import {
 	MOTION_CLASS,
 	currentDevice as deviceFor,
+	deviceQueries,
 	disabledDevicesFrom,
 	motionWanted,
 } from './motion-gate';
@@ -119,10 +120,14 @@ import {
 		return list.filter( isOurAnimation );
 	}
 
+	// Per-device disable buckets: core's viewport breakpoints, as PHP
+	// printed them (motion_blocks_device_media_queries()).
+	var DEVICE_QUERIES = deviceQueries( window );
+
 	function currentDevice() {
 		return deviceFor( function ( query ) {
 			return window.matchMedia( query );
-		} );
+		}, DEVICE_QUERIES );
 	}
 
 	/**

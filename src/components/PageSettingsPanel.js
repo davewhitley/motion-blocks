@@ -13,8 +13,11 @@
  *      block and resets `animationMode`. Reversible via WP Undo.
  *
  * The toggles persist as post meta (registered server-side in
- * animation-plugin.php). The frontend reads them via body classes
- * and the matching media-query CSS in animations.css.
+ * animation-plugin.php). The front end reads them via body classes and
+ * keeps `html.mb-motion` off on those devices (src/motion-gate.js). The
+ * device ranges are WordPress core's viewport breakpoints, which follow
+ * the theme (motion_blocks_device_media_queries()); each toggle's help
+ * text shows the range it covers.
  */
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
@@ -40,20 +43,24 @@ import AutoAnimateModal from './AutoAnimate';
 import { store as previewStore } from './previewStore';
 import { useFocusAfterDialog } from './keyboardFocus';
 import { clearAnimationAttributes } from './constants';
+import { deviceRangeHelp } from './deviceRanges';
 
 const DEVICE_OPTIONS = [
 	{
 		key: 'mb_disabled_desktop',
+		device: 'desktop',
 		label: __( 'Disable on Desktop', 'motion-blocks' ),
 		icon: desktop,
 	},
 	{
 		key: 'mb_disabled_tablet',
+		device: 'tablet',
 		label: __( 'Disable on Tablet', 'motion-blocks' ),
 		icon: tablet,
 	},
 	{
 		key: 'mb_disabled_mobile',
+		device: 'mobile',
 		label: __( 'Disable on Mobile', 'motion-blocks' ),
 		icon: mobile,
 	},
@@ -237,6 +244,7 @@ function MotionBlocksPagePanel() {
 								>
 									<CheckboxControl
 										label={ opt.label }
+										help={ deviceRangeHelp( opt.device ) }
 										checked={ !! meta[ opt.key ] }
 										onChange={ ( v ) =>
 											setMetaValue( opt.key, v )

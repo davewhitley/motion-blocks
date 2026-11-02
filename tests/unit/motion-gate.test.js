@@ -7,24 +7,38 @@
  * copy, since it runs before any bundle loads) and startMotionGate()
  * reach the same answer, including after a change mid-visit.
  *
+ * The device buckets are injected, the way PHP prints them
+ * (motion_blocks_device_media_queries()): WordPress core's default
+ * viewport breakpoints, a theme's custom ones, a theme that sets only
+ * one breakpoint, and the pre-7.1 fallback.
+ *
  * Run: npm run test:unit
  */
 import {
 	DEVICES,
 	MOTION_CLASS,
 	currentDevice,
+	deviceQueries,
 	disabledDevicesFrom,
 	motionAllowed,
 	motionWanted,
 	startMotionGate,
 } from '../../src/motion-gate';
 
-const { readGateScript, fakeMatchMedia } = require( './helpers/motion-gate' );
-const SHARED = require( '../../shared-constants.json' );
+const {
+	readGateScript,
+	fakeMatchMedia,
+	QUERY_SETS,
+} = require( './helpers/motion-gate' );
 
-// One viewport width per bucket, plus the edges either side of each
-// breakpoint (fractional widths under browser zoom included, GH #33).
-const WIDTH = { desktop: 1280, tablet: 800, mobile: 375 };
+// One viewport width inside each bucket a query set defines.
+const WIDTHS = {
+	core: { mobile: 375, tablet: 600, desktop: 1280 },
+	custom: { mobile: 600, tablet: 800, desktop: 1280 },
+	mobileOnly: { mobile: 375, desktop: 800 },
+	tabletOnly: { tablet: 600, desktop: 1280 },
+	legacy: { mobile: 600, tablet: 800, desktop: 1280 },
+};
 
 /** Every subset of DEVICES. */
 const SUBSETS = DEVICES.reduce(
@@ -43,11 +57,11 @@ const COMBOS = [];
 
 const html = document.documentElement;
 
-function runHeadScript( disabled ) {
+function runHeadScript( queries, disabled ) {
 	// eslint-disable-next-line no-new-func
 	new Function( 'h', 'q', 'd', '(' + readGateScript() + ')(h,q,d);' )(
 		html,
-		SHARED.deviceQueries,
+		queries,
 		disabled
 	);
 }
@@ -61,10 +75,12 @@ function setBodyClasses( disabled ) {
 beforeEach( () => {
 	html.className = '';
 	document.body.className = '';
+	window.motionBlocksDeviceQueries = QUERY_SETS.core;
 } );
 
 afterEach( () => {
 	delete window.matchMedia;
+	delete window.motionBlocksDeviceQueries;
 } );
 
 describe( 'motionAllowed', () => {
@@ -101,20 +117,69 @@ describe( 'motionAllowed', () => {
 } );
 
 describe( 'currentDevice', () => {
+	const at = ( set, width ) =>
+		currentDevice(
+			fakeMatchMedia( { width, reduced: false } ),
+			QUERY_SETS[ set ]
+		);
+
 	it.each( [
-		[ 0, 'mobile' ],
-		[ 375, 'mobile' ],
-		[ 767, 'mobile' ],
-		[ 767.5, 'mobile' ],
-		[ 768, 'tablet' ],
-		[ 1023, 'tablet' ],
-		[ 1023.5, 'tablet' ],
-		[ 1024, 'desktop' ],
-		[ 1920, 'desktop' ],
-	] )( '%p px is %s', ( width, device ) => {
+		// Core defaults: mobile ≤ 480px < tablet ≤ 782px < desktop.
+		[ 'core', 0, 'mobile' ],
+		[ 'core', 480, 'mobile' ],
+		[ 'core', 480.5, 'tablet' ],
+		[ 'core', 600, 'tablet' ],
+		[ 'core', 782, 'tablet' ],
+		[ 'core', 782.5, 'desktop' ],
+		[ 'core', 1920, 'desktop' ],
+		// A theme's own breakpoints (600px / 1000px).
+		[ 'custom', 600, 'mobile' ],
+		[ 'custom', 601, 'tablet' ],
+		[ 'custom', 1000, 'tablet' ],
+		[ 'custom', 1001, 'desktop' ],
+		// Only `mobile` set: no tablet bucket.
+		[ 'mobileOnly', 600, 'mobile' ],
+		[ 'mobileOnly', 800, 'desktop' ],
+		// Only `tablet` set: everything up to it is tablet.
+		[ 'tabletOnly', 320, 'tablet' ],
+		[ 'tabletOnly', 901, 'desktop' ],
+		// Before 7.1.
+		[ 'legacy', 600, 'mobile' ],
+		[ 'legacy', 767.5, 'mobile' ],
+		[ 'legacy', 768, 'tablet' ],
+		[ 'legacy', 1024, 'desktop' ],
+	] )( '%s at %p px is %s', ( set, width, device ) => {
+		expect( at( set, width ) ).toBe( device );
+	} );
+
+	it( 'puts 600px in a different bucket for core than before 7.1', () => {
+		expect( at( 'core', 600 ) ).toBe( 'tablet' );
+		expect( at( 'legacy', 600 ) ).toBe( 'mobile' );
+	} );
+
+	it( 'finds no device without any queries', () => {
 		expect(
-			currentDevice( fakeMatchMedia( { width, reduced: false } ) )
-		).toBe( device );
+			currentDevice(
+				fakeMatchMedia( { width: 600, reduced: false } ),
+				{}
+			)
+		).toBe( null );
+	} );
+} );
+
+describe( 'deviceQueries', () => {
+	it( 'reads the queries PHP printed, dropping anything else', () => {
+		expect(
+			deviceQueries( {
+				motionBlocksDeviceQueries: {
+					mobile: '(width <= 600px)',
+					tablet: '',
+					desktop: '(width > 600px)',
+					watch: '(width > 1px)',
+				},
+			} )
+		).toEqual( { mobile: '(width <= 600px)', desktop: '(width > 600px)' } );
+		expect( deviceQueries( {} ) ).toEqual( {} );
 	} );
 } );
 
@@ -122,41 +187,69 @@ describe( 'disabledDevicesFrom', () => {
 	it( 'reads the mb-disabled-* body classes', () => {
 		document.body.className = 'home mb-disabled-mobile mb-disabled-desktop';
 		expect( disabledDevicesFrom( document.body ) ).toEqual( [
-			'desktop',
 			'mobile',
+			'desktop',
 		] );
 	} );
 } );
 
-describe( 'every setter agrees with motionAllowed', () => {
-	it.each( COMBOS )(
-		'reduced=$reduced device=$device disabled=$disabled',
-		( { reduced, device, disabled } ) => {
-			const want = motionAllowed( reduced, device, disabled );
-			const state = { width: WIDTH[ device ], reduced };
+describe.each( Object.keys( QUERY_SETS ) )(
+	'every setter agrees with motionAllowed (%s breakpoints)',
+	( set ) => {
+		const queries = QUERY_SETS[ set ];
+		const combos = COMBOS.filter( ( c ) => WIDTHS[ set ][ c.device ] );
 
-			// Head script, with the list PHP prints.
-			window.matchMedia = fakeMatchMedia( state );
-			runHeadScript( disabled );
-			expect( html.classList.contains( MOTION_CLASS ) ).toBe( want );
+		it.each( combos )(
+			'reduced=$reduced device=$device disabled=$disabled',
+			( { reduced, device, disabled } ) => {
+				const want = motionAllowed( reduced, device, disabled );
+				const state = { width: WIDTHS[ set ][ device ], reduced };
 
-			// frontend.js, with the body classes.
+				// Head script, with the queries and list PHP prints.
+				window.matchMedia = fakeMatchMedia( state );
+				runHeadScript( queries, disabled );
+				expect( html.classList.contains( MOTION_CLASS ) ).toBe( want );
+
+				// frontend.js, with the printed queries and the body classes.
+				html.className = '';
+				setBodyClasses( disabled );
+				window.motionBlocksDeviceQueries = queries;
+				window.matchMedia = fakeMatchMedia( state );
+				expect( motionWanted( window, disabled ) ).toBe( want );
+				startMotionGate( window );
+				expect( html.classList.contains( MOTION_CLASS ) ).toBe( want );
+			}
+		);
+	}
+);
+
+describe( 'a device the breakpoints leave out never matches', () => {
+	it.each( [
+		[ 'mobileOnly', 'tablet', [ 320, 600, 800, 1280 ] ],
+		[ 'tabletOnly', 'mobile', [ 320, 600, 800, 1280 ] ],
+	] )( '%s: disabling %s changes nothing', ( set, device, widths ) => {
+		widths.forEach( ( width ) => {
 			html.className = '';
-			setBodyClasses( disabled );
-			window.matchMedia = fakeMatchMedia( state );
-			expect( motionWanted( window, disabled ) ).toBe( want );
-			startMotionGate( window );
-			expect( html.classList.contains( MOTION_CLASS ) ).toBe( want );
-		}
-	);
+			window.matchMedia = fakeMatchMedia( { width, reduced: false } );
+			runHeadScript( QUERY_SETS[ set ], [ device ] );
+			expect( {
+				width,
+				on: html.classList.contains( MOTION_CLASS ),
+			} ).toEqual( { width, on: true } );
+			expect(
+				motionWanted( window, [ device ], QUERY_SETS[ set ] )
+			).toBe( true );
+		} );
+	} );
 } );
 
 describe( 'the class follows changes mid-visit', () => {
+	// Core breakpoints, animations disabled on mobile (≤ 480px).
 	const steps = [
 		[ 'reduced motion on', { reduced: true }, false ],
 		[ 'reduced motion off', { reduced: false }, true ],
 		[ 'resize to the disabled mobile bucket', { width: 375 }, false ],
-		[ 'resize to tablet', { width: 800 }, true ],
+		[ 'resize to tablet (600px)', { width: 600 }, true ],
 		[
 			'resize to mobile with reduced motion',
 			{ width: 400, reduced: true },
@@ -171,7 +264,7 @@ describe( 'the class follows changes mid-visit', () => {
 
 	it( 'in the head script', () => {
 		window.matchMedia = fakeMatchMedia( { width: 1280, reduced: false } );
-		runHeadScript( [ 'mobile' ] );
+		runHeadScript( QUERY_SETS.core, [ 'mobile' ] );
 		expect( html.classList.contains( MOTION_CLASS ) ).toBe( true );
 		steps.forEach( ( [ label, patch, want ] ) => {
 			window.matchMedia.set( patch );

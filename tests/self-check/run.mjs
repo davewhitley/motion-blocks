@@ -5,14 +5,16 @@
  * each page is expected to report.
  *
  * Input is the manifest that `fixtures.php json` prints (one entry per
- * fixture page: url, edit_url, expect, expect_reduced_motion). For each
- * page the runner:
+ * fixture page: url, edit_url, expect, expect_reduced_motion, and
+ * optionally viewport_width / expect_motion). For each page the runner:
  *
  *   1. opens the page and runs `await motionBlocksSelfCheck({ sweep: true })`
  *      (scrolls the whole page and collects every problem seen), and
  *      compares the sorted, de-duplicated `id#issue` list with `expect`;
  *   2. does the same with prefers-reduced-motion emulated, against
  *      `expect_reduced_motion`;
+ *      (both at `viewport_width` when the page sets one, 1280px otherwise;
+ *      with `expect_motion` they also check html.mb-motion is on or off);
  *   3. opens the page in the block editor and runs
  *      `await motionBlocksEditorCheck()`, which must report nothing
  *      (it also presses Play on a block and checks the preview runs);
@@ -381,12 +383,7 @@ async function openTab() {
 	};
 	await tab.send( 'Page.enable' );
 	await tab.send( 'Emulation.setFocusEmulationEnabled', { enabled: true } );
-	await tab.send( 'Emulation.setDeviceMetricsOverride', {
-		width: 1280,
-		height: 800,
-		deviceScaleFactor: 1,
-		mobile: false,
-	} );
+	await setWidth( tab );
 	return tab;
 }
 
@@ -435,8 +432,33 @@ async function logIn( tab ) {
 
 const sortedUnique = ( list ) => [ ...new Set( list ) ].sort();
 
-/** Front-end sweep, with or without reduced motion. */
+/** Sets the tab's viewport width (default 1280px). */
+function setWidth( tab, width ) {
+	return tab.send( 'Emulation.setDeviceMetricsOverride', {
+		width: width || 1280,
+		height: 800,
+		deviceScaleFactor: 1,
+		mobile: false,
+	} );
+}
+
+/**
+ * Front-end sweep, with or without reduced motion, at the page's
+ * `viewport_width` if it has one. A page with `expect_motion` also
+ * checks `html.mb-motion` (always off with reduced motion).
+ */
 async function pageCheck( tab, fx, reduced ) {
+	await setWidth( tab, fx.viewport_width );
+	try {
+		return await sweepCheck( tab, fx, reduced );
+	} finally {
+		if ( fx.viewport_width ) {
+			await setWidth( tab );
+		}
+	}
+}
+
+async function sweepCheck( tab, fx, reduced ) {
 	await tab.send( 'Emulation.setEmulatedMedia', {
 		features: [
 			{
@@ -466,12 +488,31 @@ async function pageCheck( tab, fx, reduced ) {
 	}
 	const gotIds = sortedUnique( got.map( ( s ) => s.split( ' :: ' )[ 0 ] ) );
 	const want = [ ...( reduced ? fx.expect_reduced_motion : fx.expect ) ].sort();
-	const ok = JSON.stringify( gotIds ) === JSON.stringify( want );
+	let ok = JSON.stringify( gotIds ) === JSON.stringify( want );
+	let motion = '';
+	if ( typeof fx.expect_motion === 'boolean' ) {
+		const wantMotion = reduced ? false : fx.expect_motion;
+		const on = await tab.evaluate(
+			`document.documentElement.classList.contains( 'mb-motion' )`
+		);
+		motion = `  motion=${ on ? 'on' : 'off' }`;
+		if ( on !== wantMotion ) {
+			ok = false;
+			got.push(
+				`html.mb-motion is ${ on ? 'on' : 'off' } at ${
+					fx.viewport_width || 1280
+				}px, expected ${ wantMotion ? 'on' : 'off' }`
+			);
+		}
+	}
+	const width = fx.viewport_width ? ` @${ fx.viewport_width }px` : '';
 	return {
 		ok,
 		line: `${ ok ? 'PASS' : 'FAIL' } ${ reduced ? '[reduced] ' : '' }${
 			fx.key
-		}  want=${ JSON.stringify( want ) } got=${ JSON.stringify( gotIds ) }`,
+		}${ width }  want=${ JSON.stringify( want ) } got=${ JSON.stringify(
+			gotIds
+		) }${ motion }`,
 		details: ok ? [] : got,
 	};
 }

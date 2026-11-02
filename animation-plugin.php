@@ -129,6 +129,14 @@ function motion_blocks_enqueue_editor_assets() {
         true
     );
 
+    // The Page panel's per-device toggles show the range each one
+    // covers, from the same queries the front end uses.
+    wp_add_inline_script(
+        'motion-blocks-editor',
+        motion_blocks_device_queries_script(),
+        'before'
+    );
+
     // Beta flag bridge: expose the live-preview opt-in to the editor
     // bundle as a global it reads at load (LIVE_SCROLL_PREVIEW_OK in
     // src/index.js). 'before' so it runs prior to the bundle.
@@ -441,6 +449,15 @@ function motion_blocks_enqueue_frontend_assets() {
             true
         );
 
+        // The device buckets for per-device disable, for the motion
+        // gate frontend.js keeps current (src/motion-gate.js) and the
+        // self-check. Same source as the head script.
+        wp_add_inline_script(
+            'motion-blocks-frontend',
+            motion_blocks_device_queries_script(),
+            'before'
+        );
+
         // Opt-in trigger lines (GH #86): two lines showing where
         // Scroll Appear blocks start and stop. Only for users who can
         // edit posts, so subscribers and shop customers never see them;
@@ -639,7 +656,7 @@ function motion_blocks_note_animated_block() {
  *   filter and clip-path show untouched (#53). On while JavaScript
  *   ran, the visitor hasn't asked for reduced motion, and the current
  *   device isn't disabled for this page (motion_blocks_disabled_devices();
- *   the device breakpoints come from shared-constants.json). matchMedia
+ *   the device buckets come from motion_blocks_device_media_queries()). matchMedia
  *   listeners keep it current when either changes mid-visit.
  *   src/motion-gate.js holds the same decision for frontend.js and the
  *   self-check; tests/unit/motion-gate.test.js runs both.
@@ -679,10 +696,9 @@ function motion_blocks_print_js_marker() {
     if ( ! motion_blocks_should_load_frontend_assets() ) {
         return;
     }
-    $queries = motion_blocks_shared_constants()['deviceQueries'] ?? array();
     wp_print_inline_script_tag(
         '(' . motion_blocks_motion_gate_script() . ')(document.documentElement,'
-            . wp_json_encode( (object) $queries ) . ','
+            . wp_json_encode( (object) motion_blocks_device_media_queries() ) . ','
             . wp_json_encode( motion_blocks_disabled_devices() ) . ');',
         array( 'id' => 'motion-blocks-js-marker' )
     );
@@ -1470,9 +1486,12 @@ add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10,
  * symmetric and avoids a fourth "all" key whose state would have
  * to stay in sync with the others.
  *
- *   mb_disabled_desktop  → width ≥ 1024px viewports
- *   mb_disabled_tablet   → 768px ≤ width < 1024px viewports
- *   mb_disabled_mobile   → width < 768px viewports
+ *   mb_disabled_mobile   → core's mobile viewport (width ≤ 480px by default)
+ *   mb_disabled_tablet   → core's tablet viewport (480px < width ≤ 782px)
+ *   mb_disabled_desktop  → wider than that
+ *
+ * The ranges follow the theme's `settings.viewport` breakpoints; see
+ * motion_blocks_device_media_queries().
  *
  * Exposed in REST so the editor's `useEntityProp` can read/write
  * them. Registered on every public post type that supports the
@@ -1593,6 +1612,82 @@ function motion_blocks_disabled_devices() {
         }
     }
     return $devices;
+}
+
+/**
+ * The screen-size range each per-device toggle covers, as bare media
+ * query conditions: `array( 'mobile' => '(width <= 480px)', … )`.
+ *
+ * The single source for every place that decides the current device:
+ * the head script (motion_blocks_print_js_marker()), frontend.js and the
+ * self-check (window.motionBlocksDeviceQueries, src/motion-gate.js), and
+ * the editor's Page panel, which shows each toggle's range.
+ *
+ * WordPress 7.1+ defines viewport breakpoints in theme.json
+ * (`settings.viewport`, default mobile 480px / tablet 782px), used by
+ * core's per-block visibility and responsive styles. These are the same
+ * queries, from core's own builder, so "Mobile" means what it means
+ * everywhere else in WordPress and follows the theme.
+ *
+ * Core only returns the devices the theme's breakpoints define: a
+ * theme that sets just one breakpoint gets two buckets, and the missing
+ * device's toggle then never matches. Core's queries use range syntax
+ * only (`width <= 480px`), which Safari before 16.4 ignores; matching
+ * core, there is no min-/max-width fallback.
+ *
+ * @return array<string,string> Device => media condition, in the order
+ *                              mobile, tablet, desktop (missing keys
+ *                              are devices the breakpoints don't define).
+ */
+function motion_blocks_device_media_queries() {
+    $core = null;
+    if ( method_exists( 'WP_Theme_JSON', 'get_viewport_media_queries' ) ) {
+        $core = WP_Theme_JSON::get_viewport_media_queries(
+            wp_get_global_settings( array( 'viewport' ) ),
+            array( 'include_desktop' => true )
+        );
+    }
+    return motion_blocks_device_media_queries_from( $core );
+}
+
+/**
+ * motion_blocks_device_media_queries() from core's output.
+ *
+ * @param array|null $core WP_Theme_JSON::get_viewport_media_queries()
+ *                         output (`'@mobile' => '@media (…)'`), or null
+ *                         before WordPress 7.1.
+ * @return array<string,string> Device => media condition.
+ */
+function motion_blocks_device_media_queries_from( $core ) {
+    if ( ! is_array( $core ) ) {
+        // Before 7.1: the plugin's own fixed ranges. Each is a list: the
+        // integer min-/max-width form for engines without range syntax
+        // and the range form, so fractional widths (767.5px under browser
+        // zoom) still land in exactly one bucket (GH #33).
+        return array(
+            'mobile'  => '(max-width: 767px), (width < 768px)',
+            'tablet'  => '(min-width: 768px) and (max-width: 1023px), (768px <= width < 1024px)',
+            'desktop' => '(min-width: 1024px), (width >= 1024px)',
+        );
+    }
+    $queries = array();
+    foreach ( array( 'mobile', 'tablet', 'desktop' ) as $device ) {
+        if ( isset( $core[ '@' . $device ] ) && is_string( $core[ '@' . $device ] ) ) {
+            $queries[ $device ] = trim( preg_replace( '/^\s*@media\s+/i', '', $core[ '@' . $device ] ) );
+        }
+    }
+    return $queries;
+}
+
+/**
+ * Inline script handing motion_blocks_device_media_queries() to the
+ * front-end and editor bundles.
+ *
+ * @return string JavaScript.
+ */
+function motion_blocks_device_queries_script() {
+    return 'window.motionBlocksDeviceQueries = '
+        . wp_json_encode( (object) motion_blocks_device_media_queries() ) . ';';
 }
 
 /**

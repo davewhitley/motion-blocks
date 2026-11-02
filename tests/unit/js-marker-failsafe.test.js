@@ -7,16 +7,11 @@
  *
  * Run: npm run test:unit
  */
-const fs = require( 'fs' );
-const path = require( 'path' );
-const { readGateScript, fakeMatchMedia } = require( './helpers/motion-gate' );
-
-const shared = JSON.parse(
-	fs.readFileSync(
-		path.join( __dirname, '../../shared-constants.json' ),
-		'utf8'
-	)
-);
+const {
+	readGateScript,
+	fakeMatchMedia,
+	QUERY_SETS,
+} = require( './helpers/motion-gate' );
 
 const html = document.documentElement;
 
@@ -24,7 +19,7 @@ function runMarker( disabled = [] ) {
 	// eslint-disable-next-line no-new-func
 	new Function( 'h', 'q', 'd', '(' + readGateScript() + ')(h,q,d);' )(
 		html,
-		shared.deviceQueries,
+		QUERY_SETS.core,
 		disabled
 	);
 }
@@ -33,10 +28,12 @@ beforeEach( () => {
 	html.className = '';
 	delete window.motionBlocksReady;
 	window.matchMedia = fakeMatchMedia( { width: 1280, reduced: false } );
+	window.motionBlocksDeviceQueries = QUERY_SETS.core;
 } );
 
 afterEach( () => {
 	delete window.matchMedia;
+	delete window.motionBlocksDeviceQueries;
 } );
 
 describe( 'head script failsafe', () => {
@@ -87,5 +84,22 @@ describe( 'frontend.js ready flag', () => {
 		} );
 		expect( html.classList.contains( 'mb-js' ) ).toBe( true );
 		expect( html.classList.contains( 'mb-motion' ) ).toBe( false );
+	} );
+	it( 'uses the printed device queries for a disabled device (assets loaded late)', () => {
+		// 600px is tablet to core, mobile to the pre-7.1 ranges.
+		document.body.className = 'mb-disabled-tablet';
+		window.matchMedia = fakeMatchMedia( { width: 600, reduced: false } );
+		jest.isolateModules( () => {
+			require( '../../src/frontend.js' );
+		} );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( false );
+
+		html.className = '';
+		window.motionBlocksDeviceQueries = QUERY_SETS.legacy;
+		jest.isolateModules( () => {
+			require( '../../src/frontend.js' );
+		} );
+		expect( html.classList.contains( 'mb-motion' ) ).toBe( true );
+		document.body.className = '';
 	} );
 } );

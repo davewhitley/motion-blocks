@@ -199,7 +199,7 @@ npm run build    # production build
 npm run start    # watch mode
 ```
 
-Build output goes to `build/`. A release zip holds `LICENSE`, `README.md`, `animation-plugin.php`, `uninstall.php`, `shared-constants.json`, `css/`, `build/`, `includes/` and `schema/` under a top-level `motion-blocks/` folder (for example `git archive --prefix=motion-blocks/ <tag> LICENSE README.md animation-plugin.php uninstall.php shared-constants.json css build includes schema`). Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
+Build output goes to `build/`. A release zip holds `LICENSE`, `README.md`, `animation-plugin.php`, `uninstall.php`, `shared-constants.json`, `css/`, `build/`, `includes/`, `schema/` and `languages/` under a top-level `motion-blocks/` folder (for example `git archive --prefix=motion-blocks/ <tag> LICENSE README.md animation-plugin.php uninstall.php shared-constants.json css build includes schema languages`). Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
 
 `tests/schema-defaults/check.php` checks that the front end renders saved blocks the way the editor panel shows them, and that server-rendered block previews (Archives, Calendar, and so on) load in the editor. Run it with WP-CLI from a site that has the plugin active (add `page` to generate a visual test page, or `audit` to list the output of every animated block on the site):
 

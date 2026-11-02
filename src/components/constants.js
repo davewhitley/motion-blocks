@@ -544,8 +544,7 @@ export function migrateScrollAppearAttrs( attrs ) {
 	const duration =
 		attrs.animationDuration ?? SCHEMA_DEFAULTS.animationDuration;
 	const delay = attrs.animationDelay ?? SCHEMA_DEFAULTS.animationDelay;
-	const acceleration =
-		attrs.animationAcceleration ?? SCHEMA_DEFAULTS.animationAcceleration;
+	const acceleration = attrs.animationAcceleration || 'ease';
 	const customTiming =
 		attrs.animationCustomTimingFunction ??
 		SCHEMA_DEFAULTS.animationCustomTimingFunction;
@@ -729,6 +728,31 @@ export const DEFAULT_CUSTOM_TIMING_FUNCTION = 'cubic-bezier(0.25, 0.1, 0.25, 1)'
  * Resolve an acceleration attribute value to an actual CSS timing
  * function. Used by the editor preview HOC and the frontend script.
  */
+/**
+ * Scroll Interactive effects that default to Linear, so the motion
+ * follows the scroll evenly: half way down the range, half way through
+ * the motion. Ease front-loads it (about 80% done at the half-way
+ * point), which suits the In/Out presets but not effects that track
+ * the scroll, like parallax (GH #109).
+ */
+export const SCROLL_LINEAR_TYPES = SHARED.scrollLinearTypes;
+
+/**
+ * The Acceleration a block gets when it has none stored. The schema
+ * default is '' ("this effect's default"), so a block that never set
+ * one follows its mode and effect, and an explicit Ease still sticks.
+ * PHP's motion_blocks_default_acceleration() mirrors this.
+ *
+ * @param {string} mode Animation mode.
+ * @param {string} type Effect type.
+ * @return {string} 'linear' or 'ease'.
+ */
+export function defaultAcceleration( mode, type ) {
+	return mode === 'scroll-interactive' && SCROLL_LINEAR_TYPES.includes( type )
+		? 'linear'
+		: 'ease';
+}
+
 export function resolveTimingFunction( acceleration, customValue ) {
 	if ( acceleration === 'custom' ) {
 		return customValue && customValue.trim()
@@ -2333,9 +2357,15 @@ export function switchModeAttributes( attributes, newMode ) {
 			out.animationDelay =
 				attributes.animationEntryDelay ??
 				DEFAULT_ATTRIBUTES.animationDelay;
+			// Entry's default Ease maps back to "this effect's default",
+			// so Image Move or Custom in Scroll Interactive still gets
+			// Linear (GH #109).
 			out.animationAcceleration =
-				attributes.animationEntryAcceleration ||
-				DEFAULT_ATTRIBUTES.animationAcceleration;
+				attributes.animationEntryAcceleration ===
+				DEFAULT_ATTRIBUTES.animationEntryAcceleration
+					? DEFAULT_ATTRIBUTES.animationAcceleration
+					: attributes.animationEntryAcceleration ||
+					  DEFAULT_ATTRIBUTES.animationAcceleration;
 			out.animationCustomTimingFunction =
 				attributes.animationEntryCustomTimingFunction ||
 				DEFAULT_ATTRIBUTES.animationCustomTimingFunction;

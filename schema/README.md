@@ -44,7 +44,7 @@ Inside `effect`, `entry` and `exit`. Only `type` is required.
 | `direction` | see Effects | Where the motion comes from: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. Optional; each effect has a sensible default. |
 | `duration` | number, 0.05 to 60 | Seconds. Default 0.6. |
 | `delay` | number, 0 to 60 | Seconds before it starts. Default 0. |
-| `easing` | string | ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease. |
+| `easing` | string | ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease; linear for scroll-interactive image-move, image-zoom and custom. |
 | `blur` | integer, 0 to 200 | Blur effects only: blur in whole px. Default 8. |
 | `rotate` | integer, -3600 to 3600 | Rotate effects only: angle in whole degrees. Default 90. |
 | `from` | object | Custom effect values. Numbers get the default unit (px for translate and blur, deg for rotations); strings may carry their own (24px, 50%, 2rem, 45deg, 0.5turn). clipPath takes inset(), circle(), ellipse(), polygon(), rect(), xywh() or path(). |

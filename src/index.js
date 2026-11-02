@@ -52,6 +52,7 @@ import {
 	materializeScrollAppearPatch,
 	aliasSlotForPreview,
 	resolveTimingFunction,
+	defaultAcceleration,
 	resetPreviewUiAttributes,
 	canAnimateBlock,
 } from './components/constants';
@@ -272,7 +273,7 @@ function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null )
 					`animation-range-end: var(--mb-range-end, exit 100%)`,
 					`animation-duration: 1ms`,
 					`animation-fill-mode: both`,
-					`animation-timing-function: var(--mb-timing, linear)`,
+					`animation-timing-function: var(--mb-timing)`,
 			  ]
 			: [
 					`animation-name: ${ keyframe.name }`,
@@ -1370,7 +1371,8 @@ const withAnimationPreview = createHigherOrderComponent(
 			// timing function string. Used wherever the legacy code
 			// passed `animationAcceleration` directly.
 			const resolvedTiming = resolveTimingFunction(
-				animationAcceleration,
+				animationAcceleration ||
+					defaultAcceleration( animationMode, animationType ),
 				animationCustomTimingFunction
 			);
 

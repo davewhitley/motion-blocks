@@ -668,7 +668,7 @@ import {
 				'animation-range-end: var(--mb-range-end, exit 100%)',
 				'animation-duration: 1ms',
 				'animation-fill-mode: both',
-				'animation-timing-function: var(--mb-timing, linear)',
+				'animation-timing-function: var(--mb-timing)',
 			];
 		} else {
 			animProps = [

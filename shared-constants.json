@@ -27,6 +27,12 @@
 		"image-move",
 		"image-zoom"
 	],
+	"_README_scrollLinearTypes": "Scroll Interactive effects whose default Acceleration is linear, so the motion follows the scroll evenly (GH #109). Every other effect, and every other mode, defaults to ease. The stored default (schemaDefaults.animationAcceleration) is '' meaning 'this effect's default'; JS defaultAcceleration() and PHP motion_blocks_default_acceleration() resolve it from this list. An explicit 'ease' is stored as 'ease'.",
+	"scrollLinearTypes": [
+		"image-move",
+		"image-zoom",
+		"custom"
+	],
 
 	"_README_effects": "Effect values offered by the Motion Effects panel, in dropdown order. Labels live in src/components/constants.js (TYPE_LABELS / EXIT_TYPE_LABELS / DIRECTION_LABELS), keyed by these values. PHP reads the lists to build the smoke-test page (tests/self-check/fixtures.php), so a new effect added here is tested automatically. animationTypes is the Scroll Interactive list; Page Load shows the same list minus the -out variants and Scroll Appear uses entryTypes / exitTypes. Image effect types are only offered on imageEffect blocks.",
 
@@ -245,7 +251,7 @@
 		"animationPauseOffscreen": true,
 		"animationPlayOnce": true,
 		"animationScrollTrigger": "enter",
-		"animationAcceleration": "ease",
+		"animationAcceleration": "",
 		"animationCustomTimingFunction": "cubic-bezier(0.25, 0.1, 0.25, 1)",
 		"animationBlurAmount": 8,
 		"animationRotateAngle": 90,

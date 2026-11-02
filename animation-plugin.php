@@ -121,6 +121,24 @@ function motion_blocks_attr_default( $key ) {
 }
 
 /**
+ * The Acceleration a Page Load or Scroll Interactive block gets when it
+ * has none stored (the schema default is '', "this effect's default").
+ * Scroll Interactive effects in `scrollLinearTypes` default to linear,
+ * so they follow the scroll evenly; everything else defaults to ease
+ * (GH #109). Mirrors defaultAcceleration() in src/components/constants.js.
+ *
+ * @param string $mode Animation mode.
+ * @param string $type Effect type.
+ * @return string 'linear' or 'ease'.
+ */
+function motion_blocks_default_acceleration( $mode, $type ) {
+    $linear = motion_blocks_shared_constants()['scrollLinearTypes'] ?? array();
+    return 'scroll-interactive' === $mode && in_array( $type, $linear, true )
+        ? 'linear'
+        : 'ease';
+}
+
+/**
  * Enqueue editor scripts and styles for block controls.
  *
  * JS + panel-only CSS go on enqueue_block_editor_assets (parent frame).
@@ -881,7 +899,8 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
     $direction    = $attrs['animationDirection'] ?? motion_blocks_attr_default( 'animationDirection' );
     $duration     = $attrs['animationDuration'] ?? motion_blocks_attr_default( 'animationDuration' );
     $delay        = $attrs['animationDelay'] ?? motion_blocks_attr_default( 'animationDelay' );
-    $acceleration = $attrs['animationAcceleration'] ?? motion_blocks_attr_default( 'animationAcceleration' );
+    // Unset ('') is "this effect's default": always ease in Scroll Appear.
+    $acceleration = ( $attrs['animationAcceleration'] ?? '' ) ?: 'ease';
     $custom_tf    = $attrs['animationCustomTimingFunction']
         ?? motion_blocks_attr_default( 'animationCustomTimingFunction' );
     $blur         = $attrs['animationBlurAmount'] ?? motion_blocks_attr_default( 'animationBlurAmount' );
@@ -1277,8 +1296,10 @@ function motion_blocks_render_block( $block_content, $block ) {
             }
         }
 
-        $acceleration = $attrs['animationAcceleration']
-            ?? motion_blocks_attr_default( 'animationAcceleration' );
+        $acceleration = $attrs['animationAcceleration'] ?? '';
+        if ( ! is_string( $acceleration ) || '' === $acceleration ) {
+            $acceleration = motion_blocks_default_acceleration( $mode, (string) $type );
+        }
         if ( $acceleration === 'custom' ) {
             // `?? ''` distinguishes "user typed nothing" from "user has
             // a value"; the default cubic-bezier comes from the central
@@ -2383,7 +2404,7 @@ function motion_blocks_base_recipe_attributes() {
         'animationPauseOffscreen'             => true,
         'animationPlayOnce'                   => true,
         'animationScrollTrigger'              => 'enter',
-        'animationAcceleration'               => 'ease',
+        'animationAcceleration'               => '',
         'animationCustomTimingFunction'       => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationBlurAmount'                 => 8,
         'animationRotateAngle'                => 90,

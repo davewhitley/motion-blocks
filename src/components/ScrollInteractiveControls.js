@@ -46,6 +46,7 @@ import {
 	isImageTargetUnavailable,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
+	defaultAcceleration,
 } from './constants';
 import { DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
@@ -136,6 +137,11 @@ export default function ScrollInteractiveControls( {
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
+	const effectDefaultAcceleration = defaultAcceleration(
+		'scroll-interactive',
+		animationType
+	);
+
 	const startOffset = parseOffset( animationRangeStart, 'entry 0%' );
 	const endOffset = parseOffset( animationRangeEnd, 'exit 100%' );
 
@@ -195,6 +201,15 @@ export default function ScrollInteractiveControls( {
 		};
 		if ( fromImageEffect ) {
 			newAttrs.animationFromToTarget = 'img';
+		}
+		// Custom defaults to Linear here. A preset that was on its
+		// default Ease keeps Ease, so Edit doesn't change how it moves.
+		if (
+			! animationAcceleration &&
+			effectDefaultAcceleration !==
+				defaultAcceleration( 'scroll-interactive', 'custom' )
+		) {
+			newAttrs.animationAcceleration = effectDefaultAcceleration;
 		}
 		if ( attributes.animationStaggerEnabled ) {
 			newAttrs.animationStaggerEnabled = false;
@@ -622,10 +637,15 @@ export default function ScrollInteractiveControls( {
 
 			<SelectControl
 				label={ __( 'Acceleration', 'motion-blocks' ) }
-				value={ animationAcceleration }
+				value={ animationAcceleration || effectDefaultAcceleration }
 				options={ ACCELERATION_OPTIONS }
 				onChange={ ( value ) =>
-					setAttributes( { animationAcceleration: value } )
+					// Picking the effect's default stores '' so the block
+					// keeps following it when the effect changes.
+					setAttributes( {
+						animationAcceleration:
+							value === effectDefaultAcceleration ? '' : value,
+					} )
 				}
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom

@@ -1159,7 +1159,7 @@ function mb_self_check_fixtures( $image ) {
 	);
 	$fixtures['block-visibility-mobile'] = array(
 		'title'          => 'Core "hide on mobile"',
-		'note'           => 'Uses WordPress core\'s per-block visibility ("Hide on mobile", block settings → Visibility). The pink paragraph is animated and hidden on mobile. The orange group staggers four paragraphs 0.3s apart, and its second paragraph is hidden on mobile. The checks run at 400px wide (mobile): the pink paragraph isn\'t there, and the group shows items 1, 3 and 4. The stagger still counts the hidden item: item 3 starts 0.6s after item 1 instead of 0.3s, so the cascade pauses for one step where item 2 would be. That gap is known and not fixed yet; the self-check doesn\'t flag it.',
+		'note'           => 'Uses WordPress core\'s per-block visibility ("Hide on mobile", block settings → Visibility). The pink paragraph is animated and hidden on mobile. The orange group staggers four paragraphs 0.3s apart, and its second paragraph is hidden on mobile. The checks run at 400px wide (mobile): the pink paragraph isn\'t there, and the group shows items 1, 3 and 4. The stagger skips the hidden item, so items 1, 3 and 4 start 0.3s apart with no pause where item 2 would be (at desktop width all four do). If item 3 still counted item 2, the self-check would flag the gap as stagger-hidden-gap.',
 		'content'        => mb_self_check_paragraph(
 			'Paragraph · Page Load · Fade · hidden on mobile',
 			array_merge( $page_load_fade, $hidden_on_mobile ),

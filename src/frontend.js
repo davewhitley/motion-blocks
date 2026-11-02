@@ -17,7 +17,7 @@ import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
 import { imgTargetSelector, imgFrameSelector } from './img-target';
-import { startMotionGate } from './motion-gate';
+import { startMotionGate, deviceQueries } from './motion-gate';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
@@ -90,6 +90,7 @@ import {
 	function init() {
 		wire( document );
 		watchForLateContent();
+		watchStaggerBreakpoints();
 		// Public hook (GH #50). Content added later is picked up on its
 		// own (watchForLateContent), so themes rarely need this; it's
 		// for content the observer can't see coming, e.g. blocks moved
@@ -260,6 +261,15 @@ import {
 			records.forEach( function ( record ) {
 				var target = record.target;
 				if ( record.type === 'attributes' ) {
+					// A stagger child's classes changed: it may be shown
+					// or hidden now (core's `wp-block-hidden-*`).
+					var staggerParent = staggerParentOf( target );
+					if (
+						staggerParent &&
+						parents.indexOf( staggerParent ) === -1
+					) {
+						parents.push( staggerParent );
+					}
 					// A wired block whose class attribute was reset.
 					if ( ! target.classList.contains( WIRED_CLASS ) ) {
 						if ( target.classList.contains( 'mb-animated' ) ) {
@@ -280,16 +290,8 @@ import {
 					removed = true;
 				}
 				if ( record.addedNodes.length || record.removedNodes.length ) {
-					var parent =
-						target.classList &&
-						target.classList.contains( STAGGER_INNER_CLASS )
-							? target.parentElement
-							: target;
-					if (
-						parent &&
-						parent.classList &&
-						parent.classList.contains( 'mb-stagger-parent' )
-					) {
+					var parent = asStaggerParent( target );
+					if ( parent ) {
 						parents.push( parent );
 					}
 				}
@@ -309,6 +311,62 @@ import {
 			subtree: true,
 			attributes: true,
 			attributeFilter: [ 'class' ],
+		} );
+	}
+
+	/**
+	 * `el` as the stagger parent whose children it holds: the parent
+	 * itself, or the parent of its classic-theme Group wrapper (GH #66).
+	 *
+	 * @param {Element|null} el Element.
+	 * @return {Element|null} The stagger parent, or null.
+	 */
+	function asStaggerParent( el ) {
+		var parent =
+			el && el.classList && el.classList.contains( STAGGER_INNER_CLASS )
+				? el.parentElement
+				: el;
+		return parent &&
+			parent.classList &&
+			parent.classList.contains( 'mb-stagger-parent' )
+			? parent
+			: null;
+	}
+
+	/**
+	 * The stagger parent `el` is a counted child of.
+	 *
+	 * @param {Element} el Element.
+	 * @return {Element|null} The stagger parent, or null.
+	 */
+	function staggerParentOf( el ) {
+		return asStaggerParent( el.parentElement );
+	}
+
+	/**
+	 * Count stagger children again whenever the viewport crosses one of
+	 * core's breakpoints (window.motionBlocksDeviceQueries, the same
+	 * queries core's "Hide on mobile / tablet / desktop" uses): a child
+	 * hidden at the new size must stop using up a position, and one
+	 * shown again must take its place back (stagger-index.js).
+	 */
+	function watchStaggerBreakpoints() {
+		if ( typeof window.matchMedia !== 'function' ) {
+			return;
+		}
+		var queries = deviceQueries( window );
+		var renumber = function () {
+			queryAll( document, '.mb-stagger-parent' ).forEach(
+				setStaggerIndices
+			);
+		};
+		Object.keys( queries ).forEach( function ( device ) {
+			var list = window.matchMedia( queries[ device ] );
+			if ( list.addEventListener ) {
+				list.addEventListener( 'change', renumber );
+			} else if ( list.addListener ) {
+				list.addListener( renumber );
+			}
 		} );
 	}
 

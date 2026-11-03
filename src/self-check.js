@@ -503,7 +503,10 @@ import {
 
 	function checkDisabledDevice() {
 		var device = currentDevice();
-		if ( ! device || ! document.body.classList.contains( 'mb-disabled-' + device ) ) {
+		if (
+			! device ||
+			! document.body.classList.contains( 'mb-disabled-' + device )
+		) {
 			return [];
 		}
 		return motionLeaks(
@@ -685,12 +688,9 @@ import {
 			} );
 		}
 		if ( el.getAttribute( 'data-mb-target' ) === 'img' ) {
-			Array.prototype.forEach.call(
-				imgTargetsOf( el ),
-				function ( img ) {
-					targets.push( img );
-				}
-			);
+			Array.prototype.forEach.call( imgTargetsOf( el ), function ( img ) {
+				targets.push( img );
+			} );
 		}
 		return targets;
 	}
@@ -839,7 +839,9 @@ import {
 	function ourStyleSheets() {
 		var sheets = [];
 		document
-			.querySelectorAll( '#motion-blocks-styles-css, style[data-mb-custom]' )
+			.querySelectorAll(
+				'#motion-blocks-styles-css, style[data-mb-custom]'
+			)
 			.forEach( function ( node ) {
 				if ( node.sheet ) {
 					sheets.push( node.sheet );
@@ -963,7 +965,9 @@ import {
 		// window reports 0 and would flag every block.
 		var hasViewport = window.innerHeight > 0;
 		return []
-			.concat( hasViewport ? checkInvisibleOnScreen( api, stuckAfterMs ) : [] )
+			.concat(
+				hasViewport ? checkInvisibleOnScreen( api, stuckAfterMs ) : []
+			)
 			.concat( hasViewport ? checkCanNeverPlay( api ) : [] )
 			.concat( checkNeverWired( api ) )
 			.concat( checkEntryOnceReplayed( api ) )
@@ -1014,7 +1018,9 @@ import {
 		var title =
 			'[Motion Blocks] self-check: ' +
 			( results.length
-				? results.length + ' issue' + ( results.length === 1 ? '' : 's' )
+				? results.length +
+				  ' issue' +
+				  ( results.length === 1 ? '' : 's' )
 				: 'no issues' );
 		/* eslint-disable no-console */
 		if ( ! results.length ) {

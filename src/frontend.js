@@ -493,8 +493,16 @@ import {
 	// Order matters — composes left-to-right into the transform.
 	var CUSTOM_PROPS = [
 		{ id: 'opacity', dataFrom: 'mbFromOpacity', dataTo: 'mbToOpacity' },
-		{ id: 'translateX', dataFrom: 'mbFromTranslateX', dataTo: 'mbToTranslateX' },
-		{ id: 'translateY', dataFrom: 'mbFromTranslateY', dataTo: 'mbToTranslateY' },
+		{
+			id: 'translateX',
+			dataFrom: 'mbFromTranslateX',
+			dataTo: 'mbToTranslateX',
+		},
+		{
+			id: 'translateY',
+			dataFrom: 'mbFromTranslateY',
+			dataTo: 'mbToTranslateY',
+		},
 		{ id: 'scale', dataFrom: 'mbFromScale', dataTo: 'mbToScale' },
 		{ id: 'rotate', dataFrom: 'mbFromRotate', dataTo: 'mbToRotate' },
 		// 3D rotations (Flip).
@@ -560,10 +568,7 @@ import {
 			var raw = el.dataset[ key ];
 			// These values become @keyframes text: malformed values are
 			// dropped (see css-values.js).
-			if (
-				isAddedDatasetVal( raw ) &&
-				isValidFromToValue( p.id, raw )
-			) {
+			if ( isAddedDatasetVal( raw ) && isValidFromToValue( p.id, raw ) ) {
 				bag[ p.id ] = raw;
 			}
 		} );
@@ -574,8 +579,7 @@ import {
 		// Compose transform — perspective() only when a 3D rotation
 		// is present (mirrors buildKeyframeSide in constants.js).
 		var tx = [];
-		var has3D =
-			bag.rotateX !== undefined || bag.rotateY !== undefined;
+		var has3D = bag.rotateX !== undefined || bag.rotateY !== undefined;
 		if ( has3D ) {
 			tx.push( 'perspective(800px)' );
 		}
@@ -724,12 +728,8 @@ import {
 		var toTx = [];
 		// translate first, scale second (matches buildKeyframeSide).
 		if ( m.x !== 0 || m.y !== 0 ) {
-			fromTx.push(
-				'translate(' + m.x + '%, ' + m.y + '%)'
-			);
-			toTx.push(
-				'translate(' + -m.x + '%, ' + -m.y + '%)'
-			);
+			fromTx.push( 'translate(' + m.x + '%, ' + m.y + '%)' );
+			toTx.push( 'translate(' + -m.x + '%, ' + -m.y + '%)' );
 		}
 		fromTx.push( 'scale(' + SCALE + ')' );
 		toTx.push( 'scale(' + SCALE + ')' );
@@ -858,11 +858,7 @@ import {
 		if ( el.dataset.mbTarget === 'img' ) {
 			var uid = 'mb-' + customKeyframeCounter;
 			el.setAttribute( 'data-mb-uid', uid );
-			var scopedCSS = buildImgScopedCSS(
-				uid,
-				name,
-				el.dataset.mbMode
-			);
+			var scopedCSS = buildImgScopedCSS( uid, name, el.dataset.mbMode );
 			getCustomStyleEl().appendChild(
 				document.createTextNode( scopedCSS )
 			);
@@ -972,10 +968,7 @@ import {
 				el.style.setProperty( '--mb-entry-anim-name', entryName );
 				// Stagger cascade for the entry phase — inner blocks
 				// inherit this var via the cascade.
-				el.style.setProperty(
-					'--mb-stagger-anim-name',
-					entryName
-				);
+				el.style.setProperty( '--mb-stagger-anim-name', entryName );
 			}
 		}
 
@@ -1138,11 +1131,7 @@ import {
 	function wirePageLoad( el ) {
 		markWired( el );
 		applyTimingProps( el );
-		applyDirectionProps(
-			el,
-			el.dataset.mbType,
-			el.dataset.mbDirection
-		);
+		applyDirectionProps( el, el.dataset.mbType, el.dataset.mbDirection );
 		applyBlurProps( el );
 		applyRotateProps( el );
 		applyCustomKeyframe( el );
@@ -2345,9 +2334,7 @@ import {
 			return;
 		}
 		var el = state.el;
-		if (
-			el.style.getPropertyValue( '--mb-direction' ) === 'reverse'
-		) {
+		if ( el.style.getPropertyValue( '--mb-direction' ) === 'reverse' ) {
 			return; // already reversing
 		}
 		applySlotVars( el, state.entry );
@@ -2364,11 +2351,7 @@ import {
 		markWired( el );
 		var type = el.dataset.mbType;
 
-		applyDirectionProps(
-			el,
-			type,
-			el.dataset.mbDirection
-		);
+		applyDirectionProps( el, type, el.dataset.mbDirection );
 		applyBlurProps( el );
 		applyRotateProps( el );
 		applyCustomKeyframe( el );

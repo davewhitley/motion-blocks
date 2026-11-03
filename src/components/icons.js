@@ -44,14 +44,7 @@ export const scrollInteractiveIcon = (
 			strokeWidth="1.5"
 			style={ { fill: 'none' } }
 		/>
-		<rect
-			x="11"
-			y="7"
-			width="2"
-			height="5"
-			rx="1"
-			fill="currentColor"
-		/>
+		<rect x="11" y="7" width="2" height="5" rx="1" fill="currentColor" />
 	</svg>
 );
 

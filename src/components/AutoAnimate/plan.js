@@ -530,7 +530,10 @@ function isFooterPart( block ) {
 
 /** A template part, or a one-line strip: the pieces of a bar above the content. */
 function isBar( block ) {
-	if ( block.name === 'core/template-part' || block.name === 'core/paragraph' ) {
+	if (
+		block.name === 'core/template-part' ||
+		block.name === 'core/paragraph'
+	) {
 		return true;
 	}
 	const kids = meaningfulChildren( block );
@@ -762,7 +765,10 @@ export function computeAutoAnimatePlan(
 				if ( heroRootIds.has( block.clientId ) ) {
 					trail.forEach( ( id ) => heroAncestorIds.add( id ) );
 				} else {
-					markAncestors( block.innerBlocks, [ ...trail, block.clientId ] );
+					markAncestors( block.innerBlocks, [
+						...trail,
+						block.clientId,
+					] );
 				}
 			}
 		};
@@ -996,7 +1002,10 @@ export function computeAutoAnimatePlan(
 		// buttons; a wrapper is walked into; a long article group only
 		// animates what's worth animating inside it.
 		if ( name === 'core/group' || name === 'core/column' ) {
-			if ( isSection( block ) && ! heroAncestorIds.has( block.clientId ) ) {
+			if (
+				isSection( block ) &&
+				! heroAncestorIds.has( block.clientId )
+			) {
 				push( block, 'cascade', {
 					...seq(),
 					count: meaningfulChildren( block ).length,

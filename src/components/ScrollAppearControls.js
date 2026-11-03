@@ -23,16 +23,10 @@
  */
 
 import { useState } from '@wordpress/element';
-import {
-	TabPanel,
-	Button,
-} from '@wordpress/components';
+import { TabPanel, Button } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 
-import {
-	migrateScrollAppearAttrs,
-	isStaggerCompatible,
-} from './constants';
+import { migrateScrollAppearAttrs, isStaggerCompatible } from './constants';
 import SlotControls from './SlotControls';
 import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';

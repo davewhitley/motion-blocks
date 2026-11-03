@@ -95,7 +95,8 @@ function measureScreensTall() {
 	const win = iframe?.contentWindow || window;
 	const screen = win.innerHeight || 0;
 	return ( clientId ) => {
-		const el = screen && doc.querySelector( `[data-block="${ clientId }"]` );
+		const el =
+			screen && doc.querySelector( `[data-block="${ clientId }"]` );
 		return el ? el.getBoundingClientRect().height / screen : null;
 	};
 }

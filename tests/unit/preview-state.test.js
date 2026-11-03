@@ -426,17 +426,18 @@ describe( 'editor flows', () => {
 	function route( state, patch, ids ) {
 		const { preview, rest } = splitPreviewPatch( patch );
 		return {
-			state: preview ? reducer( state, setPreview( ids, preview ) ) : state,
+			state: preview
+				? reducer( state, setPreview( ids, preview ) )
+				: state,
 			rest,
 		};
 	}
 
 	it( 'Play on a multi-selection stops on every block when they leave it', () => {
-		let { state, rest } = route(
-			{},
-			{ animationPreviewPlaying: true },
-			[ 'a', 'b' ]
-		);
+		let { state, rest } = route( {}, { animationPreviewPlaying: true }, [
+			'a',
+			'b',
+		] );
 		expect( rest ).toBeNull();
 		expect( getBlockPreview( state, 'a' ).animationPreviewPlaying ).toBe(
 			true
@@ -459,11 +460,10 @@ describe( 'editor flows', () => {
 		state = reducer( state, clearPreview( 'a' ) ); // unmount (undo of insert)
 		state = reducer( state, clearPreview( 'b', { keepPrefs: true } ) );
 		const before = state;
-		( { state } = route(
-			state,
-			{ animationPreviewPlaying: false },
-			[ 'a', 'b' ]
-		) );
+		( { state } = route( state, { animationPreviewPlaying: false }, [
+			'a',
+			'b',
+		] ) );
 		expect( state ).toBe( before );
 		expect( hasPreview( state, 'a' ) ).toBe( false );
 		expect( hasPreview( state, 'b' ) ).toBe( false );

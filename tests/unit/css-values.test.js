@@ -62,7 +62,10 @@ describe( 'isValidFromToValue', () => {
 
 	it( 'rejects absurdly long values', () => {
 		expect(
-			isValidFromToValue( 'clipPath', `polygon(${ '1% '.repeat( 1000 ) })` )
+			isValidFromToValue(
+				'clipPath',
+				`polygon(${ '1% '.repeat( 1000 ) })`
+			)
 		).toBe( false );
 	} );
 } );

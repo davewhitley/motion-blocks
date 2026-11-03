@@ -59,8 +59,7 @@ const plan = ( blocks, firstScreen = [] ) =>
 		isOnFirstScreen: ( id ) => firstScreen.includes( id ),
 	} );
 /** Planned with no measurement at all (the hero alone decides). */
-const planUnmeasured = ( blocks ) =>
-	computeAutoAnimatePlan( blocks, () => 0 );
+const planUnmeasured = ( blocks ) => computeAutoAnimatePlan( blocks, () => 0 );
 const roleOf = ( p, block ) =>
 	p.apply.find( ( i ) => i.clientId === block.clientId )?.role;
 const attrsOf = ( p, preset, block ) =>
@@ -201,7 +200,10 @@ describe( 'the opening sequence', () => {
 describe( 'the opening sequence is capped', () => {
 	it( 'holds the first four blocks of the first screen; the rest wait for the scroll', () => {
 		const blocks = Array.from( { length: 6 }, () => heading() );
-		const p = plan( blocks, blocks.map( ( x ) => x.clientId ) );
+		const p = plan(
+			blocks,
+			blocks.map( ( x ) => x.clientId )
+		);
 		const triggers = blocks.map(
 			( x ) => p.apply.find( ( i ) => i.clientId === x.clientId ).trigger
 		);
@@ -251,7 +253,9 @@ describe( 'finding the hero', () => {
 
 	it( 'steps into a Columns block that holds the page, past its header', () => {
 		const masthead = b( 'core/group', [ heading(), para(), buttons() ] );
-		const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ] );
+		const query = b( 'core/query', [
+			b( 'core/post-template', [ section() ] ),
+		] );
 		const headerGroup = b( 'core/group', [ header() ] );
 		const cols = b( 'core/columns', [
 			b( 'core/column', [ headerGroup, masthead, section(), query ] ),
@@ -266,7 +270,10 @@ describe( 'finding the hero', () => {
 		const btns = buttons();
 		const textCol = b( 'core/column', [ h, t, btns ] );
 		const img = image();
-		const hero = b( 'core/columns', [ textCol, b( 'core/column', [ img ] ) ] );
+		const hero = b( 'core/columns', [
+			textCol,
+			b( 'core/column', [ img ] ),
+		] );
 		const p = planUnmeasured( [ hero ] );
 		expect( roleOf( p, hero ) ).toBeUndefined();
 		// The text column's pieces cascade in; the image rises with them.
@@ -274,7 +281,10 @@ describe( 'finding the hero', () => {
 		expect( roleOf( p, img ) ).toBe( 'media' );
 		const load = ( x ) =>
 			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
-		expect( [ load( textCol ), load( img ) ] ).toEqual( [ 'load', 'load' ] );
+		expect( [ load( textCol ), load( img ) ] ).toEqual( [
+			'load',
+			'load',
+		] );
 	} );
 
 	it( 'still cascades an ordinary row of columns that is not the hero', () => {
@@ -284,7 +294,9 @@ describe( 'finding the hero', () => {
 			b( 'core/column', [ heading(), para() ] ),
 			b( 'core/column', [ heading(), para() ] ),
 		] );
-		const p = planUnmeasured( [ b( 'core/group', [ hero, row, section() ] ) ] );
+		const p = planUnmeasured( [
+			b( 'core/group', [ hero, row, section() ] ),
+		] );
 		expect( roleOf( p, row ) ).toBe( 'cascade' );
 	} );
 
@@ -293,7 +305,9 @@ describe( 'finding the hero', () => {
 			b( 'core/column', [ b( 'core/site-title' ) ] ),
 			b( 'core/column', [ b( 'core/cover' ) ] ),
 		] );
-		expect( heroOf( [ b( 'core/group', [ split ] ) ] ) ).toEqual( [ split ] );
+		expect( heroOf( [ b( 'core/group', [ split ] ) ] ) ).toEqual( [
+			split,
+		] );
 	} );
 
 	it( 'takes the loose blocks that open a page, up to the first section', () => {
@@ -316,13 +330,17 @@ describe( 'finding the hero', () => {
 	it( 'opens the page with the hero only, and with nothing when there is none', () => {
 		const hero = section();
 		const next = section();
-		const p = planUnmeasured( [ b( 'core/group', [ hero, next, section() ] ) ] );
+		const p = planUnmeasured( [
+			b( 'core/group', [ hero, next, section() ] ),
+		] );
 		const trig = ( x ) =>
 			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
 		expect( trig( hero ) ).toBe( 'load' );
 		expect( trig( next ) ).toBe( 'scroll' );
 		const noHero = b( 'core/group', [ para(), para(), para(), para() ] );
-		const q = planUnmeasured( [ b( 'core/group', [ noHero, section() ] ) ] );
+		const q = planUnmeasured( [
+			b( 'core/group', [ noHero, section() ] ),
+		] );
 		expect( q.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
 	} );
 
@@ -338,7 +356,9 @@ describe( 'finding the hero', () => {
 		] );
 		const p = planUnmeasured( [ outer ] );
 		expect( roleOf( p, outer ) ).toBeUndefined();
-		expect( p.apply.find( ( i ) => i.clientId === hero.clientId )?.trigger ).toBe( 'load' );
+		expect(
+			p.apply.find( ( i ) => i.clientId === hero.clientId )?.trigger
+		).toBe( 'load' );
 	} );
 
 	it( 'lets a measurement take a block of the hero out of the opening, never put one in', () => {
@@ -349,7 +369,8 @@ describe( 'finding the hero', () => {
 		const wrapper = b( 'core/group', [ hero, other, section() ] );
 		// The hero is on the first screen; one of its blocks is not.
 		const measured = computeAutoAnimatePlan( [ wrapper ], () => 0, {
-			isOnFirstScreen: ( id ) => id === hero.clientId || id === other.clientId,
+			isOnFirstScreen: ( id ) =>
+				id === hero.clientId || id === other.clientId,
 		} );
 		const trig = ( x ) =>
 			measured.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
@@ -361,7 +382,11 @@ describe( 'finding the hero', () => {
 		const hero = section();
 		const wrapper = b( 'core/group', [ hero, section(), section() ] );
 		const real = heading();
-		const page = [ b( 'core/group', [ para(), para(), para(), para() ] ), real, wrapper ];
+		const page = [
+			b( 'core/group', [ para(), para(), para(), para() ] ),
+			real,
+			wrapper,
+		];
 		const p = computeAutoAnimatePlan( page, () => 0, {
 			// Only the heading sits on the first screen; the found hero is below it.
 			isOnFirstScreen: ( id ) => id === real.clientId,
@@ -384,16 +409,23 @@ describe( 'with no hero found, the measured first screen opens the page', () => 
 	const measuredPlan = ( blocks, onScreen ) =>
 		computeAutoAnimatePlan( blocks, () => 0, {
 			// `strict` is the fallback's cutoff, the stricter one.
-			isOnFirstScreen: ( id, strict ) => ( strict ? onScreen.includes( id ) : true ),
+			isOnFirstScreen: ( id, strict ) =>
+				strict ? onScreen.includes( id ) : true,
 		} );
 	const trig = ( p, x ) =>
 		p.apply.find( ( i ) => i.clientId === x.clientId )?.trigger;
 
 	it( 'puts measured first-screen blocks in the opening, up to the cap', () => {
 		const heads = Array.from( { length: 6 }, () => heading() );
-		const page = [ b( 'core/group', [ para(), para(), para(), para() ] ), ...heads ];
+		const page = [
+			b( 'core/group', [ para(), para(), para(), para() ] ),
+			...heads,
+		];
 		expect( findHero( page ) ).toBeNull();
-		const p = measuredPlan( page, heads.map( ( x ) => x.clientId ) );
+		const p = measuredPlan(
+			page,
+			heads.map( ( x ) => x.clientId )
+		);
 		const loads = heads.filter( ( x ) => trig( p, x ) === 'load' );
 		expect( loads ).toHaveLength( 4 );
 		expect( heads.slice( 4 ).map( ( x ) => trig( p, x ) ) ).toEqual( [
@@ -410,30 +442,43 @@ describe( 'with no hero found, the measured first screen opens the page', () => 
 	} );
 
 	it( 'never opens the page with a template part (the header)', () => {
-		const header = b( 'core/template-part', [], { slug: 'header', area: 'header' } );
+		const header = b( 'core/template-part', [], {
+			slug: 'header',
+			area: 'header',
+		} );
 		const heads = [ heading() ];
-		const p = measuredPlan( [ header, b( 'core/group', [ para(), para(), para(), para() ] ), ...heads ], [
-			header.clientId,
-			heads[ 0 ].clientId,
-		] );
+		const p = measuredPlan(
+			[
+				header,
+				b( 'core/group', [ para(), para(), para(), para() ] ),
+				...heads,
+			],
+			[ header.clientId, heads[ 0 ].clientId ]
+		);
 		expect( trig( p, header ) ).toBe( 'scroll' );
 		expect( trig( p, heads[ 0 ] ) ).toBe( 'load' );
 	} );
 
 	it( 'still keeps a Post Template card out of the opening', () => {
 		const card = b( 'core/group', [ heading(), para() ] );
-		const list = b( 'core/post-template', [ card ], { layout: { type: 'default' } } );
+		const list = b( 'core/post-template', [ card ], {
+			layout: { type: 'default' },
+		} );
 		const query = b( 'core/query', [ list ], { query: { perPage: 6 } } );
-		const p = measuredPlan( [ b( 'core/group', [ para(), para(), para(), para() ] ), query ], [ card.clientId ] );
+		const p = measuredPlan(
+			[ b( 'core/group', [ para(), para(), para(), para() ] ), query ],
+			[ card.clientId ]
+		);
 		expect( trig( p, card ) ).toBe( 'scroll' );
 	} );
 
 	it( 'is not used when a hero is found: a measured block outside it still waits', () => {
 		const hero = section();
 		const other = section();
-		const p = measuredPlan( [ b( 'core/group', [ hero, other, section() ] ) ], [
-			other.clientId,
-		] );
+		const p = measuredPlan(
+			[ b( 'core/group', [ hero, other, section() ] ) ],
+			[ other.clientId ]
+		);
 		expect( trig( p, hero ) ).toBe( 'load' );
 		expect( trig( p, other ) ).toBe( 'scroll' );
 	} );
@@ -512,7 +557,10 @@ describe( 'sections cascade in reading order', () => {
 
 	it( 'only cascades blocks that can stagger, or the cascade silently becomes one rise', () => {
 		const textColumn = b( 'core/column', [ heading(), para(), buttons() ] );
-		const cols = b( 'core/columns', [ textColumn, b( 'core/column', [ image() ] ) ] );
+		const cols = b( 'core/columns', [
+			textColumn,
+			b( 'core/column', [ image() ] ),
+		] );
 		const list = b( 'core/post-template', [ section(), section() ], {
 			layout: { type: 'grid', columnCount: 2 },
 		} );
@@ -575,7 +623,11 @@ describe( 'sections cascade in reading order', () => {
 
 		it( 'cascades as a row when it is short, however much it holds', () => {
 			const { cols } = pageColumns();
-			const p = computeAutoAnimatePlan( [ section(), cols ], () => 0, screens( 0.8 ) );
+			const p = computeAutoAnimatePlan(
+				[ section(), cols ],
+				() => 0,
+				screens( 0.8 )
+			);
 			expect( roleOf( p, cols ) ).toBe( 'cascade' );
 		} );
 
@@ -592,26 +644,42 @@ describe( 'sections cascade in reading order', () => {
 
 		it( 'is not walked into on a height between one and two screens', () => {
 			const { cols } = pageColumns();
-			const p = computeAutoAnimatePlan( [ section(), cols ], () => 0, screens( 1.75 ) );
+			const p = computeAutoAnimatePlan(
+				[ section(), cols ],
+				() => 0,
+				screens( 1.75 )
+			);
 			expect( roleOf( p, cols ) ).toBe( 'cascade' );
 		} );
 
 		it( 'is walked into by structure even when it measures short', () => {
-			const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ], {
-				query: { perPage: 6 },
-			} );
+			const query = b(
+				'core/query',
+				[ b( 'core/post-template', [ section() ] ) ],
+				{
+					query: { perPage: 6 },
+				}
+			);
 			const cols = b( 'core/columns', [
 				b( 'core/column', [ query ] ),
 				b( 'core/column', [ para() ] ),
 			] );
-			const p = computeAutoAnimatePlan( [ cols ], () => 0, screens( 0.6 ) );
+			const p = computeAutoAnimatePlan(
+				[ cols ],
+				() => 0,
+				screens( 0.6 )
+			);
 			expect( roleOf( p, cols ) ).toBeUndefined();
 		} );
 
 		it( 'is walked into when it holds a Query Loop', () => {
-			const query = b( 'core/query', [ b( 'core/post-template', [ section() ] ) ], {
-				query: { perPage: 6 },
-			} );
+			const query = b(
+				'core/query',
+				[ b( 'core/post-template', [ section() ] ) ],
+				{
+					query: { perPage: 6 },
+				}
+			);
 			const cols = b( 'core/columns', [
 				b( 'core/column', [ query ] ),
 				b( 'core/column', [ para() ] ),
@@ -626,7 +694,9 @@ describe( 'sections cascade in reading order', () => {
 				b( 'core/column', [ card() ] ),
 				b( 'core/column', [ card() ] ),
 			] );
-			expect( roleOf( plan( [ section(), cols ] ), cols ) ).toBe( 'cascade' );
+			expect( roleOf( plan( [ section(), cols ] ), cols ) ).toBe(
+				'cascade'
+			);
 		} );
 	} );
 
@@ -873,8 +943,12 @@ describe( 'Query Loop', () => {
 	it( 'never opens the page with a post card, even when the first post is on the first screen', () => {
 		const { list, query } = queryLoop( 0, 8 );
 		const lead = heading();
-		const p = plan( [ lead, query ], [ lead.clientId, list.innerBlocks[ 0 ].clientId ] );
-		const itemFor = ( x ) => p.apply.find( ( i ) => i.clientId === x.clientId );
+		const p = plan(
+			[ lead, query ],
+			[ lead.clientId, list.innerBlocks[ 0 ].clientId ]
+		);
+		const itemFor = ( x ) =>
+			p.apply.find( ( i ) => i.clientId === x.clientId );
 		expect( itemFor( list.innerBlocks[ 0 ] ).trigger ).toBe( 'scroll' );
 		expect( itemFor( lead ).trigger ).toBe( 'load' );
 		expect( itemFor( lead ).openingIndex ).toBe( 0 );
@@ -955,8 +1029,10 @@ describe( 'invalid blocks', () => {
 } );
 
 describe( 'the footer', () => {
-	const footerPart = ( inner = [], attrs = { slug: 'footer', area: 'footer' } ) =>
-		b( 'core/template-part', inner, attrs );
+	const footerPart = (
+		inner = [],
+		attrs = { slug: 'footer', area: 'footer' }
+	) => b( 'core/template-part', inner, attrs );
 
 	it( 'is left still, and counted with the site chrome that is skipped', () => {
 		const footer = footerPart();

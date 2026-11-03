@@ -35,12 +35,7 @@ import {
 } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	arrowUp,
-	arrowDown,
-	arrowLeft,
-	arrowRight,
-} from '@wordpress/icons';
+import { arrowUp, arrowDown, arrowLeft, arrowRight } from '@wordpress/icons';
 import { SVG, Path } from '@wordpress/primitives';
 
 import {
@@ -135,7 +130,10 @@ export default function SlotControls( {
 	const slotOptions =
 		slot === 'entry' ? ENTRY_TYPE_OPTIONS : EXIT_TYPE_OPTIONS;
 	const blockSupportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
-	const imageEffectsBlocked = isImageTargetUnavailable( blockName, attributes );
+	const imageEffectsBlocked = isImageTargetUnavailable(
+		blockName,
+		attributes
+	);
 	const typeOptions = [
 		{ label: __( 'None', 'motion-blocks' ), value: '' },
 		...slotOptions
@@ -149,8 +147,7 @@ export default function SlotControls( {
 				return true;
 			} )
 			.map( ( opt ) =>
-				imageEffectsBlocked &&
-				IMAGE_EFFECT_TYPES.includes( opt.value )
+				imageEffectsBlocked && IMAGE_EFFECT_TYPES.includes( opt.value )
 					? { ...opt, disabled: true }
 					: opt
 			),
@@ -169,7 +166,8 @@ export default function SlotControls( {
 	const handleTypeChange = ( value ) => {
 		const newAttrs = { [ attrName( 'Type' ) ]: value };
 		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
-			newAttrs[ attrName( 'Direction' ) ] = DEFAULT_DIRECTION[ value ] || '';
+			newAttrs[ attrName( 'Direction' ) ] =
+				DEFAULT_DIRECTION[ value ] || '';
 		} else {
 			newAttrs[ attrName( 'Direction' ) ] = '';
 		}
@@ -213,8 +211,7 @@ export default function SlotControls( {
 			return;
 		}
 		const fromImageEffect =
-			animationType === 'image-move' ||
-			animationType === 'image-zoom';
+			animationType === 'image-move' || animationType === 'image-zoom';
 		const newAttrs = {
 			[ attrName( 'Type' ) ]: 'custom',
 			[ attrName( 'Direction' ) ]: '',
@@ -361,8 +358,8 @@ export default function SlotControls( {
 					<ToggleControl
 						label={ __( 'Animate image only', 'motion-blocks' ) }
 						checked={
-							( attributes.animationFromToTarget ||
-								'block' ) === 'img'
+							( attributes.animationFromToTarget || 'block' ) ===
+							'img'
 						}
 						disabled={ isImageTargetUnavailable(
 							blockName,

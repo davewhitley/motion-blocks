@@ -88,10 +88,7 @@ function slotAttrMaps( slot ) {
 			/^animationFrom/,
 			`${ prefix }From`
 		);
-		to[ prop ] = TO_ATTR[ prop ].replace(
-			/^animationTo/,
-			`${ prefix }To`
-		);
+		to[ prop ] = TO_ATTR[ prop ].replace( /^animationTo/, `${ prefix }To` );
 	}
 	return { from, to };
 }
@@ -135,9 +132,7 @@ function PropertyInput( { def, value, onChange } ) {
 						),
 						{
 							a: (
-								<ExternalLink
-									href="https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path"
-								/>
+								<ExternalLink href="https://developer.mozilla.org/en-US/docs/Web/CSS/clip-path" />
 							),
 						}
 				  )
@@ -245,11 +240,7 @@ function PropertyInput( { def, value, onChange } ) {
 function PropertyRow( { def, value, onChange } ) {
 	if ( ! def.withSlider ) {
 		return (
-			<PropertyInput
-				def={ def }
-				value={ value }
-				onChange={ onChange }
-			/>
+			<PropertyInput def={ def } value={ value } onChange={ onChange } />
 		);
 	}
 
@@ -335,7 +326,10 @@ export default function FromToControls( {
 	// (PageLoadControls / SlotControls / ScrollInteractiveControls) so
 	// it covers non-Custom effects too. Here we only need the helper
 	// for the auto-coerce useEffect below.
-	const imgTargetUnavailable = isImageTargetUnavailable( blockName, attributes );
+	const imgTargetUnavailable = isImageTargetUnavailable(
+		blockName,
+		attributes
+	);
 
 	// Auto-coerce back to Entire block if the user previously
 	// selected Image only, then toggled Fixed / Repeated bg on the
@@ -396,7 +390,6 @@ export default function FromToControls( {
 			setAttributes( { animationFromToPreviewSide: side } );
 		}
 	}, [ side, isPreviewing, previewSide, setAttributes ] );
-
 
 	// Help text rendered via the ToggleGroupControl's native `help`
 	// prop. The trickiest part of the From/To model is that omitted
@@ -482,115 +475,117 @@ export default function FromToControls( {
 					}
 					onClick={ togglePreview }
 				/>
-			<ToolsPanel
-				key={ `${ slot || 'shared' }-${ side }` }
-				label={ __( 'Properties', 'motion-blocks' ) }
-				resetAll={ resetAll }
-				panelId={ panelId }
-			>
-				{ /* From / To state picker — segmented tabs that filter
+				<ToolsPanel
+					key={ `${ slot || 'shared' }-${ side }` }
+					label={ __( 'Properties', 'motion-blocks' ) }
+					resetAll={ resetAll }
+					panelId={ panelId }
+				>
+					{ /* From / To state picker — segmented tabs that filter
 				   which side's values the rows below show. Lives inside
 				   the panel (under the single "Properties" header) so the
 				   eye + kebab sit above the tabs. Values stay 'start'/'end'
 				   for back-compat with `animationFromToActiveSide`; labels
 				   use From/To to match the CSS @keyframes vocabulary. */ }
-				<ToggleGroupControl
-					className="mb-from-to__state-toggle"
-					label={ __( 'Animation state', 'motion-blocks' ) }
-					hideLabelFromVision
-					value={ side }
-					onChange={ ( newSide ) => newSide && setSide( newSide ) }
-					isBlock
-					help={ sideHelp }
-					__nextHasNoMarginBottom
-				>
-					<ToggleGroupControlOption
-						value="start"
-						label={ __( 'From', 'motion-blocks' ) }
-					/>
-					<ToggleGroupControlOption
-						value="end"
-						label={ __( 'To', 'motion-blocks' ) }
-					/>
-				</ToggleGroupControl>
+					<ToggleGroupControl
+						className="mb-from-to__state-toggle"
+						label={ __( 'Animation state', 'motion-blocks' ) }
+						hideLabelFromVision
+						value={ side }
+						onChange={ ( newSide ) =>
+							newSide && setSide( newSide )
+						}
+						isBlock
+						help={ sideHelp }
+						__nextHasNoMarginBottom
+					>
+						<ToggleGroupControlOption
+							value="start"
+							label={ __( 'From', 'motion-blocks' ) }
+						/>
+						<ToggleGroupControlOption
+							value="end"
+							label={ __( 'To', 'motion-blocks' ) }
+						/>
+					</ToggleGroupControl>
 
-				{ PROPERTY_DEFINITIONS.map( ( def ) => {
-					const attrName = attrMap[ def.id ];
-					const value = attributes[ attrName ];
-					return (
-						<ToolsPanelItem
-							key={ def.id }
-							panelId={ panelId }
-							label={ def.label }
-							hasValue={ () => isPropertyAdded( value ) }
-							onSelect={ () =>
-								setAttributes( {
-									[ attrName ]: def.identity,
-								} )
-							}
-							onDeselect={ () =>
-								setAttributes( { [ attrName ]: null } )
-							}
-							resetAllFilter={ ( updates ) => ( {
-								...updates,
-								[ attrName ]: null,
-							} ) }
-							isShownByDefault={ !! def.isShownByDefault }
-							className={
-								def.halfWidth ? 'single-column' : undefined
-							}
-						>
-							<PropertyRow
-								def={ def }
-								value={ value }
-								onChange={ ( v ) =>
-									setAttributes( { [ attrName ]: v } )
+					{ PROPERTY_DEFINITIONS.map( ( def ) => {
+						const attrName = attrMap[ def.id ];
+						const value = attributes[ attrName ];
+						return (
+							<ToolsPanelItem
+								key={ def.id }
+								panelId={ panelId }
+								label={ def.label }
+								hasValue={ () => isPropertyAdded( value ) }
+								onSelect={ () =>
+									setAttributes( {
+										[ attrName ]: def.identity,
+									} )
 								}
-							/>
-						</ToolsPanelItem>
-					);
-				} ) }
+								onDeselect={ () =>
+									setAttributes( { [ attrName ]: null } )
+								}
+								resetAllFilter={ ( updates ) => ( {
+									...updates,
+									[ attrName ]: null,
+								} ) }
+								isShownByDefault={ !! def.isShownByDefault }
+								className={
+									def.halfWidth ? 'single-column' : undefined
+								}
+							>
+								<PropertyRow
+									def={ def }
+									value={ value }
+									onChange={ ( v ) =>
+										setAttributes( { [ attrName ]: v } )
+									}
+								/>
+							</ToolsPanelItem>
+						);
+					} ) }
 
-				{ /* Shortcut for adding a property without finding the
+					{ /* Shortcut for adding a property without finding the
 				   kebab. The ToolsPanel menu can't be opened from outside,
 				   so this is a sibling menu that writes the same identity
 				   value as the kebab's onSelect: the row then appears
 				   because its hasValue() turns true, and the kebab shows
 				   it checked. */ }
-				{ addableProperties.length > 0 && (
-					<Dropdown
-						className="mb-from-to__add-property"
-						popoverProps={ { placement: 'bottom-start' } }
-						renderToggle={ ( { isOpen, onToggle } ) => (
-							<Button
-								variant="link"
-								onClick={ onToggle }
-								aria-expanded={ isOpen }
-							>
-								{ __( 'Add property', 'motion-blocks' ) }
-							</Button>
-						) }
-						renderContent={ ( { onClose } ) => (
-							<MenuGroup>
-								{ addableProperties.map( ( def ) => (
-									<MenuItem
-										key={ def.id }
-										onClick={ () => {
-											setAttributes( {
-												[ attrMap[ def.id ] ]:
-													def.identity,
-											} );
-											onClose();
-										} }
-									>
-										{ def.label }
-									</MenuItem>
-								) ) }
-							</MenuGroup>
-						) }
-					/>
-				) }
-			</ToolsPanel>
+					{ addableProperties.length > 0 && (
+						<Dropdown
+							className="mb-from-to__add-property"
+							popoverProps={ { placement: 'bottom-start' } }
+							renderToggle={ ( { isOpen, onToggle } ) => (
+								<Button
+									variant="link"
+									onClick={ onToggle }
+									aria-expanded={ isOpen }
+								>
+									{ __( 'Add property', 'motion-blocks' ) }
+								</Button>
+							) }
+							renderContent={ ( { onClose } ) => (
+								<MenuGroup>
+									{ addableProperties.map( ( def ) => (
+										<MenuItem
+											key={ def.id }
+											onClick={ () => {
+												setAttributes( {
+													[ attrMap[ def.id ] ]:
+														def.identity,
+												} );
+												onClose();
+											} }
+										>
+											{ def.label }
+										</MenuItem>
+									) ) }
+								</MenuGroup>
+							) }
+						/>
+					) }
+				</ToolsPanel>
 			</div>
 
 			{ /*

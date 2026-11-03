@@ -19,12 +19,7 @@ import {
 } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import {
-	arrowUp,
-	arrowDown,
-	arrowLeft,
-	arrowRight,
-} from '@wordpress/icons';
+import { arrowUp, arrowDown, arrowLeft, arrowRight } from '@wordpress/icons';
 import { SVG, Path } from '@wordpress/primitives';
 
 import {
@@ -116,7 +111,10 @@ export default function PageLoadControls( {
 	//   disabled — discoverability + clear "you'd need to turn off X"
 	//   signal beats silently filtering them out.
 	const blockSupportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
-	const imageEffectsBlocked = isImageTargetUnavailable( blockName, attributes );
+	const imageEffectsBlocked = isImageTargetUnavailable(
+		blockName,
+		attributes
+	);
 	const typeOptions = ANIMATION_TYPE_OPTIONS.filter( ( opt ) => {
 		if ( opt.value.endsWith( '-out' ) ) {
 			return false;
@@ -129,15 +127,11 @@ export default function PageLoadControls( {
 		}
 		return true;
 	} ).map( ( opt ) => {
-		if (
-			imageEffectsBlocked &&
-			IMAGE_EFFECT_TYPES.includes( opt.value )
-		) {
+		if ( imageEffectsBlocked && IMAGE_EFFECT_TYPES.includes( opt.value ) ) {
 			return { ...opt, disabled: true };
 		}
 		return opt;
 	} );
-
 
 	const isCustom = animationType === 'custom';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
@@ -207,14 +201,10 @@ export default function PageLoadControls( {
 	const canEditPreset =
 		!! animationType &&
 		animationType !== 'custom' &&
-		!! presetToFromToAttributes(
-			animationType,
-			animationDirection,
-			{
-				rotateAngle: animationRotateAngle,
-				blurAmount: animationBlurAmount,
-			}
-		);
+		!! presetToFromToAttributes( animationType, animationDirection, {
+			rotateAngle: animationRotateAngle,
+			blurAmount: animationBlurAmount,
+		} );
 
 	return (
 		<div className="mb-sub-panel">
@@ -329,13 +319,10 @@ export default function PageLoadControls( {
 				animationType &&
 				! IMAGE_EFFECT_TYPES.includes( animationType ) && (
 					<ToggleControl
-						label={ __(
-							'Animate image only',
-							'motion-blocks'
-						) }
+						label={ __( 'Animate image only', 'motion-blocks' ) }
 						checked={
-							( attributes.animationFromToTarget ||
-								'block' ) === 'img'
+							( attributes.animationFromToTarget || 'block' ) ===
+							'img'
 						}
 						disabled={ isImageTargetUnavailable(
 							blockName,
@@ -373,7 +360,10 @@ export default function PageLoadControls( {
 				<>
 					<ToggleControl
 						label={ __( 'Scale with direction', 'motion-blocks' ) }
-						checked={ animationDirection !== 'none' && animationDirection !== '' }
+						checked={
+							animationDirection !== 'none' &&
+							animationDirection !== ''
+						}
 						onChange={ ( checked ) =>
 							setAttributes( {
 								animationDirection: checked ? 'btt' : 'none',
@@ -381,69 +371,79 @@ export default function PageLoadControls( {
 						}
 						__nextHasNoMarginBottom
 					/>
-					{ animationDirection !== 'none' && animationDirection !== '' && (
-						<ToggleGroupControl
-							label={ __( 'Direction', 'motion-blocks' ) }
-							value={ animationDirection }
-							onChange={ ( value ) =>
-								setAttributes( { animationDirection: value } )
-							}
-							isBlock
-							__nextHasNoMarginBottom
-						>
-							{ directionOptions.map( ( opt ) => (
-								<ToggleGroupControlOptionIcon
-									key={ opt.value }
-									value={ opt.value }
-									icon={ DIRECTION_ICON_MAP[ opt.value ] }
-									label={ opt.label }
-								/>
-							) ) }
-						</ToggleGroupControl>
-					) }
+					{ animationDirection !== 'none' &&
+						animationDirection !== '' && (
+							<ToggleGroupControl
+								label={ __( 'Direction', 'motion-blocks' ) }
+								value={ animationDirection }
+								onChange={ ( value ) =>
+									setAttributes( {
+										animationDirection: value,
+									} )
+								}
+								isBlock
+								__nextHasNoMarginBottom
+							>
+								{ directionOptions.map( ( opt ) => (
+									<ToggleGroupControlOptionIcon
+										key={ opt.value }
+										value={ opt.value }
+										icon={ DIRECTION_ICON_MAP[ opt.value ] }
+										label={ opt.label }
+									/>
+								) ) }
+							</ToggleGroupControl>
+						) }
 				</>
 			) }
 
-			{ ! isCustom && hasDirection && ( animationType === 'curtain' || animationType === 'curtain-out' ) && (
-				<ToggleGroupControl
-					label={ __( 'Direction', 'motion-blocks' ) }
-					value={ animationDirection }
-					onChange={ ( value ) =>
-						setAttributes( { animationDirection: value } )
-					}
-					isBlock
-					__nextHasNoMarginBottom
-				>
-					{ directionOptions.map( ( opt ) => (
-						<ToggleGroupControlOption
-							key={ opt.value }
-							value={ opt.value }
-							label={ opt.label }
-						/>
-					) ) }
-				</ToggleGroupControl>
-			) }
+			{ ! isCustom &&
+				hasDirection &&
+				( animationType === 'curtain' ||
+					animationType === 'curtain-out' ) && (
+					<ToggleGroupControl
+						label={ __( 'Direction', 'motion-blocks' ) }
+						value={ animationDirection }
+						onChange={ ( value ) =>
+							setAttributes( { animationDirection: value } )
+						}
+						isBlock
+						__nextHasNoMarginBottom
+					>
+						{ directionOptions.map( ( opt ) => (
+							<ToggleGroupControlOption
+								key={ opt.value }
+								value={ opt.value }
+								label={ opt.label }
+							/>
+						) ) }
+					</ToggleGroupControl>
+				) }
 
-			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && animationType !== 'curtain-out' && (
-				<ToggleGroupControl
-					label={ __( 'Direction', 'motion-blocks' ) }
-					value={ animationDirection }
-					onChange={ ( value ) =>
-						setAttributes( { animationDirection: value } )
-					}
-					isBlock
-					__nextHasNoMarginBottom
-				>
-					{ directionOptions.map( ( opt ) => (
-						<ToggleGroupControlOptionIcon
-							key={ opt.value }
-							value={ opt.value }
-							icon={ DIRECTION_ICON_MAP[ opt.value ] }
-							label={ opt.label }
-						/>
-					) ) }
-				</ToggleGroupControl>
-			) }
+			{ ! isCustom &&
+				hasDirection &&
+				animationType !== 'scale' &&
+				animationType !== 'curtain' &&
+				animationType !== 'curtain-out' && (
+					<ToggleGroupControl
+						label={ __( 'Direction', 'motion-blocks' ) }
+						value={ animationDirection }
+						onChange={ ( value ) =>
+							setAttributes( { animationDirection: value } )
+						}
+						isBlock
+						__nextHasNoMarginBottom
+					>
+						{ directionOptions.map( ( opt ) => (
+							<ToggleGroupControlOptionIcon
+								key={ opt.value }
+								value={ opt.value }
+								icon={ DIRECTION_ICON_MAP[ opt.value ] }
+								label={ opt.label }
+							/>
+						) ) }
+					</ToggleGroupControl>
+				) }
 
 			{ ! isCustom && animationType === 'blur' && (
 				<RangeControl
@@ -470,8 +470,7 @@ export default function PageLoadControls( {
 					suffix={ <DegreesSuffix /> }
 					onChange={ ( value ) =>
 						setAttributes( {
-							animationRotateAngle:
-								parseInt( value, 10 ) || 0,
+							animationRotateAngle: parseInt( value, 10 ) || 0,
 						} )
 					}
 					__next40pxDefaultSize

@@ -508,10 +508,7 @@ export default function AnimationPanel( {
 							<div className="mb-mode-card__header">
 								<Icon icon={ desktop } size={ 24 } />
 								<span className="mb-mode-card__title">
-									{ __(
-										'On page load',
-										'motion-blocks'
-									) }
+									{ __( 'On page load', 'motion-blocks' ) }
 								</span>
 							</div>
 							<p className="mb-mode-card__description">
@@ -552,7 +549,10 @@ export default function AnimationPanel( {
 							}
 						>
 							<div className="mb-mode-card__header">
-								<Icon icon={ scrollInteractiveIcon } size={ 24 } />
+								<Icon
+									icon={ scrollInteractiveIcon }
+									size={ 24 }
+								/>
 								<span className="mb-mode-card__title">
 									{ __(
 										'Interactive scroll',
@@ -581,9 +581,7 @@ export default function AnimationPanel( {
 					onBeforeModeSwitch={ requestFocusRestore }
 					onPreview={ replayPreview }
 					onStopPreview={ stopPreview }
-					isLoopRunning={
-						isLoopingMode && animationPreviewPlaying
-					}
+					isLoopRunning={ isLoopingMode && animationPreviewPlaying }
 					isPlayPending={ isPlayPending }
 					onPaste={ handlePaste }
 					onReset={ resetSettings }

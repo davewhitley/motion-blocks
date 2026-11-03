@@ -19,6 +19,8 @@ import {
 	computeAutoAnimatePlan,
 	findHero,
 	summarizeChoreography,
+	templatePartsWithContents,
+	withTemplatePartContents,
 } from '../../src/components/AutoAnimate/plan';
 import {
 	SCHEMA_DEFAULTS,
@@ -994,6 +996,142 @@ describe( 'the footer', () => {
 		} );
 		const p = planUnmeasured( [ section(), header ] );
 		expect( roleOf( p, header ) ).toBe( 'rise' );
+	} );
+} );
+
+describe( 'including the header and footer (GH #101)', () => {
+	const part = ( inner, area ) =>
+		b( 'core/template-part', inner, { slug: `mb-${ area }`, area } );
+	const navBar = () =>
+		b( 'core/group', [
+			b( 'core/site-title' ),
+			b( 'core/group', [ b( 'core/navigation' ) ] ),
+		] );
+	const cover = () =>
+		b( 'core/cover', [ heading(), para(), buttons() ], { url: 'x.jpg' } );
+	const footerColumns = () =>
+		b(
+			'core/columns',
+			[ 1, 2, 3, 4 ].map( () =>
+				b( 'core/column', [ heading(), para() ] )
+			)
+		);
+	// With no `firstScreen`, unmeasured: the hero alone decides.
+	const planParts = ( blocks, firstScreen ) =>
+		computeAutoAnimatePlan( blocks, () => 0, {
+			isOnFirstScreen: firstScreen
+				? ( id ) => firstScreen.includes( id )
+				: undefined,
+			includeParts: true,
+		} );
+
+	it( 'fills in each part from its own document', () => {
+		const inner = [ section() ];
+		const header = part( [], 'header' );
+		const main = section();
+		const filled = withTemplatePartContents( [ header, main ], ( id ) =>
+			id === header.clientId ? inner : []
+		);
+		expect( filled[ 0 ].innerBlocks ).toEqual( inner );
+		expect( filled[ 0 ].innerBlocks[ 0 ] ).toBe( inner[ 0 ] );
+		expect( filled[ 0 ].clientId ).toBe( header.clientId );
+		// Blocks with no part inside are passed through as they are.
+		expect( filled[ 1 ] ).toBe( main );
+		expect( templatePartsWithContents( filled ) ).toEqual( [
+			filled[ 0 ],
+		] );
+	} );
+
+	it( 'finds a hero inside the header part, and opens the page with it', () => {
+		const hero = cover();
+		const header = part( [ navBar(), hero ], 'header' );
+		const p = planParts( [ header, section(), part( [], 'footer' ) ] );
+		expect( findHero( [ header ], { includeParts: true } ).blocks ).toEqual(
+			[ hero ]
+		);
+		const opening = p.apply.filter( ( i ) => i.trigger === 'load' );
+		expect( opening.map( ( i ) => i.clientId ) ).toEqual( [
+			hero.clientId,
+			...hero.innerBlocks.map( ( c ) => c.clientId ),
+		] );
+		// The header part itself isn't animated as one block.
+		expect( roleOf( p, header ) ).toBeUndefined();
+	} );
+
+	it( 'cascades the header bar in on scroll, not as part of the opening', () => {
+		const bar = navBar();
+		const header = part( [ bar ], 'header' );
+		const hero = cover();
+		const main = b( 'core/group', [ hero, section() ] );
+		// The bar is measured on the first screen too, but it's the header.
+		const p = planParts(
+			[ header, main ],
+			[ bar.clientId, hero.clientId, ...hero.innerBlocks.map( ( c ) => c.clientId ) ]
+		);
+		expect( roleOf( p, header ) ).toBeUndefined();
+		expect( roleOf( p, bar ) ).toBe( 'cascade' );
+		expect(
+			p.apply.find( ( i ) => i.clientId === bar.clientId ).trigger
+		).toBe( 'scroll' );
+		// The hero in the page content still opens the page.
+		expect(
+			p.apply.find( ( i ) => i.clientId === hero.clientId ).trigger
+		).toBe( 'load' );
+	} );
+
+	it( 'with no hero, keeps the header out of the measured opening', () => {
+		const siteTitle = b( 'core/site-title' );
+		const header = part( [ siteTitle, b( 'core/navigation' ) ], 'header' );
+		const text = b( 'core/group', [ para() ] );
+		const p = planParts( [ header, text ], [ siteTitle.clientId ] );
+		expect( roleOf( p, siteTitle ) ).toBe( 'rise' );
+		expect( p.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
+		expect( p.skipChrome.map( ( x ) => x.name ) ).toContain(
+			'core/navigation'
+		);
+	} );
+
+	it( 'animates the footer, every block on scroll', () => {
+		const cols = footerColumns();
+		const footer = part( [ b( 'core/group', [ cols, para() ] ) ], 'footer' );
+		const p = planParts( [ section(), footer ], [ cols.clientId ] );
+		expect( roleOf( p, cols ) ).toBe( 'cascade' );
+		expect( p.apply.find( ( i ) => i.clientId === cols.clientId ).trigger ).toBe(
+			'scroll'
+		);
+		expect( p.skipChrome ).not.toContain( footer );
+	} );
+
+	it( 'never takes a footer hero as the opening', () => {
+		const footer = part( [ cover() ], 'footer' );
+		expect(
+			findHero( [ footer, section() ], { includeParts: true } )
+		).not.toBeNull();
+		expect(
+			findHero( [ footer, section() ], { includeParts: true } ).blocks[ 0 ]
+		).not.toBe( footer.innerBlocks[ 0 ] );
+	} );
+
+	it( 'leaves an already-animated part as it is', () => {
+		const header = b( 'core/template-part', [ navBar() ], {
+			area: 'header',
+			animationMode: 'scroll-appear',
+		} );
+		const p = planParts( [ header, section() ] );
+		expect( p.skipExisting ).toContain( header );
+		expect(
+			p.apply.every( ( i ) => ! header.innerBlocks.includes( i.block ) )
+		).toBe( true );
+	} );
+
+	it( 'keeps today\'s behaviour when the option is off', () => {
+		const cols = footerColumns();
+		const header = part( [ navBar() ], 'header' );
+		const footer = part( [ cols ], 'footer' );
+		const p = planUnmeasured( [ header, section(), footer ] );
+		expect( roleOf( p, header ) ).toBe( 'rise' );
+		expect( roleOf( p, cols ) ).toBeUndefined();
+		expect( p.skipChrome ).toContain( footer );
 	} );
 } );
 

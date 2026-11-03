@@ -301,6 +301,9 @@ function MotionBlocksPagePanel() {
 				isOpen={ autoAnimateOpen }
 				onClose={ () => setAutoAnimateOpen( false ) }
 				contextNoun={ contextNoun }
+				// Only a template in the Site Editor has a header and footer
+				// whose contents can be edited from here (GH #101).
+				allowTemplateParts={ postType === 'wp_template' }
 			/>
 		</PluginDocumentSettingPanel>
 	);

@@ -245,7 +245,7 @@ function motion_blocks_recipe_schema() {
             'easing'    => array(
                 'type'        => 'string',
                 'maxLength'   => 500,
-                'description' => 'ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease.',
+                'description' => 'ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease; linear for scroll-interactive image-move, image-zoom and custom.',
             ),
             'blur'      => array(
                 'type'        => 'integer',
@@ -770,6 +770,12 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
     // Keep only what differs from the registered defaults: exactly what
     // the editor would write into the block comment.
     $cleared = motion_blocks_recipe_cleared_attributes();
+    // An easing equal to the effect's default is left unset, as the
+    // panel does, so the block keeps following that default (GH #109).
+    if ( isset( $attrs['animationAcceleration'], $attrs['animationMode'], $attrs['animationType'] )
+        && motion_blocks_default_acceleration( $attrs['animationMode'], $attrs['animationType'] ) === $attrs['animationAcceleration'] ) {
+        $attrs['animationAcceleration'] = $cleared['animationAcceleration'];
+    }
     $compact = array();
     foreach ( $attrs as $key => $value ) {
         if ( ! array_key_exists( $key, $cleared ) || $cleared[ $key ] !== $value ) {
@@ -802,6 +808,10 @@ function motion_blocks_recipe_effect_from_attrs( $a, $prefix ) {
     $effect['delay']    = (float) $a[ "{$prefix}Delay" ];
 
     $accel = (string) $a[ "{$prefix}Acceleration" ];
+    if ( '' === $accel ) {
+        // Unset: the effect's default (GH #109).
+        $accel = motion_blocks_default_acceleration( (string) ( $a['animationMode'] ?? '' ), $type );
+    }
     if ( 'custom' === $accel ) {
         $tf               = isset( $a[ "{$prefix}CustomTimingFunction" ] ) && is_string( $a[ "{$prefix}CustomTimingFunction" ] )
             ? trim( $a[ "{$prefix}CustomTimingFunction" ] )

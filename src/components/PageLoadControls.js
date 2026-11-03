@@ -44,6 +44,7 @@ import {
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 	editPresetAttributes,
+	defaultAcceleration,
 } from './constants';
 import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
@@ -534,10 +535,20 @@ export default function PageLoadControls( {
 
 			<SelectControl
 				label={ __( 'Acceleration', 'motion-blocks' ) }
-				value={ animationAcceleration }
+				value={
+					animationAcceleration ||
+					defaultAcceleration( 'page-load', animationType )
+				}
 				options={ ACCELERATION_OPTIONS }
 				onChange={ ( value ) =>
-					setAttributes( { animationAcceleration: value } )
+					// The default stores '': see ScrollInteractiveControls.
+					setAttributes( {
+						animationAcceleration:
+							value ===
+							defaultAcceleration( 'page-load', animationType )
+								? ''
+								: value,
+					} )
 				}
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom

@@ -132,7 +132,7 @@ A **recipe** is the agent-readable form of one block's animation. It's versioned
 ```
 
 - `mode`: `page-load` and `scroll-interactive` take an `effect`; `scroll-appear` takes an `entry`, an `exit`, or both.
-- Times are seconds. Omitted fields take documented defaults: duration 0.6, delay 0, easing `ease`.
+- Times are seconds. Omitted fields take documented defaults: duration 0.6, delay 0, easing `ease` (`linear` for Scroll Interactive `image-move`, `image-zoom` and `custom`, so they follow the scroll evenly).
 - `easing`: `ease`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, `spring`, `bouncy`, `snappy`, or any CSS `cubic-bezier()`, `steps()` or `linear()`.
 - Custom `from` / `to` numbers get their default unit: px for translate and blur, deg for rotations. Strings can carry their own unit (`"50%"`, `"0.5turn"`).
 - Numbers and booleans may also be sent as strings (`"0.6"`, `"true"`), as they arrive from query strings.

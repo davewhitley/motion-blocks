@@ -430,4 +430,67 @@ return array(
 			'data-mb-delay' => '0',
 		),
 	),
+	// Acceleration left at "this effect's default" (GH #109): Custom,
+	// Image Move and Image Zoom follow the scroll linearly in Scroll
+	// Interactive; every other effect and mode stays on Ease.
+	array(
+		'label'    => 'Scroll Interactive, Custom, Acceleration left at default',
+		'panel'    => 'Scroll Interactive: Custom · Acceleration: Linear',
+		'behavior' => 'Moves in step with the scroll at an even pace.',
+		'attrs'    => array(
+			'animationMode'           => 'scroll-interactive',
+			'animationType'           => 'custom',
+			'animationFromTranslateX' => '0px',
+			'animationToTranslateX'   => '120px',
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'custom',
+			'data-mb-acceleration' => 'linear',
+		),
+	),
+	array(
+		'label'    => 'Scroll Interactive, Custom, Acceleration set to Ease',
+		'panel'    => 'Scroll Interactive: Custom · Acceleration: Ease',
+		'behavior' => 'Moves in step with the scroll, front-loaded: most of the motion in the first half.',
+		'attrs'    => array(
+			'animationMode'           => 'scroll-interactive',
+			'animationType'           => 'custom',
+			'animationAcceleration'   => 'ease',
+			'animationFromTranslateX' => '0px',
+			'animationToTranslateX'   => '120px',
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'custom',
+			'data-mb-acceleration' => null,
+		),
+	),
+	array(
+		'label'    => 'Scroll Interactive, Fade, Acceleration left at default',
+		'panel'    => 'Scroll Interactive: Fade In · Acceleration: Ease',
+		'behavior' => 'Fades in with the scroll, mostly visible by the middle of the screen.',
+		'attrs'    => array(
+			'animationMode' => 'scroll-interactive',
+			'animationType' => 'fade',
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'fade',
+			'data-mb-acceleration' => null,
+		),
+	),
+	array(
+		'label'    => 'Page Load, Custom, Acceleration left at default',
+		'panel'    => 'Page Load: Custom · Acceleration: Ease',
+		'behavior' => 'Slides right once on load, easing in and out.',
+		'attrs'    => array(
+			'animationMode'           => 'page-load',
+			'animationType'           => 'custom',
+			'animationDelay'          => 0,
+			'animationFromTranslateX' => '0px',
+			'animationToTranslateX'   => '120px',
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'custom',
+			'data-mb-acceleration' => null,
+		),
+	),
 );

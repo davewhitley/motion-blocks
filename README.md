@@ -198,6 +198,8 @@ The plugin extends existing blocks via three filters. It doesn't register any ne
 npm install
 npm run build    # production build
 npm run start    # watch mode
+npm run lint     # ESLint + stylelint with WordPress's rules
+npm run format   # fix formatting (Prettier)
 ```
 
 Build output goes to `build/`. A release zip holds `LICENSE`, `README.md`, `animation-plugin.php`, `uninstall.php`, `shared-constants.json`, `css/`, `build/`, `includes/`, `schema/` and `languages/` under a top-level `motion-blocks/` folder (for example `git archive --prefix=motion-blocks/ <tag> LICENSE README.md animation-plugin.php uninstall.php shared-constants.json css build includes schema languages`). Plugin entry is `animation-plugin.php`; symlink the plugin directory into your WP `wp-content/plugins/` for live development.
@@ -231,7 +233,7 @@ It logs in through Studio's auto-login URL; on another local site use `--login f
 
 **CI** (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
 
-1. *Build & unit tests* (about 1 minute): `npm ci`, `npm run build`, fails if the committed `build/` differs from a fresh build (run `npm run build` and commit `build/`), then `npm run test:unit`.
+1. *Build & unit tests* (about 1 minute): `npm ci`, `npm run build`, fails if the committed `build/` differs from a fresh build (run `npm run build` and commit `build/`), then `npm run lint`, then `npm run test:unit`.
 2. *Page & editor checks* (about 4 minutes, only after job 1 passes): starts WordPress 7.1 in [WordPress Playground](https://wordpress.github.io/wordpress-playground/developers/local-development/wp-playground-cli) with this repo mounted as the plugin. `tests/self-check/blueprint.json` activates the plugin, turns on Self-check and runs `fixtures.php json`; then `run.mjs` checks every page. The output is attached to the run as the `page-checks` artifact.
 
 To run the CI setup itself locally (needs Node 24+ for the Playground CLI), from the repo root:

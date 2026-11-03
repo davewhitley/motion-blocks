@@ -67,6 +67,7 @@ export default function SavedAnimationsModal( {
 						) }
 						__next40pxDefaultSize
 						__nextHasNoMarginBottom
+						// eslint-disable-next-line jsx-a11y/no-autofocus -- the dialog exists to type this name, so focus starts here.
 						autoFocus
 					/>
 					<HStack justify="flex-end" spacing={ 3 }>

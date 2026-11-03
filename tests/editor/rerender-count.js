@@ -52,6 +52,7 @@
 
 	removeFilter( 'editor.BlockEdit', 'mb-test/count-renders' );
 	clearSelectedBlock();
+	// eslint-disable-next-line no-console -- a console script: this is its report.
 	console.table( result );
 	return result;
 } )();

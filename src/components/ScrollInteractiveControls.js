@@ -613,11 +613,12 @@ export default function ScrollInteractiveControls( {
 						label={ __( 'About end offset', 'motion-blocks' ) }
 					>
 						<p>
-							{ __(
-								/* translators: "0%" and "100%" are amounts of the element, not placeholders. */
-								"Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen.",
-								'motion-blocks'
-							) }
+							{
+								/* translators: "0%" and "100%" are amounts of the element, not placeholders. */ __(
+									"Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen.",
+									'motion-blocks'
+								)
+							}
 						</p>
 					</InfoPopover>
 				</HStack>

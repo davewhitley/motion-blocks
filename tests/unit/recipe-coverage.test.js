@@ -78,6 +78,7 @@ describe( 'recipe coverage of block attributes', () => {
 		expect( registered.length ).toBeGreaterThan( 90 );
 	} );
 
+	// eslint-disable-next-line jest/expect-expect -- fails by throwing, so the message can say how to fix it.
 	it( 'accounts for every registered attribute', () => {
 		const missing = registered.filter( ( name ) => ! recipePath( name ) );
 		if ( missing.length ) {
@@ -140,6 +141,7 @@ describe( 'effect catalog (shared-constants.json effectCatalog)', () => {
 			SHARED.effectCatalog
 		) ) {
 			if ( ! entry.defaultDirection ) {
+				// eslint-disable-next-line jest/no-conditional-expect -- effects without a default direction must have no directions.
 				expect( [ type, SHARED.directions[ type ] ] ).toEqual( [
 					type,
 					undefined,

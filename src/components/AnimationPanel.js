@@ -87,7 +87,6 @@ export default function AnimationPanel( {
 		animationDelay,
 		animationFromToPreviewSide,
 	} = attributes;
-	const savedType = useRef( '' );
 
 	// Looping is a Page Load concept (`animationRepeat` Loop /
 	// Alternate). Scroll Appear and Scroll Interactive never use it.
@@ -117,7 +116,7 @@ export default function AnimationPanel( {
 			playTimeoutRef.current = null;
 		}
 		if ( playFrameRef.current !== null ) {
-			cancelAnimationFrame( playFrameRef.current );
+			window.cancelAnimationFrame( playFrameRef.current );
 			playFrameRef.current = null;
 		}
 		playStopRef.current = null;

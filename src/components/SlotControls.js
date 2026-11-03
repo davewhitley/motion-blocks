@@ -26,8 +26,6 @@ import {
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
 	__experimentalHStack as HStack,
 	__experimentalNumberControl as NumberControl,
-	__experimentalToolsPanel as ToolsPanel,
-	__experimentalToolsPanelItem as ToolsPanelItem,
 	ToggleControl,
 	FlexBlock,
 	Button,

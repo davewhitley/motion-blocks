@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/* eslint-disable no-console -- a command-line tool: the console is its output. */
+/* global WebSocket -- built into Node 22+, which this runner needs; ESLint's node env predates it. */
 /**
  * Motion Blocks page & editor checks: runs the self-check on every
  * fixture page in headless Chrome and compares the results with what

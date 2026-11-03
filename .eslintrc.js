@@ -14,6 +14,38 @@ module.exports = {
 			presets: [ require.resolve( '@wordpress/babel-preset-default' ) ],
 		},
 	},
+	rules: {
+		// Doc comments here explain parameters and return values in
+		// prose, wrapped with a short hanging indent, rather than one
+		// aligned tag per parameter.
+		'jsdoc/require-param': 'off',
+		'jsdoc/require-returns-description': 'off',
+		'jsdoc/check-line-alignment': 'off',
+		// Short chained ternaries are this codebase's way of picking a
+		// value (a label, a CSS value); if/else would be longer, not
+		// clearer.
+		'no-nested-ternary': 'off',
+		// The experimental components the panel deliberately uses. Any
+		// other __experimental / __unstable API is still an error.
+		'@wordpress/no-unsafe-wp-apis': [
+			'error',
+			{
+				'@wordpress/components': [
+					'__experimentalConfirmDialog',
+					'__experimentalHStack',
+					'__experimentalInputControlSuffixWrapper',
+					'__experimentalNumberControl',
+					'__experimentalToggleGroupControl',
+					'__experimentalToggleGroupControlOption',
+					'__experimentalToggleGroupControlOptionIcon',
+					'__experimentalToolsPanel',
+					'__experimentalToolsPanelItem',
+					'__experimentalUnitControl',
+					'__experimentalVStack',
+				],
+			},
+		],
+	},
 	overrides: [
 		{
 			// Plain scripts that run on the site's front end.

@@ -121,6 +121,7 @@ const PREVIEW_STORE = 'motion-blocks/editor-preview';
  *                                 what the canvas looked like.
  */
 async function waitForMotionGate( timeoutMs ) {
+	// eslint-disable-next-line @wordpress/no-unused-vars-before-return -- the timeout counts from the first check.
 	const start = Date.now();
 	for (;;) {
 		const doc = canvasDocument();

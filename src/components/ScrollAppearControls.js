@@ -54,7 +54,6 @@ export default function ScrollAppearControls( props ) {
 	const entryType = attributes.animationEntryType || '';
 	const exitType = attributes.animationExitType || '';
 	const hasEntry = entryType !== '';
-	const hasExit = exitType !== '';
 
 	// Active slot lives in component state, not in saved attributes.
 	// Default to whichever slot is filled (Exit-only blocks open on

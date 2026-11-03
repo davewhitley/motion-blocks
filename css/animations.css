@@ -431,7 +431,7 @@
 	}
 	to {
 		opacity: 1;
-		filter: blur(0px);
+		filter: blur(0);
 	}
 }
 
@@ -616,7 +616,7 @@
 @keyframes mbBlurOut {
 	from {
 		opacity: 1;
-		filter: blur(0px);
+		filter: blur(0);
 	}
 	to {
 		opacity: 0;
@@ -1015,7 +1015,7 @@
    parent's position whenever their own hasn't been written. Browsers
    without @property just inherit, which only matters in that case. */
 @property --mb-stagger-index {
-	syntax: '<integer>';
+	syntax: "<integer>";
 	inherits: false;
 	initial-value: 0;
 }

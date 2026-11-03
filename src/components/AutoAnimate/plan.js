@@ -798,8 +798,6 @@ export function computeAutoAnimatePlan(
 	// Posts a Query Loop shows per page, while walking inside one.
 	let queryPerPage = null;
 	const DEFAULT_QUERY_COUNT = 10;
-	// Beyond this the cascade's beat is already compressed to the floor.
-	const MAX_QUERY_COUNT = 12;
 
 	/**
 	 * Queue one item. On the first screen it joins the opening sequence

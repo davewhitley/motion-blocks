@@ -808,6 +808,7 @@ describe( 'restraint and safety', () => {
 				// WordPress leaves them out of the saved block.
 				for ( const key of RETIRED ) {
 					if ( key in attrs ) {
+						// eslint-disable-next-line jest/no-conditional-expect -- only keys that are present have a value to check.
 						expect( [ key, attrs[ key ] ] ).toEqual( [
 							key,
 							SCHEMA_DEFAULTS[ key ],

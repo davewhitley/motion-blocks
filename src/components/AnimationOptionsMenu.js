@@ -17,7 +17,6 @@ import {
 	DropdownMenu,
 	MenuGroup,
 	MenuItem,
-	Icon,
 	Button,
 	__experimentalConfirmDialog as ConfirmDialog,
 } from '@wordpress/components';
@@ -29,9 +28,8 @@ import {
 	useSettings,
 } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
-import { store as coreStore } from '@wordpress/core-data';
+import { store as coreStore, useEntityProp } from '@wordpress/core-data';
 import { store as noticesStore } from '@wordpress/notices';
-import { useEntityProp } from '@wordpress/core-data';
 import apiFetch from '@wordpress/api-fetch';
 import { useState, useMemo } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';

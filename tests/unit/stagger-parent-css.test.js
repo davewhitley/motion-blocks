@@ -19,6 +19,7 @@
  */
 const fs = require( 'fs' );
 const path = require( 'path' );
+// eslint-disable-next-line import/no-extraneous-dependencies -- PostCSS comes with @wordpress/scripts.
 const postcss = require( 'postcss' );
 
 // The motion gate prefix (`:where(html.mb-motion) `, which adds no

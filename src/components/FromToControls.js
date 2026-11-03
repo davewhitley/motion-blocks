@@ -18,7 +18,7 @@
  *
  * "Not added" is encoded as `null` in the corresponding attribute.
  * Properties not added on a side are omitted from the generated
- * @keyframes, letting CSS interpolate to the element's computed
+ * `@keyframes`, letting CSS interpolate to the element's computed
  * style on that end of the timeline.
  *
  * The ToolsPanel is keyed on `side` so it remounts when the user
@@ -43,7 +43,6 @@ import {
 	FlexBlock,
 	RangeControl,
 	TextControl,
-	ToggleControl,
 	Button,
 	Dropdown,
 	MenuGroup,

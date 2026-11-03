@@ -1,6 +1,6 @@
 /**
  * isValidFromToValue — Custom From/To values are written into
- * @keyframes text, so each property only accepts the shapes the panel
+ * `@keyframes` text, so each property only accepts the shapes the panel
  * produces. Mirrored in PHP by motion_blocks_valid_from_to_value().
  *
  * Run: npm run test:unit

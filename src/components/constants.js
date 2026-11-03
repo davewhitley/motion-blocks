@@ -290,7 +290,7 @@ export const DEFAULT_STAGGER_STEP_SECONDS = 0.1;
  * write-back to the data store.
  */
 export function staggerStepSeconds( raw ) {
-	if ( raw == null || raw === '' ) {
+	if ( raw === null || raw === undefined || raw === '' ) {
 		return DEFAULT_STAGGER_STEP_SECONDS;
 	}
 	const n = parseFloat( raw );
@@ -1668,8 +1668,8 @@ export function isPropertyAdded( value ) {
  * should omit that side entirely — CSS will use the element's
  * computed style on that end of the timeline).
  *
- * @param {Object} bag Property values keyed by property id, e.g.
- *                     `{ opacity: 0, translateX: '20px' }`.
+ * @param {Object} rawBag Property values keyed by property id, e.g.
+ *                        `{ opacity: 0, translateX: '20px' }`.
  * @return {string|null}
  */
 export function buildKeyframeSide( rawBag ) {

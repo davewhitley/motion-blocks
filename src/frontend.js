@@ -13,6 +13,8 @@
  * Blocks are wired one at a time, including ones added after load.
  */
 
+/* eslint-disable no-var, object-shorthand -- this file is written in ES5 style (`var`, `key: value`) throughout; converting it is a separate change. */
+
 import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
@@ -1037,7 +1039,6 @@ import {
 	 */
 	function buildScrollAppearImgScopedCSS( uid, entryName, exitName ) {
 		var scope = gatedScope( uid );
-		var imgSelector = imgTargetSelector( scope );
 		var parentSelector = imgFrameSelector( scope );
 		var rules = [];
 		rules.push( parentSelector + ' { overflow: clip; }' );
@@ -2182,11 +2183,10 @@ import {
 
 		if ( state.hasExit ) {
 			// Exit slot wins at onEnterBack.
-			var inExited = el.classList.contains( 'mb-exit-triggered' );
-
 			if ( state.exitReplay === 'once' ) {
 				return;
 			}
+			var inExited = el.classList.contains( 'mb-exit-triggered' );
 			if ( state.exitReplay === 'repeat' ) {
 				if ( inExited ) {
 					el.classList.remove( 'mb-exit-triggered' );
@@ -2232,7 +2232,6 @@ import {
 			el.style.setProperty( '--mb-delay', '0s' );
 			el.style.setProperty( '--mb-direction', 'reverse' );
 			restartAnimation( el, 'mb-exit-triggered' );
-			return;
 		}
 
 		// Exit slot empty — the Entry slot does nothing at onEnterBack.

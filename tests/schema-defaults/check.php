@@ -9,10 +9,13 @@
  * fixtures in cases.php through the real `render_block` pipeline and
  * compares the emitted markup with what the editor panel shows.
  *
- * Run from a WordPress site that has the plugin active, via WP-CLI:
+ * Run it with WP-CLI from the root of any WordPress site that has the
+ * plugin active, e.g.:
  *
- *   cd ~/Studio/animation-plugin
- *   studio wp eval-file ../animation-controls-plugin/tests/schema-defaults/check.php
+ *   wp eval-file wp-content/plugins/motion-blocks/tests/schema-defaults/check.php
+ *
+ * On a WordPress Studio site, `studio wp` (run from the site's folder)
+ * is one way to get WP-CLI: `studio wp eval-file <same path>`.
  *
  * Modes (optional positional arg):
  *   (none)  Run the fixtures, then check that server-rendered block
@@ -68,6 +71,42 @@ function mb_test_fixture_markup( $n, $case ) {
 				'innerBlocks'  => $children,
 				'innerHTML'    => '',
 				'innerContent' => $content,
+			)
+		);
+	}
+
+	if ( 'core/cover' === $name ) {
+		// An image Cover, saved the way core saves it: the image is an
+		// <img> normally, but a <div> background when "Fixed background"
+		// (hasParallax) or "Repeated background" (isRepeated) is on.
+		$url   = includes_url( 'images/w-logo-blue.png' );
+		$attrs = array_merge( array( 'url' => $url, 'dimRatio' => 50 ), $attrs );
+		$fixed = ! empty( $attrs['hasParallax'] );
+		$tiled = ! empty( $attrs['isRepeated'] );
+		$flags = ( $fixed ? ' has-parallax' : '' ) . ( $tiled ? ' is-repeated' : '' );
+		$image = $fixed || $tiled
+			? '<div role="img" class="wp-block-cover__image-background' . $flags . '" style="background-position:50% 50%;background-image:url(' . $url . ')"></div>'
+			: '<img class="wp-block-cover__image-background" alt="" src="' . $url . '" data-object-fit="cover"/>';
+		$text  = "<p>Case {$n} (Cover)</p>";
+		return serialize_block(
+			array(
+				'blockName'    => $name,
+				'attrs'        => $attrs,
+				'innerBlocks'  => array(
+					array(
+						'blockName'    => 'core/paragraph',
+						'attrs'        => array(),
+						'innerBlocks'  => array(),
+						'innerHTML'    => $text,
+						'innerContent' => array( $text ),
+					),
+				),
+				'innerHTML'    => '',
+				'innerContent' => array(
+					'<div class="wp-block-cover' . $flags . ' ' . $class . '"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span>' . $image . '<div class="wp-block-cover__inner-container">',
+					null,
+					'</div></div>',
+				),
 			)
 		);
 	}

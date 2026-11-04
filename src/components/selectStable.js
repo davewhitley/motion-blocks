@@ -189,3 +189,76 @@ export function countDescendantsIn( sel, clientId ) {
 		  } );
 	return Array.isArray( tree ) ? tree.length : 0;
 }
+
+/**
+ * Post types whose whole block tree is the document being edited: a
+ * template, a template part or a synced pattern. Everything else (pages,
+ * posts, custom post types) can be shown inside its template.
+ */
+const WHOLE_TREE_POST_TYPES = new Set( [
+	'wp_template',
+	'wp_template_part',
+	'wp_block',
+] );
+
+/**
+ * Where the page-level tools ("Auto-animate this page", "Remove all
+ * animations") should look. With "Show template" on, the post editor's
+ * block tree is the whole template, with the page's own blocks inside
+ * its Post Content block; the tools must stay inside that block, or they
+ * would change the shared template.
+ *
+ * Returns a string, or null, so the result is stable between runs:
+ *
+ *   - `''`: the whole tree (the block editor's root), when the tree is
+ *     the document (a template, or a page shown on its own);
+ *   - the Post Content block's client id, when the page is shown inside
+ *     its template;
+ *   - `null`: the template shows no Post Content, so the page's blocks
+ *     aren't in the tree.
+ *
+ * A Post Content block inside a Query Loop renders other posts, not this
+ * one, and is ignored.
+ *
+ * @param {Object}  sel           `select( blockEditorStore )`.
+ * @param {string}  postType      The current post type.
+ * @param {?string} renderingMode `getRenderingMode()`, when the editor has it.
+ * @return {?string} Root client id, `''` for the whole tree, or null.
+ */
+export function selectPageContentRoot( sel, postType, renderingMode ) {
+	if (
+		WHOLE_TREE_POST_TYPES.has( postType ) ||
+		! renderingMode ||
+		renderingMode === 'post-only'
+	) {
+		return '';
+	}
+	const getByName =
+		sel.getBlocksByName || sel.__experimentalGetGlobalBlocksByName;
+	const ids = getByName
+		? getByName( 'core/post-content' ) || EMPTY_IDS
+		: EMPTY_IDS;
+	const inQuery = ( id ) =>
+		sel
+			.getBlockParents( id )
+			.some( ( parent ) => sel.getBlockName( parent ) === 'core/query' );
+	return ids.find( ( id ) => ! inQuery( id ) ) ?? null;
+}
+
+/**
+ * Every block id below a root from selectPageContentRoot: the whole tree
+ * for `''`, the root's descendants for a block id, none for null.
+ *
+ * @param {Object}  sel    `select( blockEditorStore )`.
+ * @param {?string} rootId Root client id, `''` or null.
+ * @return {string[]} Client ids, nested ones included.
+ */
+export function clientIdsUnder( sel, rootId ) {
+	if ( rootId === null ) {
+		return EMPTY_IDS;
+	}
+	if ( rootId === '' ) {
+		return sel.getClientIdsWithDescendants();
+	}
+	return sel.getClientIdsOfDescendants( [ rootId ] );
+}

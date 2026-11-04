@@ -12,6 +12,8 @@ import {
 	selectAnimatedAncestor,
 	selectMenuOverlayInfo,
 	countDescendantsIn,
+	selectPageContentRoot,
+	clientIdsUnder,
 } from '../../src/components/selectStable';
 
 function shallowEqual( a, b ) {
@@ -291,5 +293,89 @@ describe( 'selectMenuOverlayInfo', () => {
 		expect(
 			selectMenuOverlayInfo( s, 'grpOff', 'core/group', true, true )
 		).toEqual( { scope: '', targetsSkipped: false } );
+	} );
+} );
+
+describe( 'selectPageContentRoot', () => {
+	// A page shown inside its template: header part, Post Content (the
+	// page's blocks), and a Query Loop with its own Post Content.
+	const TEMPLATE = {
+		header: { name: 'core/template-part', attributes: {} },
+		main: { name: 'core/group', attributes: {} },
+		content: { name: 'core/post-content', attributes: {} },
+		mine: { name: 'core/paragraph', attributes: {} },
+		query: { name: 'core/query', attributes: {} },
+		loop: { name: 'core/post-template', attributes: {} },
+		other: { name: 'core/post-content', attributes: {} },
+	};
+	const TEMPLATE_PARENTS = {
+		content: [ 'main' ],
+		mine: [ 'main', 'content' ],
+		loop: [ 'query' ],
+		other: [ 'query', 'loop' ],
+	};
+
+	test( 'is the whole tree when the page is shown on its own', () => {
+		const sel = makeSel( { blocks: TEMPLATE, parents: TEMPLATE_PARENTS } );
+		expect( selectPageContentRoot( sel, 'page', 'post-only' ) ).toBe( '' );
+		// An editor without rendering modes.
+		expect( selectPageContentRoot( sel, 'page', undefined ) ).toBe( '' );
+	} );
+
+	test( 'is the whole tree for a template, a template part or a pattern', () => {
+		const sel = makeSel( { blocks: TEMPLATE, parents: TEMPLATE_PARENTS } );
+		for ( const type of [ 'wp_template', 'wp_template_part', 'wp_block' ] ) {
+			expect(
+				selectPageContentRoot( sel, type, 'template-locked' )
+			).toBe( '' );
+		}
+	} );
+
+	test( "is the page's Post Content block when the template is shown", () => {
+		const sel = makeSel( { blocks: TEMPLATE, parents: TEMPLATE_PARENTS } );
+		expect( selectPageContentRoot( sel, 'page', 'template-locked' ) ).toBe(
+			'content'
+		);
+		expect( selectPageContentRoot( sel, 'post', 'template-locked' ) ).toBe(
+			'content'
+		);
+	} );
+
+	test( "ignores a Query Loop's Post Content, and is null with none", () => {
+		const blocks = { ...TEMPLATE };
+		delete blocks.content;
+		delete blocks.mine;
+		const sel = makeSel( { blocks, parents: TEMPLATE_PARENTS } );
+		expect(
+			selectPageContentRoot( sel, 'page', 'template-locked' )
+		).toBeNull();
+	} );
+
+	test( 'works with the older selector name', () => {
+		const sel = makeSel( {
+			blocks: TEMPLATE,
+			parents: TEMPLATE_PARENTS,
+			publicName: false,
+		} );
+		expect( selectPageContentRoot( sel, 'page', 'template-locked' ) ).toBe(
+			'content'
+		);
+	} );
+} );
+
+describe( 'clientIdsUnder', () => {
+	const sel = {
+		getClientIdsWithDescendants: () => [ 'a', 'b', 'c' ],
+		getClientIdsOfDescendants: ( ids ) => ( ids[ 0 ] === 'a' ? [ 'b' ] : [] ),
+	};
+
+	test( 'is the whole tree for the root, and the descendants for a block', () => {
+		expect( clientIdsUnder( sel, '' ) ).toEqual( [ 'a', 'b', 'c' ] );
+		expect( clientIdsUnder( sel, 'a' ) ).toEqual( [ 'b' ] );
+	} );
+
+	test( 'is empty, and stable, when the page has no blocks in the tree', () => {
+		expect( clientIdsUnder( sel, null ) ).toBe( EMPTY_IDS );
+		expect( clientIdsUnder( sel, null ) ).toBe( clientIdsUnder( sel, null ) );
 	} );
 } );

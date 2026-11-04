@@ -29,7 +29,7 @@ import {
 	computeAutoAnimatePlan,
 	summarizeChoreography,
 } from './plan';
-import { countDescendantsIn } from '../selectStable';
+import { countDescendantsIn, EMPTY_IDS } from '../selectStable';
 
 /** Style names for the picker; plan.js keeps no UI strings. */
 const STYLE_LABELS = {
@@ -107,12 +107,21 @@ function measureScreensTall() {
  * see it was wasted work (GH #27). The style preset lives here so the
  * choice still survives closing and reopening.
  *
- * @param {Object}   props             Component props.
- * @param {boolean}  props.isOpen      Whether the modal is shown.
- * @param {Function} props.onClose     Close handler.
- * @param {string}   props.contextNoun Editor context noun (page, template…).
+ * @param {Object}   props              Component props.
+ * @param {boolean}  props.isOpen       Whether the modal is shown.
+ * @param {Function} props.onClose      Close handler.
+ * @param {string}   props.contextNoun  Editor context noun (page, template…).
+ * @param {?string}  props.rootClientId Where the page's blocks are: `''` for
+ *                                      the whole tree, the Post Content block
+ *                                      when the template is shown, or null
+ *                                      (see selectPageContentRoot).
  */
-export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
+export default function AutoAnimateModal( {
+	isOpen,
+	onClose,
+	contextNoun,
+	rootClientId = '',
+} ) {
 	const [ stylePreset, setStylePreset ] = useState( 'smooth' );
 	if ( ! isOpen ) {
 		return null;
@@ -121,6 +130,7 @@ export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
 		<AutoAnimateModalContent
 			onClose={ onClose }
 			contextNoun={ contextNoun }
+			rootClientId={ rootClientId }
 			stylePreset={ stylePreset }
 			setStylePreset={ setStylePreset }
 		/>
@@ -130,17 +140,24 @@ export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
 function AutoAnimateModalContent( {
 	onClose,
 	contextNoun,
+	rootClientId,
 	stylePreset,
 	setStylePreset,
 } ) {
-	// `getBlocks()` returns top-level only, memoized by the store.
+	// `getBlocks()` returns top-level only, memoized by the store. With
+	// the template shown, the top level is the Post Content block's.
 	// Descendants are counted via a callback passed into the pure
 	// planner so the planner stays store-free. The callback is built
 	// in the useMemo below rather than returned from useSelect, so the
 	// selector result stays stable between store changes (GH #27).
 	const topLevelBlocks = useSelect(
-		( select ) => select( blockEditorStore ).getBlocks(),
-		[]
+		( select ) =>
+			rootClientId === null
+				? EMPTY_IDS
+				: select( blockEditorStore ).getBlocks(
+						rootClientId || undefined
+				  ),
+		[ rootClientId ]
 	);
 	const registry = useRegistry();
 

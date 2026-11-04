@@ -34,7 +34,8 @@ import { countDescendantsIn } from '../selectStable';
 /** Style names for the picker; plan.js keeps no UI strings. */
 const STYLE_LABELS = {
 	subtle: __( 'Subtle', 'motion-blocks' ),
-	smooth: __( 'Smooth', 'motion-blocks' ),
+	// Shown as Balanced; the key stays `smooth`.
+	smooth: __( 'Balanced', 'motion-blocks' ),
 	bold: __( 'Bold', 'motion-blocks' ),
 };
 

@@ -175,7 +175,7 @@ export const STYLE_PRESETS = {
 		heroZoom: 1.06,
 	},
 	smooth: {
-		label: 'Smooth',
+		label: 'Balanced',
 		duration: 1.0,
 		ctaDuration: 0.8,
 		distance: 48,

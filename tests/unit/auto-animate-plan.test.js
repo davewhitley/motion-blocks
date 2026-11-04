@@ -30,7 +30,7 @@ import {
 } from '../../src/components/constants';
 import { isValidFromToValue } from '../../src/css-values';
 
-const PRESETS = [ 'subtle', 'smooth', 'bold' ];
+const PRESETS = [ 'subtle', 'balanced', 'bold' ];
 const RETIRED = [
 	'animationType',
 	'animationDirection',
@@ -123,8 +123,8 @@ describe( 'one motion language', () => {
 					preset
 				).animationEntryFromTranslateY
 			);
-		expect( dist( 'subtle' ) ).toBeLessThan( dist( 'smooth' ) );
-		expect( dist( 'smooth' ) ).toBeLessThan( dist( 'bold' ) );
+		expect( dist( 'subtle' ) ).toBeLessThan( dist( 'balanced' ) );
+		expect( dist( 'balanced' ) ).toBeLessThan( dist( 'bold' ) );
 	} );
 
 	it( 'ends every element at rest, so finished animations settle (GH #20)', () => {
@@ -146,10 +146,10 @@ describe( 'the opening sequence', () => {
 			[ h.clientId, btns.clientId, img.clientId ]
 		);
 		const delays = [ h, btns, img ].map(
-			( blk ) => attrsOf( p, 'smooth', blk ).animationDelay
+			( blk ) => attrsOf( p, 'balanced', blk ).animationDelay
 		);
 		[ h, btns, img ].forEach( ( blk ) =>
-			expect( attrsOf( p, 'smooth', blk ).animationMode ).toBe(
+			expect( attrsOf( p, 'balanced', blk ).animationMode ).toBe(
 				'page-load'
 			)
 		);
@@ -157,7 +157,7 @@ describe( 'the opening sequence', () => {
 		expect( delays[ 1 ] ).toBeGreaterThan( delays[ 0 ] );
 		expect( delays[ 2 ] ).toBeGreaterThan( delays[ 1 ] );
 		// Below the fold: waits for the scroll.
-		expect( attrsOf( p, 'smooth', below ).animationMode ).toBe(
+		expect( attrsOf( p, 'balanced', below ).animationMode ).toBe(
 			'scroll-appear'
 		);
 		expect( summarizeChoreography( p.apply ).opening ).toBe( 3 );
@@ -446,7 +446,7 @@ describe( 'sections cascade in reading order', () => {
 		const s = section();
 		const p = plan( [ s ] );
 		expect( roleOf( p, s ) ).toBe( 'cascade' );
-		const attrs = attrsOf( p, 'smooth', s );
+		const attrs = attrsOf( p, 'balanced', s );
 		expect( attrs.animationStaggerEnabled ).toBe( true );
 		expect( attrs.animationStaggerStep ).toBeGreaterThan( 0 );
 		expect( isStaggerCompatible( attrs ) ).toBe( true );
@@ -462,7 +462,7 @@ describe( 'sections cascade in reading order', () => {
 		expect( subtle.animationEntryFromTranslateY ).toBe(
 			`${ STYLE_PRESETS.subtle.distance }px`
 		);
-		for ( const preset of [ 'smooth', 'bold' ] ) {
+		for ( const preset of [ 'balanced', 'bold' ] ) {
 			expect( attrsOf( p, preset, s ).animationStaggerEnabled ).toBe(
 				true
 			);
@@ -470,7 +470,7 @@ describe( 'sections cascade in reading order', () => {
 	} );
 
 	it( 'each level moves further and longer than the one below', () => {
-		const { subtle, smooth, bold } = STYLE_PRESETS;
+		const { subtle, balanced, bold } = STYLE_PRESETS;
 		for ( const key of [
 			'duration',
 			'distance',
@@ -478,11 +478,11 @@ describe( 'sections cascade in reading order', () => {
 			'heroZoom',
 			'openingBeat',
 		] ) {
-			expect( [ key, subtle[ key ] < smooth[ key ] ] ).toEqual( [
+			expect( [ key, subtle[ key ] < balanced[ key ] ] ).toEqual( [
 				key,
 				true,
 			] );
-			expect( [ key, smooth[ key ] < bold[ key ] ] ).toEqual( [
+			expect( [ key, balanced[ key ] < bold[ key ] ] ).toEqual( [
 				key,
 				true,
 			] );
@@ -490,7 +490,7 @@ describe( 'sections cascade in reading order', () => {
 	} );
 
 	it( 'compresses the beat so long cascades still feel quick', () => {
-		const style = STYLE_PRESETS.smooth;
+		const style = STYLE_PRESETS.balanced;
 		expect( cascadeStep( 3, style ) ).toBe( style.beat );
 		expect( cascadeStep( 30, style ) * 29 ).toBeLessThanOrEqual(
 			style.spread + 0.01
@@ -650,18 +650,18 @@ describe( 'role-specific motion', () => {
 		const left = image( 'left' );
 		const right = image( 'right' );
 		const p = plan( [ left, right ] );
-		const d = STYLE_PRESETS.smooth.distance;
+		const d = STYLE_PRESETS.balanced.distance;
 		expect(
-			attrsOf( p, 'smooth', left ).animationEntryFromTranslateX
+			attrsOf( p, 'balanced', left ).animationEntryFromTranslateX
 		).toBe( `-${ d }px` );
 		expect(
-			attrsOf( p, 'smooth', right ).animationEntryFromTranslateX
+			attrsOf( p, 'balanced', right ).animationEntryFromTranslateX
 		).toBe( `${ d }px` );
 	} );
 
 	it( 'other images rise and settle from a slight scale', () => {
 		const img = image();
-		const attrs = attrsOf( plan( [ img ] ), 'smooth', img );
+		const attrs = attrsOf( plan( [ img ] ), 'balanced', img );
 		expect( attrs.animationEntryFromScale ).toBeGreaterThan( 1 );
 		expect( attrs.animationEntryToScale ).toBe( 1 );
 	} );
@@ -675,7 +675,7 @@ describe( 'role-specific motion', () => {
 			[ cover ],
 			[ cover.clientId, h.clientId, p1.clientId, btns.clientId ]
 		);
-		const coverAttrs = attrsOf( p, 'smooth', cover );
+		const coverAttrs = attrsOf( p, 'balanced', cover );
 
 		it( 'fades its background in as it settles from a slight zoom', () => {
 			expect( coverAttrs.animationFromToTarget ).toBe( 'img' );
@@ -688,7 +688,7 @@ describe( 'role-specific motion', () => {
 
 		it( 'brings its content in over it, one block after another', () => {
 			const d = [ h, p1, btns ].map(
-				( blk ) => attrsOf( p, 'smooth', blk ).animationDelay
+				( blk ) => attrsOf( p, 'balanced', blk ).animationDelay
 			);
 			expect( d[ 1 ] ).toBeGreaterThan( d[ 0 ] );
 			expect( d[ 2 ] ).toBeGreaterThan( d[ 1 ] );
@@ -793,7 +793,7 @@ describe( 'restraint and safety', () => {
 	} );
 
 	it( 'keeps a cascade even in a very long gallery', () => {
-		expect( cascadeStep( 500, STYLE_PRESETS.smooth ) ).toBeGreaterThan( 0 );
+		expect( cascadeStep( 500, STYLE_PRESETS.balanced ) ).toBeGreaterThan( 0 );
 	} );
 
 	it( 'starts from a cleared block, so leftover settings never leak in', () => {
@@ -814,18 +814,18 @@ describe( 'restraint and safety', () => {
 		const p = plan( blocks );
 		const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
 			p.apply,
-			'smooth'
+			'balanced'
 		);
 		expect( clientIds ).toEqual( p.apply.map( ( i ) => i.clientId ) );
 		expect( Object.keys( attributesByClientId ) ).toEqual( clientIds );
 	} );
 
 	it( 'keeps attrsForCategory for older callers', () => {
-		expect( attrsForCategory( 'SECTION', 'smooth' ).animationMode ).toBe(
+		expect( attrsForCategory( 'SECTION', 'balanced' ).animationMode ).toBe(
 			'scroll-appear'
 		);
 		expect(
-			attrsForCategory( 'STAGGER_ROW', 'smooth' ).animationStaggerEnabled
+			attrsForCategory( 'STAGGER_ROW', 'balanced' ).animationStaggerEnabled
 		).toBe( true );
 		expect( attrsForCategory( 'NOPE' ) ).toBeNull();
 	} );
@@ -859,7 +859,7 @@ describe( 'Query Loop', () => {
 			p.apply.find( ( i ) => i.clientId === list.clientId ).count
 		).toBe( 3 );
 		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBeUndefined();
-		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe(
+		expect( attrsOf( p, 'balanced', list ).animationStaggerEnabled ).toBe(
 			true
 		);
 	} );

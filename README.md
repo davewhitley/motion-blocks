@@ -6,7 +6,7 @@ A WordPress plugin that adds CSS-driven animations to any block in the Site Edit
 
 Each block gets one mode at a time, picked from the **Motion Effects** sub-panel in the block inspector.
 
-- **On page load**. Plays once when the page loads. Supports `repeat: once / loop / alternate` and pauses when the element is off-screen.
+- **On page load**. Starts when the page loads. Supports `repeat: once / loop / alternate`. A looping or alternating animation pauses while the block is off-screen when **Pause off-screen** is on (the default); a one-shot animation plays straight away, even on a block below the fold.
 - **Appear on scroll**. Slot-based model. Each block has independent **Entry** and **Exit** slots; either or both can be filled. Triggered by an Intersection Observer.
 - **Interactive scroll**. Animation progress is tied to scroll position via CSS `animation-timeline: view()`. Supports custom range start/end (for example, `entry 20%` to `exit 80%`).
 
@@ -226,6 +226,8 @@ npm run test:pages -- --manifest /tmp/mb-manifest.json
 ```
 
 It logs in through Studio's auto-login URL; on another local site use `--login form --user <name> --password <pw>`. `node tests/self-check/run.mjs --help` lists every option (Chrome path, number of pages checked at once, `--only smoke,clean`, …).
+
+**Editor re-render check** (`tests/editor/rerender-count.js`, GH #27): paste it into the browser console in the post editor on a page with a few dozen blocks. It moves the selection between two blocks and reports how many blocks re-rendered per step (about 2 is right).
 
 **Recipe and abilities check** (`tests/recipe/check.php`, WP-CLI): round-trips every schema-defaults fixture through a recipe and back and checks the front-end markup is unchanged. It also checks validation errors, and runs each ability end to end on a temporary page, including over REST. `wp eval-file <path-to>/motion-blocks/tests/recipe/check.php`.
 

@@ -218,55 +218,10 @@ function AutoAnimateModalContent( {
 	const { createSuccessNotice } = useDispatch( noticesStore );
 
 	const applyCount = plan.apply.length;
-	// What stays still, and why. Blocks that already have an animation
-	// keep it and aren't listed, and nor are blocks inside a section that
-	// animates: they move with it.
-	const skipped = [
-		plan.skipBody.length > 0 &&
-			sprintf(
-				/* translators: %d: number of blocks */
-				_n(
-					'%d text block: paragraphs and lists stay still so they are easy to read',
-					'%d text blocks: paragraphs and lists stay still so they are easy to read',
-					plan.skipBody.length,
-					'motion-blocks'
-				),
-				plan.skipBody.length
-			),
-		plan.skipChrome.length > 0 &&
-			sprintf(
-				/* translators: %d: number of blocks */
-				_n(
-					'%d spacer, separator, menu, or footer: layout pieces stay still',
-					'%d spacers, separators, menus, or footers: layout pieces stay still',
-					plan.skipChrome.length,
-					'motion-blocks'
-				),
-				plan.skipChrome.length
-			),
-		( plan.skipInvalid?.length || 0 ) > 0 &&
-			sprintf(
-				/* translators: %d: number of blocks */
-				_n(
-					'%d invalid block (and what is inside it): choose “Attempt Block Recovery” on it, then run this again',
-					'%d invalid blocks (and what is inside them): choose “Attempt Block Recovery” on each, then run this again',
-					plan.skipInvalid.length,
-					'motion-blocks'
-				),
-				plan.skipInvalid.length
-			),
-		( plan.skipBroken?.length || 0 ) > 0 &&
-			sprintf(
-				/* translators: %d: number of blocks */
-				_n(
-					'%d block from a missing plugin: it can’t be animated',
-					'%d blocks from a missing plugin: they can’t be animated',
-					plan.skipBroken.length,
-					'motion-blocks'
-				),
-				plan.skipBroken.length
-			),
-	].filter( Boolean );
+	// Blocks that stay still aren't listed. The one exception is invalid
+	// blocks: their saved HTML no longer matches, so any change to them is
+	// lost on save, and they need recovering before they can be animated.
+	const invalidCount = plan.skipInvalid?.length || 0;
 
 	const handleApply = () => {
 		if ( applyCount === 0 ) {
@@ -356,7 +311,7 @@ function AutoAnimateModalContent( {
 				) }
 
 				{ applyCount === 0 && (
-					<p className="mb-auto-animate-modal__empty">
+					<p className="mb-auto-animate-modal__note">
 						{ sprintf(
 							/* translators: %s: editor context noun — page, pattern, template, etc. */
 							__(
@@ -368,17 +323,19 @@ function AutoAnimateModalContent( {
 					</p>
 				) }
 
-				{ skipped.length > 0 && (
-					<div className="mb-auto-animate-modal__section">
-						<p className="mb-auto-animate-modal__heading">
-							{ __( 'Not animated:', 'motion-blocks' ) }
-						</p>
-						<ul className="mb-auto-animate-modal__list">
-							{ skipped.map( ( row ) => (
-								<li key={ row }>{ row }</li>
-							) ) }
-						</ul>
-					</div>
+				{ invalidCount > 0 && (
+					<p className="mb-auto-animate-modal__note">
+						{ sprintf(
+							/* translators: %d: number of invalid blocks */
+							_n(
+								'%d invalid block won’t be animated: choose “Attempt Block Recovery” on it, then run this again.',
+								'%d invalid blocks won’t be animated: choose “Attempt Block Recovery” on each, then run this again.',
+								invalidCount,
+								'motion-blocks'
+							),
+							invalidCount
+						) }
+					</p>
 				) }
 
 				<p className="mb-auto-animate-modal__hint">

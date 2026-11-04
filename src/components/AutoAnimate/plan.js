@@ -528,6 +528,105 @@ function isFooterPart( block ) {
 	);
 }
 
+/**
+ * The hero inside a header template part, when the theme builds it there
+ * (a full-bleed Cover under the site title and menu): a Cover, or a
+ * designed section with a heading and something under it. The bar with
+ * the menu is stepped into, not taken: it holds a heading-like site
+ * title, not a hero.
+ *
+ * @param {Object} block Template part, with its contents loaded.
+ * @param {number} depth How many levels down to look.
+ * @return {Object|null} The hero block, or null.
+ */
+function heroInPart( block, depth = 6 ) {
+	for ( const child of block.innerBlocks || [] ) {
+		if ( child.name === 'core/cover' ) {
+			return child;
+		}
+		if (
+			child.name === 'core/query' ||
+			child.name === 'core/template-part'
+		) {
+			continue;
+		}
+		if (
+			COMPOSITE_BLOCKS.has( child.name ) &&
+			! holds( child, ( b ) => b.name === 'core/navigation' ) &&
+			holds( child, ( b ) => b.name === 'core/heading' ) &&
+			holds( child, ( b ) =>
+				[ 'core/paragraph', 'core/buttons', 'core/image' ].includes(
+					b.name
+				)
+			)
+		) {
+			return child;
+		}
+		const found = depth > 1 ? heroInPart( child, depth - 1 ) : null;
+		if ( found ) {
+			return found;
+		}
+	}
+	return null;
+}
+
+/**
+ * Fill in the contents of each template part. In the Site Editor a
+ * template's `getBlocks()` shows a header or footer as an empty block:
+ * its blocks belong to the part's own document, and are read with
+ * `getBlocks( partClientId )`. Blocks with no part inside are returned
+ * as they are.
+ *
+ * @param {Array}    blocks         `getBlocks()`.
+ * @param {Function} getInnerBlocks `(clientId) → Block[]`.
+ * @param {number}   depth          Parts nested this deep are left empty.
+ * @return {Array} Blocks, with each part's contents as its inner blocks.
+ */
+export function withTemplatePartContents( blocks, getInnerBlocks, depth = 4 ) {
+	return ( blocks || [] ).map( ( block ) => {
+		let inner = block.innerBlocks || [];
+		if (
+			block.name === 'core/template-part' &&
+			! inner.length &&
+			depth > 0
+		) {
+			inner = getInnerBlocks( block.clientId ) || [];
+		}
+		const filled = withTemplatePartContents(
+			inner,
+			getInnerBlocks,
+			block.name === 'core/template-part' ? depth - 1 : depth
+		);
+		const same =
+			filled.length === ( block.innerBlocks || [] ).length &&
+			filled.every( ( b, i ) => b === block.innerBlocks[ i ] );
+		return same ? block : { ...block, innerBlocks: filled };
+	} );
+}
+
+/**
+ * Template parts that have blocks inside them, at any depth.
+ *
+ * @param {Array} blocks Blocks (from withTemplatePartContents).
+ * @return {Object[]} The parts.
+ */
+export function templatePartsWithContents( blocks ) {
+	const out = [];
+	const walk = ( list ) => {
+		for ( const block of list || [] ) {
+			if (
+				block.name === 'core/template-part' &&
+				( block.innerBlocks || [] ).length
+			) {
+				out.push( block );
+			}
+			walk( block.innerBlocks );
+		}
+	};
+	walk( blocks );
+	return out;
+}
+
 /** A template part, or a one-line strip: the pieces of a bar above the content. */
 function isBar( block ) {
 	if ( block.name === 'core/template-part' || block.name === 'core/paragraph' ) {
@@ -589,10 +688,29 @@ function isHeroLike( block ) {
  *     is no opening, and everything waits for the scroll, which fires at
  *     once for blocks already in view.
  *
- * @param {Array} topLevelBlocks `getBlocks()` (top level only).
+ * With `includeParts`, a hero in a header template part above the content
+ * comes first (see heroInPart).
+ *
+ * @param {Array}   topLevelBlocks         `getBlocks()` (top level only).
+ * @param {Object}  [options]
+ * @param {boolean} [options.includeParts] Look inside header parts too.
  * @return {{blocks: Object[]}|null} The hero's blocks, or null.
  */
-export function findHero( topLevelBlocks ) {
+export function findHero( topLevelBlocks, { includeParts = false } = {} ) {
+	if ( includeParts ) {
+		for ( const block of topLevelBlocks || [] ) {
+			if ( block.name !== 'core/template-part' ) {
+				if ( isChromeWrapper( block ) ) {
+					continue;
+				}
+				break;
+			}
+			const hero = isFooterPart( block ) ? null : heroInPart( block );
+			if ( hero ) {
+				return { blocks: [ hero ] };
+			}
+		}
+	}
 	const content = ( topLevelBlocks || [] ).filter(
 		( b ) => b.name !== 'core/template-part'
 	);
@@ -707,6 +825,10 @@ function isSection( block ) {
  *   how tall the block is, in screens of the editor canvas. A Columns
  *   block taller than 2 screens, or holding a Query Loop or many designed
  *   units, is a page wrapper and is walked into.
+ * @param {boolean}  [options.includeParts] Animate what's inside template
+ *   parts (header, footer), loaded with withTemplatePartContents, instead
+ *   of the header as one block and the footer not at all. A hero in the
+ *   header opens the page; everything else in a part waits for the scroll.
  * @return {Object} Plan.
  */
 export function computeAutoAnimatePlan(
@@ -741,7 +863,22 @@ export function computeAutoAnimatePlan(
 		heroIds.add( block.clientId );
 		( block.innerBlocks || [] ).forEach( markHero );
 	};
-	const found = findHero( topLevelBlocks )?.blocks || [];
+	const includeParts = !! options.includeParts;
+	const found = findHero( topLevelBlocks, { includeParts } )?.blocks || [];
+	// Blocks inside a template part. Unless they are the hero, they never
+	// join the opening: a header animating on load is a flash, and a
+	// footer is far below the first screen.
+	const partContentIds = new Set();
+	if ( includeParts ) {
+		const markInside = ( blocks ) =>
+			( blocks || [] ).forEach( ( block ) => {
+				partContentIds.add( block.clientId );
+				markInside( block.innerBlocks );
+			} );
+		templatePartsWithContents( topLevelBlocks ).forEach( ( part ) =>
+			markInside( part.innerBlocks )
+		);
+	}
 	// A hero the measurement puts below the first screen isn't opening the
 	// page (the real hero was one the structure missed): count it as no
 	// hero, so the fallback below takes over. An unmeasured hero stands.
@@ -769,6 +906,12 @@ export function computeAutoAnimatePlan(
 		markAncestors( topLevelBlocks, [] );
 	}
 	const onFirstScreen = ( block ) => {
+		if (
+			partContentIds.has( block.clientId ) &&
+			! heroIds.has( block.clientId )
+		) {
+			return false;
+		}
 		if ( heroIds.size ) {
 			if ( ! heroIds.has( block.clientId ) ) {
 				return false;
@@ -935,13 +1078,23 @@ export function computeAutoAnimatePlan(
 			return;
 		}
 
-		// The footer is left still. Animated whole it would fade in as one
-		// tall slab, and its contents can't be walked into from here: a
-		// template part's blocks live in their own editor, not in this
-		// block tree. How Auto-animate should treat template parts and
-		// synced patterns is still open (GH #41). It is listed with the
-		// site chrome that is skipped. Headers are not skipped: they are
-		// short, and animating one whole is harmless.
+		// With `includeParts`, a header or footer is walked into like a
+		// wrapper, and its blocks animate one by one (GH #101).
+		if (
+			includeParts &&
+			name === 'core/template-part' &&
+			( block.innerBlocks || [] ).length
+		) {
+			for ( const child of block.innerBlocks ) {
+				recurse( child, sequence );
+			}
+			return;
+		}
+
+		// Otherwise the footer is left still. Animated whole it would fade
+		// in as one tall slab. It is listed with the site chrome that is
+		// skipped. Headers are not skipped: they are short, and animating
+		// one whole is harmless.
 		if ( isFooterPart( block ) ) {
 			skipChrome.push( block );
 			return;

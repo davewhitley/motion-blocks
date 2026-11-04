@@ -12,6 +12,7 @@
 import {
 	Modal,
 	Button,
+	CheckboxControl,
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalVStack as VStack,
@@ -27,6 +28,8 @@ import {
 	STYLE_PRESETS,
 	buildAutoAnimateUpdates,
 	computeAutoAnimatePlan,
+	templatePartsWithContents,
+	withTemplatePartContents,
 } from './plan';
 import { countDescendantsIn, EMPTY_IDS } from '../selectStable';
 
@@ -104,24 +107,35 @@ function measureScreensTall() {
  * is always mounted from the Document panel, and running the plan
  * against the whole block tree on every store change while nobody can
  * see it was wasted work (GH #27). The style preset lives here so the
- * choice still survives closing and reopening.
+ * choice still survives closing and reopening, as does "Include header
+ * and footer".
  *
- * @param {Object}   props              Component props.
- * @param {boolean}  props.isOpen       Whether the modal is shown.
- * @param {Function} props.onClose      Close handler.
- * @param {string}   props.contextNoun  Editor context noun (page, template…).
- * @param {?string}  props.rootClientId Where the page's blocks are: `''` for
- *                                      the whole tree, the Post Content block
- *                                      when the template is shown, or null
- *                                      (see selectPageContentRoot).
+ * @param {Object}   props                    Component props.
+ * @param {boolean}  props.isOpen             Whether the modal is shown.
+ * @param {Function} props.onClose            Close handler.
+ * @param {string}   props.contextNoun        Editor context noun (page, template…).
+ * @param {?string}  props.rootClientId       Where the page's blocks are: `''`
+ *                                            for the whole tree, the Post
+ *                                            Content block when the template
+ *                                            is shown, or null (see
+ *                                            selectPageContentRoot).
+ * @param {boolean}  props.allowTemplateParts Offer to animate inside the
+ *                                            template's parts (header, footer,
+ *                                            any other), in the Site Editor's
+ *                                            template view.
  */
 export default function AutoAnimateModal( {
 	isOpen,
 	onClose,
 	contextNoun,
 	rootClientId = '',
+	allowTemplateParts = false,
 } ) {
 	const [ stylePreset, setStylePreset ] = useState( 'balanced' );
+	// On by default: a template's parts are part of the page being
+	// animated. Unticking animates each part whole, and the footer not at
+	// all.
+	const [ includeParts, setIncludeParts ] = useState( true );
 	if ( ! isOpen ) {
 		return null;
 	}
@@ -132,6 +146,9 @@ export default function AutoAnimateModal( {
 			rootClientId={ rootClientId }
 			stylePreset={ stylePreset }
 			setStylePreset={ setStylePreset }
+			allowTemplateParts={ allowTemplateParts }
+			includeParts={ includeParts }
+			setIncludeParts={ setIncludeParts }
 		/>
 	);
 }
@@ -142,6 +159,9 @@ function AutoAnimateModalContent( {
 	rootClientId,
 	stylePreset,
 	setStylePreset,
+	allowTemplateParts,
+	includeParts,
+	setIncludeParts,
 } ) {
 	// `getBlocks()` returns top-level only, memoized by the store. With
 	// the template shown, the top level is the Post Content block's.
@@ -160,20 +180,39 @@ function AutoAnimateModalContent( {
 	);
 	const registry = useRegistry();
 
+	// A template's parts (header, footer…) show up in `getBlocks()` as empty
+	// blocks: their contents belong to each part's own document. They are
+	// read once per opening of the modal, which blocks editing while open.
+	const filledBlocks = useMemo( () => {
+		if ( ! allowTemplateParts ) {
+			return topLevelBlocks;
+		}
+		const sel = registry.select( blockEditorStore );
+		return withTemplatePartContents( topLevelBlocks, ( id ) =>
+			sel.getBlocks( id )
+		);
+	}, [ topLevelBlocks, registry, allowTemplateParts ] );
+	const hasParts = useMemo(
+		() => templatePartsWithContents( filledBlocks ).length > 0,
+		[ filledBlocks ]
+	);
+	const usesParts = hasParts && includeParts;
+
 	// Recompute the plan whenever the block tree changes (or the modal
 	// reopens). Style preset doesn't affect the plan, only the dispatched
 	// attributes — so no need to rerun on preset change.
 	const plan = useMemo( () => {
 		const sel = registry.select( blockEditorStore );
 		return computeAutoAnimatePlan(
-			topLevelBlocks,
+			usesParts ? filledBlocks : topLevelBlocks,
 			( id ) => countDescendantsIn( sel, id ),
 			{
 				isOnFirstScreen: measureFirstScreen(),
 				screensTall: measureScreensTall(),
+				includeParts: usesParts,
 			}
 		);
-	}, [ topLevelBlocks, registry ] );
+	}, [ topLevelBlocks, filledBlocks, usesParts, registry ] );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );
@@ -299,6 +338,22 @@ function AutoAnimateModalContent( {
 						)
 					) }
 				</ToggleGroupControl>
+
+				{ hasParts && (
+					<CheckboxControl
+						label={ __(
+							'Include header, footer, and other template parts',
+							'motion-blocks'
+						) }
+						help={ __(
+							'They are shared, so this changes every page that uses them.',
+							'motion-blocks'
+						) }
+						checked={ includeParts }
+						onChange={ setIncludeParts }
+						__nextHasNoMarginBottom
+					/>
+				) }
 
 				{ applyCount === 0 && (
 					<p className="mb-auto-animate-modal__empty">

@@ -964,6 +964,28 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
 }
 
 /**
+ * A saved Stagger step in seconds.
+ *
+ * The step is stored in seconds (default 0.1). Pre-migration blocks may
+ * have it in ms (default 100); anything over 5 is folded down to seconds
+ * so old saves keep working. Mirrors the JS `staggerStepSeconds()`
+ * helper in constants.js.
+ *
+ * @param mixed $raw_step Saved animationStaggerStep.
+ * @return float
+ */
+function motion_blocks_stagger_step_seconds( $raw_step ) {
+    $step = is_numeric( $raw_step ) ? (float) $raw_step : 0.1;
+    if ( $step < 0 ) {
+        $step = 0.1;
+    }
+    if ( $step > 5 ) {
+        $step = $step / 1000;
+    }
+    return $step;
+}
+
+/**
  * Whether img-target animations can attach to a block's image element.
  * PHP mirror of `isImageTargetUnavailable` in src/components/constants.js.
  *
@@ -1411,19 +1433,9 @@ function motion_blocks_render_block( $block_content, $block ) {
         && motion_blocks_is_stagger_compatible( $attrs, $mode, $type, $entry_type, $exit_type )
     ) {
         $processor->add_class( 'mb-stagger-parent' );
-        // Stagger step is stored in seconds (default 0.1). Pre-migration
-        // blocks may have it in ms (default 100); the > 5 check folds
-        // those down to seconds so old saves keep working. Mirrors the
-        // JS `staggerStepSeconds()` helper in constants.js.
-        $raw_step = $attrs['animationStaggerStep']
-            ?? motion_blocks_attr_default( 'animationStaggerStep' );
-        $step     = is_numeric( $raw_step ) ? (float) $raw_step : 0.1;
-        if ( $step < 0 ) {
-            $step = 0.1;
-        }
-        if ( $step > 5 ) {
-            $step = $step / 1000;
-        }
+        $step = motion_blocks_stagger_step_seconds(
+            $attrs['animationStaggerStep'] ?? motion_blocks_attr_default( 'animationStaggerStep' )
+        );
         // Append the CSS var to any existing inline style so we don't
         // clobber theme/block styles that were already there.
         $existing_style = trim( (string) ( $processor->get_attribute( 'style' ) ?? '' ) );

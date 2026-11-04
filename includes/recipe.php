@@ -895,12 +895,24 @@ function motion_blocks_attributes_to_recipe( $attrs, $block_name = '' ) {
             );
         }
     }
+    $shared = motion_blocks_shared_constants();
+    // A Cover with Fixed or Repeated background has no <img>, so the
+    // render filter emits no image target: Image Move / Image Zoom play
+    // nothing there and "Animate image only" falls back to the whole
+    // block. Describe that, so the recipe can be written back.
+    $no_image = $block_name && motion_blocks_is_image_target_unavailable( $block_name, $attrs );
+    if ( $no_image ) {
+        foreach ( array( 'effect', 'entry', 'exit' ) as $key ) {
+            if ( ! empty( $recipe[ $key ] ) && in_array( $recipe[ $key ]['type'], $shared['imageEffectTypes'], true ) ) {
+                $recipe[ $key ] = null;
+            }
+        }
+    }
     // Nothing would play (the render filter emits nothing for it).
     if ( empty( $recipe['entry'] ) && empty( $recipe['exit'] ) && empty( $recipe['effect'] ) ) {
         return null;
     }
-    $shared = motion_blocks_shared_constants();
-    if ( 'img' === $a['animationFromToTarget'] && ( '' === $block_name || 'core/cover' === $block_name ) ) {
+    if ( 'img' === $a['animationFromToTarget'] && ! $no_image && ( '' === $block_name || 'core/cover' === $block_name ) ) {
         $recipe['target'] = 'image';
     }
     if (
@@ -908,7 +920,7 @@ function motion_blocks_attributes_to_recipe( $attrs, $block_name = '' ) {
         'scroll-interactive' !== $a['animationMode'] &&
         ( '' === $block_name || in_array( $block_name, $shared['staggerParentBlocks'], true ) )
     ) {
-        $recipe['stagger'] = array( 'step' => (float) $a['animationStaggerStep'] );
+        $recipe['stagger'] = array( 'step' => motion_blocks_stagger_step_seconds( $a['animationStaggerStep'] ) );
     }
     return $recipe;
 }

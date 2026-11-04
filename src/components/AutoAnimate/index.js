@@ -126,7 +126,9 @@ export default function AutoAnimateModal( {
 	allowTemplateParts = false,
 } ) {
 	const [ stylePreset, setStylePreset ] = useState( 'smooth' );
-	const [ includeParts, setIncludeParts ] = useState( false );
+	// On by default: a template's header and footer are part of the page
+	// being animated. Unticking keeps the header whole and the footer still.
+	const [ includeParts, setIncludeParts ] = useState( true );
 	if ( ! isOpen ) {
 		return null;
 	}

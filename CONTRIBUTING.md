@@ -59,6 +59,7 @@ Recipes are a public format that agents and other tools (such as Motion Studio) 
 
 ```bash
 npm run build          # and commit build/
+npm run lint           # `npm run format` fixes most formatting errors
 npm run test:unit
 ```
 

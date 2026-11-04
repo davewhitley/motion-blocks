@@ -23,8 +23,10 @@
  */
 const fs = require( 'fs' );
 const path = require( 'path' );
+/* eslint-disable import/no-extraneous-dependencies -- PostCSS and its parsers come with @wordpress/scripts. */
 const postcss = require( 'postcss' );
 const selectorParser = require( 'postcss-selector-parser' );
+/* eslint-enable import/no-extraneous-dependencies */
 
 const root = path.join( __dirname, '..', '..' );
 const css = postcss.parse(

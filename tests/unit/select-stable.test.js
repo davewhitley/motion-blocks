@@ -324,7 +324,11 @@ describe( 'selectPageContentRoot', () => {
 
 	test( 'is the whole tree for a template, a template part or a pattern', () => {
 		const sel = makeSel( { blocks: TEMPLATE, parents: TEMPLATE_PARENTS } );
-		for ( const type of [ 'wp_template', 'wp_template_part', 'wp_block' ] ) {
+		for ( const type of [
+			'wp_template',
+			'wp_template_part',
+			'wp_block',
+		] ) {
 			expect(
 				selectPageContentRoot( sel, type, 'template-locked' )
 			).toBe( '' );
@@ -366,7 +370,8 @@ describe( 'selectPageContentRoot', () => {
 describe( 'clientIdsUnder', () => {
 	const sel = {
 		getClientIdsWithDescendants: () => [ 'a', 'b', 'c' ],
-		getClientIdsOfDescendants: ( ids ) => ( ids[ 0 ] === 'a' ? [ 'b' ] : [] ),
+		getClientIdsOfDescendants: ( ids ) =>
+			ids[ 0 ] === 'a' ? [ 'b' ] : [],
 	};
 
 	test( 'is the whole tree for the root, and the descendants for a block', () => {
@@ -376,6 +381,8 @@ describe( 'clientIdsUnder', () => {
 
 	test( 'is empty, and stable, when the page has no blocks in the tree', () => {
 		expect( clientIdsUnder( sel, null ) ).toBe( EMPTY_IDS );
-		expect( clientIdsUnder( sel, null ) ).toBe( clientIdsUnder( sel, null ) );
+		expect( clientIdsUnder( sel, null ) ).toBe(
+			clientIdsUnder( sel, null )
+		);
 	} );
 } );

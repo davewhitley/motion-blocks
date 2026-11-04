@@ -30,11 +30,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { desktop, seen, chevronDown } from '@wordpress/icons';
 
 import AnimationOptionsMenu from './AnimationOptionsMenu';
-import {
-	MODE_META,
-	MODE_ORDER,
-	switchModeAttributes,
-} from './constants';
+import { MODE_META, MODE_ORDER, switchModeAttributes } from './constants';
 import { scrollInteractiveIcon } from './icons';
 
 // Resolve the icon name carried in MODE_META to a real icon. Kept
@@ -174,9 +170,7 @@ export default function SubPanelModeHeader( {
 					onBeforeModeSwitch={ onBeforeModeSwitch }
 				/>
 			</div>
-			{ helpText && (
-				<p className="mb-help-text">{ helpText }</p>
-			) }
+			{ helpText && <p className="mb-help-text">{ helpText }</p> }
 		</div>
 	);
 }

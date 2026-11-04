@@ -28,25 +28,18 @@ import {
 	imgTargetsOf,
 } from './img-target';
 import {
-	DEFAULT_ATTRIBUTES,
 	SCHEMA_DEFAULTS,
 	ENTER_KEYFRAME_MAP,
 	DIRECTION_CSS_VARS,
-	TYPES_WITH_DIRECTION,
-	DEFAULT_DIRECTION,
-	PROPERTY_DEFINITIONS,
 	FROM_ATTR,
 	TO_ATTR,
-	PROPERTY_CSS_VAR,
 	STAGGER_PARENT_BLOCKS,
-	STAGGER_INCOMPATIBLE_TYPES,
 	isStaggerCompatible,
 	staggerStepSeconds,
 	attrsToBag,
 	bagToReactStyles,
 	buildCustomKeyframe,
 	getPresetFromTo,
-	isPropertyAdded,
 	isImageTargetUnavailable,
 	migrateScrollAppearAttrs,
 	materializeScrollAppearPatch,
@@ -225,7 +218,12 @@ function getImageZoomKeyframe( clientId ) {
  * @param {string} animationMode 'page-load' | 'scroll-appear' | 'scroll-interactive'
  * @return {string|null}
  */
-function buildImgTargetCSS( uid, keyframe, animationMode, scrubFraction = null ) {
+function buildImgTargetCSS(
+	uid,
+	keyframe,
+	animationMode,
+	scrubFraction = null
+) {
 	if ( ! keyframe ) {
 		return null;
 	}
@@ -569,75 +567,228 @@ function addAnimationAttributes( settings ) {
 			// empty, no animation for that phase." See constants.js →
 			// migrateScrollAppearAttrs for how legacy blocks map onto
 			// these.
-			animationEntryType: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryType },
-			animationEntryDirection: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryDirection },
-			animationEntryDuration: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryDuration },
+			animationEntryType: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationEntryType,
+			},
+			animationEntryDirection: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationEntryDirection,
+			},
+			animationEntryDuration: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationEntryDuration,
+			},
 			// Stays at 0.4 for the same reason as animationDelay above;
 			// new blocks get DEFAULT_ATTRIBUTES' 0, written explicitly.
-			animationEntryDelay: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryDelay },
-			animationEntryAcceleration: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryAcceleration },
+			animationEntryDelay: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationEntryDelay,
+			},
+			animationEntryAcceleration: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationEntryAcceleration,
+			},
 			animationEntryCustomTimingFunction: {
 				type: 'string',
 				default: SCHEMA_DEFAULTS.animationEntryCustomTimingFunction,
 			},
-			animationEntryBlurAmount: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryBlurAmount },
-			animationEntryRotateAngle: { type: 'number', default: SCHEMA_DEFAULTS.animationEntryRotateAngle },
-			animationExitType: { type: 'string', default: SCHEMA_DEFAULTS.animationExitType },
-			animationExitDirection: { type: 'string', default: SCHEMA_DEFAULTS.animationExitDirection },
-			animationExitDuration: { type: 'number', default: SCHEMA_DEFAULTS.animationExitDuration },
-			animationExitDelay: { type: 'number', default: SCHEMA_DEFAULTS.animationExitDelay },
-			animationExitAcceleration: { type: 'string', default: SCHEMA_DEFAULTS.animationExitAcceleration },
+			animationEntryBlurAmount: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationEntryBlurAmount,
+			},
+			animationEntryRotateAngle: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationEntryRotateAngle,
+			},
+			animationExitType: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationExitType,
+			},
+			animationExitDirection: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationExitDirection,
+			},
+			animationExitDuration: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationExitDuration,
+			},
+			animationExitDelay: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationExitDelay,
+			},
+			animationExitAcceleration: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationExitAcceleration,
+			},
 			animationExitCustomTimingFunction: {
 				type: 'string',
 				default: SCHEMA_DEFAULTS.animationExitCustomTimingFunction,
 			},
-			animationExitBlurAmount: { type: 'number', default: SCHEMA_DEFAULTS.animationExitBlurAmount },
-			animationExitRotateAngle: { type: 'number', default: SCHEMA_DEFAULTS.animationExitRotateAngle },
+			animationExitBlurAmount: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationExitBlurAmount,
+			},
+			animationExitRotateAngle: {
+				type: 'number',
+				default: SCHEMA_DEFAULTS.animationExitRotateAngle,
+			},
 			// Per-slot Replay options ('once' | 'repeat' | 'reverse').
 			// See REPLAY_OPTIONS in constants.js. `animationPlayOnce`
 			// (above) stays in the schema so legacy blocks deserialize
 			// cleanly, but nothing reads it for Replay any more: an
 			// omitted Replay means Entry 'once' / Exit 'reverse' in the
 			// editor and on the front end alike.
-			animationEntryReplay: { type: 'string', default: SCHEMA_DEFAULTS.animationEntryReplay },
-			animationExitReplay: { type: 'string', default: SCHEMA_DEFAULTS.animationExitReplay },
+			animationEntryReplay: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationEntryReplay,
+			},
+			animationExitReplay: {
+				type: 'string',
+				default: SCHEMA_DEFAULTS.animationExitReplay,
+			},
 			// Per-slot Custom From/To values.
-			animationEntryFromOpacity: { type: [ 'number', 'null' ], default: null },
-			animationEntryFromTranslateX: { type: [ 'string', 'null' ], default: null },
-			animationEntryFromTranslateY: { type: [ 'string', 'null' ], default: null },
-			animationEntryFromScale: { type: [ 'number', 'null' ], default: null },
-			animationEntryFromRotate: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryFromRotateX: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryFromRotateY: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryFromBlur: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryFromClipPath: { type: [ 'string', 'null' ], default: null },
-			animationEntryToOpacity: { type: [ 'number', 'null' ], default: null },
-			animationEntryToTranslateX: { type: [ 'string', 'null' ], default: null },
-			animationEntryToTranslateY: { type: [ 'string', 'null' ], default: null },
-			animationEntryToScale: { type: [ 'number', 'null' ], default: null },
-			animationEntryToRotate: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryToRotateX: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryToRotateY: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryToBlur: { type: [ 'string', 'number', 'null' ], default: null },
-			animationEntryToClipPath: { type: [ 'string', 'null' ], default: null },
-			animationExitFromOpacity: { type: [ 'number', 'null' ], default: null },
-			animationExitFromTranslateX: { type: [ 'string', 'null' ], default: null },
-			animationExitFromTranslateY: { type: [ 'string', 'null' ], default: null },
-			animationExitFromScale: { type: [ 'number', 'null' ], default: null },
-			animationExitFromRotate: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitFromRotateX: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitFromRotateY: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitFromBlur: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitFromClipPath: { type: [ 'string', 'null' ], default: null },
-			animationExitToOpacity: { type: [ 'number', 'null' ], default: null },
-			animationExitToTranslateX: { type: [ 'string', 'null' ], default: null },
-			animationExitToTranslateY: { type: [ 'string', 'null' ], default: null },
+			animationEntryFromOpacity: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationEntryFromTranslateX: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationEntryFromTranslateY: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationEntryFromScale: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationEntryFromRotate: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryFromRotateX: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryFromRotateY: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryFromBlur: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryFromClipPath: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationEntryToOpacity: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationEntryToTranslateX: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationEntryToTranslateY: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationEntryToScale: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationEntryToRotate: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryToRotateX: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryToRotateY: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryToBlur: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationEntryToClipPath: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationExitFromOpacity: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationExitFromTranslateX: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationExitFromTranslateY: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationExitFromScale: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationExitFromRotate: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitFromRotateX: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitFromRotateY: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitFromBlur: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitFromClipPath: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationExitToOpacity: {
+				type: [ 'number', 'null' ],
+				default: null,
+			},
+			animationExitToTranslateX: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
+			animationExitToTranslateY: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
 			animationExitToScale: { type: [ 'number', 'null' ], default: null },
-			animationExitToRotate: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitToRotateX: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitToRotateY: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitToBlur: { type: [ 'string', 'number', 'null' ], default: null },
-			animationExitToClipPath: { type: [ 'string', 'null' ], default: null },
+			animationExitToRotate: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitToRotateX: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitToRotateY: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitToBlur: {
+				type: [ 'string', 'number', 'null' ],
+				default: null,
+			},
+			animationExitToClipPath: {
+				type: [ 'string', 'null' ],
+				default: null,
+			},
 		},
 	};
 }
@@ -971,976 +1122,938 @@ function isStaggerPreviewActive( name, attributes ) {
  * an iframe, so className-based animation on the block element does
  * NOT affect the toolbar.
  */
-const withAnimationPreview = createHigherOrderComponent(
-	( BlockListBlock ) => {
-		return ( props ) => {
-			const { wrapperProps = {}, clientId } = props;
-			// Editor preview state (GH #29) lives in the
-			// motion-blocks/editor-preview store, not in attributes. Lay
-			// it over the attributes so everything below reads it under
-			// the old attribute names; values saved in older posts are
-			// replaced by the store's (or the defaults). Must stay above
-			// every early return (hook order).
-			const preview = useSelect(
-				( select ) =>
-					select( previewStore ).getBlockPreview( clientId ),
-				[ clientId ]
-			);
-			const baseAttrs = overlayPreviewState( props.attributes, preview );
-			// For Scroll Appear, normalize legacy attrs into slot form
-			// then alias one slot's per-slot attrs onto the shared
-			// `animationType` / `animationDuration` / etc. names that
-			// the rest of this HOC reads. The slot is
-			// `animationPreviewSlot` while Play runs or the From/To eye
-			// preview is on, and Entry otherwise (see
-			// aliasSlotForPreview in constants.js).
-			// `migrateScrollAppearAttrs` runs for every mode now —
-			// in addition to the slot-model migration, it normalizes
-			// Custom From/To unit-bearing values (rotate / blur from
-			// bare numbers to canonical strings).
-			const attributes =
-				baseAttrs.animationMode === 'scroll-appear'
-					? aliasSlotForPreview( migrateScrollAppearAttrs( baseAttrs ) )
-					: migrateScrollAppearAttrs( baseAttrs );
+const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
+	return ( props ) => {
+		const { wrapperProps = {}, clientId } = props;
+		// Editor preview state (GH #29) lives in the
+		// motion-blocks/editor-preview store, not in attributes. Lay
+		// it over the attributes so everything below reads it under
+		// the old attribute names; values saved in older posts are
+		// replaced by the store's (or the defaults). Must stay above
+		// every early return (hook order).
+		const preview = useSelect(
+			( select ) => select( previewStore ).getBlockPreview( clientId ),
+			[ clientId ]
+		);
+		const baseAttrs = overlayPreviewState( props.attributes, preview );
+		// For Scroll Appear, normalize legacy attrs into slot form
+		// then alias one slot's per-slot attrs onto the shared
+		// `animationType` / `animationDuration` / etc. names that
+		// the rest of this HOC reads. The slot is
+		// `animationPreviewSlot` while Play runs or the From/To eye
+		// preview is on, and Entry otherwise (see
+		// aliasSlotForPreview in constants.js).
+		// `migrateScrollAppearAttrs` runs for every mode now —
+		// in addition to the slot-model migration, it normalizes
+		// Custom From/To unit-bearing values (rotate / blur from
+		// bare numbers to canonical strings).
+		const attributes =
+			baseAttrs.animationMode === 'scroll-appear'
+				? aliasSlotForPreview( migrateScrollAppearAttrs( baseAttrs ) )
+				: migrateScrollAppearAttrs( baseAttrs );
 
-			// DOM-side animation restart on each Play click.
-			//
-			// The Play button in AnimationPanel toggles
-			// `animationPreviewPlaying` from false to true. Before this
-			// effect, replay was attempted via a "clear `animationType`,
-			// rAF, restore `animationType`" pattern that depended on
-			// React committing the intermediate render so the browser
-			// would observe a class change and restart the CSS
-			// animation. React 18's automatic batching across rAF —
-			// plus the editor iframe boundary slowing the dispatch /
-			// commit pipeline — frequently collapsed both setAttributes
-			// calls into one render, so the intermediate "no class"
-			// state never reached the DOM and the animation didn't
-			// restart. (User-visible symptom: "Play does nothing.")
-			//
-			// Switching to direct DOM manipulation here sidesteps the
-			// React commit-timing problem entirely. We toggle the
-			// trigger class with a forced reflow — same pattern as the
-			// frontend's `restartAnimation` helper — and the browser
-			// guarantees a fresh animation cycle.
-			//
-			// Document context note: modern Gutenberg (WP 6.x+) renders
-			// the block canvas inside an `iframe[name="editor-canvas"]`,
-			// while the HOC's React tree runs in the parent document.
-			// `document.querySelector` from here searches the parent
-			// doc, which doesn't contain the block. We fall through to
-			// the editor iframe's document if the parent search misses.
-			const prevPlayingRef = useRef( !! preview.animationPreviewPlaying );
-			useEffect( () => {
-				const currentPlaying = !! preview.animationPreviewPlaying;
-				const wasPlaying = prevPlayingRef.current;
-				prevPlayingRef.current = currentPlaying;
-				if ( ! currentPlaying || wasPlaying ) {
-					// Only fire on the false → true transition.
-					return;
+		// DOM-side animation restart on each Play click.
+		//
+		// The Play button in AnimationPanel toggles
+		// `animationPreviewPlaying` from false to true. Before this
+		// effect, replay was attempted via a "clear `animationType`,
+		// rAF, restore `animationType`" pattern that depended on
+		// React committing the intermediate render so the browser
+		// would observe a class change and restart the CSS
+		// animation. React 18's automatic batching across rAF —
+		// plus the editor iframe boundary slowing the dispatch /
+		// commit pipeline — frequently collapsed both setAttributes
+		// calls into one render, so the intermediate "no class"
+		// state never reached the DOM and the animation didn't
+		// restart. (User-visible symptom: "Play does nothing.")
+		//
+		// Switching to direct DOM manipulation here sidesteps the
+		// React commit-timing problem entirely. We toggle the
+		// trigger class with a forced reflow — same pattern as the
+		// frontend's `restartAnimation` helper — and the browser
+		// guarantees a fresh animation cycle.
+		//
+		// Document context note: modern Gutenberg (WP 6.x+) renders
+		// the block canvas inside an `iframe[name="editor-canvas"]`,
+		// while the HOC's React tree runs in the parent document.
+		// `document.querySelector` from here searches the parent
+		// doc, which doesn't contain the block. We fall through to
+		// the editor iframe's document if the parent search misses.
+		const prevPlayingRef = useRef( !! preview.animationPreviewPlaying );
+		useEffect( () => {
+			const currentPlaying = !! preview.animationPreviewPlaying;
+			const wasPlaying = prevPlayingRef.current;
+			prevPlayingRef.current = currentPlaying;
+			if ( ! currentPlaying || wasPlaying ) {
+				// Only fire on the false → true transition.
+				return;
+			}
+			// The real canvas wrapper, never a List View leaf (see
+			// findBlockElement) — a leaf has no `mb-*` classes, so
+			// the triggerClass check below would bail silently.
+			const blockEl = findBlockElement( clientId );
+			if ( ! blockEl ) {
+				return;
+			}
+			const previewSlot =
+				preview.animationPreviewSlot === 'exit' ? 'exit' : 'entry';
+			const triggerClass =
+				previewSlot === 'exit' ? 'mb-exit-triggered' : 'mb-triggered';
+			if ( ! blockEl.classList.contains( triggerClass ) ) {
+				return;
+			}
+			// Belt-and-suspenders: when previewing one slot,
+			// aggressively scrub the OTHER slot's preview classes
+			// off the DOM element. React's className update should
+			// already have done this via the HOC's render, but the
+			// `getSaveContent.extraProps` save path can re-merge stale
+			// `mb-enter-*` / `mb-exit-*` classes back into
+			// `props.className` after the strip — and even one frame
+			// of overlap produces a visible "ghost of the other slot's
+			// effect" because the previous animation's `fill-mode:
+			// both` held state interacts with the new keyframe
+			// binding. Stripping at the DOM level guarantees a clean
+			// reset regardless of React's commit ordering.
+			const cls = blockEl.classList;
+			const oppositeTriggerClass =
+				previewSlot === 'exit' ? 'mb-triggered' : 'mb-exit-triggered';
+			const oppositePrefix =
+				previewSlot === 'exit' ? 'mb-enter-' : 'mb-exit-';
+			cls.remove( oppositeTriggerClass );
+			for ( let i = cls.length - 1; i >= 0; i-- ) {
+				const name = cls[ i ];
+				if ( name && name.startsWith( oppositePrefix ) ) {
+					cls.remove( name );
 				}
-				// The real canvas wrapper, never a List View leaf (see
-				// findBlockElement) — a leaf has no `mb-*` classes, so
-				// the triggerClass check below would bail silently.
-				const blockEl = findBlockElement( clientId );
-				if ( ! blockEl ) {
-					return;
-				}
-				const previewSlot =
-					preview.animationPreviewSlot === 'exit'
-						? 'exit'
-						: 'entry';
-				const triggerClass =
-					previewSlot === 'exit'
-						? 'mb-exit-triggered'
-						: 'mb-triggered';
-				if ( ! blockEl.classList.contains( triggerClass ) ) {
-					return;
-				}
-				// Belt-and-suspenders: when previewing one slot,
-				// aggressively scrub the OTHER slot's preview classes
-				// off the DOM element. React's className update should
-				// already have done this via the HOC's render, but the
-				// `getSaveContent.extraProps` save path can re-merge stale
-				// `mb-enter-*` / `mb-exit-*` classes back into
-				// `props.className` after the strip — and even one frame
-				// of overlap produces a visible "ghost of the other slot's
-				// effect" because the previous animation's `fill-mode:
-				// both` held state interacts with the new keyframe
-				// binding. Stripping at the DOM level guarantees a clean
-				// reset regardless of React's commit ordering.
-				const cls = blockEl.classList;
-				const oppositeTriggerClass =
-					previewSlot === 'exit'
-						? 'mb-triggered'
-						: 'mb-exit-triggered';
-				const oppositePrefix =
-					previewSlot === 'exit' ? 'mb-enter-' : 'mb-exit-';
-				cls.remove( oppositeTriggerClass );
-				for ( let i = cls.length - 1; i >= 0; i-- ) {
-					const name = cls[ i ];
-					if ( name && name.startsWith( oppositePrefix ) ) {
-						cls.remove( name );
+			}
+			// Restart the animation. Class-toggle alone (remove,
+			// reflow, add) is fragile: when the resulting computed
+			// `animation-name` matches the previous one, browsers
+			// often optimize the "change" away and don't restart.
+			// Hard-reset `animation` inline first to force the
+			// engine to genuinely re-evaluate when the class comes
+			// back. For staggered parents the cascade lives on the
+			// children, so reset there too. In classic themes a
+			// Group's children sit one level down, inside
+			// `.wp-block-group__inner-container` (GH #66).
+			const isStaggerParent = cls.contains( 'mb-stagger-parent' );
+			if ( isStaggerParent ) {
+				// Cheap re-sync of each child's stagger position
+				// before the restart (the layout effect below keeps
+				// it current; this covers anything it missed).
+				setStaggerIndices( blockEl );
+			}
+			const staggerInner = isStaggerParent
+				? blockEl.querySelector(
+						':scope > .wp-block-group__inner-container'
+				  )
+				: null;
+			// Img-target effects (Cover + image-move / image-zoom, or any
+			// preset with "Animate image only") run their animation on the
+			// inner <img>, not the wrapper. Image Move / Image Zoom bind via
+			// an unconditional rule in the injected <style>, so the class
+			// toggle below doesn't restart them. Reset the img's animation
+			// inline too so Play re-triggers on every click.
+			const isImgTarget =
+				blockEl.getAttribute( 'data-mb-target' ) === 'img';
+			const innerImg = isImgTarget
+				? imgTargetsOf( blockEl )[ 0 ] || null
+				: null;
+			const restartTargets = isStaggerParent
+				? [
+						blockEl,
+						...blockEl.children,
+						...( staggerInner ? staggerInner.children : [] ),
+				  ]
+				: innerImg
+				? [ blockEl, innerImg ]
+				: [ blockEl ];
+			// This block's own keyframes are bound by class rules:
+			// presets by name, Custom through `--mb-custom-anim-name`,
+			// Stagger children through `--mb-stagger-anim-name` and
+			// the image through the injected scoped CSS (#53). But a
+			// Stagger child can be an animated block of its own whose
+			// preview sets animation longhands inline (a Scroll
+			// Interactive scrub, a Custom block at rest), and React
+			// won't re-apply them: its style prop didn't change. So
+			// save every inline longhand and put it back after the
+			// reset, instead of losing it to the shorthand.
+			const saved = restartTargets.map( ( el ) =>
+				INLINE_ANIMATION_LONGHANDS.map( ( prop ) => el.style[ prop ] )
+			);
+			// Step 1: zero animation on every target to force a fresh
+			// cycle.
+			restartTargets.forEach( ( el ) => {
+				el.style.animation = 'none';
+			} );
+			void blockEl.offsetWidth;
+			// Step 2: clear it so the class rules take over again,
+			// then restore whatever was inline before.
+			restartTargets.forEach( ( el, i ) => {
+				el.style.animation = '';
+				INLINE_ANIMATION_LONGHANDS.forEach( ( prop, j ) => {
+					if ( saved[ i ][ j ] ) {
+						el.style[ prop ] = saved[ i ][ j ];
 					}
-				}
-				// Restart the animation. Class-toggle alone (remove,
-				// reflow, add) is fragile: when the resulting computed
-				// `animation-name` matches the previous one, browsers
-				// often optimize the "change" away and don't restart.
-				// Hard-reset `animation` inline first to force the
-				// engine to genuinely re-evaluate when the class comes
-				// back. For staggered parents the cascade lives on the
-				// children, so reset there too. In classic themes a
-				// Group's children sit one level down, inside
-				// `.wp-block-group__inner-container` (GH #66).
-				const isStaggerParent = cls.contains( 'mb-stagger-parent' );
-				if ( isStaggerParent ) {
-					// Cheap re-sync of each child's stagger position
-					// before the restart (the layout effect below keeps
-					// it current; this covers anything it missed).
+				} );
+			} );
+			// Step 3: class-toggle. With the inline reset above,
+			// this is now redundant for the "same animation-name"
+			// case, but still load-bearing when the class change
+			// itself swaps between different keyframe bindings.
+			cls.remove( triggerClass );
+			void blockEl.offsetWidth;
+			cls.add( triggerClass );
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ preview.animationPreviewPlaying ] );
+
+		// Stagger position per inner block (GH #53). The stepped
+		// delay rule in animations.css reads each child's
+		// `--mb-stagger-index`, which stagger-index.js writes on the
+		// DOM (never into attributes or saved markup), the same way
+		// the front end does. A layout effect runs after the inner
+		// blocks are in the DOM and before paint, so a Page Load
+		// stagger that auto-plays on editor load gets its positions
+		// on the first frame. It re-runs when the inner blocks are
+		// reordered, added or removed; the MutationObserver catches
+		// children that mount later or move without an order change
+		// (the appender, a Custom child's <style> sibling, inner
+		// blocks rendered asynchronously). It also watches the
+		// children's classes: core's per-block visibility adds
+		// `.is-block-hidden` to a child hidden at the previewed
+		// device size, and a hidden child doesn't use up a position
+		// (stagger-index.js). Writing a style property is neither a
+		// childList nor a class mutation, so the observer can't
+		// loop.
+		const staggerActive = isStaggerPreviewActive( props.name, attributes );
+		const innerBlockOrder = useSelect(
+			( select ) =>
+				staggerActive
+					? select( blockEditorStore ).getBlockOrder( clientId )
+					: null,
+			[ staggerActive, clientId ]
+		);
+		useLayoutEffect( () => {
+			if ( ! staggerActive ) {
+				return;
+			}
+			const blockEl = findBlockElement( clientId );
+			if ( ! blockEl ) {
+				return;
+			}
+			setStaggerIndices( blockEl );
+			const view = blockEl.ownerDocument.defaultView;
+			if ( ! view || ! view.MutationObserver ) {
+				return;
+			}
+			const inner = blockEl.querySelector(
+				':scope > .wp-block-group__inner-container'
+			);
+			const holds = ( el ) =>
+				el === blockEl || ( !! inner && el === inner );
+			const observer = new view.MutationObserver( ( records ) => {
+				// Changes deeper down (typing, selection, hover, a
+				// nested block's own preview) don't move anything.
+				const relevant = records.some( ( record ) =>
+					record.type === 'childList'
+						? holds( record.target )
+						: holds( record.target.parentElement )
+				);
+				if ( relevant ) {
 					setStaggerIndices( blockEl );
 				}
-				const staggerInner = isStaggerParent
-					? blockEl.querySelector(
-							':scope > .wp-block-group__inner-container'
-					  )
-					: null;
-				// Img-target effects (Cover + image-move / image-zoom, or any
-				// preset with "Animate image only") run their animation on the
-				// inner <img>, not the wrapper. Image Move / Image Zoom bind via
-				// an unconditional rule in the injected <style>, so the class
-				// toggle below doesn't restart them. Reset the img's animation
-				// inline too so Play re-triggers on every click.
-				const isImgTarget =
-					blockEl.getAttribute( 'data-mb-target' ) === 'img';
-				const innerImg = isImgTarget
-					? imgTargetsOf( blockEl )[ 0 ] || null
-					: null;
-				const restartTargets = isStaggerParent
-					? [
-							blockEl,
-							...blockEl.children,
-							...( staggerInner ? staggerInner.children : [] ),
-					  ]
-					: innerImg
-					? [ blockEl, innerImg ]
-					: [ blockEl ];
-				// This block's own keyframes are bound by class rules:
-				// presets by name, Custom through `--mb-custom-anim-name`,
-				// Stagger children through `--mb-stagger-anim-name` and
-				// the image through the injected scoped CSS (#53). But a
-				// Stagger child can be an animated block of its own whose
-				// preview sets animation longhands inline (a Scroll
-				// Interactive scrub, a Custom block at rest), and React
-				// won't re-apply them: its style prop didn't change. So
-				// save every inline longhand and put it back after the
-				// reset, instead of losing it to the shorthand.
-				const saved = restartTargets.map( ( el ) =>
-					INLINE_ANIMATION_LONGHANDS.map(
-						( prop ) => el.style[ prop ]
-					)
+			} );
+			observer.observe( blockEl, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				attributeFilter: [ 'class' ],
+			} );
+			return () => observer.disconnect();
+		}, [ staggerActive, clientId, innerBlockOrder ] );
+		const {
+			animationMode,
+			animationType,
+			animationDirection,
+			animationDuration,
+			animationDelay,
+			animationAcceleration,
+			animationCustomTimingFunction,
+			animationBlurAmount,
+			animationRotateAngle,
+			animationRepeat,
+			animationRangeStart,
+			animationRangeEnd,
+			animationPreviewEnabled,
+			animationPreviewPlaying,
+			animationFromToPreviewSide,
+			animationScrubPosition,
+		} = attributes;
+
+		// Static state preview — eye icon in the From/To panel.
+		// When 'start' or 'end' is chosen, freeze the editor block
+		// at that side's values (no animation, no triggered class
+		// hides). Takes precedence over every animation branch
+		// below.
+		if (
+			animationType === 'custom' &&
+			animationFromToPreviewSide &&
+			animationFromToPreviewSide !== 'off'
+		) {
+			const sideMap =
+				animationFromToPreviewSide === 'start' ? FROM_ATTR : TO_ATTR;
+			const bag = attrsToBag( attributes, sideMap );
+			const sideStyles = bagToReactStyles( bag );
+			// Force opacity:1 if the user didn't add opacity to
+			// this side — otherwise the .mb-mode-page-load /
+			// scroll-appear initial-hide rules would render the
+			// block invisible during preview.
+			if ( sideStyles.opacity === undefined ) {
+				sideStyles.opacity = 1;
+			}
+
+			// Honor Target = Image only: apply the preview
+			// styles to the inner <img> via scoped CSS rather
+			// than the block wrapper. Mirrors the same selector
+			// pattern used by the live image-target keyframe.
+			const target = attributes.animationFromToTarget || 'block';
+			if ( target === 'img' ) {
+				const safeId = String( props.clientId ).replace(
+					/[^a-z0-9]/gi,
+					''
 				);
-				// Step 1: zero animation on every target to force a fresh
-				// cycle.
-				restartTargets.forEach( ( el ) => {
-					el.style.animation = 'none';
-				} );
-				void blockEl.offsetWidth;
-				// Step 2: clear it so the class rules take over again,
-				// then restore whatever was inline before.
-				restartTargets.forEach( ( el, i ) => {
-					el.style.animation = '';
-					INLINE_ANIMATION_LONGHANDS.forEach( ( prop, j ) => {
-						if ( saved[ i ][ j ] ) {
-							el.style[ prop ] = saved[ i ][ j ];
-						}
-					} );
-				} );
-				// Step 3: class-toggle. With the inline reset above,
-				// this is now redundant for the "same animation-name"
-				// case, but still load-bearing when the class change
-				// itself swaps between different keyframe bindings.
-				cls.remove( triggerClass );
-				void blockEl.offsetWidth;
-				cls.add( triggerClass );
-				// eslint-disable-next-line react-hooks/exhaustive-deps
-			}, [ preview.animationPreviewPlaying ] );
-
-			// Stagger position per inner block (GH #53). The stepped
-			// delay rule in animations.css reads each child's
-			// `--mb-stagger-index`, which stagger-index.js writes on the
-			// DOM (never into attributes or saved markup), the same way
-			// the front end does. A layout effect runs after the inner
-			// blocks are in the DOM and before paint, so a Page Load
-			// stagger that auto-plays on editor load gets its positions
-			// on the first frame. It re-runs when the inner blocks are
-			// reordered, added or removed; the MutationObserver catches
-			// children that mount later or move without an order change
-			// (the appender, a Custom child's <style> sibling, inner
-			// blocks rendered asynchronously). It also watches the
-			// children's classes: core's per-block visibility adds
-			// `.is-block-hidden` to a child hidden at the previewed
-			// device size, and a hidden child doesn't use up a position
-			// (stagger-index.js). Writing a style property is neither a
-			// childList nor a class mutation, so the observer can't
-			// loop.
-			const staggerActive = isStaggerPreviewActive(
-				props.name,
-				attributes
-			);
-			const innerBlockOrder = useSelect(
-				( select ) =>
-					staggerActive
-						? select( blockEditorStore ).getBlockOrder( clientId )
-						: null,
-				[ staggerActive, clientId ]
-			);
-			useLayoutEffect( () => {
-				if ( ! staggerActive ) {
-					return;
-				}
-				const blockEl = findBlockElement( clientId );
-				if ( ! blockEl ) {
-					return;
-				}
-				setStaggerIndices( blockEl );
-				const view = blockEl.ownerDocument.defaultView;
-				if ( ! view || ! view.MutationObserver ) {
-					return;
-				}
-				const inner = blockEl.querySelector(
-					':scope > .wp-block-group__inner-container'
-				);
-				const holds = ( el ) =>
-					el === blockEl || ( !! inner && el === inner );
-				const observer = new view.MutationObserver( ( records ) => {
-					// Changes deeper down (typing, selection, hover, a
-					// nested block's own preview) don't move anything.
-					const relevant = records.some( ( record ) =>
-						record.type === 'childList'
-							? holds( record.target )
-							: holds( record.target.parentElement )
-					);
-					if ( relevant ) {
-						setStaggerIndices( blockEl );
-					}
-				} );
-				observer.observe( blockEl, {
-					childList: true,
-					subtree: true,
-					attributes: true,
-					attributeFilter: [ 'class' ],
-				} );
-				return () => observer.disconnect();
-			}, [ staggerActive, clientId, innerBlockOrder ] );
-			const {
-				animationMode,
-				animationType,
-				animationDirection,
-				animationDuration,
-				animationDelay,
-				animationAcceleration,
-				animationCustomTimingFunction,
-				animationBlurAmount,
-				animationRotateAngle,
-				animationRepeat,
-				animationRangeStart,
-				animationRangeEnd,
-				animationPreviewEnabled,
-				animationPreviewPlaying,
-				animationFromToPreviewSide,
-				animationScrubPosition,
-			} = attributes;
-
-			// Static state preview — eye icon in the From/To panel.
-			// When 'start' or 'end' is chosen, freeze the editor block
-			// at that side's values (no animation, no triggered class
-			// hides). Takes precedence over every animation branch
-			// below.
-			if (
-				animationType === 'custom' &&
-				animationFromToPreviewSide &&
-				animationFromToPreviewSide !== 'off'
-			) {
-				const sideMap =
-					animationFromToPreviewSide === 'start'
-						? FROM_ATTR
-						: TO_ATTR;
-				const bag = attrsToBag( attributes, sideMap );
-				const sideStyles = bagToReactStyles( bag );
-				// Force opacity:1 if the user didn't add opacity to
-				// this side — otherwise the .mb-mode-page-load /
-				// scroll-appear initial-hide rules would render the
-				// block invisible during preview.
-				if ( sideStyles.opacity === undefined ) {
-					sideStyles.opacity = 1;
-				}
-
-				// Honor Target = Image only: apply the preview
-				// styles to the inner <img> via scoped CSS rather
-				// than the block wrapper. Mirrors the same selector
-				// pattern used by the live image-target keyframe.
-				const target =
-					attributes.animationFromToTarget || 'block';
-				if ( target === 'img' ) {
-					const safeId = String( props.clientId ).replace(
-						/[^a-z0-9]/gi,
-						''
-					);
-					const scope = `[data-mb-uid="${ safeId }"]`;
-					const decls = Object.entries( sideStyles )
-						.map( ( [ k, v ] ) => {
-							const cssK = k.replace(
-								/[A-Z]/g,
-								( m ) => '-' + m.toLowerCase()
-							);
-							return `${ cssK }: ${ v }`;
-						} )
-						.join( '; ' );
-					const previewCSS = [
-						`${ imgFrameSelector( scope ) } { overflow: clip; }`,
-						`@supports not (overflow: clip) { ${ imgFrameSelector( scope ) } { overflow: hidden; } }`,
-						`${ imgTargetSelector( scope ) } { ${ decls }; animation-name: none; }`,
-					].join( '\n' );
-					return (
-						<>
-							<BlockListBlock
-								{ ...props }
-								wrapperProps={ {
-									...wrapperProps,
-									'data-mb-uid': safeId,
-								} }
-							/>
-							<style>{ previewCSS }</style>
-						</>
-					);
-				}
-
+				const scope = `[data-mb-uid="${ safeId }"]`;
+				const decls = Object.entries( sideStyles )
+					.map( ( [ k, v ] ) => {
+						const cssK = k.replace(
+							/[A-Z]/g,
+							( m ) => '-' + m.toLowerCase()
+						);
+						return `${ cssK }: ${ v }`;
+					} )
+					.join( '; ' );
+				const previewCSS = [
+					`${ imgFrameSelector( scope ) } { overflow: clip; }`,
+					`@supports not (overflow: clip) { ${ imgFrameSelector(
+						scope
+					) } { overflow: hidden; } }`,
+					`${ imgTargetSelector(
+						scope
+					) } { ${ decls }; animation-name: none; }`,
+				].join( '\n' );
 				return (
-					// Fragment-wrap with a null sibling so this return
-					// has the same React tree shape as every other
-					// branch in this HOC (BlockListBlock at index 0,
-					// style|null at index 1). Shape consistency keeps
-					// BlockListBlock from remounting when state
-					// transitions between branches.
 					<>
 						<BlockListBlock
 							{ ...props }
 							wrapperProps={ {
 								...wrapperProps,
-								style: {
-									...( wrapperProps.style || {} ),
-									...sideStyles,
-									animationName: 'none',
-								},
+								'data-mb-uid': safeId,
 							} }
 						/>
-						{ null }
+						<style>{ previewCSS }</style>
 					</>
 				);
 			}
 
-			// Custom mode at rest — page-load and scroll-appear normally
-			// auto-play the keyframe animation in the editor on every
-			// re-render, which is distracting while the user is editing
-			// per-property values. Skip the animation entirely until
-			// the user clicks Play (which sets animationPreviewPlaying).
-			// Scroll-interactive doesn't auto-play in editor anyway
-			// (no scroll), so it's left alone.
-			if (
-				animationType === 'custom' &&
-				( animationMode === 'page-load' ||
-					animationMode === 'scroll-appear' ) &&
-				! animationPreviewPlaying
-			) {
-				// Same Fragment shape as every other return in this
-				// HOC. Without the wrapping Fragment, transitioning
-				// from "rest" (this branch) to "playing" (the main
-				// path) would change the React tree shape from a
-				// bare BlockListBlock to a Fragment with BlockListBlock
-				// at index 0 — forcing a remount + visible flicker.
-				return (
-					<>
-						<BlockListBlock { ...props } />
-						{ null }
-					</>
-				);
-			}
-
-			// Resolve `custom` acceleration to the user's custom CSS
-			// timing function string. Used wherever the legacy code
-			// passed `animationAcceleration` directly.
-			const resolvedTiming = resolveTimingFunction(
-				animationAcceleration ||
-					defaultAcceleration( animationMode, animationType ),
-				animationCustomTimingFunction
+			return (
+				// Fragment-wrap with a null sibling so this return
+				// has the same React tree shape as every other
+				// branch in this HOC (BlockListBlock at index 0,
+				// style|null at index 1). Shape consistency keeps
+				// BlockListBlock from remounting when state
+				// transitions between branches.
+				<>
+					<BlockListBlock
+						{ ...props }
+						wrapperProps={ {
+							...wrapperProps,
+							style: {
+								...( wrapperProps.style || {} ),
+								...sideStyles,
+								animationName: 'none',
+							},
+						} }
+					/>
+					{ null }
+				</>
 			);
+		}
 
-			// Computed values — updated by the matching branch below.
-			let computedWrapperProps = wrapperProps;
-			// Strip any persistent `mb-*` preview classes that may have
-			// leaked into `props.className` (e.g., from a previous render
-			// or, defensively, from any save-time class merging path).
-			// Without this strip, switching from the Entry preview to the
-			// Exit preview can leave `mb-enter-{type}` / `mb-triggered` on
-			// the element alongside the newly-added `mb-exit-{type}` /
-			// `mb-exit-triggered`. Both class sets bind animation-name to
-			// different keyframes; even though CSS cascade resolves to
-			// one, the held fill-mode state of the previous animation can
-			// produce a visible "ghost of the entry effect" during the
-			// exit preview. Stripping guarantees a clean preview slate.
-			// Prefix-matches mb-animated, mb-mode-*, mb-has-*, mb-enter-*,
-			// mb-exit-* (which also covers mb-exit-triggered), mb-triggered,
-			// and mb-stagger-parent — i.e., every class the HOC or save-
-			// props might emit and that the preview path will re-emit.
-			const mbPreviewClassPattern =
-				/^mb-(animated|mode-|has-|enter-|exit-|triggered|stagger-parent)/;
-			const stripMbPreviewClasses = ( cn ) =>
-				( cn || '' )
-					.split( /\s+/ )
-					.filter( ( c ) => c && ! mbPreviewClassPattern.test( c ) )
-					.join( ' ' );
-			let computedClassName = stripMbPreviewClasses( props.className );
-			// Per-block @keyframes rule for custom-type animations.
-			// Injected next to BlockListBlock as a sibling <style>.
-			let injectedKeyframeRule = null;
+		// Custom mode at rest — page-load and scroll-appear normally
+		// auto-play the keyframe animation in the editor on every
+		// re-render, which is distracting while the user is editing
+		// per-property values. Skip the animation entirely until
+		// the user clicks Play (which sets animationPreviewPlaying).
+		// Scroll-interactive doesn't auto-play in editor anyway
+		// (no scroll), so it's left alone.
+		if (
+			animationType === 'custom' &&
+			( animationMode === 'page-load' ||
+				animationMode === 'scroll-appear' ) &&
+			! animationPreviewPlaying
+		) {
+			// Same Fragment shape as every other return in this
+			// HOC. Without the wrapping Fragment, transitioning
+			// from "rest" (this branch) to "playing" (the main
+			// path) would change the React tree shape from a
+			// bare BlockListBlock to a Fragment with BlockListBlock
+			// at index 0 — forcing a remount + visible flicker.
+			return (
+				<>
+					<BlockListBlock { ...props } />
+					{ null }
+				</>
+			);
+		}
 
-			// Resolve the keyframe once — used by both branches.
-			// `image-move` is a parallax preset that synthesizes its
-			// keyframe from the direction (the user only picks an
-			// axis, no manual from/to). `image-zoom` is the same idea
-			// but pure scale (no direction). Both are effectively
-			// "custom with img target" with the math baked in.
-			let customKeyframe = null;
-			if ( animationType === 'custom' ) {
-				customKeyframe = getCustomKeyframe(
-					props.clientId,
-					attributes
-				);
-			} else if ( animationType === 'image-move' ) {
-				customKeyframe = getImageMoveKeyframe(
-					props.clientId,
-					animationDirection
-				);
-			} else if ( animationType === 'image-zoom' ) {
-				customKeyframe = getImageZoomKeyframe( props.clientId );
-			}
+		// Resolve `custom` acceleration to the user's custom CSS
+		// timing function string. Used wherever the legacy code
+		// passed `animationAcceleration` directly.
+		const resolvedTiming = resolveTimingFunction(
+			animationAcceleration ||
+				defaultAcceleration( animationMode, animationType ),
+			animationCustomTimingFunction
+		);
 
-			// `target = 'img'` reroutes the keyframe binding to a
-			// scoped CSS rule that animates the first <img> descendant
-			// instead of the block wrapper, with `overflow: clip` on
-			// the img's parent so the surrounding markup acts as a
-			// clipping frame. Image effects (image-move, image-zoom)
-			// always use img target. Preset effects (fade, slide,
-			// scale, blur, rotate, wipe, curtain, flip — and their
-			// `-out` variants) honor the "Animate image only" toggle
-			// via the global CSS redirect rules in animations.css
-			// (keyed on `[data-mb-target="img"]` + `mb-enter-{type}`).
-			const target = attributes.animationFromToTarget || 'block';
-			// Gate img-target on availability: Cover blocks with
-			// Fixed/Repeated bg render a `<div>` background instead of
-			// `<img>`, so there's nothing to redirect onto. Treat the
-			// stored target as 'block' in that case — matches the
-			// save-props gating so editor preview === frontend render.
-			const targetIsImg =
-				! isImageTargetUnavailable( props.name, attributes ) &&
-				( animationType === 'image-move' ||
-					animationType === 'image-zoom' ||
-					( !! animationType && target === 'img' ) );
-			const customUid = customKeyframe
-				? customKeyframe.name.replace(
-						/^mb-(custom|imagemove|imagezoom)-/,
-						''
-				  )
-				: null;
-			// Custom-like img-target CSS for the Page Load / Scroll Appear
-			// class-preview path. (Scroll Interactive builds its own
-			// scrub-frozen img CSS in its branch below, so the view()
-			// variant produced here for SI is computed but never injected.)
-			const imgTargetCSS = targetIsImg
-				? buildImgTargetCSS(
-						customUid,
-						customKeyframe,
-						animationMode
-				  )
-				: null;
+		// Computed values — updated by the matching branch below.
+		let computedWrapperProps = wrapperProps;
+		// Strip any persistent `mb-*` preview classes that may have
+		// leaked into `props.className` (e.g., from a previous render
+		// or, defensively, from any save-time class merging path).
+		// Without this strip, switching from the Entry preview to the
+		// Exit preview can leave `mb-enter-{type}` / `mb-triggered` on
+		// the element alongside the newly-added `mb-exit-{type}` /
+		// `mb-exit-triggered`. Both class sets bind animation-name to
+		// different keyframes; even though CSS cascade resolves to
+		// one, the held fill-mode state of the previous animation can
+		// produce a visible "ghost of the entry effect" during the
+		// exit preview. Stripping guarantees a clean preview slate.
+		// Prefix-matches mb-animated, mb-mode-*, mb-has-*, mb-enter-*,
+		// mb-exit-* (which also covers mb-exit-triggered), mb-triggered,
+		// and mb-stagger-parent — i.e., every class the HOC or save-
+		// props might emit and that the preview path will re-emit.
+		const mbPreviewClassPattern =
+			/^mb-(animated|mode-|has-|enter-|exit-|triggered|stagger-parent)/;
+		const stripMbPreviewClasses = ( cn ) =>
+			( cn || '' )
+				.split( /\s+/ )
+				.filter( ( c ) => c && ! mbPreviewClassPattern.test( c ) )
+				.join( ' ' );
+		let computedClassName = stripMbPreviewClasses( props.className );
+		// Per-block @keyframes rule for custom-type animations.
+		// Injected next to BlockListBlock as a sibling <style>.
+		let injectedKeyframeRule = null;
 
-			// Scroll Interactive — two editor preview paths.
-			//
-			// The real effect is scroll-driven (animation-timeline:
-			// view()), emitted on the frontend by PHP. In the editor:
-			//
-			//   • SCRUB (default, every browser): freeze the effect at a
-			//     point with a PAUSED animation seeked via a negative
-			//     delay — static at every position, no timeline. Driven
-			//     by animationScrubPosition (0–100) from the RangeControl.
-			//     A dragged scrub always wins, overriding live preview.
-			//   • LIVE view() (LIVE_SCROLL_PREVIEW_OK — the beta setting
-			//     on): run the real scroll timeline in the editor so
-			//     scrolling the canvas scrubs it like the frontend.
-			//     Beta-gated only; browsers without view() just show the
-			//     end state (the scrub slider still works). See the
-			//     LIVE_SCROLL_PREVIEW_OK helper above.
-			if ( animationMode === 'scroll-interactive' ) {
-				if (
-					animationType &&
-					animationPreviewEnabled !== false &&
-					typeof animationScrubPosition === 'number'
-				) {
-					const scrubFraction = animationScrubPosition / 100;
-					const isCustomLike =
-						animationType === 'custom' ||
+		// Resolve the keyframe once — used by both branches.
+		// `image-move` is a parallax preset that synthesizes its
+		// keyframe from the direction (the user only picks an
+		// axis, no manual from/to). `image-zoom` is the same idea
+		// but pure scale (no direction). Both are effectively
+		// "custom with img target" with the math baked in.
+		let customKeyframe = null;
+		if ( animationType === 'custom' ) {
+			customKeyframe = getCustomKeyframe( props.clientId, attributes );
+		} else if ( animationType === 'image-move' ) {
+			customKeyframe = getImageMoveKeyframe(
+				props.clientId,
+				animationDirection
+			);
+		} else if ( animationType === 'image-zoom' ) {
+			customKeyframe = getImageZoomKeyframe( props.clientId );
+		}
+
+		// `target = 'img'` reroutes the keyframe binding to a
+		// scoped CSS rule that animates the first <img> descendant
+		// instead of the block wrapper, with `overflow: clip` on
+		// the img's parent so the surrounding markup acts as a
+		// clipping frame. Image effects (image-move, image-zoom)
+		// always use img target. Preset effects (fade, slide,
+		// scale, blur, rotate, wipe, curtain, flip — and their
+		// `-out` variants) honor the "Animate image only" toggle
+		// via the global CSS redirect rules in animations.css
+		// (keyed on `[data-mb-target="img"]` + `mb-enter-{type}`).
+		const target = attributes.animationFromToTarget || 'block';
+		// Gate img-target on availability: Cover blocks with
+		// Fixed/Repeated bg render a `<div>` background instead of
+		// `<img>`, so there's nothing to redirect onto. Treat the
+		// stored target as 'block' in that case — matches the
+		// save-props gating so editor preview === frontend render.
+		const targetIsImg =
+			! isImageTargetUnavailable( props.name, attributes ) &&
+			( animationType === 'image-move' ||
+				animationType === 'image-zoom' ||
+				( !! animationType && target === 'img' ) );
+		const customUid = customKeyframe
+			? customKeyframe.name.replace(
+					/^mb-(custom|imagemove|imagezoom)-/,
+					''
+			  )
+			: null;
+		// Custom-like img-target CSS for the Page Load / Scroll Appear
+		// class-preview path. (Scroll Interactive builds its own
+		// scrub-frozen img CSS in its branch below, so the view()
+		// variant produced here for SI is computed but never injected.)
+		const imgTargetCSS = targetIsImg
+			? buildImgTargetCSS( customUid, customKeyframe, animationMode )
+			: null;
+
+		// Scroll Interactive — two editor preview paths.
+		//
+		// The real effect is scroll-driven (animation-timeline:
+		// view()), emitted on the frontend by PHP. In the editor:
+		//
+		//   • SCRUB (default, every browser): freeze the effect at a
+		//     point with a PAUSED animation seeked via a negative
+		//     delay — static at every position, no timeline. Driven
+		//     by animationScrubPosition (0–100) from the RangeControl.
+		//     A dragged scrub always wins, overriding live preview.
+		//   • LIVE view() (LIVE_SCROLL_PREVIEW_OK — the beta setting
+		//     on): run the real scroll timeline in the editor so
+		//     scrolling the canvas scrubs it like the frontend.
+		//     Beta-gated only; browsers without view() just show the
+		//     end state (the scrub slider still works). See the
+		//     LIVE_SCROLL_PREVIEW_OK helper above.
+		if ( animationMode === 'scroll-interactive' ) {
+			if (
+				animationType &&
+				animationPreviewEnabled !== false &&
+				typeof animationScrubPosition === 'number'
+			) {
+				const scrubFraction = animationScrubPosition / 100;
+				const isCustomLike =
+					animationType === 'custom' ||
+					animationType === 'image-move' ||
+					animationType === 'image-zoom';
+				const dirStyles =
+					animationType === 'custom'
+						? {}
+						: getDirectionStyles(
+								animationType,
+								animationDirection
+						  );
+				const scrubStyle = {
+					...( wrapperProps.style || {} ),
+					...dirStyles,
+				};
+				// Reset to the default timeline so the paused,
+				// delay-seeked scrub below actually freezes the frame
+				// (a stray scroll timeline would drive it from scroll
+				// instead). Defensive — the scrub UI is hidden while
+				// the live view() preview is active, so they don't
+				// normally coexist on one element.
+				scrubStyle.animationTimeline = 'auto';
+				if ( animationType === 'blur' ) {
+					scrubStyle[ '--mb-blur-amount' ] =
+						( animationBlurAmount ?? 8 ) + 'px';
+				}
+				if ( animationType === 'rotate' ) {
+					scrubStyle[ '--mb-rotate-angle' ] =
+						( animationRotateAngle ?? 90 ) + 'deg';
+				}
+				if ( targetIsImg ) {
+					// Wrapper static; the inner img is frozen via
+					// scoped CSS. Presets bind a global @keyframes
+					// (no per-block rule); custom-like use their own.
+					scrubStyle.animationName = 'none';
+					const scrubUid =
+						customUid ||
+						String( props.clientId ).replace( /[^a-z0-9]/gi, '' );
+					const scrubKeyframe = isCustomLike
+						? customKeyframe
+						: {
+								name: getEnterKeyframe( animationType ),
+								rule: null,
+						  };
+					const scrubCSS = scrubKeyframe
+						? buildImgTargetCSS(
+								scrubUid,
+								scrubKeyframe,
+								'scroll-interactive',
+								scrubFraction
+						  )
+						: null;
+					if ( scrubCSS ) {
+						injectedKeyframeRule = scrubCSS;
+					}
+					computedWrapperProps = {
+						...wrapperProps,
+						style: scrubStyle,
+						'data-mb-uid': scrubUid,
+						'data-mb-target': 'img',
+					};
+				} else {
+					// Image effects without an img target (Cover
+					// with Fixed/Repeated bg, where no <img>
+					// renders) must not fall back to the wrapper —
+					// the whole Cover block would animate. Render
+					// the block in its natural state; matches the
+					// frontend's no-op path.
+					const isImageEffect =
 						animationType === 'image-move' ||
 						animationType === 'image-zoom';
-					const dirStyles =
-						animationType === 'custom'
-							? {}
-							: getDirectionStyles(
-									animationType,
-									animationDirection
-							  );
-					const scrubStyle = {
-						...( wrapperProps.style || {} ),
-						...dirStyles,
-					};
-					// Reset to the default timeline so the paused,
-					// delay-seeked scrub below actually freezes the frame
-					// (a stray scroll timeline would drive it from scroll
-					// instead). Defensive — the scrub UI is hidden while
-					// the live view() preview is active, so they don't
-					// normally coexist on one element.
-					scrubStyle.animationTimeline = 'auto';
-					if ( animationType === 'blur' ) {
-						scrubStyle[ '--mb-blur-amount' ] =
-							( animationBlurAmount ?? 8 ) + 'px';
-					}
-					if ( animationType === 'rotate' ) {
-						scrubStyle[ '--mb-rotate-angle' ] =
-							( animationRotateAngle ?? 90 ) + 'deg';
-					}
-					if ( targetIsImg ) {
-						// Wrapper static; the inner img is frozen via
-						// scoped CSS. Presets bind a global @keyframes
-						// (no per-block rule); custom-like use their own.
+					if ( isImageEffect ) {
 						scrubStyle.animationName = 'none';
-						const scrubUid =
-							customUid ||
-							String( props.clientId ).replace(
-								/[^a-z0-9]/gi,
-								''
-							);
-						const scrubKeyframe = isCustomLike
-							? customKeyframe
-							: {
-									name: getEnterKeyframe( animationType ),
-									rule: null,
-							  };
-						const scrubCSS = scrubKeyframe
-							? buildImgTargetCSS(
-									scrubUid,
-									scrubKeyframe,
-									'scroll-interactive',
-									scrubFraction
-							  )
-							: null;
-						if ( scrubCSS ) {
-							injectedKeyframeRule = scrubCSS;
-						}
 						computedWrapperProps = {
 							...wrapperProps,
 							style: scrubStyle,
-							'data-mb-uid': scrubUid,
-							'data-mb-target': 'img',
 						};
 					} else {
-						// Image effects without an img target (Cover
-						// with Fixed/Repeated bg, where no <img>
-						// renders) must not fall back to the wrapper —
-						// the whole Cover block would animate. Render
-						// the block in its natural state; matches the
-						// frontend's no-op path.
-						const isImageEffect =
-							animationType === 'image-move' ||
-							animationType === 'image-zoom';
-						if ( isImageEffect ) {
-							scrubStyle.animationName = 'none';
-							computedWrapperProps = {
-								...wrapperProps,
-								style: scrubStyle,
-							};
-						} else {
-							const scrubName = isCustomLike
-								? customKeyframe
-									? customKeyframe.name
-									: 'none'
-								: getEnterKeyframe( animationType );
-							scrubStyle.animationName = scrubName;
-							scrubStyle.animationDuration = '1s';
-							scrubStyle.animationTimingFunction = 'linear';
-							scrubStyle.animationFillMode = 'both';
-							scrubStyle.animationPlayState = 'paused';
-							scrubStyle.animationDelay =
-								'calc(' + scrubFraction + ' * -1s)';
-							if ( isCustomLike && customKeyframe ) {
-								injectedKeyframeRule = customKeyframe.rule;
-							}
-							computedWrapperProps = {
-								...wrapperProps,
-								style: scrubStyle,
-							};
-						}
-					}
-				} else if (
-					animationType &&
-					animationPreviewEnabled !== false &&
-					LIVE_SCROLL_PREVIEW_OK
-				) {
-					// Live view() preview (beta + engine eligible). The
-					// real scroll-driven animation runs in the editor, so
-					// scrolling the canvas scrubs it exactly like the
-					// frontend. A dragged scrub value takes the branch
-					// above instead, freezing it at a point.
-					const dirStyles =
-						animationType === 'custom'
-							? {}
-							: getDirectionStyles(
-									animationType,
-									animationDirection
-							  );
-					const rangeStartVal = animationRangeStart || 'entry 0%';
-					const rangeEndVal = animationRangeEnd || 'exit 100%';
-					const isCustomLive =
-						animationType === 'custom' ||
-						animationType === 'image-move' ||
-						animationType === 'image-zoom';
-					// Image effects without an img target (Cover with a
-					// Fixed/Repeated background) leave the block still,
-					// as the scrub branch above and the front end do.
-					const isImageEffectLive =
-						animationType === 'image-move' ||
-						animationType === 'image-zoom';
-					const liveAnimationName =
-						targetIsImg || isImageEffectLive
-							? 'none'
-							: isCustomLive
+						const scrubName = isCustomLike
 							? customKeyframe
 								? customKeyframe.name
 								: 'none'
 							: getEnterKeyframe( animationType );
-					const liveStyles = {
-						...( wrapperProps.style || {} ),
-						...dirStyles,
-						animationName: liveAnimationName,
-					};
-					if ( ! targetIsImg ) {
-						liveStyles.animationTimeline = 'view()';
-						liveStyles.animationRangeStart = rangeStartVal;
-						liveStyles.animationRangeEnd = rangeEndVal;
-						liveStyles.animationDuration = '1ms';
-						liveStyles.animationTimingFunction = resolvedTiming;
-						liveStyles.animationFillMode = 'both';
-					} else {
-						// img-target: the timeline goes on the inner img
-						// via scoped CSS; pass the range + timing down as
-						// custom properties for it to inherit.
-						liveStyles[ '--mb-range-start' ] = rangeStartVal;
-						liveStyles[ '--mb-range-end' ] = rangeEndVal;
-						liveStyles[ '--mb-timing' ] = resolvedTiming;
-					}
-					if ( animationType === 'blur' ) {
-						liveStyles[ '--mb-blur-amount' ] =
-							( animationBlurAmount ?? 8 ) + 'px';
-					}
-					if ( animationType === 'rotate' ) {
-						liveStyles[ '--mb-rotate-angle' ] =
-							( animationRotateAngle ?? 90 ) + 'deg';
-					}
-					if ( imgTargetCSS ) {
-						injectedKeyframeRule = imgTargetCSS;
-					} else if ( customKeyframe ) {
-						injectedKeyframeRule = customKeyframe.rule;
-					}
-					if ( targetIsImg ) {
-						// Inner <img> animates (scoped CSS for custom,
-						// the data-mb-target + mb-enter-{type} rules in
-						// animations.css for presets); wrapper stays a
-						// static clipping frame.
-						computedWrapperProps = {
-							...wrapperProps,
-							style: liveStyles,
-							'data-mb-target': 'img',
-						};
-						if ( customUid ) {
-							computedWrapperProps[ 'data-mb-uid' ] =
-								customUid;
-						}
-						if ( ! isCustomLive ) {
-							computedClassName = [
-								stripMbPreviewClasses( props.className ),
-								'mb-mode-scroll-interactive',
-								`mb-enter-${ animationType }`,
-							]
-								.filter( Boolean )
-								.join( ' ' );
-						}
-					} else {
-						computedWrapperProps = {
-							...wrapperProps,
-							style: liveStyles,
-						};
-					}
-				}
-				// else: block renders at its natural resting state — no
-				// scrub set, and live preview not eligible (beta off or
-				// an engine without verified view() support).
-			}
-
-			// Page-load / Scroll-appear: class-based preview.
-			else {
-				const repeat = animationRepeat || 'once';
-				const isLooping =
-					repeat === 'loop' || repeat === 'alternate';
-
-				const isPageLoadOrScrollAppear =
-					animationMode === 'page-load' ||
-					animationMode === 'scroll-appear';
-				// Page Load auto-plays at rest (unless looping). Scroll
-				// Appear only animates on an explicit Play click — auto-
-				// playing the entry slot at editor load caused
-				// cross-contamination between the Entry and Exit previews
-				// (the entry's fill-mode: both held state lingered while
-				// switching tabs). Scroll Interactive is handled entirely
-				// in its own scrub branch above and never reaches here.
-				const shouldAnimate =
-					isPageLoadOrScrollAppear && animationType
-						? animationMode === 'scroll-appear'
-							? animationPreviewPlaying
-							: isLooping
-							? animationPreviewPlaying
-							: true
-						: false;
-
-				if ( shouldAnimate ) {
-					// Unified namespace with the frontend: same
-					// `mb-animated` / `mb-enter-*` / `mb-triggered`
-					// classes so the rules in animations.css apply
-					// in both contexts. Editor-specific aliases
-					// (`mb-preview`, `mb-animate-enter-*`) were
-					// retired in favor of this.
-					//
-					// We deliberately don't emit `mb-mode-*` here —
-					// that would trigger the frontend's
-					// initial-hidden rules (`.mb-mode-page-load:not(
-					// .mb-triggered) { opacity: 0 }`) before the
-					// user clicks Play, blanking the block while
-					// they're editing.
-					//
-					// For Scroll Appear's Exit slot preview we swap
-					// `mb-enter-{type}` / `mb-triggered` for
-					// `mb-exit-{type}` / `mb-exit-triggered` so the
-					// matching exit keyframe binding (mbXxxOut, or
-					// `var(--mb-exit-anim-name)` for Custom) fires
-					// instead of the entry one.
-					const previewSlot =
-						attributes.__mbPreviewSlot === 'exit'
-							? 'exit'
-							: 'entry';
-					const enterCls =
-						previewSlot === 'exit'
-							? `mb-exit-${ animationType }`
-							: `mb-enter-${ animationType }`;
-					const triggeredCls =
-						previewSlot === 'exit'
-							? 'mb-exit-triggered'
-							: 'mb-triggered';
-					computedClassName = [
-						stripMbPreviewClasses( props.className ),
-						'mb-animated',
-						enterCls,
-						triggeredCls,
-					]
-						.filter( Boolean )
-						.join( ' ' );
-
-					const duration = animationDuration || 0.6;
-					const delay = animationDelay || 0;
-					const dirStyles =
-						animationType === 'custom'
-							? {}
-							: getDirectionStyles(
-									animationType,
-									animationDirection
-							  );
-
-					const previewStyles = {
-						...( wrapperProps.style || {} ),
-						...dirStyles,
-						'--mb-duration': `${ duration }s`,
-						'--mb-delay': `${ delay }s`,
-						'--mb-timing': resolvedTiming,
-						'--mb-iteration-count': isLooping
-							? 'infinite'
-							: '1',
-						'--mb-direction':
-							repeat === 'alternate'
-								? 'alternate'
-								: 'normal',
-						'--mb-fill-mode': isLooping ? 'none' : 'both',
-					};
-					if ( animationType === 'blur' ) {
-						previewStyles[ '--mb-blur-amount' ] =
-							( animationBlurAmount ?? 8 ) + 'px';
-					}
-					if ( animationType === 'rotate' ) {
-						previewStyles[ '--mb-rotate-angle' ] =
-							( animationRotateAngle ?? 90 ) + 'deg';
-					}
-					// Custom-like types (custom, image-move, image-zoom)
-					// name their per-block keyframe in
-					// `--mb-custom-anim-name`, which the Custom class rules
-					// in animations.css read (or bind it through scoped
-					// CSS for img-target), like the front end. Not inline
-					// `animation-name` (#53). Left unset, the variable is
-					// `none` (declared on `.mb-animated`), so the cases
-					// below that don't animate the wrapper set nothing.
-					const isCustomLikePreview =
-						animationType === 'custom' ||
-						animationType === 'image-move' ||
-						animationType === 'image-zoom';
-					const isImageEffectPreview =
-						animationType === 'image-move' ||
-						animationType === 'image-zoom';
-					if ( isCustomLikePreview ) {
-						if ( targetIsImg ) {
-							// Wrapper doesn't animate; the scoped CSS
-							// drives the img. The CSS reads timing
-							// vars from the wrapper via inheritance.
-							if ( imgTargetCSS ) {
-								injectedKeyframeRule = imgTargetCSS;
-							}
-						} else if ( isImageEffectPreview ) {
-							// Image effects are img-only by design.
-							// Without an img target (e.g. Cover with
-							// Fixed/Repeated bg), animating the wrapper
-							// would move the whole block — wrong
-							// behavior. No-op to match the frontend.
-							// Only genuine `custom` falls through to
-							// the wrapper-keyframe branch below.
-						} else if ( customKeyframe ) {
-							// A Stagger parent doesn't animate itself
-							// (animations.css unbinds it), so it names
-							// no keyframe, as on the front end; its
-							// children get the name below.
-							if ( ! staggerActive ) {
-								previewStyles[ '--mb-custom-anim-name' ] =
-									customKeyframe.name;
-							}
+						scrubStyle.animationName = scrubName;
+						scrubStyle.animationDuration = '1s';
+						scrubStyle.animationTimingFunction = 'linear';
+						scrubStyle.animationFillMode = 'both';
+						scrubStyle.animationPlayState = 'paused';
+						scrubStyle.animationDelay =
+							'calc(' + scrubFraction + ' * -1s)';
+						if ( isCustomLike && customKeyframe ) {
 							injectedKeyframeRule = customKeyframe.rule;
 						}
-						// else: no properties added, nothing to bind.
-					}
-					computedWrapperProps = {
-						...wrapperProps,
-						style: previewStyles,
-					};
-					if ( targetIsImg && customUid ) {
-						computedWrapperProps[ 'data-mb-uid' ] = customUid;
+						computedWrapperProps = {
+							...wrapperProps,
+							style: scrubStyle,
+						};
 					}
 				}
+			} else if (
+				animationType &&
+				animationPreviewEnabled !== false &&
+				LIVE_SCROLL_PREVIEW_OK
+			) {
+				// Live view() preview (beta + engine eligible). The
+				// real scroll-driven animation runs in the editor, so
+				// scrolling the canvas scrubs it exactly like the
+				// frontend. A dragged scrub value takes the branch
+				// above instead, freezing it at a point.
+				const dirStyles =
+					animationType === 'custom'
+						? {}
+						: getDirectionStyles(
+								animationType,
+								animationDirection
+						  );
+				const rangeStartVal = animationRangeStart || 'entry 0%';
+				const rangeEndVal = animationRangeEnd || 'exit 100%';
+				const isCustomLive =
+					animationType === 'custom' ||
+					animationType === 'image-move' ||
+					animationType === 'image-zoom';
+				// Image effects without an img target (Cover with a
+				// Fixed/Repeated background) leave the block still,
+				// as the scrub branch above and the front end do.
+				const isImageEffectLive =
+					animationType === 'image-move' ||
+					animationType === 'image-zoom';
+				const liveAnimationName =
+					targetIsImg || isImageEffectLive
+						? 'none'
+						: isCustomLive
+						? customKeyframe
+							? customKeyframe.name
+							: 'none'
+						: getEnterKeyframe( animationType );
+				const liveStyles = {
+					...( wrapperProps.style || {} ),
+					...dirStyles,
+					animationName: liveAnimationName,
+				};
+				if ( ! targetIsImg ) {
+					liveStyles.animationTimeline = 'view()';
+					liveStyles.animationRangeStart = rangeStartVal;
+					liveStyles.animationRangeEnd = rangeEndVal;
+					liveStyles.animationDuration = '1ms';
+					liveStyles.animationTimingFunction = resolvedTiming;
+					liveStyles.animationFillMode = 'both';
+				} else {
+					// img-target: the timeline goes on the inner img
+					// via scoped CSS; pass the range + timing down as
+					// custom properties for it to inherit.
+					liveStyles[ '--mb-range-start' ] = rangeStartVal;
+					liveStyles[ '--mb-range-end' ] = rangeEndVal;
+					liveStyles[ '--mb-timing' ] = resolvedTiming;
+				}
+				if ( animationType === 'blur' ) {
+					liveStyles[ '--mb-blur-amount' ] =
+						( animationBlurAmount ?? 8 ) + 'px';
+				}
+				if ( animationType === 'rotate' ) {
+					liveStyles[ '--mb-rotate-angle' ] =
+						( animationRotateAngle ?? 90 ) + 'deg';
+				}
+				if ( imgTargetCSS ) {
+					injectedKeyframeRule = imgTargetCSS;
+				} else if ( customKeyframe ) {
+					injectedKeyframeRule = customKeyframe.rule;
+				}
+				if ( targetIsImg ) {
+					// Inner <img> animates (scoped CSS for custom,
+					// the data-mb-target + mb-enter-{type} rules in
+					// animations.css for presets); wrapper stays a
+					// static clipping frame.
+					computedWrapperProps = {
+						...wrapperProps,
+						style: liveStyles,
+						'data-mb-target': 'img',
+					};
+					if ( customUid ) {
+						computedWrapperProps[ 'data-mb-uid' ] = customUid;
+					}
+					if ( ! isCustomLive ) {
+						computedClassName = [
+							stripMbPreviewClasses( props.className ),
+							'mb-mode-scroll-interactive',
+							`mb-enter-${ animationType }`,
+						]
+							.filter( Boolean )
+							.join( ' ' );
+					}
+				} else {
+					computedWrapperProps = {
+						...wrapperProps,
+						style: liveStyles,
+					};
+				}
 			}
+			// else: block renders at its natural resting state — no
+			// scrub set, and live preview not eligible (beta off or
+			// an engine without verified view() support).
+		}
 
-			// Stagger cascade in the editor preview. Mirrors the save-
-			// props emission so the editor renders the same cascade
-			// the frontend will. Class + inline CSS var; rules in
-			// editor.scss + animations.css do the rest, reading each
-			// child's `--mb-stagger-index` (set by the layout effect
-			// above).
-			if ( staggerActive ) {
-				const step = staggerStepSeconds(
-					attributes.animationStaggerStep
-				);
+		// Page-load / Scroll-appear: class-based preview.
+		else {
+			const repeat = animationRepeat || 'once';
+			const isLooping = repeat === 'loop' || repeat === 'alternate';
+
+			const isPageLoadOrScrollAppear =
+				animationMode === 'page-load' ||
+				animationMode === 'scroll-appear';
+			// Page Load auto-plays at rest (unless looping). Scroll
+			// Appear only animates on an explicit Play click — auto-
+			// playing the entry slot at editor load caused
+			// cross-contamination between the Entry and Exit previews
+			// (the entry's fill-mode: both held state lingered while
+			// switching tabs). Scroll Interactive is handled entirely
+			// in its own scrub branch above and never reaches here.
+			const shouldAnimate =
+				isPageLoadOrScrollAppear && animationType
+					? animationMode === 'scroll-appear'
+						? animationPreviewPlaying
+						: isLooping
+						? animationPreviewPlaying
+						: true
+					: false;
+
+			if ( shouldAnimate ) {
+				// Unified namespace with the frontend: same
+				// `mb-animated` / `mb-enter-*` / `mb-triggered`
+				// classes so the rules in animations.css apply
+				// in both contexts. Editor-specific aliases
+				// (`mb-preview`, `mb-animate-enter-*`) were
+				// retired in favor of this.
+				//
+				// We deliberately don't emit `mb-mode-*` here —
+				// that would trigger the frontend's
+				// initial-hidden rules (`.mb-mode-page-load:not(
+				// .mb-triggered) { opacity: 0 }`) before the
+				// user clicks Play, blanking the block while
+				// they're editing.
+				//
+				// For Scroll Appear's Exit slot preview we swap
+				// `mb-enter-{type}` / `mb-triggered` for
+				// `mb-exit-{type}` / `mb-exit-triggered` so the
+				// matching exit keyframe binding (mbXxxOut, or
+				// `var(--mb-exit-anim-name)` for Custom) fires
+				// instead of the entry one.
+				const previewSlot =
+					attributes.__mbPreviewSlot === 'exit' ? 'exit' : 'entry';
+				const enterCls =
+					previewSlot === 'exit'
+						? `mb-exit-${ animationType }`
+						: `mb-enter-${ animationType }`;
+				const triggeredCls =
+					previewSlot === 'exit'
+						? 'mb-exit-triggered'
+						: 'mb-triggered';
 				computedClassName = [
-					computedClassName,
-					'mb-stagger-parent',
+					stripMbPreviewClasses( props.className ),
+					'mb-animated',
+					enterCls,
+					triggeredCls,
 				]
 					.filter( Boolean )
 					.join( ' ' );
-				const staggerStyle = {
-					...( computedWrapperProps.style || {} ),
-					'--mb-stagger-step': `${ step }s`,
+
+				const duration = animationDuration || 0.6;
+				const delay = animationDelay || 0;
+				const dirStyles =
+					animationType === 'custom'
+						? {}
+						: getDirectionStyles(
+								animationType,
+								animationDirection
+						  );
+
+				const previewStyles = {
+					...( wrapperProps.style || {} ),
+					...dirStyles,
+					'--mb-duration': `${ duration }s`,
+					'--mb-delay': `${ delay }s`,
+					'--mb-timing': resolvedTiming,
+					'--mb-iteration-count': isLooping ? 'infinite' : '1',
+					'--mb-direction':
+						repeat === 'alternate' ? 'alternate' : 'normal',
+					'--mb-fill-mode': isLooping ? 'none' : 'both',
 				};
-				// Custom-type stagger: inner blocks need to bind to the
-				// parent's per-block keyframe via the inherited custom
-				// property. Block-target only — img-target's scoped
-				// CSS isn't wired for the stagger cascade in v1.
-				if (
-					animationType === 'custom' &&
-					customKeyframe &&
-					! targetIsImg
-				) {
-					staggerStyle[ '--mb-stagger-anim-name' ] =
-						customKeyframe.name;
+				if ( animationType === 'blur' ) {
+					previewStyles[ '--mb-blur-amount' ] =
+						( animationBlurAmount ?? 8 ) + 'px';
+				}
+				if ( animationType === 'rotate' ) {
+					previewStyles[ '--mb-rotate-angle' ] =
+						( animationRotateAngle ?? 90 ) + 'deg';
+				}
+				// Custom-like types (custom, image-move, image-zoom)
+				// name their per-block keyframe in
+				// `--mb-custom-anim-name`, which the Custom class rules
+				// in animations.css read (or bind it through scoped
+				// CSS for img-target), like the front end. Not inline
+				// `animation-name` (#53). Left unset, the variable is
+				// `none` (declared on `.mb-animated`), so the cases
+				// below that don't animate the wrapper set nothing.
+				const isCustomLikePreview =
+					animationType === 'custom' ||
+					animationType === 'image-move' ||
+					animationType === 'image-zoom';
+				const isImageEffectPreview =
+					animationType === 'image-move' ||
+					animationType === 'image-zoom';
+				if ( isCustomLikePreview ) {
+					if ( targetIsImg ) {
+						// Wrapper doesn't animate; the scoped CSS
+						// drives the img. The CSS reads timing
+						// vars from the wrapper via inheritance.
+						if ( imgTargetCSS ) {
+							injectedKeyframeRule = imgTargetCSS;
+						}
+					} else if ( isImageEffectPreview ) {
+						// Image effects are img-only by design.
+						// Without an img target (e.g. Cover with
+						// Fixed/Repeated bg), animating the wrapper
+						// would move the whole block — wrong
+						// behavior. No-op to match the frontend.
+						// Only genuine `custom` falls through to
+						// the wrapper-keyframe branch below.
+					} else if ( customKeyframe ) {
+						// A Stagger parent doesn't animate itself
+						// (animations.css unbinds it), so it names
+						// no keyframe, as on the front end; its
+						// children get the name below.
+						if ( ! staggerActive ) {
+							previewStyles[ '--mb-custom-anim-name' ] =
+								customKeyframe.name;
+						}
+						injectedKeyframeRule = customKeyframe.rule;
+					}
+					// else: no properties added, nothing to bind.
 				}
 				computedWrapperProps = {
-					...computedWrapperProps,
-					style: staggerStyle,
+					...wrapperProps,
+					style: previewStyles,
 				};
+				if ( targetIsImg && customUid ) {
+					computedWrapperProps[ 'data-mb-uid' ] = customUid;
+				}
 			}
+		}
 
-			// Emit `data-mb-target="img"` on the wrapper for any
-			// img-target case so the global CSS redirect rules in
-			// animations.css fire in the editor preview. Mirrors the
-			// render-time emission in `motion_blocks_render_block`
-			// (PHP) so the editor visual matches the frontend. Without
-			// this, preset effects with
-			// "Animate image only" toggled on would animate the whole
-			// block in the editor (the CSS suppress rule wouldn't
-			// match) even though they animate the img correctly on
-			// the frontend.
-			if ( targetIsImg ) {
-				computedWrapperProps = {
-					...computedWrapperProps,
-					'data-mb-target': 'img',
-				};
+		// Stagger cascade in the editor preview. Mirrors the save-
+		// props emission so the editor renders the same cascade
+		// the frontend will. Class + inline CSS var; rules in
+		// editor.scss + animations.css do the rest, reading each
+		// child's `--mb-stagger-index` (set by the layout effect
+		// above).
+		if ( staggerActive ) {
+			const step = staggerStepSeconds( attributes.animationStaggerStep );
+			computedClassName = [ computedClassName, 'mb-stagger-parent' ]
+				.filter( Boolean )
+				.join( ' ' );
+			const staggerStyle = {
+				...( computedWrapperProps.style || {} ),
+				'--mb-stagger-step': `${ step }s`,
+			};
+			// Custom-type stagger: inner blocks need to bind to the
+			// parent's per-block keyframe via the inherited custom
+			// property. Block-target only — img-target's scoped
+			// CSS isn't wired for the stagger cascade in v1.
+			if (
+				animationType === 'custom' &&
+				customKeyframe &&
+				! targetIsImg
+			) {
+				staggerStyle[ '--mb-stagger-anim-name' ] = customKeyframe.name;
 			}
+			computedWrapperProps = {
+				...computedWrapperProps,
+				style: staggerStyle,
+			};
+		}
 
-			// Single return — BlockListBlock is always at the same
-			// position in the React tree (index 0 inside the Fragment),
-			// so it never remounts when switching animation states.
-			// The optional <style> at index 1 emits a per-block
-			// @keyframes rule for custom-type animations.
-			//
-			// Why index 0 (BlockListBlock first) and not the reverse:
-			// the injected <style> renders as a real DOM sibling of
-			// the block's wrapper inside whatever container holds the
-			// block list. WordPress's flex/flow layout polyfills
-			// apply `margin-block-start: var(--wp--style--block-gap)`
-			// to `> *:not(:first-child)`. If the <style> sits before
-			// the block, it bumps the block out of first-child
-			// position, and WP adds ~19.2px of top margin to it —
-			// only while the keyframe is injected (i.e. only during
-			// preview playback). The block visibly jumps down when
-			// Play starts and back up when it ends. Putting the
-			// <style> after the block keeps the block as the layout
-			// container's first child; the <style> sits at second
-			// position, which WP's gap rule treats as a normal
-			// not-first-child (invisible since <style> has no box).
-			return (
-				<>
-					<BlockListBlock
-						{ ...props }
-						className={ computedClassName }
-						wrapperProps={ computedWrapperProps }
-					/>
-					{ injectedKeyframeRule ? (
-						<style>{ injectedKeyframeRule }</style>
-					) : null }
-				</>
-			);
-		};
-	},
-	'withAnimationPreview'
-);
+		// Emit `data-mb-target="img"` on the wrapper for any
+		// img-target case so the global CSS redirect rules in
+		// animations.css fire in the editor preview. Mirrors the
+		// render-time emission in `motion_blocks_render_block`
+		// (PHP) so the editor visual matches the frontend. Without
+		// this, preset effects with
+		// "Animate image only" toggled on would animate the whole
+		// block in the editor (the CSS suppress rule wouldn't
+		// match) even though they animate the img correctly on
+		// the frontend.
+		if ( targetIsImg ) {
+			computedWrapperProps = {
+				...computedWrapperProps,
+				'data-mb-target': 'img',
+			};
+		}
+
+		// Single return — BlockListBlock is always at the same
+		// position in the React tree (index 0 inside the Fragment),
+		// so it never remounts when switching animation states.
+		// The optional <style> at index 1 emits a per-block
+		// @keyframes rule for custom-type animations.
+		//
+		// Why index 0 (BlockListBlock first) and not the reverse:
+		// the injected <style> renders as a real DOM sibling of
+		// the block's wrapper inside whatever container holds the
+		// block list. WordPress's flex/flow layout polyfills
+		// apply `margin-block-start: var(--wp--style--block-gap)`
+		// to `> *:not(:first-child)`. If the <style> sits before
+		// the block, it bumps the block out of first-child
+		// position, and WP adds ~19.2px of top margin to it —
+		// only while the keyframe is injected (i.e. only during
+		// preview playback). The block visibly jumps down when
+		// Play starts and back up when it ends. Putting the
+		// <style> after the block keeps the block as the layout
+		// container's first child; the <style> sits at second
+		// position, which WP's gap rule treats as a normal
+		// not-first-child (invisible since <style> has no box).
+		return (
+			<>
+				<BlockListBlock
+					{ ...props }
+					className={ computedClassName }
+					wrapperProps={ computedWrapperProps }
+				/>
+				{ injectedKeyframeRule ? (
+					<style>{ injectedKeyframeRule }</style>
+				) : null }
+			</>
+		);
+	};
+}, 'withAnimationPreview' );
 
 // Priority 190 ensures this HOC runs after other filters that modify
 // wrapperProps (e.g. block supports), so our style/className wins.

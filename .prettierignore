@@ -1,0 +1,12 @@
+build/
+node_modules/
+languages/
+ci-output/
+# Written by tools: npm, and `wp eval-file tests/recipe/check.php schema`
+# (the recipe check fails if schema/ differs from what it generates).
+package.json
+package-lock.json
+schema/
+# GitHub workflows keep YAML's usual 2-space indent (the WordPress
+# config would re-indent every line to 4).
+.github/

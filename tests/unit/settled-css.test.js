@@ -17,9 +17,11 @@
  */
 const fs = require( 'fs' );
 const path = require( 'path' );
+/* eslint-disable import/no-extraneous-dependencies -- PostCSS and its parsers come with @wordpress/scripts. */
 const postcss = require( 'postcss' );
 const selectorParser = require( 'postcss-selector-parser' );
 const { selectorSpecificity } = require( '@csstools/selector-specificity' );
+/* eslint-enable import/no-extraneous-dependencies */
 import { imgTargetSelector } from '../../src/img-target';
 
 // The motion gate prefix (`:where(html.mb-motion) `, which adds no

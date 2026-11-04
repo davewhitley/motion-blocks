@@ -121,8 +121,9 @@ const PREVIEW_STORE = 'motion-blocks/editor-preview';
  *                                 what the canvas looked like.
  */
 async function waitForMotionGate( timeoutMs ) {
+	// eslint-disable-next-line @wordpress/no-unused-vars-before-return -- the timeout counts from the first check.
 	const start = Date.now();
-	for ( ;; ) {
+	for (;;) {
 		const doc = canvasDocument();
 		if ( doc.documentElement.classList.contains( 'mb-motion' ) ) {
 			return null;
@@ -194,8 +195,12 @@ async function checkPreviewPlays() {
 	return {
 		id: 'preview-not-playing',
 		clientId: id,
-		message: `Pressing Play on ${ describe( target ) } started no animation in the canvas${
-			reduced ? ' (reduced motion is on; previews should play anyway)' : ''
+		message: `Pressing Play on ${ describe(
+			target
+		) } started no animation in the canvas${
+			reduced
+				? ' (reduced motion is on; previews should play anyway)'
+				: ''
 		}.`,
 	};
 }
@@ -253,7 +258,9 @@ async function editorCheck( options = {} ) {
 		.querySelectorAll( '.block-editor-warning' )
 		.forEach( ( warning ) => {
 			const blockEl = warning.closest( '[data-block]' );
-			const clientId = blockEl ? blockEl.getAttribute( 'data-block' ) : null;
+			const clientId = blockEl
+				? blockEl.getAttribute( 'data-block' )
+				: null;
 			if ( clientId && reported.has( clientId ) ) {
 				return;
 			}

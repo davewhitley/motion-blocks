@@ -72,7 +72,6 @@ export const IMAGE_EFFECT_TYPES = SHARED.imageEffectTypes;
  */
 export const IMAGE_EFFECT_BLOCKS = [ 'core/cover' ];
 
-
 /**
  * Block types where the From/To "Animate image only" toggle is
  * meaningful. Same v1 scope as IMAGE_EFFECT_BLOCKS — Cover only.
@@ -291,7 +290,7 @@ export const DEFAULT_STAGGER_STEP_SECONDS = 0.1;
  * write-back to the data store.
  */
 export function staggerStepSeconds( raw ) {
-	if ( raw == null || raw === '' ) {
+	if ( raw === null || raw === undefined || raw === '' ) {
 		return DEFAULT_STAGGER_STEP_SECONDS;
 	}
 	const n = parseFloat( raw );
@@ -578,12 +577,14 @@ export function migrateScrollAppearAttrs( attrs ) {
 			for ( const prop of Object.keys( FROM_ATTR ) ) {
 				const fromKey = FROM_ATTR[ prop ];
 				const toKey = TO_ATTR[ prop ];
-				const slotFromKey = `animation${ prefix }From${
-					fromKey.replace( /^animationFrom/, '' )
-				}`;
-				const slotToKey = `animation${ prefix }To${
-					toKey.replace( /^animationTo/, '' )
-				}`;
+				const slotFromKey = `animation${ prefix }From${ fromKey.replace(
+					/^animationFrom/,
+					''
+				) }`;
+				const slotToKey = `animation${ prefix }To${ toKey.replace(
+					/^animationTo/,
+					''
+				) }`;
 				out[ slotFromKey ] = customFromTo[ fromKey ];
 				out[ slotToKey ] = customFromTo[ toKey ];
 			}
@@ -722,7 +723,8 @@ export const ACCELERATION_OPTIONS = [
  * Default custom timing function — a sensible cubic-bezier the user
  * can edit when they pick "Custom" in the acceleration dropdown.
  */
-export const DEFAULT_CUSTOM_TIMING_FUNCTION = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+export const DEFAULT_CUSTOM_TIMING_FUNCTION =
+	'cubic-bezier(0.25, 0.1, 0.25, 1)';
 
 /**
  * Resolve an acceleration attribute value to an actual CSS timing
@@ -1044,7 +1046,8 @@ export function aliasSlotForPreview( attrs ) {
 		animationType: slotType,
 		animationDirection: attrs[ `animation${ slotPrefix }Direction` ] || '',
 		animationDuration:
-			attrs[ `animation${ slotPrefix }Duration` ] ?? attrs.animationDuration,
+			attrs[ `animation${ slotPrefix }Duration` ] ??
+			attrs.animationDuration,
 		animationDelay:
 			attrs[ `animation${ slotPrefix }Delay` ] ?? attrs.animationDelay,
 		animationAcceleration:
@@ -1157,9 +1160,10 @@ export function customDefaultFromToForSlot( slot ) {
 	// Just opacity. Mirrors the shared `CUSTOM_DEFAULT_FROM_TO` —
 	// see its docblock for why the four-row identity seed was dropped.
 	// Entry: 0 → 1 (fade in). Exit: 1 → 0 (fade out).
-	const seed = slot === 'entry'
-		? { FromOpacity: 0, ToOpacity: 1 }
-		: { FromOpacity: 1, ToOpacity: 0 };
+	const seed =
+		slot === 'entry'
+			? { FromOpacity: 0, ToOpacity: 1 }
+			: { FromOpacity: 1, ToOpacity: 0 };
 	const out = {};
 	for ( const [ k, v ] of Object.entries( seed ) ) {
 		out[ `${ prefix }${ k }` ] = v;
@@ -1664,8 +1668,8 @@ export function isPropertyAdded( value ) {
  * should omit that side entirely — CSS will use the element's
  * computed style on that end of the timeline).
  *
- * @param {Object} bag Property values keyed by property id, e.g.
- *                     `{ opacity: 0, translateX: '20px' }`.
+ * @param {Object} rawBag Property values keyed by property id, e.g.
+ *                        `{ opacity: 0, translateX: '20px' }`.
  * @return {string|null}
  */
 export function buildKeyframeSide( rawBag ) {
@@ -1882,7 +1886,10 @@ export function normalizeCustomFromToAttrs( attrs ) {
 				v !== undefined &&
 				v !== null &&
 				v !== '' &&
-				! isValidFromToValue( def.id, coerceWithUnit( v, def.unitSuffix || '' ) )
+				! isValidFromToValue(
+					def.id,
+					coerceWithUnit( v, def.unitSuffix || '' )
+				)
 			) {
 				out[ attrName ] = null;
 			}
@@ -1930,7 +1937,6 @@ export function attrsToBag( attributes, attrMap ) {
 	}
 	return bag;
 }
-
 
 /**
  * Schema default of each animation attribute: what an attribute
@@ -2200,7 +2206,11 @@ export const MODE_META = {
  * Order modes show up in the picker dropdown — matches the order
  * of the empty-state mode-selector cards in AnimationPanel.js.
  */
-export const MODE_ORDER = [ 'page-load', 'scroll-appear', 'scroll-interactive' ];
+export const MODE_ORDER = [
+	'page-load',
+	'scroll-appear',
+	'scroll-interactive',
+];
 
 /**
  * Compute the attribute payload to dispatch when the user changes
@@ -2240,12 +2250,12 @@ export function switchModeAttributes( attributes, newMode ) {
 	const out = {
 		animationMode: newMode,
 		animationPreviewPlaying: false,
-	// Which slot is currently being previewed in the editor — only
-	// consulted for Scroll Appear blocks. 'entry' or 'exit'. Lets
-	// the preview HOC know whether to fire `mb-triggered` (Entry) or
-	// `mb-exit-triggered` (Exit) and which slot's attrs to source.
-	// Preview state: routed to the editor-preview store (GH #29).
-	animationPreviewSlot: 'entry',
+		// Which slot is currently being previewed in the editor — only
+		// consulted for Scroll Appear blocks. 'entry' or 'exit'. Lets
+		// the preview HOC know whether to fire `mb-triggered` (Entry) or
+		// `mb-exit-triggered` (Exit) and which slot's attrs to source.
+		// Preview state: routed to the editor-preview store (GH #29).
+		animationPreviewSlot: 'entry',
 	};
 
 	// Reset attributes that belonged to the OLD mode and don't
@@ -2253,7 +2263,8 @@ export function switchModeAttributes( attributes, newMode ) {
 	// is leaving that specific mode.
 	if ( oldMode === 'page-load' ) {
 		out.animationRepeat = DEFAULT_ATTRIBUTES.animationRepeat;
-		out.animationPauseOffscreen = DEFAULT_ATTRIBUTES.animationPauseOffscreen;
+		out.animationPauseOffscreen =
+			DEFAULT_ATTRIBUTES.animationPauseOffscreen;
 	}
 	if ( oldMode === 'scroll-appear' ) {
 		out.animationScrollTrigger = DEFAULT_ATTRIBUTES.animationScrollTrigger;
@@ -2316,8 +2327,7 @@ export function switchModeAttributes( attributes, newMode ) {
 			out.animationEntryRotateAngle =
 				attributes.animationRotateAngle ??
 				DEFAULT_ATTRIBUTES.animationEntryRotateAngle;
-			out.animationEntryReplay =
-				DEFAULT_ATTRIBUTES.animationEntryReplay;
+			out.animationEntryReplay = DEFAULT_ATTRIBUTES.animationEntryReplay;
 			// Carry the Custom From/To bag onto the Entry slot. Writing
 			// `animationEntryType` short-circuits the migration shim, so
 			// it won't copy these for us. Only when the shared bag has

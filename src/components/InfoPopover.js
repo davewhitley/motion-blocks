@@ -65,9 +65,7 @@ export default function InfoPopover( { children, label } ) {
 				<Button
 					icon={ info }
 					size="small"
-					label={
-						label || __( 'More information', 'motion-blocks' )
-					}
+					label={ label || __( 'More information', 'motion-blocks' ) }
 					showTooltip={ false }
 					className="mb-info-popover-toggle"
 					aria-expanded={ isOpen }

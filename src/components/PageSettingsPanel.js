@@ -21,9 +21,11 @@
  */
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
-import { PluginDocumentSettingPanel } from '@wordpress/editor';
+import {
+	PluginDocumentSettingPanel,
+	store as editorStore,
+} from '@wordpress/editor';
 import { useSelect, useDispatch, select as dataSelect } from '@wordpress/data';
-import { store as editorStore } from '@wordpress/editor';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
 import { useEntityProp } from '@wordpress/core-data';

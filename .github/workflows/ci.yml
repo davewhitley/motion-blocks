@@ -8,7 +8,8 @@
 #
 # Two jobs:
 #   1. Build & unit tests   (~1 min)  — the JavaScript builds, the built
-#      files in build/ are committed, and the Jest unit tests pass.
+#      files in build/ are committed, the code passes the linters, and
+#      the Jest unit tests pass.
 #   2. Page & editor checks (~4-5 min) — starts WordPress (WordPress
 #      Playground), builds the self-check fixture pages, and runs the
 #      self-check on each of them in headless Chrome. Only starts if
@@ -66,6 +67,12 @@ jobs:
             echo "::error::build/ is out of date. Run 'npm run build' and commit the changes in build/."
             exit 1
           fi
+
+      - name: Lint
+        # ESLint (JS) and stylelint (CSS) with WordPress's rules; see
+        # .eslintrc.js and .stylelintrc.js. `npm run format` fixes most
+        # formatting errors.
+        run: npm run lint
 
       - name: Unit tests
         run: npm run test:unit

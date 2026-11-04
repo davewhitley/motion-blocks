@@ -120,7 +120,10 @@ export default function ScrollInteractiveControls( {
 	// visible but disabled so the user sees they exist + understands
 	// why they can't pick them right now.
 	const blockSupportsImageEffects = IMAGE_EFFECT_BLOCKS.includes( blockName );
-	const imageEffectsBlocked = isImageTargetUnavailable( blockName, attributes );
+	const imageEffectsBlocked = isImageTargetUnavailable(
+		blockName,
+		attributes
+	);
 	const typeOptions = (
 		blockSupportsImageEffects
 			? ANIMATION_TYPE_OPTIONS
@@ -192,8 +195,7 @@ export default function ScrollInteractiveControls( {
 			return;
 		}
 		const fromImageEffect =
-			animationType === 'image-move' ||
-			animationType === 'image-zoom';
+			animationType === 'image-move' || animationType === 'image-zoom';
 		const newAttrs = {
 			animationType: 'custom',
 			animationDirection: '',
@@ -220,14 +222,10 @@ export default function ScrollInteractiveControls( {
 	const canEditPreset =
 		!! animationType &&
 		animationType !== 'custom' &&
-		!! presetToFromToAttributes(
-			animationType,
-			animationDirection,
-			{
-				rotateAngle: animationRotateAngle,
-				blurAmount: animationBlurAmount,
-			}
-		);
+		!! presetToFromToAttributes( animationType, animationDirection, {
+			rotateAngle: animationRotateAngle,
+			blurAmount: animationBlurAmount,
+		} );
 
 	return (
 		<div className="mb-sub-panel">
@@ -395,8 +393,8 @@ export default function ScrollInteractiveControls( {
 					<ToggleControl
 						label={ __( 'Animate image only', 'motion-blocks' ) }
 						checked={
-							( attributes.animationFromToTarget ||
-								'block' ) === 'img'
+							( attributes.animationFromToTarget || 'block' ) ===
+							'img'
 						}
 						disabled={ isImageTargetUnavailable(
 							blockName,
@@ -434,7 +432,10 @@ export default function ScrollInteractiveControls( {
 				<>
 					<ToggleControl
 						label={ __( 'Scale with direction', 'motion-blocks' ) }
-						checked={ animationDirection !== 'none' && animationDirection !== '' }
+						checked={
+							animationDirection !== 'none' &&
+							animationDirection !== ''
+						}
 						onChange={ ( checked ) =>
 							setAttributes( {
 								animationDirection: checked ? 'btt' : 'none',
@@ -442,69 +443,79 @@ export default function ScrollInteractiveControls( {
 						}
 						__nextHasNoMarginBottom
 					/>
-					{ animationDirection !== 'none' && animationDirection !== '' && (
-						<ToggleGroupControl
-							label={ __( 'Direction', 'motion-blocks' ) }
-							value={ animationDirection }
-							onChange={ ( value ) =>
-								setAttributes( { animationDirection: value } )
-							}
-							isBlock
-							__nextHasNoMarginBottom
-						>
-							{ directionOptions.map( ( opt ) => (
-								<ToggleGroupControlOptionIcon
-									key={ opt.value }
-									value={ opt.value }
-									icon={ DIRECTION_ICON_MAP[ opt.value ] }
-									label={ opt.label }
-								/>
-							) ) }
-						</ToggleGroupControl>
-					) }
+					{ animationDirection !== 'none' &&
+						animationDirection !== '' && (
+							<ToggleGroupControl
+								label={ __( 'Direction', 'motion-blocks' ) }
+								value={ animationDirection }
+								onChange={ ( value ) =>
+									setAttributes( {
+										animationDirection: value,
+									} )
+								}
+								isBlock
+								__nextHasNoMarginBottom
+							>
+								{ directionOptions.map( ( opt ) => (
+									<ToggleGroupControlOptionIcon
+										key={ opt.value }
+										value={ opt.value }
+										icon={ DIRECTION_ICON_MAP[ opt.value ] }
+										label={ opt.label }
+									/>
+								) ) }
+							</ToggleGroupControl>
+						) }
 				</>
 			) }
 
-			{ ! isCustom && hasDirection && ( animationType === 'curtain' || animationType === 'curtain-out' ) && (
-				<ToggleGroupControl
-					label={ __( 'Direction', 'motion-blocks' ) }
-					value={ animationDirection }
-					onChange={ ( value ) =>
-						setAttributes( { animationDirection: value } )
-					}
-					isBlock
-					__nextHasNoMarginBottom
-				>
-					{ directionOptions.map( ( opt ) => (
-						<ToggleGroupControlOption
-							key={ opt.value }
-							value={ opt.value }
-							label={ opt.label }
-						/>
-					) ) }
-				</ToggleGroupControl>
-			) }
+			{ ! isCustom &&
+				hasDirection &&
+				( animationType === 'curtain' ||
+					animationType === 'curtain-out' ) && (
+					<ToggleGroupControl
+						label={ __( 'Direction', 'motion-blocks' ) }
+						value={ animationDirection }
+						onChange={ ( value ) =>
+							setAttributes( { animationDirection: value } )
+						}
+						isBlock
+						__nextHasNoMarginBottom
+					>
+						{ directionOptions.map( ( opt ) => (
+							<ToggleGroupControlOption
+								key={ opt.value }
+								value={ opt.value }
+								label={ opt.label }
+							/>
+						) ) }
+					</ToggleGroupControl>
+				) }
 
-			{ ! isCustom && hasDirection && animationType !== 'scale' && animationType !== 'curtain' && animationType !== 'curtain-out' && (
-				<ToggleGroupControl
-					label={ __( 'Direction', 'motion-blocks' ) }
-					value={ animationDirection }
-					onChange={ ( value ) =>
-						setAttributes( { animationDirection: value } )
-					}
-					isBlock
-					__nextHasNoMarginBottom
-				>
-					{ directionOptions.map( ( opt ) => (
-						<ToggleGroupControlOptionIcon
-							key={ opt.value }
-							value={ opt.value }
-							icon={ DIRECTION_ICON_MAP[ opt.value ] }
-							label={ opt.label }
-						/>
-					) ) }
-				</ToggleGroupControl>
-			) }
+			{ ! isCustom &&
+				hasDirection &&
+				animationType !== 'scale' &&
+				animationType !== 'curtain' &&
+				animationType !== 'curtain-out' && (
+					<ToggleGroupControl
+						label={ __( 'Direction', 'motion-blocks' ) }
+						value={ animationDirection }
+						onChange={ ( value ) =>
+							setAttributes( { animationDirection: value } )
+						}
+						isBlock
+						__nextHasNoMarginBottom
+					>
+						{ directionOptions.map( ( opt ) => (
+							<ToggleGroupControlOptionIcon
+								key={ opt.value }
+								value={ opt.value }
+								icon={ DIRECTION_ICON_MAP[ opt.value ] }
+								label={ opt.label }
+							/>
+						) ) }
+					</ToggleGroupControl>
+				) }
 
 			{ ! isCustom && animationType === 'blur' && (
 				<RangeControl
@@ -531,8 +542,7 @@ export default function ScrollInteractiveControls( {
 					suffix={ <DegreesSuffix /> }
 					onChange={ ( value ) =>
 						setAttributes( {
-							animationRotateAngle:
-								parseInt( value, 10 ) || 0,
+							animationRotateAngle: parseInt( value, 10 ) || 0,
 						} )
 					}
 					__next40pxDefaultSize
@@ -560,10 +570,7 @@ export default function ScrollInteractiveControls( {
 						{ __( 'Start Offset', 'motion-blocks' ) }
 					</BaseControl.VisualLabel>
 					<InfoPopover
-						label={ __(
-							'About start offset',
-							'motion-blocks'
-						) }
+						label={ __( 'About start offset', 'motion-blocks' ) }
 					>
 						<p>
 							{ __(
@@ -603,17 +610,15 @@ export default function ScrollInteractiveControls( {
 						{ __( 'End Offset', 'motion-blocks' ) }
 					</BaseControl.VisualLabel>
 					<InfoPopover
-						label={ __(
-							'About end offset',
-							'motion-blocks'
-						) }
+						label={ __( 'About end offset', 'motion-blocks' ) }
 					>
 						<p>
-							{ __(
-								/* translators: "0%" and "100%" are amounts of the element, not placeholders. */
-								"Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen.",
-								'motion-blocks'
-							) }
+							{
+								/* translators: "0%" and "100%" are amounts of the element, not placeholders. */ __(
+									"Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen.",
+									'motion-blocks'
+								)
+							}
 						</p>
 					</InfoPopover>
 				</HStack>

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/* eslint-disable no-console -- a command-line tool: the console is its output. */
+/* global WebSocket -- built into Node 22+, which this runner needs; ESLint's node env predates it. */
 /**
  * Motion Blocks page & editor checks: runs the self-check on every
  * fixture page in headless Chrome and compares the results with what
@@ -85,7 +87,12 @@ const { values: args } = parseArgs( {
 if ( args.help ) {
 	// The usage text is the comment at the top of this file.
 	const source = readFileSync( new URL( import.meta.url ), 'utf8' );
-	console.log( source.slice( source.indexOf( '/**' ) ).split( '*/' )[ 0 ].replace( /^\s*\/?\*+ ?/gm, '' ) );
+	console.log(
+		source
+			.slice( source.indexOf( '/**' ) )
+			.split( '*/' )[ 0 ]
+			.replace( /^\s*\/?\*+ ?/gm, '' )
+	);
 	process.exit( 0 );
 }
 
@@ -411,7 +418,9 @@ async function logIn( tab ) {
 			})()` )
 		);
 	} else if ( login !== 'none' ) {
-		setupError( `unknown --login "${ login }" (use studio, form or none).` );
+		setupError(
+			`unknown --login "${ login }" (use studio, form or none).`
+		);
 	}
 
 	// Every theme prints `logged-in` on <body> for a logged-in user.
@@ -487,7 +496,9 @@ async function sweepCheck( tab, fx, reduced ) {
 		got = [ 'EXCEPTION ' + e.message ];
 	}
 	const gotIds = sortedUnique( got.map( ( s ) => s.split( ' :: ' )[ 0 ] ) );
-	const want = [ ...( reduced ? fx.expect_reduced_motion : fx.expect ) ].sort();
+	const want = [
+		...( reduced ? fx.expect_reduced_motion : fx.expect ),
+	].sort();
 	let ok = JSON.stringify( gotIds ) === JSON.stringify( want );
 	let motion = '';
 	if ( typeof fx.expect_motion === 'boolean' ) {
@@ -667,7 +678,9 @@ async function main() {
 					};
 				}
 				done++;
-				const secs = ( ( Date.now() - jobStarted ) / 1000 ).toFixed( 1 );
+				const secs = ( ( Date.now() - jobStarted ) / 1000 ).toFixed(
+					1
+				);
 				console.error(
 					`[${ done }/${ jobs.length }] ${ results[ index ].line } (${ secs }s)`
 				);

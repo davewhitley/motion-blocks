@@ -66,9 +66,9 @@ function baseDeclarations() {
 		.join( ';' )
 		.split( ';' )
 		.forEach( ( decl ) => {
-			const m = decl.match( /^\s*(--mb-[a-z-]+)\s*:\s*(.+?)\s*$/ );
-			if ( m ) {
-				out[ m[ 1 ] ] = m[ 2 ];
+			const match = decl.match( /^\s*(--mb-[a-z-]+)\s*:\s*(.+?)\s*$/ );
+			if ( match ) {
+				out[ match[ 1 ] ] = match[ 2 ];
 			}
 		} );
 	return out;

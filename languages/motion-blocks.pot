@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-04T03:35:13+00:00\n"
+"POT-Creation-Date: 2026-11-04T03:50:16+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: motion-blocks\n"
@@ -609,7 +609,7 @@ msgid "A short label so you can recognize this animation later."
 msgstr ""
 
 #: build/index.js:1
-#: build/index.js:39
+#: build/index.js:38
 msgid "Cancel"
 msgstr ""
 
@@ -1038,7 +1038,7 @@ msgid "Animation pasted."
 msgstr ""
 
 #: build/index.js:30
-#: build/index.js:46
+#: build/index.js:45
 msgid "Motion Effects"
 msgstr ""
 
@@ -1089,21 +1089,13 @@ msgstr[1] ""
 #. translators: %d: number of blocks
 #: build/index.js:34
 #, js-format
-msgid "%d block already animated: its settings are kept"
-msgid_plural "%d blocks already animated: their settings are kept"
-msgstr[0] ""
-msgstr[1] ""
-
-#. translators: %d: number of blocks
-#: build/index.js:35
-#, js-format
 msgid "%d spacer, separator, menu or footer: layout pieces stay still"
 msgid_plural "%d spacers, separators, menus or footers: layout pieces stay still"
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of blocks
-#: build/index.js:36
+#: build/index.js:35
 #, js-format
 msgid "%d invalid block (and what is inside it): choose “Attempt Block Recovery” on it, then run this again"
 msgid_plural "%d invalid blocks (and what is inside them): choose “Attempt Block Recovery” on each, then run this again"
@@ -1111,7 +1103,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of blocks
-#: build/index.js:37
+#: build/index.js:36
 #, js-format
 msgid "%d block from a missing plugin: it can’t be animated"
 msgid_plural "%d blocks from a missing plugin: they can’t be animated"
@@ -1119,143 +1111,143 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: editor context noun — page, pattern, template, etc.
-#: build/index.js:38
-#: build/index.js:47
+#: build/index.js:37
+#: build/index.js:46
 #, js-format
 msgid "Auto-animate this %s"
 msgstr ""
 
-#: build/index.js:38
+#: build/index.js:37
 msgid "Style"
 msgstr ""
 
 #. translators: %s: editor context noun — page, pattern, template, etc.
-#: build/index.js:39
+#: build/index.js:38
 #, js-format
 msgid "Nothing to animate on this %s."
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:38
 msgid "Not animated:"
 msgstr ""
 
-#: build/index.js:39
+#: build/index.js:38
 msgid "You can edit each block’s animation after it’s applied. To take them all off again, use “Remove all animations”."
 msgstr ""
 
 #. translators: %d: number of animated blocks
-#: build/index.js:40
+#: build/index.js:39
 #, js-format
 msgid "Animated %d block."
 msgid_plural "Animated %d blocks."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:40
+#: build/index.js:39
 msgid "Nothing to animate"
 msgstr ""
 
 #. translators: %d: number of blocks to animate
-#: build/index.js:41
+#: build/index.js:40
 #, js-format
 msgid "Animate %d block"
 msgid_plural "Animate %d blocks"
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:41
+#: build/index.js:40
 msgid "Not used: this theme’s screen-size breakpoints don’t include this size."
 msgstr ""
 
 #. translators: 1: smallest screen width, e.g. 481px; 2: largest, e.g. 782px
-#: build/index.js:42
+#: build/index.js:41
 #, js-format
 msgid "Screens %1$s to %2$s wide"
 msgstr ""
 
 #. translators: 1: screen width the range starts above, e.g. 30em; 2: largest screen width
-#: build/index.js:43
+#: build/index.js:42
 #, js-format
 msgid "Screens wider than %1$s, up to %2$s"
 msgstr ""
 
 #. translators: %s: smallest screen width, e.g. 783px
-#: build/index.js:44
+#: build/index.js:43
 #, js-format
 msgid "Screens %s and wider"
 msgstr ""
 
 #. translators: %s: screen width, e.g. 48em
-#: build/index.js:45
+#: build/index.js:44
 #, js-format
 msgid "Screens wider than %s"
 msgstr ""
 
 #. translators: %s: screen width, e.g. 480px
-#: build/index.js:46
+#: build/index.js:45
 #, js-format
 msgid "Screens up to %s wide"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "Disable on Desktop"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "Disable on Tablet"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "Disable on Mobile"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "page"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "post"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "pattern"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "template"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "template part"
 msgstr ""
 
-#: build/index.js:46
+#: build/index.js:45
 msgid "content"
 msgstr ""
 
-#: build/index.js:47
+#: build/index.js:46
 msgid "Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices."
 msgstr ""
 
+#: build/index.js:46
 #: build/index.js:47
-#: build/index.js:48
 msgid "Remove all animations"
 msgstr ""
 
 #. translators: %d: number of blocks animations were removed from
-#: build/index.js:48
+#: build/index.js:47
 #, js-format
 msgid "Animation removed from %d block."
 msgid_plural "Animations removed from %d blocks."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:48
+#: build/index.js:47
 msgid "Remove"
 msgstr ""
 
 #. translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks
-#: build/index.js:49
+#: build/index.js:48
 #, js-format
 msgid "Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button."
 msgid_plural "Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button."

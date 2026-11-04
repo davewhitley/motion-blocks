@@ -162,8 +162,9 @@ function AutoAnimateModalContent( {
 	const { createSuccessNotice } = useDispatch( noticesStore );
 
 	const applyCount = plan.apply.length;
-	// What stays still, and why. Blocks inside a section that animates
-	// aren't listed: they move with it.
+	// What stays still, and why. Blocks that already have an animation
+	// keep it and aren't listed, and nor are blocks inside a section that
+	// animates: they move with it.
 	const skipped = [
 		plan.skipBody.length > 0 &&
 			sprintf(
@@ -175,17 +176,6 @@ function AutoAnimateModalContent( {
 					'motion-blocks'
 				),
 				plan.skipBody.length
-			),
-		plan.skipExisting.length > 0 &&
-			sprintf(
-				/* translators: %d: number of blocks */
-				_n(
-					'%d block already animated: its settings are kept',
-					'%d blocks already animated: their settings are kept',
-					plan.skipExisting.length,
-					'motion-blocks'
-				),
-				plan.skipExisting.length
 			),
 		plan.skipChrome.length > 0 &&
 			sprintf(

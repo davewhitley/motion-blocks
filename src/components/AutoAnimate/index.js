@@ -116,8 +116,9 @@ function measureScreensTall() {
  * @param {Function} props.onClose            Close handler.
  * @param {string}   props.contextNoun        Editor context noun (page, template…).
  * @param {boolean}  props.allowTemplateParts Offer to animate inside the
- *                                            template's header and footer
- *                                            (the Site Editor's template view).
+ *                                            template's parts (header, footer,
+ *                                            any other), in the Site Editor's
+ *                                            template view.
  */
 export default function AutoAnimateModal( {
 	isOpen,
@@ -126,8 +127,9 @@ export default function AutoAnimateModal( {
 	allowTemplateParts = false,
 } ) {
 	const [ stylePreset, setStylePreset ] = useState( 'smooth' );
-	// On by default: a template's header and footer are part of the page
-	// being animated. Unticking keeps the header whole and the footer still.
+	// On by default: a template's parts are part of the page being
+	// animated. Unticking animates each part whole, and the footer not at
+	// all.
 	const [ includeParts, setIncludeParts ] = useState( true );
 	if ( ! isOpen ) {
 		return null;
@@ -165,7 +167,7 @@ function AutoAnimateModalContent( {
 	);
 	const registry = useRegistry();
 
-	// A template's header and footer show up in `getBlocks()` as empty
+	// A template's parts (header, footer…) show up in `getBlocks()` as empty
 	// blocks: their contents belong to each part's own document. They are
 	// read once per opening of the modal, which blocks editing while open.
 	const filledBlocks = useMemo( () => {
@@ -349,7 +351,7 @@ function AutoAnimateModalContent( {
 				{ hasParts && (
 					<CheckboxControl
 						label={ __(
-							'Include header and footer',
+							'Include header, footer and other template parts',
 							'motion-blocks'
 						) }
 						help={ __(
@@ -507,7 +509,7 @@ function AutoAnimateModalContent( {
 				<p className="mb-auto-animate-modal__hint">
 					{ usesParts
 						? __(
-								'Use “Remove all animations” to revert. Cmd / Ctrl + Z also undoes the change, one press for the template and one for each of the header and footer.',
+								'Use “Remove all animations” to revert. Cmd / Ctrl + Z also undoes the change, one press for the template and one for each template part.',
 								'motion-blocks'
 						  )
 						: __(

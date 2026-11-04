@@ -128,9 +128,9 @@ function MotionBlocksPagePanel() {
 	// Count animated blocks for context next to the Remove button.
 	// `getClientIdsWithDescendants()` returns a flat array of all
 	// block ids, including nested ones — exactly what we want. In a
-	// template that includes the blocks inside its header and footer,
-	// which are shared with other pages, so those are counted apart for
-	// the confirm dialog (GH #101). Primitives only, so the result is
+	// template that includes the blocks inside its template parts (header,
+	// footer, or any other), which are shared with other pages, so those
+	// are counted apart for the confirm dialog (GH #101). Primitives only, so the result is
 	// shallow-equal between runs (GH #27).
 	const { animatedCount, animatedInPartsCount } = useSelect( ( select ) => {
 		const sel = select( blockEditorStore );
@@ -313,10 +313,10 @@ function MotionBlocksPagePanel() {
 					{ animatedInPartsCount > 0 &&
 						' ' +
 							sprintf(
-								/* translators: %d: number of animated blocks inside the header or footer */
+								/* translators: %d: number of animated blocks inside template parts */
 								_n(
-									'%d of them is in the header or footer, which are shared: it will lose its animation on every page that uses them.',
-									'%d of them are in the header or footer, which are shared: they will lose their animations on every page that uses them.',
+									'%d of them is in a template part (header, footer…), which is shared: it will lose its animation on every page that uses it.',
+									'%d of them are in template parts (header, footer…), which are shared: they will lose their animations on every page that uses them.',
 									animatedInPartsCount,
 									'motion-blocks'
 								),
@@ -329,8 +329,8 @@ function MotionBlocksPagePanel() {
 				isOpen={ autoAnimateOpen }
 				onClose={ () => setAutoAnimateOpen( false ) }
 				contextNoun={ contextNoun }
-				// Only a template in the Site Editor has a header and footer
-				// whose contents can be edited from here (GH #101).
+				// Only a template in the Site Editor has template parts whose
+				// contents can be edited from here (GH #101).
 				allowTemplateParts={ postType === 'wp_template' }
 			/>
 		</PluginDocumentSettingPanel>

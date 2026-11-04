@@ -864,7 +864,9 @@ describe( 'restraint and safety', () => {
 	} );
 
 	it( 'keeps a cascade even in a very long gallery', () => {
-		expect( cascadeStep( 500, STYLE_PRESETS.balanced ) ).toBeGreaterThan( 0 );
+		expect( cascadeStep( 500, STYLE_PRESETS.balanced ) ).toBeGreaterThan(
+			0
+		);
 	} );
 
 	it( 'starts from a cleared block, so leftover settings never leak in', () => {
@@ -896,7 +898,8 @@ describe( 'restraint and safety', () => {
 			'scroll-appear'
 		);
 		expect(
-			attrsForCategory( 'STAGGER_ROW', 'balanced' ).animationStaggerEnabled
+			attrsForCategory( 'STAGGER_ROW', 'balanced' )
+				.animationStaggerEnabled
 		).toBe( true );
 		expect( attrsForCategory( 'NOPE' ) ).toBeNull();
 	} );
@@ -1171,7 +1174,11 @@ describe( 'including the header and footer (GH #101)', () => {
 		// The bar is measured on the first screen too, but it's the header.
 		const p = planParts(
 			[ header, main ],
-			[ bar.clientId, hero.clientId, ...hero.innerBlocks.map( ( c ) => c.clientId ) ]
+			[
+				bar.clientId,
+				hero.clientId,
+				...hero.innerBlocks.map( ( c ) => c.clientId ),
+			]
 		);
 		expect( roleOf( p, header ) ).toBeUndefined();
 		expect( roleOf( p, bar ) ).toBe( 'cascade' );
@@ -1198,12 +1205,15 @@ describe( 'including the header and footer (GH #101)', () => {
 
 	it( 'animates the footer, every block on scroll', () => {
 		const cols = footerColumns();
-		const footer = part( [ b( 'core/group', [ cols, para() ] ) ], 'footer' );
+		const footer = part(
+			[ b( 'core/group', [ cols, para() ] ) ],
+			'footer'
+		);
 		const p = planParts( [ section(), footer ], [ cols.clientId ] );
 		expect( roleOf( p, cols ) ).toBe( 'cascade' );
-		expect( p.apply.find( ( i ) => i.clientId === cols.clientId ).trigger ).toBe(
-			'scroll'
-		);
+		expect(
+			p.apply.find( ( i ) => i.clientId === cols.clientId ).trigger
+		).toBe( 'scroll' );
 		expect( p.skipChrome ).not.toContain( footer );
 	} );
 
@@ -1213,7 +1223,8 @@ describe( 'including the header and footer (GH #101)', () => {
 			findHero( [ footer, section() ], { includeParts: true } )
 		).not.toBeNull();
 		expect(
-			findHero( [ footer, section() ], { includeParts: true } ).blocks[ 0 ]
+			findHero( [ footer, section() ], { includeParts: true } )
+				.blocks[ 0 ]
 		).not.toBe( footer.innerBlocks[ 0 ] );
 	} );
 
@@ -1229,7 +1240,7 @@ describe( 'including the header and footer (GH #101)', () => {
 		).toBe( true );
 	} );
 
-	it( 'keeps today\'s behaviour when the option is off', () => {
+	it( "keeps today's behaviour when the option is off", () => {
 		const cols = footerColumns();
 		const header = part( [ navBar() ], 'header' );
 		const footer = part( [ cols ], 'footer' );
@@ -1271,4 +1282,3 @@ describe( 'Classic block', () => {
 		);
 	} );
 } );
-

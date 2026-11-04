@@ -574,8 +574,9 @@ function heroInPart( block, depth = 6 ) {
  * Fill in the contents of each template part. In the Site Editor a
  * template's `getBlocks()` shows a header or footer as an empty block:
  * its blocks belong to the part's own document, and are read with
- * `getBlocks( partClientId )`. Blocks with no part inside are returned
- * as they are.
+ * `getBlocks( partClientId )`, which this always uses for a part, whatever
+ * the template's tree holds. Blocks with no part inside are returned as
+ * they are.
  *
  * @param {Array}    blocks         `getBlocks()`.
  * @param {Function} getInnerBlocks `(clientId) → Block[]`.
@@ -585,12 +586,13 @@ function heroInPart( block, depth = 6 ) {
 export function withTemplatePartContents( blocks, getInnerBlocks, depth = 4 ) {
 	return ( blocks || [] ).map( ( block ) => {
 		let inner = block.innerBlocks || [];
-		if (
-			block.name === 'core/template-part' &&
-			! inner.length &&
-			depth > 0
-		) {
-			inner = getInnerBlocks( block.clientId ) || [];
+		// A part's own document is the only source for its blocks. The copy
+		// in the template's tree is normally empty, but after an Undo it can
+		// keep blocks the part has since replaced, which no longer exist: a
+		// change sent to them makes the editor throw and drops the whole
+		// Auto-animate apply.
+		if ( block.name === 'core/template-part' ) {
+			inner = depth > 0 ? getInnerBlocks( block.clientId ) || [] : [];
 		}
 		const filled = withTemplatePartContents(
 			inner,

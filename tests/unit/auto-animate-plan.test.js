@@ -1042,6 +1042,34 @@ describe( 'including the header and footer (GH #101)', () => {
 		] );
 	} );
 
+	it( "reads a part from its own document, never the template's stale copy", () => {
+		// After an Undo the template's tree can still hold blocks the part
+		// has replaced. Planning with them would send changes to blocks that
+		// no longer exist.
+		const stale = section();
+		const current = section();
+		const header = part( [ stale ], 'header' );
+		const filled = withTemplatePartContents( [ header ], ( id ) =>
+			id === header.clientId ? [ current ] : []
+		);
+		expect( filled[ 0 ].innerBlocks ).toEqual( [ current ] );
+		const p = planParts( filled );
+		const ids = p.apply.map( ( i ) => i.clientId );
+		expect( ids ).toContain( current.clientId );
+		expect( ids ).not.toContain( stale.clientId );
+	} );
+
+	it( 'leaves a part nested too deep empty, even with a stale copy', () => {
+		const stale = section();
+		const inner = part( [ stale ], 'header' );
+		const filled = withTemplatePartContents(
+			[ inner ],
+			() => [ section() ],
+			0
+		);
+		expect( filled[ 0 ].innerBlocks ).toEqual( [] );
+	} );
+
 	it( 'finds a hero inside the header part, and opens the page with it', () => {
 		const hero = cover();
 		const header = part( [ navBar(), hero ], 'header' );
@@ -1166,3 +1194,4 @@ describe( 'Classic block', () => {
 		);
 	} );
 } );
+

@@ -33,7 +33,7 @@ import { countDescendantsIn } from '../selectStable';
 /** Style names for the picker; plan.js keeps no UI strings. */
 const STYLE_LABELS = {
 	subtle: __( 'Subtle', 'motion-blocks' ),
-	smooth: __( 'Smooth', 'motion-blocks' ),
+	balanced: __( 'Balanced', 'motion-blocks' ),
 	bold: __( 'Bold', 'motion-blocks' ),
 };
 
@@ -112,7 +112,7 @@ function measureScreensTall() {
  * @param {string}   props.contextNoun Editor context noun (page, template…).
  */
 export default function AutoAnimateModal( { isOpen, onClose, contextNoun } ) {
-	const [ stylePreset, setStylePreset ] = useState( 'smooth' );
+	const [ stylePreset, setStylePreset ] = useState( 'balanced' );
 	if ( ! isOpen ) {
 		return null;
 	}

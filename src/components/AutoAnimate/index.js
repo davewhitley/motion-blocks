@@ -181,8 +181,8 @@ function AutoAnimateModalContent( {
 			sprintf(
 				/* translators: %d: number of blocks */
 				_n(
-					'%d spacer, separator, menu or footer: layout pieces stay still',
-					'%d spacers, separators, menus or footers: layout pieces stay still',
+					'%d spacer, separator, menu, or footer: layout pieces stay still',
+					'%d spacers, separators, menus, or footers: layout pieces stay still',
 					plan.skipChrome.length,
 					'motion-blocks'
 				),

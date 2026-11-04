@@ -228,7 +228,7 @@ describe( 'materializeScrollAppearPatch', () => {
 			( mode ) => {
 				let a = {
 					...SCHEMA_DEFAULTS,
-					...attrsForCategory( 'SECTION', 'smooth' ),
+					...attrsForCategory( 'SECTION', 'balanced' ),
 				};
 				a = write( a, none );
 				expect( a.animationType ).toBe( '' );

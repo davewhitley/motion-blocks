@@ -44,6 +44,7 @@ import { store as previewStore } from './previewStore';
 import { useFocusAfterDialog } from './keyboardFocus';
 import { clearAnimationAttributes } from './constants';
 import { deviceRangeHelp } from './deviceRanges';
+import { selectPageContentRoot, clientIdsUnder } from './selectStable';
 
 const DEVICE_OPTIONS = [
 	{
@@ -111,6 +112,19 @@ function MotionBlocksPagePanel() {
 	);
 	const contextNoun = editorContextNoun( postType );
 
+	// The page's own blocks. With "Show template" on, the tree is the whole
+	// template, and these tools must not change it (see
+	// selectPageContentRoot).
+	const rootClientId = useSelect(
+		( select ) =>
+			selectPageContentRoot(
+				select( blockEditorStore ),
+				postType,
+				select( editorStore ).getRenderingMode?.()
+			),
+		[ postType ]
+	);
+
 	const [ meta, setMeta ] = useEntityProp( 'postType', postType, 'meta' );
 	// The screen-size toggles are post meta, registered only for public
 	// post types with the block editor. Templates, template parts and
@@ -125,20 +139,38 @@ function MotionBlocksPagePanel() {
 			Object.prototype.hasOwnProperty.call( meta, opt.key )
 		);
 
-	// Count animated blocks for context next to the Remove button.
-	// `getClientIdsWithDescendants()` returns a flat array of all
-	// block ids, including nested ones — exactly what we want.
-	const animatedCount = useSelect( ( select ) => {
-		const sel = select( blockEditorStore );
-		const ids = sel.getClientIdsWithDescendants();
-		let n = 0;
-		for ( const id of ids ) {
-			if ( hasAnimation( sel.getBlock( id ) ) ) {
-				n++;
+	// Count animated blocks for context next to the Remove button: every
+	// block id under the page's root, nested ones included. In a template
+	// that includes the blocks inside its template parts (header, footer,
+	// or any other), which are shared with other pages, so those are
+	// counted apart for the confirm dialog (GH #101). Primitives only, so
+	// the result is shallow-equal between runs (GH #27).
+	const { animatedCount, animatedInPartsCount } = useSelect(
+		( select ) => {
+			const sel = select( blockEditorStore );
+			const ids = clientIdsUnder( sel, rootClientId );
+			let n = 0;
+			let inParts = 0;
+			for ( const id of ids ) {
+				if ( hasAnimation( sel.getBlock( id ) ) ) {
+					n++;
+					if (
+						sel
+							.getBlockParents( id )
+							.some(
+								( parent ) =>
+									sel.getBlockName( parent ) ===
+									'core/template-part'
+							)
+					) {
+						inParts++;
+					}
+				}
 			}
-		}
-		return n;
-	}, [] );
+			return { animatedCount: n, animatedInPartsCount: inParts };
+		},
+		[ rootClientId ]
+	);
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	const { clearPreview } = useDispatch( previewStore );
@@ -168,9 +200,9 @@ function MotionBlocksPagePanel() {
 		// Use a fresh `select` snapshot at click time rather than
 		// the (potentially stale) useSelect-cached count.
 		const sel = dataSelect( blockEditorStore );
-		const ids = sel
-			.getClientIdsWithDescendants()
-			.filter( ( id ) => hasAnimation( sel.getBlock( id ) ) );
+		const ids = clientIdsUnder( sel, rootClientId ).filter( ( id ) =>
+			hasAnimation( sel.getBlock( id ) )
+		);
 
 		if ( ids.length === 0 ) {
 			setConfirmOpen( false );
@@ -294,6 +326,18 @@ function MotionBlocksPagePanel() {
 						contextNoun,
 						animatedCount
 					) }
+					{ animatedInPartsCount > 0 &&
+						' ' +
+							sprintf(
+								/* translators: %d: number of animated blocks inside template parts */
+								_n(
+									'%d of them is in a template part (header, footer…), which is shared: it will lose its animation on every page that uses it.',
+									'%d of them are in template parts (header, footer…), which are shared: they will lose their animations on every page that uses them.',
+									animatedInPartsCount,
+									'motion-blocks'
+								),
+								animatedInPartsCount
+							) }
 				</span>
 			</ConfirmDialog>
 
@@ -301,6 +345,10 @@ function MotionBlocksPagePanel() {
 				isOpen={ autoAnimateOpen }
 				onClose={ () => setAutoAnimateOpen( false ) }
 				contextNoun={ contextNoun }
+				rootClientId={ rootClientId }
+				// Only a template in the Site Editor has template parts whose
+				// contents can be edited from here (GH #101).
+				allowTemplateParts={ postType === 'wp_template' }
 			/>
 		</PluginDocumentSettingPanel>
 	);

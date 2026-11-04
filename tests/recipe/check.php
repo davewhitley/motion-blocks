@@ -240,10 +240,19 @@ $mb_fixtures[] = array( 'Stagger Group, Scroll Appear slide', 'core/group', arra
 $mb_fixtures[] = array( 'Cover image-only Custom zoom', 'core/cover', array( 'animationMode' => 'page-load', 'animationType' => 'custom', 'animationFromToTarget' => 'img', 'animationFromScale' => 1.1, 'animationToScale' => 1, 'animationDuration' => 1.6, 'animationDelay' => 0 ) );
 $mb_fixtures[] = array( 'Scroll Interactive custom range', 'core/paragraph', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'rotate', 'animationRotateAngle' => 45, 'animationRangeStart' => 'entry 20%', 'animationRangeEnd' => 'exit 80%' ) );
 $mb_fixtures[] = array( 'Spring easing', 'core/paragraph', array( 'animationMode' => 'page-load', 'animationAcceleration' => motion_blocks_recipe_easings()['spring'] ) );
+$mb_fixtures[] = array( 'Stagger step saved in milliseconds', 'core/group', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'fade', 'animationStaggerEnabled' => true, 'animationStaggerStep' => 250 ) );
+$mb_fixtures[] = array( 'Fixed-background Cover, Animate image only', 'core/cover', array( 'hasParallax' => true, 'animationMode' => 'page-load', 'animationType' => 'fade', 'animationFromToTarget' => 'img' ) );
+$mb_fixtures[] = array( 'Repeated-background Cover, Image Zoom', 'core/cover', array( 'isRepeated' => true, 'animationMode' => 'scroll-interactive', 'animationType' => 'image-zoom' ) );
 
 foreach ( $mb_fixtures as $fx ) {
 	list( $label, $name, $attrs ) = $fx;
 	$recipe = motion_blocks_attributes_to_recipe( $attrs, $name );
+	if ( null === $recipe && motion_blocks_is_image_target_unavailable( $name, $attrs ) ) {
+		// An image effect on a Cover with no <img>: nothing plays, so
+		// there's nothing to write back.
+		mb_recipe_check( true, "{$label} (reads as nothing playing)" );
+		continue;
+	}
 	$back   = motion_blocks_recipe_to_attributes( $recipe, $name, $attrs );
 	if ( $back['errors'] ) {
 		mb_recipe_check( false, $label, 'recipe rejected: ' . wp_json_encode( $back['errors'] ) . ' recipe=' . wp_json_encode( $recipe ) );

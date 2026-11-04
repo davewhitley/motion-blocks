@@ -19,6 +19,8 @@ import {
 	computeAutoAnimatePlan,
 	findHero,
 	summarizeChoreography,
+	templatePartsWithContents,
+	withTemplatePartContents,
 } from '../../src/components/AutoAnimate/plan';
 import {
 	SCHEMA_DEFAULTS,
@@ -28,7 +30,7 @@ import {
 } from '../../src/components/constants';
 import { isValidFromToValue } from '../../src/css-values';
 
-const PRESETS = [ 'subtle', 'smooth', 'bold' ];
+const PRESETS = [ 'subtle', 'balanced', 'bold' ];
 const RETIRED = [
 	'animationType',
 	'animationDirection',
@@ -121,8 +123,8 @@ describe( 'one motion language', () => {
 					preset
 				).animationEntryFromTranslateY
 			);
-		expect( dist( 'subtle' ) ).toBeLessThan( dist( 'smooth' ) );
-		expect( dist( 'smooth' ) ).toBeLessThan( dist( 'bold' ) );
+		expect( dist( 'subtle' ) ).toBeLessThan( dist( 'balanced' ) );
+		expect( dist( 'balanced' ) ).toBeLessThan( dist( 'bold' ) );
 	} );
 
 	it( 'ends every element at rest, so finished animations settle (GH #20)', () => {
@@ -144,10 +146,10 @@ describe( 'the opening sequence', () => {
 			[ h.clientId, btns.clientId, img.clientId ]
 		);
 		const delays = [ h, btns, img ].map(
-			( blk ) => attrsOf( p, 'smooth', blk ).animationDelay
+			( blk ) => attrsOf( p, 'balanced', blk ).animationDelay
 		);
 		[ h, btns, img ].forEach( ( blk ) =>
-			expect( attrsOf( p, 'smooth', blk ).animationMode ).toBe(
+			expect( attrsOf( p, 'balanced', blk ).animationMode ).toBe(
 				'page-load'
 			)
 		);
@@ -155,7 +157,7 @@ describe( 'the opening sequence', () => {
 		expect( delays[ 1 ] ).toBeGreaterThan( delays[ 0 ] );
 		expect( delays[ 2 ] ).toBeGreaterThan( delays[ 1 ] );
 		// Below the fold: waits for the scroll.
-		expect( attrsOf( p, 'smooth', below ).animationMode ).toBe(
+		expect( attrsOf( p, 'balanced', below ).animationMode ).toBe(
 			'scroll-appear'
 		);
 		expect( summarizeChoreography( p.apply ).opening ).toBe( 3 );
@@ -444,7 +446,7 @@ describe( 'sections cascade in reading order', () => {
 		const s = section();
 		const p = plan( [ s ] );
 		expect( roleOf( p, s ) ).toBe( 'cascade' );
-		const attrs = attrsOf( p, 'smooth', s );
+		const attrs = attrsOf( p, 'balanced', s );
 		expect( attrs.animationStaggerEnabled ).toBe( true );
 		expect( attrs.animationStaggerStep ).toBeGreaterThan( 0 );
 		expect( isStaggerCompatible( attrs ) ).toBe( true );
@@ -460,7 +462,7 @@ describe( 'sections cascade in reading order', () => {
 		expect( subtle.animationEntryFromTranslateY ).toBe(
 			`${ STYLE_PRESETS.subtle.distance }px`
 		);
-		for ( const preset of [ 'smooth', 'bold' ] ) {
+		for ( const preset of [ 'balanced', 'bold' ] ) {
 			expect( attrsOf( p, preset, s ).animationStaggerEnabled ).toBe(
 				true
 			);
@@ -468,7 +470,7 @@ describe( 'sections cascade in reading order', () => {
 	} );
 
 	it( 'each level moves further and longer than the one below', () => {
-		const { subtle, smooth, bold } = STYLE_PRESETS;
+		const { subtle, balanced, bold } = STYLE_PRESETS;
 		for ( const key of [
 			'duration',
 			'distance',
@@ -476,11 +478,11 @@ describe( 'sections cascade in reading order', () => {
 			'heroZoom',
 			'openingBeat',
 		] ) {
-			expect( [ key, subtle[ key ] < smooth[ key ] ] ).toEqual( [
+			expect( [ key, subtle[ key ] < balanced[ key ] ] ).toEqual( [
 				key,
 				true,
 			] );
-			expect( [ key, smooth[ key ] < bold[ key ] ] ).toEqual( [
+			expect( [ key, balanced[ key ] < bold[ key ] ] ).toEqual( [
 				key,
 				true,
 			] );
@@ -488,7 +490,7 @@ describe( 'sections cascade in reading order', () => {
 	} );
 
 	it( 'compresses the beat so long cascades still feel quick', () => {
-		const style = STYLE_PRESETS.smooth;
+		const style = STYLE_PRESETS.balanced;
 		expect( cascadeStep( 3, style ) ).toBe( style.beat );
 		expect( cascadeStep( 30, style ) * 29 ).toBeLessThanOrEqual(
 			style.spread + 0.01
@@ -648,18 +650,18 @@ describe( 'role-specific motion', () => {
 		const left = image( 'left' );
 		const right = image( 'right' );
 		const p = plan( [ left, right ] );
-		const d = STYLE_PRESETS.smooth.distance;
+		const d = STYLE_PRESETS.balanced.distance;
 		expect(
-			attrsOf( p, 'smooth', left ).animationEntryFromTranslateX
+			attrsOf( p, 'balanced', left ).animationEntryFromTranslateX
 		).toBe( `-${ d }px` );
 		expect(
-			attrsOf( p, 'smooth', right ).animationEntryFromTranslateX
+			attrsOf( p, 'balanced', right ).animationEntryFromTranslateX
 		).toBe( `${ d }px` );
 	} );
 
 	it( 'other images rise and settle from a slight scale', () => {
 		const img = image();
-		const attrs = attrsOf( plan( [ img ] ), 'smooth', img );
+		const attrs = attrsOf( plan( [ img ] ), 'balanced', img );
 		expect( attrs.animationEntryFromScale ).toBeGreaterThan( 1 );
 		expect( attrs.animationEntryToScale ).toBe( 1 );
 	} );
@@ -673,7 +675,7 @@ describe( 'role-specific motion', () => {
 			[ cover ],
 			[ cover.clientId, h.clientId, p1.clientId, btns.clientId ]
 		);
-		const coverAttrs = attrsOf( p, 'smooth', cover );
+		const coverAttrs = attrsOf( p, 'balanced', cover );
 
 		it( 'fades its background in as it settles from a slight zoom', () => {
 			expect( coverAttrs.animationFromToTarget ).toBe( 'img' );
@@ -686,7 +688,7 @@ describe( 'role-specific motion', () => {
 
 		it( 'brings its content in over it, one block after another', () => {
 			const d = [ h, p1, btns ].map(
-				( blk ) => attrsOf( p, 'smooth', blk ).animationDelay
+				( blk ) => attrsOf( p, 'balanced', blk ).animationDelay
 			);
 			expect( d[ 1 ] ).toBeGreaterThan( d[ 0 ] );
 			expect( d[ 2 ] ).toBeGreaterThan( d[ 1 ] );
@@ -791,7 +793,7 @@ describe( 'restraint and safety', () => {
 	} );
 
 	it( 'keeps a cascade even in a very long gallery', () => {
-		expect( cascadeStep( 500, STYLE_PRESETS.smooth ) ).toBeGreaterThan( 0 );
+		expect( cascadeStep( 500, STYLE_PRESETS.balanced ) ).toBeGreaterThan( 0 );
 	} );
 
 	it( 'starts from a cleared block, so leftover settings never leak in', () => {
@@ -812,18 +814,18 @@ describe( 'restraint and safety', () => {
 		const p = plan( blocks );
 		const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
 			p.apply,
-			'smooth'
+			'balanced'
 		);
 		expect( clientIds ).toEqual( p.apply.map( ( i ) => i.clientId ) );
 		expect( Object.keys( attributesByClientId ) ).toEqual( clientIds );
 	} );
 
 	it( 'keeps attrsForCategory for older callers', () => {
-		expect( attrsForCategory( 'SECTION', 'smooth' ).animationMode ).toBe(
+		expect( attrsForCategory( 'SECTION', 'balanced' ).animationMode ).toBe(
 			'scroll-appear'
 		);
 		expect(
-			attrsForCategory( 'STAGGER_ROW', 'smooth' ).animationStaggerEnabled
+			attrsForCategory( 'STAGGER_ROW', 'balanced' ).animationStaggerEnabled
 		).toBe( true );
 		expect( attrsForCategory( 'NOPE' ) ).toBeNull();
 	} );
@@ -857,7 +859,7 @@ describe( 'Query Loop', () => {
 			p.apply.find( ( i ) => i.clientId === list.clientId ).count
 		).toBe( 3 );
 		expect( roleOf( p, list.innerBlocks[ 0 ] ) ).toBeUndefined();
-		expect( attrsOf( p, 'smooth', list ).animationStaggerEnabled ).toBe(
+		expect( attrsOf( p, 'balanced', list ).animationStaggerEnabled ).toBe(
 			true
 		);
 	} );
@@ -997,6 +999,170 @@ describe( 'the footer', () => {
 	} );
 } );
 
+describe( 'including the header and footer (GH #101)', () => {
+	const part = ( inner, area ) =>
+		b( 'core/template-part', inner, { slug: `mb-${ area }`, area } );
+	const navBar = () =>
+		b( 'core/group', [
+			b( 'core/site-title' ),
+			b( 'core/group', [ b( 'core/navigation' ) ] ),
+		] );
+	const cover = () =>
+		b( 'core/cover', [ heading(), para(), buttons() ], { url: 'x.jpg' } );
+	const footerColumns = () =>
+		b(
+			'core/columns',
+			[ 1, 2, 3, 4 ].map( () =>
+				b( 'core/column', [ heading(), para() ] )
+			)
+		);
+	// With no `firstScreen`, unmeasured: the hero alone decides.
+	const planParts = ( blocks, firstScreen ) =>
+		computeAutoAnimatePlan( blocks, () => 0, {
+			isOnFirstScreen: firstScreen
+				? ( id ) => firstScreen.includes( id )
+				: undefined,
+			includeParts: true,
+		} );
+
+	it( 'fills in each part from its own document', () => {
+		const inner = [ section() ];
+		const header = part( [], 'header' );
+		const main = section();
+		const filled = withTemplatePartContents( [ header, main ], ( id ) =>
+			id === header.clientId ? inner : []
+		);
+		expect( filled[ 0 ].innerBlocks ).toEqual( inner );
+		expect( filled[ 0 ].innerBlocks[ 0 ] ).toBe( inner[ 0 ] );
+		expect( filled[ 0 ].clientId ).toBe( header.clientId );
+		// Blocks with no part inside are passed through as they are.
+		expect( filled[ 1 ] ).toBe( main );
+		expect( templatePartsWithContents( filled ) ).toEqual( [
+			filled[ 0 ],
+		] );
+	} );
+
+	it( "reads a part from its own document, never the template's stale copy", () => {
+		// After an Undo the template's tree can still hold blocks the part
+		// has replaced. Planning with them would send changes to blocks that
+		// no longer exist.
+		const stale = section();
+		const current = section();
+		const header = part( [ stale ], 'header' );
+		const filled = withTemplatePartContents( [ header ], ( id ) =>
+			id === header.clientId ? [ current ] : []
+		);
+		expect( filled[ 0 ].innerBlocks ).toEqual( [ current ] );
+		const p = planParts( filled );
+		const ids = p.apply.map( ( i ) => i.clientId );
+		expect( ids ).toContain( current.clientId );
+		expect( ids ).not.toContain( stale.clientId );
+	} );
+
+	it( 'leaves a part nested too deep empty, even with a stale copy', () => {
+		const stale = section();
+		const inner = part( [ stale ], 'header' );
+		const filled = withTemplatePartContents(
+			[ inner ],
+			() => [ section() ],
+			0
+		);
+		expect( filled[ 0 ].innerBlocks ).toEqual( [] );
+	} );
+
+	it( 'finds a hero inside the header part, and opens the page with it', () => {
+		const hero = cover();
+		const header = part( [ navBar(), hero ], 'header' );
+		const p = planParts( [ header, section(), part( [], 'footer' ) ] );
+		expect( findHero( [ header ], { includeParts: true } ).blocks ).toEqual(
+			[ hero ]
+		);
+		const opening = p.apply.filter( ( i ) => i.trigger === 'load' );
+		expect( opening.map( ( i ) => i.clientId ) ).toEqual( [
+			hero.clientId,
+			...hero.innerBlocks.map( ( c ) => c.clientId ),
+		] );
+		// The header part itself isn't animated as one block.
+		expect( roleOf( p, header ) ).toBeUndefined();
+	} );
+
+	it( 'cascades the header bar in on scroll, not as part of the opening', () => {
+		const bar = navBar();
+		const header = part( [ bar ], 'header' );
+		const hero = cover();
+		const main = b( 'core/group', [ hero, section() ] );
+		// The bar is measured on the first screen too, but it's the header.
+		const p = planParts(
+			[ header, main ],
+			[ bar.clientId, hero.clientId, ...hero.innerBlocks.map( ( c ) => c.clientId ) ]
+		);
+		expect( roleOf( p, header ) ).toBeUndefined();
+		expect( roleOf( p, bar ) ).toBe( 'cascade' );
+		expect(
+			p.apply.find( ( i ) => i.clientId === bar.clientId ).trigger
+		).toBe( 'scroll' );
+		// The hero in the page content still opens the page.
+		expect(
+			p.apply.find( ( i ) => i.clientId === hero.clientId ).trigger
+		).toBe( 'load' );
+	} );
+
+	it( 'with no hero, keeps the header out of the measured opening', () => {
+		const siteTitle = b( 'core/site-title' );
+		const header = part( [ siteTitle, b( 'core/navigation' ) ], 'header' );
+		const text = b( 'core/group', [ para() ] );
+		const p = planParts( [ header, text ], [ siteTitle.clientId ] );
+		expect( roleOf( p, siteTitle ) ).toBe( 'rise' );
+		expect( p.apply.every( ( i ) => i.trigger === 'scroll' ) ).toBe( true );
+		expect( p.skipChrome.map( ( x ) => x.name ) ).toContain(
+			'core/navigation'
+		);
+	} );
+
+	it( 'animates the footer, every block on scroll', () => {
+		const cols = footerColumns();
+		const footer = part( [ b( 'core/group', [ cols, para() ] ) ], 'footer' );
+		const p = planParts( [ section(), footer ], [ cols.clientId ] );
+		expect( roleOf( p, cols ) ).toBe( 'cascade' );
+		expect( p.apply.find( ( i ) => i.clientId === cols.clientId ).trigger ).toBe(
+			'scroll'
+		);
+		expect( p.skipChrome ).not.toContain( footer );
+	} );
+
+	it( 'never takes a footer hero as the opening', () => {
+		const footer = part( [ cover() ], 'footer' );
+		expect(
+			findHero( [ footer, section() ], { includeParts: true } )
+		).not.toBeNull();
+		expect(
+			findHero( [ footer, section() ], { includeParts: true } ).blocks[ 0 ]
+		).not.toBe( footer.innerBlocks[ 0 ] );
+	} );
+
+	it( 'leaves an already-animated part as it is', () => {
+		const header = b( 'core/template-part', [ navBar() ], {
+			area: 'header',
+			animationMode: 'scroll-appear',
+		} );
+		const p = planParts( [ header, section() ] );
+		expect( p.skipExisting ).toContain( header );
+		expect(
+			p.apply.every( ( i ) => ! header.innerBlocks.includes( i.block ) )
+		).toBe( true );
+	} );
+
+	it( 'keeps today\'s behaviour when the option is off', () => {
+		const cols = footerColumns();
+		const header = part( [ navBar() ], 'header' );
+		const footer = part( [ cols ], 'footer' );
+		const p = planUnmeasured( [ header, section(), footer ] );
+		expect( roleOf( p, header ) ).toBe( 'rise' );
+		expect( roleOf( p, cols ) ).toBeUndefined();
+		expect( p.skipChrome ).toContain( footer );
+	} );
+} );
+
 describe( 'Classic block', () => {
 	const { canAnimateBlock } = require( '../../src/components/constants' );
 	const {
@@ -1028,3 +1194,4 @@ describe( 'Classic block', () => {
 		);
 	} );
 } );
+

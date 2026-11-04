@@ -193,23 +193,8 @@
 	max-width: 512px;
 }
 
-// Auto-animate modal — count list and helper text.
+// Auto-animate modal — notes and helper text.
 .mb-auto-animate-modal {
-	.mb-auto-animate-modal__heading {
-		margin: 0 0 vars.$grid-unit-10;
-		font-size: 13px;
-		font-weight: 500;
-		color: colors.$gray-900;
-	}
-
-	.mb-auto-animate-modal__list {
-		margin: 0;
-		padding: 0 0 0 vars.$grid-unit-20;
-		font-size: 12px;
-		line-height: 18px;
-		color: colors.$gray-700;
-	}
-
 	.mb-auto-animate-modal__hint {
 		margin: 0;
 		font-size: 12px;
@@ -217,14 +202,7 @@
 		color: colors.$gray-700;
 	}
 
-	.mb-auto-animate-modal__intro {
-		margin: 0;
-		font-size: 12px;
-		line-height: 18px;
-		color: colors.$gray-700;
-	}
-
-	.mb-auto-animate-modal__empty {
+	.mb-auto-animate-modal__note {
 		margin: 0;
 		font-size: 13px;
 		color: colors.$gray-700;

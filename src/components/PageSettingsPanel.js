@@ -127,17 +127,33 @@ function MotionBlocksPagePanel() {
 
 	// Count animated blocks for context next to the Remove button.
 	// `getClientIdsWithDescendants()` returns a flat array of all
-	// block ids, including nested ones — exactly what we want.
-	const animatedCount = useSelect( ( select ) => {
+	// block ids, including nested ones — exactly what we want. In a
+	// template that includes the blocks inside its header and footer,
+	// which are shared with other pages, so those are counted apart for
+	// the confirm dialog (GH #101). Primitives only, so the result is
+	// shallow-equal between runs (GH #27).
+	const { animatedCount, animatedInPartsCount } = useSelect( ( select ) => {
 		const sel = select( blockEditorStore );
 		const ids = sel.getClientIdsWithDescendants();
 		let n = 0;
+		let inParts = 0;
 		for ( const id of ids ) {
 			if ( hasAnimation( sel.getBlock( id ) ) ) {
 				n++;
+				if (
+					sel
+						.getBlockParents( id )
+						.some(
+							( parent ) =>
+								sel.getBlockName( parent ) ===
+								'core/template-part'
+						)
+				) {
+					inParts++;
+				}
 			}
 		}
-		return n;
+		return { animatedCount: n, animatedInPartsCount: inParts };
 	}, [] );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
@@ -294,6 +310,18 @@ function MotionBlocksPagePanel() {
 						contextNoun,
 						animatedCount
 					) }
+					{ animatedInPartsCount > 0 &&
+						' ' +
+							sprintf(
+								/* translators: %d: number of animated blocks inside the header or footer */
+								_n(
+									'%d of them is in the header or footer, which are shared: it will lose its animation on every page that uses them.',
+									'%d of them are in the header or footer, which are shared: they will lose their animations on every page that uses them.',
+									animatedInPartsCount,
+									'motion-blocks'
+								),
+								animatedInPartsCount
+							) }
 				</span>
 			</ConfirmDialog>
 

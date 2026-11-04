@@ -351,7 +351,7 @@ function AutoAnimateModalContent( {
 				{ hasParts && (
 					<CheckboxControl
 						label={ __(
-							'Include header, footer and other template parts',
+							'Include header, footer, and other template parts',
 							'motion-blocks'
 						) }
 						help={ __(

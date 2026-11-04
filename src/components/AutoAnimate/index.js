@@ -27,7 +27,6 @@ import {
 	STYLE_PRESETS,
 	buildAutoAnimateUpdates,
 	computeAutoAnimatePlan,
-	summarizeChoreography,
 } from './plan';
 import { countDescendantsIn, EMPTY_IDS } from '../selectStable';
 
@@ -180,75 +179,53 @@ function AutoAnimateModalContent( {
 	const { createSuccessNotice } = useDispatch( noticesStore );
 
 	const applyCount = plan.apply.length;
-	const skippedTotal =
-		plan.skipBody.length +
-		plan.skipChrome.length +
-		( plan.skipBroken?.length || 0 ) +
-		( plan.skipInvalid?.length || 0 ) +
-		( plan.invalidInnerCount || 0 ) +
-		plan.skipExisting.length +
-		plan.descendantCount;
-
-	const choreography = useMemo(
-		() => summarizeChoreography( plan.apply ),
-		[ plan.apply ]
-	);
-	// What the reader will see, in order.
-	const applySummary = [
-		choreography.opening > 0 &&
+	// What stays still, and why. Blocks that already have an animation
+	// keep it and aren't listed, and nor are blocks inside a section that
+	// animates: they move with it.
+	const skipped = [
+		plan.skipBody.length > 0 &&
 			sprintf(
 				/* translators: %d: number of blocks */
 				_n(
-					'%d block opens the page as soon as it loads',
-					'%d blocks open the page in sequence as soon as it loads',
-					choreography.opening,
+					'%d text block: paragraphs and lists stay still so they are easy to read',
+					'%d text blocks: paragraphs and lists stay still so they are easy to read',
+					plan.skipBody.length,
 					'motion-blocks'
 				),
-				choreography.opening
+				plan.skipBody.length
 			),
-		choreography.hero > 0 &&
-			sprintf(
-				/* translators: %d: number of Cover blocks */
-				_n(
-					'%d Cover background settles from a slow zoom',
-					'%d Cover backgrounds settle from a slow zoom',
-					choreography.hero,
-					'motion-blocks'
-				),
-				choreography.hero
-			),
-		choreography.cascades > 0 &&
-			sprintf(
-				/* translators: %d: number of sections and rows */
-				_n(
-					'%d section or row cascades in, item by item',
-					'%d sections and rows cascade in, item by item',
-					choreography.cascades,
-					'motion-blocks'
-				),
-				choreography.cascades
-			),
-		choreography.media > 0 &&
-			sprintf(
-				/* translators: %d: number of images and media blocks */
-				_n(
-					'%d image settles into place',
-					'%d images settle into place',
-					choreography.media,
-					'motion-blocks'
-				),
-				choreography.media
-			),
-		choreography.rises > 0 &&
+		plan.skipChrome.length > 0 &&
 			sprintf(
 				/* translators: %d: number of blocks */
 				_n(
-					'%d other block rises into place',
-					'%d other blocks rise into place',
-					choreography.rises,
+					'%d spacer, separator, menu, or footer: layout pieces stay still',
+					'%d spacers, separators, menus, or footers: layout pieces stay still',
+					plan.skipChrome.length,
 					'motion-blocks'
 				),
-				choreography.rises
+				plan.skipChrome.length
+			),
+		( plan.skipInvalid?.length || 0 ) > 0 &&
+			sprintf(
+				/* translators: %d: number of blocks */
+				_n(
+					'%d invalid block (and what is inside it): choose “Attempt Block Recovery” on it, then run this again',
+					'%d invalid blocks (and what is inside them): choose “Attempt Block Recovery” on each, then run this again',
+					plan.skipInvalid.length,
+					'motion-blocks'
+				),
+				plan.skipInvalid.length
+			),
+		( plan.skipBroken?.length || 0 ) > 0 &&
+			sprintf(
+				/* translators: %d: number of blocks */
+				_n(
+					'%d block from a missing plugin: it can’t be animated',
+					'%d blocks from a missing plugin: they can’t be animated',
+					plan.skipBroken.length,
+					'motion-blocks'
+				),
+				plan.skipBroken.length
 			),
 	].filter( Boolean );
 
@@ -323,38 +300,12 @@ function AutoAnimateModalContent( {
 					) }
 				</ToggleGroupControl>
 
-				<p className="mb-auto-animate-modal__intro">
-					{ __(
-						'Everything rises into place on one smooth curve, in reading order: the first screen plays as an opening sequence, and each section cascades in as it scrolls into view. Long runs of text stay still.',
-						'motion-blocks'
-					) }
-				</p>
-				{ applyCount > 0 ? (
-					<div className="mb-auto-animate-modal__section">
-						<p className="mb-auto-animate-modal__heading">
-							{ sprintf(
-								/* translators: %d: number of animated blocks */
-								_n(
-									'Will animate %d block:',
-									'Will animate %d blocks:',
-									applyCount,
-									'motion-blocks'
-								),
-								applyCount
-							) }
-						</p>
-						<ul className="mb-auto-animate-modal__list">
-							{ applySummary.map( ( row ) => (
-								<li key={ row }>{ row }</li>
-							) ) }
-						</ul>
-					</div>
-				) : (
+				{ applyCount === 0 && (
 					<p className="mb-auto-animate-modal__empty">
 						{ sprintf(
 							/* translators: %s: editor context noun — page, pattern, template, etc. */
 							__(
-								'Nothing to animate on this %s — every block is either body content, site chrome, or already animated.',
+								'Nothing to animate on this %s.',
 								'motion-blocks'
 							),
 							contextNoun
@@ -362,112 +313,22 @@ function AutoAnimateModalContent( {
 					</p>
 				) }
 
-				{ skippedTotal > 0 && (
+				{ skipped.length > 0 && (
 					<div className="mb-auto-animate-modal__section">
 						<p className="mb-auto-animate-modal__heading">
-							{ sprintf(
-								/* translators: %d: number of skipped blocks */
-								_n(
-									'Skipping %d block:',
-									'Skipping %d blocks:',
-									skippedTotal,
-									'motion-blocks'
-								),
-								skippedTotal
-							) }
+							{ __( 'Not animated:', 'motion-blocks' ) }
 						</p>
 						<ul className="mb-auto-animate-modal__list">
-							{ plan.skipBody.length > 0 && (
-								<li>
-									{ sprintf(
-										/* translators: %d: count */
-										_n(
-											'%d body block (paragraph, list, etc.)',
-											'%d body blocks (paragraphs, lists, etc.)',
-											plan.skipBody.length,
-											'motion-blocks'
-										),
-										plan.skipBody.length
-									) }
-								</li>
-							) }
-							{ plan.descendantCount > 0 && (
-								<li>
-									{ sprintf(
-										/* translators: %d: count */
-										_n(
-											'%d nested block (handled by its container)',
-											'%d nested blocks (handled by their containers)',
-											plan.descendantCount,
-											'motion-blocks'
-										),
-										plan.descendantCount
-									) }
-								</li>
-							) }
-							{ plan.skipExisting.length > 0 && (
-								<li>
-									{ sprintf(
-										/* translators: %d: count */
-										_n(
-											'%d already animated',
-											'%d already animated',
-											plan.skipExisting.length,
-											'motion-blocks'
-										),
-										plan.skipExisting.length
-									) }
-								</li>
-							) }
-							{ plan.skipChrome.length > 0 && (
-								<li>
-									{ sprintf(
-										/* translators: %d: count */
-										_n(
-											'%d site-chrome block (spacer, separator, etc.)',
-											'%d site-chrome blocks (spacers, separators, etc.)',
-											plan.skipChrome.length,
-											'motion-blocks'
-										),
-										plan.skipChrome.length
-									) }
-								</li>
-							) }
-							{ ( plan.skipInvalid?.length || 0 ) > 0 && (
-								<li>
-									{ sprintf(
-										/* translators: %d: count */
-										_n(
-											'%d invalid block (and what is inside it): choose “Attempt Block Recovery” on it, then run this again',
-											'%d invalid blocks (and what is inside them): choose “Attempt Block Recovery” on each, then run this again',
-											plan.skipInvalid.length,
-											'motion-blocks'
-										),
-										plan.skipInvalid.length
-									) }
-								</li>
-							) }
-							{ ( plan.skipBroken?.length || 0 ) > 0 && (
-								<li>
-									{ sprintf(
-										/* translators: %d: count */
-										_n(
-											'%d unsupported block (plugin missing)',
-											'%d unsupported blocks (plugin missing)',
-											plan.skipBroken.length,
-											'motion-blocks'
-										),
-										plan.skipBroken.length
-									) }
-								</li>
-							) }
+							{ skipped.map( ( row ) => (
+								<li key={ row }>{ row }</li>
+							) ) }
 						</ul>
 					</div>
 				) }
 
 				<p className="mb-auto-animate-modal__hint">
 					{ __(
-						'Use “Remove all animations” to revert. Cmd / Ctrl + Z also undoes the change.',
+						'You can edit each block’s animation after it’s applied. To take them all off again, use “Remove all animations”.',
 						'motion-blocks'
 					) }
 				</p>

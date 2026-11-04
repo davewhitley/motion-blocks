@@ -12,10 +12,13 @@
  * breakpoints and one that sets only `mobile` (both through the
  * `wp_theme_json_data_theme` filter), and the fallback.
  *
- * Run from a WordPress site that has the plugin active, via WP-CLI:
+ * Run it with WP-CLI from the root of any WordPress site that has the
+ * plugin active, e.g.:
  *
- *   cd ~/Studio/animation-plugin
- *   studio wp eval-file ../animation-controls-plugin/tests/viewport-breakpoints/check.php
+ *   wp eval-file wp-content/plugins/motion-blocks/tests/viewport-breakpoints/check.php
+ *
+ * On a WordPress Studio site, `studio wp` (run from the site's folder)
+ * is one way to get WP-CLI: `studio wp eval-file <same path>`.
  *
  * Prints PASS/FAIL per case and exits 1 on failure. The theme cases are
  * skipped (and say so) on WordPress before 7.1.

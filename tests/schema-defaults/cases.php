@@ -493,4 +493,245 @@ return array(
 			'data-mb-acceleration' => null,
 		),
 	),
+	// Legacy (pre-slot) Scroll Appear with trigger = exit: only the
+	// Exit slot is filled, with no delay, like the editor's shim.
+	array(
+		'label'    => 'Legacy (pre-0.2) Scroll Appear, trigger = exit, Fade',
+		'panel'    => 'Exit: Fade Out · Delay 0s · Replay: Reverse · no Entry',
+		'behavior' => 'Visible straight away; fades out as it leaves, back in on scroll-back.',
+		'attrs'    => array(
+			'animationMode'          => 'scroll-appear',
+			'animationType'          => 'fade',
+			'animationScrollTrigger' => 'exit',
+		),
+		'expect'   => array(
+			'data-mb-entry-type'  => null,
+			'data-mb-exit-type'   => 'fade',
+			'data-mb-exit-delay'  => '0',
+			'data-mb-exit-replay' => 'reverse',
+		),
+	),
+	array(
+		'label'    => 'Page Load, Custom timing function left empty',
+		'panel'    => 'Page Load: Fade In · Acceleration: Custom · default curve',
+		'behavior' => 'Fades in with the default custom curve.',
+		'attrs'    => array(
+			'animationMode'                 => 'page-load',
+			'animationAcceleration'         => 'custom',
+			'animationCustomTimingFunction' => '',
+		),
+		'expect'   => array(
+			'data-mb-type'         => 'fade',
+			'data-mb-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+		),
+	),
+	// Custom From / To values: bare numbers are emitted as saved (the
+	// front end adds each property's default unit, as the panel shows
+	// it); empty, null and invalid values are left out.
+	array(
+		'label'    => 'Scroll Appear Entry = Custom with bare numbers, an empty value and an invalid one',
+		'panel'    => 'Entry: Custom · From rotate 45°, move down 24px · To rotate 0°, move down 0px',
+		'behavior' => 'Rotates and rises into place once.',
+		'attrs'    => array(
+			'animationMode'                => 'scroll-appear',
+			'animationEntryType'           => 'custom',
+			'animationEntryDelay'          => 0,
+			'animationEntryFromRotate'     => 45,
+			'animationEntryToRotate'       => 0,
+			'animationEntryFromTranslateY' => 24,
+			'animationEntryToTranslateY'   => '0px',
+			'animationEntryFromOpacity'    => '',
+			'animationEntryFromBlur'       => '4px} body{display:none',
+		),
+		'expect'   => array(
+			'data-mb-entry-type'             => 'custom',
+			'data-mb-entry-from-rotate'      => '45',
+			'data-mb-entry-to-rotate'        => '0',
+			'data-mb-entry-from-translate-y' => '24',
+			'data-mb-entry-to-translate-y'   => '0px',
+			'data-mb-entry-from-opacity'     => null,
+			'data-mb-entry-from-blur'        => null,
+		),
+	),
+	// "Animate image only" (animationFromToTarget = 'img') and the image
+	// effects on a Cover: the render filter marks the wrapper with
+	// data-mb-target="img" so the CSS animates the background <img>
+	// instead of the whole block.
+	array(
+		'label'    => 'Cover, Scroll Appear Entry = Fade, Animate image only',
+		'panel'    => 'Entry: Fade In · Animate image only: on · Replay: Once',
+		'behavior' => 'Only the background image fades in, once; the text shows straight away.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'animationMode'         => 'scroll-appear',
+			'animationEntryType'    => 'fade',
+			'animationEntryDelay'   => 0,
+			'animationFromToTarget' => 'img',
+		),
+		'expect'   => array(
+			'class'              => array( 'mb-animated', 'mb-mode-scroll-appear', 'mb-enter-fade', 'mb-has-entry' ),
+			'data-mb-target'     => 'img',
+			'data-mb-entry-type' => 'fade',
+		),
+	),
+	array(
+		'label'    => 'Cover, Page Load Fade, Animate image only',
+		'panel'    => 'Page Load: Fade In · Animate image only: on · Delay 0s',
+		'behavior' => 'Only the background image fades in on page load.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'animationMode'         => 'page-load',
+			'animationDelay'        => 0,
+			'animationFromToTarget' => 'img',
+		),
+		'expect'   => array(
+			'class'          => array( 'mb-animated', 'mb-mode-page-load', 'mb-enter-fade' ),
+			'data-mb-type'   => 'fade',
+			'data-mb-target' => 'img',
+		),
+	),
+	array(
+		'label'    => 'Cover, Scroll Interactive Image Zoom',
+		'panel'    => 'Scroll Interactive: Image Zoom · Acceleration: Linear',
+		'behavior' => 'The background image zooms in step with the scroll; the text stays put.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'animationMode' => 'scroll-interactive',
+			'animationType' => 'image-zoom',
+		),
+		'expect'   => array(
+			'class'                => array( 'mb-animated', 'mb-mode-scroll-interactive', 'mb-enter-image-zoom' ),
+			'data-mb-type'         => 'image-zoom',
+			'data-mb-target'       => 'img',
+			'data-mb-acceleration' => 'linear',
+		),
+	),
+	array(
+		'label'    => 'Cover, Scroll Appear Entry = Image Zoom',
+		'panel'    => 'Entry: Image Zoom · Replay: Once',
+		'behavior' => 'The background image zooms once as the Cover scrolls into view.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'animationMode'       => 'scroll-appear',
+			'animationEntryType'  => 'image-zoom',
+			'animationEntryDelay' => 0,
+		),
+		'expect'   => array(
+			'class'              => array( 'mb-animated', 'mb-enter-image-zoom', 'mb-has-entry' ),
+			'data-mb-entry-type' => 'image-zoom',
+			'data-mb-target'     => 'img',
+		),
+	),
+	// "Fixed background" and "Repeated background" save the image as a
+	// <div> background, so there's no <img> to target: the editor
+	// disables "Animate image only" and the image effects, and the
+	// render filter must not emit data-mb-target.
+	array(
+		'label'    => 'Cover with Fixed background, Page Load Fade, Animate image only left on',
+		'panel'    => 'Page Load: Fade In · Animate image only: unavailable (Fixed background)',
+		'behavior' => 'The whole Cover fades in on page load.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'hasParallax'           => true,
+			'animationMode'         => 'page-load',
+			'animationDelay'        => 0,
+			'animationFromToTarget' => 'img',
+		),
+		'expect'   => array(
+			'class'          => array( 'mb-animated', 'mb-enter-fade' ),
+			'data-mb-type'   => 'fade',
+			'data-mb-target' => null,
+		),
+	),
+	array(
+		'label'    => 'Cover with Fixed background, Scroll Appear Entry = Fade, Animate image only left on',
+		'panel'    => 'Entry: Fade In · Animate image only: unavailable (Fixed background)',
+		'behavior' => 'The whole Cover fades in once.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'hasParallax'           => true,
+			'animationMode'         => 'scroll-appear',
+			'animationEntryType'    => 'fade',
+			'animationEntryDelay'   => 0,
+			'animationFromToTarget' => 'img',
+		),
+		'expect'   => array(
+			'class'              => array( 'mb-animated', 'mb-enter-fade', 'mb-has-entry' ),
+			'data-mb-entry-type' => 'fade',
+			'data-mb-target'     => null,
+		),
+	),
+	array(
+		'label'    => 'Cover with Repeated background, Scroll Interactive Image Zoom',
+		'panel'    => 'Scroll Interactive: Image Zoom (unavailable: Repeated background)',
+		'behavior' => 'Nothing zooms: image effects need an <img> background.',
+		'block'    => 'core/cover',
+		'attrs'    => array(
+			'isRepeated'    => true,
+			'animationMode' => 'scroll-interactive',
+			'animationType' => 'image-zoom',
+		),
+		'expect'   => array(
+			'data-mb-type'   => 'image-zoom',
+			'data-mb-target' => null,
+		),
+	),
+	// Legacy units. Durations and delays have always been stored in
+	// seconds; the Stagger step used to be milliseconds (default 100)
+	// and moved to seconds (default 0.1). Anything over 5 is read as
+	// milliseconds (staggerStepSeconds() in JS, the render filter in
+	// PHP), so old saves keep their timing.
+	array(
+		'label'    => 'Stagger step saved in milliseconds (legacy default 100)',
+		'panel'    => 'Entry: Fade In · Stagger on · Step 0.1s',
+		'behavior' => 'Each child fades in 0.1s after the previous one.',
+		'block'    => 'core/group',
+		'children' => 3,
+		'attrs'    => array(
+			'animationMode'           => 'scroll-appear',
+			'animationEntryType'      => 'fade',
+			'animationEntryDelay'     => 0,
+			'animationStaggerEnabled' => true,
+			'animationStaggerStep'    => 100,
+		),
+		'expect'   => array(
+			'class' => array( 'mb-stagger-parent' ),
+			'style' => '--mb-stagger-step:0.1s;',
+		),
+	),
+	array(
+		'label'    => 'Page Load stagger step saved in milliseconds (250)',
+		'panel'    => 'Page Load: Fade In · Stagger on · Step 0.25s',
+		'behavior' => 'Each child fades in 0.25s after the previous one on page load.',
+		'block'    => 'core/group',
+		'children' => 3,
+		'attrs'    => array(
+			'animationMode'           => 'page-load',
+			'animationDelay'          => 0,
+			'animationStaggerEnabled' => true,
+			'animationStaggerStep'    => 250,
+		),
+		'expect'   => array(
+			'class' => array( 'mb-stagger-parent' ),
+			'style' => '--mb-stagger-step:0.25s;',
+		),
+	),
+	array(
+		'label'    => 'Stagger step of 5 seconds (the panel maximum) stays in seconds',
+		'panel'    => 'Entry: Fade In · Stagger on · Step 5s',
+		'behavior' => 'Each child fades in 5s after the previous one.',
+		'block'    => 'core/group',
+		'children' => 3,
+		'attrs'    => array(
+			'animationMode'           => 'scroll-appear',
+			'animationEntryType'      => 'fade',
+			'animationEntryDelay'     => 0,
+			'animationStaggerEnabled' => true,
+			'animationStaggerStep'    => 5,
+		),
+		'expect'   => array(
+			'class' => array( 'mb-stagger-parent' ),
+			'style' => '--mb-stagger-step:5s;',
+		),
+	),
 );

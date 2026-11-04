@@ -6,7 +6,7 @@ A WordPress plugin that adds CSS-driven animations to any block in the Site Edit
 
 Each block gets one mode at a time, picked from the **Motion Effects** sub-panel in the block inspector.
 
-- **On page load**. Plays once when the page loads. Supports `repeat: once / loop / alternate` and pauses when the element is off-screen.
+- **On page load**. Starts when the page loads. Supports `repeat: once / loop / alternate`. A looping or alternating animation pauses while the block is off-screen when **Pause off-screen** is on (the default); a one-shot animation plays straight away, even on a block below the fold.
 - **Appear on scroll**. Slot-based model. Each block has independent **Entry** and **Exit** slots; either or both can be filled. Triggered by an Intersection Observer.
 - **Interactive scroll**. Animation progress is tied to scroll position via CSS `animation-timeline: view()`. Supports custom range start/end (for example, `entry 20%` to `exit 80%`).
 
@@ -46,7 +46,7 @@ There's one CSS-spec interaction worth knowing about. Applying any `transform` a
 - **Custom From / To**. A 9-property editor (opacity, translateX/Y, scale, rotate, rotateX/Y, blur, clip-path) for arbitrary keyframes. Per-slot in Scroll Appear; shared in the other modes.
 - **Editor preview**. Click the play button in any slot or mode to preview the animation in place. Previews play even when reduced motion is on, since clicking Play is a deliberate request. The eye icon on the Custom From / To editor freezes the block at the From or To state for visual inspection.
 - **Live scroll preview (beta)**. Off by default — enable under Settings → Motion Blocks → Beta features. When on, Interactive scroll blocks animate live in the editor canvas as you scroll, matching the front end. Toggle it per block with the eye icon; drag the scrub slider to freeze a frame, then scroll to resume live. Gated on the opt-in only — browsers without scroll-driven animation support fall back to the scrub slider, and the off switch lives on the settings page (separate from the editor) so it's always reachable.
-- **Auto-animate this page**. One-click apply that walks the block tree and applies a default to each top-level block, skipping body content and nested blocks. Three style presets (Subtle, Smooth, Bold).
+- **Auto-animate this page**. One-click apply that walks the block tree and applies a default to each top-level block, skipping body content and nested blocks. Three style presets (Subtle, Balanced, Bold).
 - **Saved animations library**. Save a configured animation as a recipe, apply it to other blocks. Stored in the `mb_saved_animations` site option (sanitized on write; removed on uninstall along with all other plugin data). Comes seeded with Spin, Iris Wipe, and Diagonal Wipe recipes. Saving and deleting library entries needs the `manage_options` capability (Administrators by default), because the library is a site setting; other roles don't see Save or Delete.
 - **Per-device disable**. Three toggles in the Page panel (Desktop, Tablet, Mobile) selectively suppress animations at each screen size. The sizes are WordPress's own viewport breakpoints (WordPress 7.1+), the ones core uses for hiding blocks per device and for responsive block styles: by default mobile is up to 480px, tablet 481–782px and desktop wider than that, and a theme can change them with `settings.viewport` in theme.json. Each toggle shows the range it covers. Like core's, these breakpoints use media-query range syntax, which Safari before 16.4 doesn't support; there, per-device disable has no effect. Before WordPress 7.1 the plugin's own ranges apply: mobile < 768px, tablet 768–1023px, desktop ≥ 1024px. On a disabled device, animated blocks show exactly as your theme styles them.
 - **Reduced motion support**. All animations are disabled when `prefers-reduced-motion: reduce` is set at the OS level, and blocks show exactly as your theme styles them. Changing the setting, or resizing into another device's range, takes effect without a reload.
@@ -228,6 +228,8 @@ npm run test:pages -- --manifest /tmp/mb-manifest.json
 ```
 
 It logs in through Studio's auto-login URL; on another local site use `--login form --user <name> --password <pw>`. `node tests/self-check/run.mjs --help` lists every option (Chrome path, number of pages checked at once, `--only smoke,clean`, …).
+
+**Editor re-render check** (`tests/editor/rerender-count.js`, GH #27): paste it into the browser console in the post editor on a page with a few dozen blocks. It moves the selection between two blocks and reports how many blocks re-rendered per step (about 2 is right).
 
 **Recipe and abilities check** (`tests/recipe/check.php`, WP-CLI): round-trips every schema-defaults fixture through a recipe and back and checks the front-end markup is unchanged. It also checks validation errors, and runs each ability end to end on a temporary page, including over REST. `wp eval-file <path-to>/motion-blocks/tests/recipe/check.php`.
 

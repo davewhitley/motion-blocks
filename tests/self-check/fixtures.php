@@ -8,10 +8,13 @@
  * must come back clean, and one page per known failure. Re-running the
  * script updates the pages in place, so they can be rebuilt on any site.
  *
- * Run from a WordPress site that has the plugin active, via WP-CLI:
+ * Run it with WP-CLI from the root of any WordPress site that has the
+ * plugin active, e.g.:
  *
- *   cd ~/Studio/animation-plugin
- *   studio wp eval-file ../animation-controls-plugin/tests/self-check/fixtures.php
+ *   wp eval-file wp-content/plugins/motion-blocks/tests/self-check/fixtures.php
+ *
+ * On a WordPress Studio site, `studio wp` (run from the site's folder)
+ * is one way to get WP-CLI: `studio wp eval-file <same path>`.
  *
  * Modes (optional positional arg):
  *   (none)  Create or update the fixture pages and print a table of URLs
@@ -38,8 +41,8 @@
  * every page, with and without prefers-reduced-motion, plus the editor
  * check. Locally, against a Studio site with Self-check turned on:
  *
- *   studio wp eval-file ../animation-controls-plugin/tests/self-check/fixtures.php json > /tmp/manifest.json
- *   cd ../animation-controls-plugin
+ *   studio wp eval-file wp-content/plugins/motion-blocks/tests/self-check/fixtures.php json > /tmp/manifest.json
+ *   cd <path-to>/motion-blocks
  *   npm run test:pages -- --manifest /tmp/manifest.json
  *
  * (`--login studio`, the default, logs in through Studio's auto-login

@@ -174,8 +174,8 @@ export const STYLE_PRESETS = {
 		openingBeat: 0.12,
 		heroZoom: 1.06,
 	},
-	smooth: {
-		label: 'Smooth',
+	balanced: {
+		label: 'Balanced',
 		duration: 1.0,
 		ctaDuration: 0.8,
 		distance: 48,
@@ -335,8 +335,8 @@ function customAttrs( prefix, sides ) {
  * @param {string} stylePreset Key of STYLE_PRESETS.
  * @return {Object|null} Attributes, or null for an unknown role.
  */
-export function attrsForItem( item, stylePreset = 'smooth' ) {
-	const style = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.smooth;
+export function attrsForItem( item, stylePreset = 'balanced' ) {
+	const style = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.balanced;
 	const { role, block } = item;
 	if ( ! [ 'rise', 'cascade', 'media', 'heroImage' ].includes( role ) ) {
 		return null;
@@ -403,7 +403,7 @@ export function attrsForItem( item, stylePreset = 'smooth' ) {
  */
 export function attrsForCategory(
 	category,
-	stylePreset = 'smooth',
+	stylePreset = 'balanced',
 	block = null
 ) {
 	const role = {
@@ -432,7 +432,7 @@ export function attrsForCategory(
  * @return {{clientIds: string[], attributesByClientId: Object}} Payloads.
  */
 export function buildAutoAnimateUpdates( apply, stylePreset ) {
-	const style = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.smooth;
+	const style = STYLE_PRESETS[ stylePreset ] || STYLE_PRESETS.balanced;
 	const clientIds = [];
 	const attributesByClientId = {};
 	for ( const item of apply ) {

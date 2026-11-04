@@ -1071,7 +1071,7 @@ msgid "Subtle"
 msgstr ""
 
 #: build/index.js:32
-msgid "Smooth"
+msgid "Balanced"
 msgstr ""
 
 #: build/index.js:32

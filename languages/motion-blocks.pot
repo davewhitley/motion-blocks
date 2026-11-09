@@ -3,21 +3,21 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Motion Blocks 0.5.0\n"
-"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/motion-blocks\n"
+"Report-Msgid-Bugs-To: https://github.com/davewhitley/motion-blocks/issues\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-04T15:17:43+00:00\n"
+"POT-Creation-Date: 2026-11-09T22:04:17+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: motion-blocks\n"
 
 #. Plugin Name of the plugin
 #: animation-plugin.php
-#: animation-plugin.php:1980
-#: animation-plugin.php:1981
+#: animation-plugin.php:1992
+#: animation-plugin.php:1993
 #: includes/abilities.php:35
 msgid "Motion Blocks"
 msgstr ""
@@ -40,130 +40,130 @@ msgstr ""
 msgid "Motion Blocks • Exit trigger"
 msgstr ""
 
-#: animation-plugin.php:1892
+#: animation-plugin.php:1904
 msgid "Motion Blocks saved animation library."
 msgstr ""
 
-#: animation-plugin.php:1928
+#: animation-plugin.php:1940
 msgid "Run the animation self-check on the front end."
 msgstr ""
 
-#: animation-plugin.php:1942
+#: animation-plugin.php:1954
 msgid "Show the Scroll Appear trigger lines on the front end."
 msgstr ""
 
-#: animation-plugin.php:1960
+#: animation-plugin.php:1972
 msgid "Live Scroll Interactive preview in the editor (beta)."
 msgstr ""
 
-#: animation-plugin.php:1995
+#: animation-plugin.php:2007
 msgid "Debugging"
 msgstr ""
 
-#: animation-plugin.php:2002
+#: animation-plugin.php:2014
 msgid "Self-check"
 msgstr ""
 
-#: animation-plugin.php:2010
+#: animation-plugin.php:2022
 msgid "Trigger lines"
 msgstr ""
 
-#: animation-plugin.php:2021
+#: animation-plugin.php:2033
 msgid "Test pages"
 msgstr ""
 
-#: animation-plugin.php:2030
+#: animation-plugin.php:2042
 msgid "Beta features"
 msgstr ""
 
-#: animation-plugin.php:2037
+#: animation-plugin.php:2049
 #: build/index.js:16
 msgid "Live scroll preview"
 msgstr ""
 
-#: animation-plugin.php:2051
+#: animation-plugin.php:2063
 msgid "Tools for checking how animations behave on the published site."
 msgstr ""
 
-#: animation-plugin.php:2080
+#: animation-plugin.php:2092
 msgid "Build or refresh the smoke page: every effect in every mode, set up correctly. Run this after every update."
 msgstr ""
 
-#: animation-plugin.php:2081
+#: animation-plugin.php:2093
 msgid "Build the smoke page plus one page per known problem, each saying what the self-check should report."
 msgstr ""
 
-#: animation-plugin.php:2082
+#: animation-plugin.php:2094
 msgid "Delete all test pages."
 msgstr ""
 
-#: animation-plugin.php:2086
+#: animation-plugin.php:2098
 msgid "Run from the site’s folder with WP-CLI (on WordPress Studio, use studio wp instead of wp):"
 msgstr ""
 
-#: animation-plugin.php:2097
+#: animation-plugin.php:2109
 msgid "Then, with Self-check on and while logged in:"
 msgstr ""
 
-#: animation-plugin.php:2101
+#: animation-plugin.php:2113
 msgid "Open a test page and run this in the browser console. It scrolls through the page and lists any problems (the smoke page should list none):"
 msgstr ""
 
-#: animation-plugin.php:2105
+#: animation-plugin.php:2117
 msgid "Open the same page in the block editor and run this in the console. It lists invalid blocks and errors (should be none):"
 msgstr ""
 
-#: animation-plugin.php:2122
+#: animation-plugin.php:2134
 msgid "Test pages on this site:"
 msgstr ""
 
-#: animation-plugin.php:2127
+#: animation-plugin.php:2139
 msgid "View"
 msgstr ""
 
-#: animation-plugin.php:2128
+#: animation-plugin.php:2140
 #: build/index.js:15
 #: build/index.js:16
 msgid "Edit"
 msgstr ""
 
-#: animation-plugin.php:2149
+#: animation-plugin.php:2161
 msgid "Check animated blocks on the front end and report problems"
 msgstr ""
 
-#: animation-plugin.php:2152
+#: animation-plugin.php:2164
 msgid "Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only users who can edit posts see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors."
 msgstr ""
 
-#: animation-plugin.php:2170
+#: animation-plugin.php:2182
 msgid "Show where \"Appear on scroll\" animations start and stop"
 msgstr ""
 
-#: animation-plugin.php:2173
+#: animation-plugin.php:2185
 msgid "Draws two lines on pages with \"Appear on scroll\" animations. A block's Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only users who can edit posts see them, so visitors are never affected."
 msgstr ""
 
-#: animation-plugin.php:2184
+#: animation-plugin.php:2196
 msgid "Opt-in features still being tested. They affect the editor only — your published site is unchanged."
 msgstr ""
 
-#: animation-plugin.php:2202
+#: animation-plugin.php:2214
 msgid "Preview Scroll Interactive animations live in the editor"
 msgstr ""
 
-#: animation-plugin.php:2205
+#: animation-plugin.php:2217
 msgid "Scrolling the editor canvas plays the real scroll-driven animation, matching the live site. Experimental: it works in current browsers but may not run (or may be unstable) in older or unsupported ones. If the editor misbehaves, turn this off here — this page is separate from the editor and always works."
 msgstr ""
 
-#: animation-plugin.php:2252
+#: animation-plugin.php:2264
 msgid "Spin"
 msgstr ""
 
-#: animation-plugin.php:2256
+#: animation-plugin.php:2268
 msgid "Iris Wipe"
 msgstr ""
 
-#: animation-plugin.php:2260
+#: animation-plugin.php:2272
 msgid "Diagonal Wipe"
 msgstr ""
 
@@ -517,21 +517,21 @@ msgstr ""
 #: build/editor-check.js:1
 #: build/index.js:1
 #: build/index.js:14
-#: build/index.js:32
+#: build/index.js:31
 msgid "On page load"
 msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
 #: build/index.js:14
-#: build/index.js:32
+#: build/index.js:31
 msgid "Appear on scroll"
 msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
 #: build/index.js:14
-#: build/index.js:32
+#: build/index.js:31
 msgid "Interactive scroll"
 msgstr ""
 
@@ -609,7 +609,7 @@ msgid "A short label so you can recognize this animation later."
 msgstr ""
 
 #: build/index.js:1
-#: build/index.js:35
+#: build/index.js:34
 msgid "Cancel"
 msgstr ""
 
@@ -698,7 +698,7 @@ msgstr ""
 #: build/index.js:7
 #: build/index.js:15
 #: build/index.js:16
-#: build/index.js:18
+#: build/index.js:17
 msgid "Remove animation"
 msgstr ""
 
@@ -783,7 +783,7 @@ msgid "Change animation mode"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:32
+#: build/index.js:31
 msgid "Plays once (or loops continuously) when the page first loads."
 msgstr ""
 
@@ -849,17 +849,17 @@ msgid "Delay"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:18
+#: build/index.js:17
 msgid "Acceleration"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:18
+#: build/index.js:17
 msgid "Custom timing function"
 msgstr ""
 
 #: build/index.js:15
-#: build/index.js:18
+#: build/index.js:17
 msgid "Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1)."
 msgstr ""
 
@@ -914,7 +914,7 @@ msgid "Exit animation plays in reverse when the user scrolls back to the element
 msgstr ""
 
 #: build/index.js:16
-#: build/index.js:32
+#: build/index.js:31
 msgid "Trigger animations when the element enters or exits the screen."
 msgstr ""
 
@@ -931,7 +931,7 @@ msgid "More information"
 msgstr ""
 
 #: build/index.js:16
-#: build/index.js:32
+#: build/index.js:31
 msgid "Ties animation progress directly to scroll position."
 msgstr ""
 
@@ -969,9 +969,7 @@ msgstr ""
 msgid "Where the animation begins as the element scrolls into view from the bottom of the screen. 0% triggers the moment the element starts entering; 100% waits until it's fully on screen."
 msgstr ""
 
-#. translators: "0%" and "100%" are amounts of the element, not placeholders.
 #: build/index.js:17
-#: build/index.js:18
 msgid "End Offset"
 msgstr ""
 
@@ -979,255 +977,256 @@ msgstr ""
 msgid "About end offset"
 msgstr ""
 
+#. translators: "0%" and "100%" are amounts of the element, not placeholders.
 #: build/index.js:17
 msgid "Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen."
 msgstr ""
 
-#: build/index.js:18
+#: build/index.js:17
 msgid "May break the menu overlay"
 msgstr ""
 
-#: build/index.js:18
+#: build/index.js:17
 msgid "This animation can stop the menu overlay from opening full screen."
 msgstr ""
 
-#: build/index.js:18
+#: build/index.js:17
 msgid "This block has a menu inside. This animation can stop its menu overlay from opening full screen."
 msgstr ""
 
 #. translators: Fix for a Scroll Interactive animation. "On page load" and "Appear on scroll" are animation modes in the Motion Effects panel. Keep the <strong> tags.
-#: build/index.js:20
+#: build/index.js:19
 msgid "Use <strong>On page load</strong> or <strong>Appear on scroll</strong>."
 msgstr ""
 
 #. translators: Fix for a looping Page Load animation. "Repeat" is a setting and "Play once" one of its options. Keep the <strong> tags.
-#: build/index.js:22
+#: build/index.js:21
 msgid "Set <strong>Repeat</strong> to <strong>Play once</strong>."
 msgstr ""
 
 #. translators: Fix for an Entry that replays. "Replay" is a setting and "Once" one of its options. Keep the <strong> tags.
-#: build/index.js:24
+#: build/index.js:23
 msgid "Set <strong>Replay</strong> to <strong>Once</strong>."
 msgstr ""
 
 #. translators: Fix for a Scroll Appear animation with an Exit. "Exit" is a tab in the Motion Effects panel. Keep the <strong> tags.
-#: build/index.js:26
+#: build/index.js:25
 msgid "Remove the <strong>Exit</strong> animation."
 msgstr ""
 
 #. translators: Fix for an effect that ends hidden or moved, such as Fade Out. "Fade In" is an effect name. Keep the <strong> tags.
-#: build/index.js:28
+#: build/index.js:27
 msgid "Use an effect that ends visible, like <strong>Fade In</strong>."
 msgstr ""
 
 #. translators: Fix for a Custom effect whose end values move, scale, rotate, blur, clip or fade the block. "To" is the tab with the end values in the Custom panel. Keep the <strong> tags.
-#: build/index.js:30
+#: build/index.js:29
 msgid "Set the <strong>To</strong> values back to normal."
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Animation settings reset."
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Animation removed."
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Animation pasted."
 msgstr ""
 
-#: build/index.js:30
-#: build/index.js:42
+#: build/index.js:29
+#: build/index.js:41
 msgid "Motion Effects"
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Motion effect configured on this block"
 msgstr ""
 
 #. translators: %d: number of blocks currently selected
-#: build/index.js:31
+#: build/index.js:30
 #, js-format
 msgid "Changes apply to all %d selected blocks."
 msgstr ""
 
-#: build/index.js:31
+#: build/index.js:30
 msgid "Select parent block"
 msgstr ""
 
 #. translators: %s: ancestor block-type label, e.g. "Columns"
-#: build/index.js:32
+#: build/index.js:31
 #, js-format
 msgid "A parent block (%s) already has an animation. The animation includes this inner block."
 msgstr ""
 
-#: build/index.js:32
+#: build/index.js:31
 msgid "Animation type"
 msgstr ""
 
-#: build/index.js:32
+#: build/index.js:31
 msgid "Subtle"
 msgstr ""
 
-#: build/index.js:32
+#: build/index.js:31
 msgid "Balanced"
 msgstr ""
 
-#: build/index.js:32
+#: build/index.js:31
 msgid "Bold"
 msgstr ""
 
 #. translators: %s: editor context noun — page, pattern, template, etc.
-#: build/index.js:33
-#: build/index.js:43
+#: build/index.js:32
+#: build/index.js:42
 #, js-format
 msgid "Auto-animate this %s"
 msgstr ""
 
-#: build/index.js:33
+#: build/index.js:32
 msgid "Style"
 msgstr ""
 
-#: build/index.js:33
+#: build/index.js:32
 msgid "Include header, footer, and other template parts"
 msgstr ""
 
-#: build/index.js:33
+#: build/index.js:32
 msgid "They are shared, so this changes every page that uses them."
 msgstr ""
 
 #. translators: %s: editor context noun — page, pattern, template, etc.
-#: build/index.js:34
+#: build/index.js:33
 #, js-format
 msgid "Nothing to animate on this %s."
 msgstr ""
 
 #. translators: %d: number of invalid blocks
-#: build/index.js:35
+#: build/index.js:34
 #, js-format
 msgid "%d invalid block won’t be animated: choose “Attempt Block Recovery” on it, then run this again."
 msgid_plural "%d invalid blocks won’t be animated: choose “Attempt Block Recovery” on each, then run this again."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:35
+#: build/index.js:34
 msgid "You can edit each block’s animation after it’s applied. To take them all off again, use “Remove all animations”."
 msgstr ""
 
 #. translators: %d: number of animated blocks
-#: build/index.js:36
+#: build/index.js:35
 #, js-format
 msgid "Animated %d block."
 msgid_plural "Animated %d blocks."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:36
+#: build/index.js:35
 msgid "Nothing to animate"
 msgstr ""
 
 #. translators: %d: number of blocks to animate
-#: build/index.js:37
+#: build/index.js:36
 #, js-format
 msgid "Animate %d block"
 msgid_plural "Animate %d blocks"
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:37
+#: build/index.js:36
 msgid "Not used: this theme’s screen-size breakpoints don’t include this size."
 msgstr ""
 
 #. translators: 1: smallest screen width, e.g. 481px; 2: largest, e.g. 782px
-#: build/index.js:38
+#: build/index.js:37
 #, js-format
 msgid "Screens %1$s to %2$s wide"
 msgstr ""
 
 #. translators: 1: screen width the range starts above, e.g. 30em; 2: largest screen width
-#: build/index.js:39
+#: build/index.js:38
 #, js-format
 msgid "Screens wider than %1$s, up to %2$s"
 msgstr ""
 
 #. translators: %s: smallest screen width, e.g. 783px
-#: build/index.js:40
+#: build/index.js:39
 #, js-format
 msgid "Screens %s and wider"
 msgstr ""
 
 #. translators: %s: screen width, e.g. 48em
-#: build/index.js:41
+#: build/index.js:40
 #, js-format
 msgid "Screens wider than %s"
 msgstr ""
 
 #. translators: %s: screen width, e.g. 480px
-#: build/index.js:42
+#: build/index.js:41
 #, js-format
 msgid "Screens up to %s wide"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "Disable on Desktop"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "Disable on Tablet"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "Disable on Mobile"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "page"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "post"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "pattern"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "template"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "template part"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:41
 msgid "content"
 msgstr ""
 
-#: build/index.js:43
+#: build/index.js:42
 msgid "Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices."
 msgstr ""
 
+#: build/index.js:42
 #: build/index.js:43
-#: build/index.js:44
 msgid "Remove all animations"
 msgstr ""
 
 #. translators: %d: number of blocks animations were removed from
-#: build/index.js:44
+#: build/index.js:43
 #, js-format
 msgid "Animation removed from %d block."
 msgid_plural "Animations removed from %d blocks."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:44
+#: build/index.js:43
 msgid "Remove"
 msgstr ""
 
 #. translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks
-#: build/index.js:45
+#: build/index.js:44
 #, js-format
 msgid "Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button."
 msgid_plural "Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button."
@@ -1235,7 +1234,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of animated blocks inside template parts
-#: build/index.js:46
+#: build/index.js:45
 #, js-format
 msgid "%d of them is in a template part (header, footer…), which is shared: it will lose its animation on every page that uses it."
 msgid_plural "%d of them are in template parts (header, footer…), which are shared: they will lose their animations on every page that uses them."

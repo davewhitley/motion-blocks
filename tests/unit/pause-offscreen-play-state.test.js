@@ -72,9 +72,14 @@ describe( 'Pause when off-screen (GH #58)', () => {
 	);
 
 	it( 'pauses via the custom property, not inline animation-play-state', () => {
-		const fn = frontend.match(
+		// setupPauseOffscreen decides; setPlayState writes (GH #128).
+		const setup = frontend.match(
 			/function setupPauseOffscreen\([\s\S]*?\n\t\}/
 		);
+		expect( setup ).not.toBeNull();
+		expect( setup[ 0 ] ).toContain( 'setPlayState(' );
+		expect( setup[ 0 ] ).not.toMatch( /animationPlayState/ );
+		const fn = frontend.match( /function setPlayState\([\s\S]*?\n\t\}/ );
 		expect( fn ).not.toBeNull();
 		expect( fn[ 0 ] ).toContain( "'--mb-play-state'" );
 		expect( fn[ 0 ] ).not.toMatch( /animationPlayState/ );

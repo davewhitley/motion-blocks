@@ -192,6 +192,7 @@ import {
 		if ( pauseObservers.has( el ) ) {
 			pauseObservers.get( el ).disconnect();
 			pauseObservers.delete( el );
+			unwatchPause( el );
 			el.style.removeProperty( '--mb-play-state' );
 		}
 	}
@@ -403,6 +404,12 @@ import {
 			btt: { '--mb-wipe-from': 'inset(0 0 100% 0)' },
 		},
 		curtain: {
+			horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
+			vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
+		},
+		// Curtain Close — same vars as `curtain`: mbCurtainClose
+		// animates inset(0) → that slit shape (GH #129).
+		'curtain-out': {
 			horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
 			vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
 		},
@@ -1147,13 +1154,18 @@ import {
 		var repeat = el.dataset.mbRepeat || 'once';
 		var isLooping = repeat === 'loop' || repeat === 'alternate';
 
+		// `backwards`, not `none`: a loop never ends, so only the delay
+		// is filled. With `none` the block showed at rest for the delay
+		// (the pre-hide stops matching once `mb-triggered` is on), then
+		// snapped to the keyframe's hidden start and animated: a flash
+		// on every load (GH #128).
 		if ( repeat === 'loop' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
-			el.style.setProperty( '--mb-fill-mode', 'none' );
+			el.style.setProperty( '--mb-fill-mode', 'backwards' );
 		} else if ( repeat === 'alternate' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
 			el.style.setProperty( '--mb-direction', 'alternate' );
-			el.style.setProperty( '--mb-fill-mode', 'none' );
+			el.style.setProperty( '--mb-fill-mode', 'backwards' );
 		}
 
 		// A one-shot Page Load never plays again: once it finishes,
@@ -1184,6 +1196,16 @@ import {
 	 * reaches them (the triggered rules in animations.css read it).
 	 * The observer stays connected — a looping animation needs it for
 	 * the life of the page.
+	 *
+	 * The observer sees the block where its animation has moved it, not
+	 * where it sits in the layout. A loop that carries the block off the
+	 * screen (a marquee, a fly-across) then looked off-screen, was
+	 * paused there, and could never come back: paused, it stays out, so
+	 * the observer never fires again (GH #128). So "not intersecting" is
+	 * only a hint: the block is paused when its layout box is off the
+	 * screen too, and while the observer says "out" it is re-checked on
+	 * scroll and resize (`pauseWatch`), since the observer stays silent
+	 * for as long as the moved box stays out.
 	 */
 	function setupPauseOffscreen( el ) {
 		if ( pauseObservers.has( el ) ) {
@@ -1192,10 +1214,13 @@ import {
 		var observer = new IntersectionObserver(
 			function ( entries ) {
 				entries.forEach( function ( entry ) {
-					el.style.setProperty(
-						'--mb-play-state',
-						entry.isIntersecting ? 'running' : 'paused'
-					);
+					if ( entry.isIntersecting ) {
+						unwatchPause( el );
+						setPlayState( el, true );
+					} else {
+						watchPause( el );
+						setPlayState( el, layoutBoxOnScreen( el ) );
+					}
 				} );
 			},
 			{ threshold: 0 }
@@ -1203,6 +1228,96 @@ import {
 
 		observer.observe( el );
 		pauseObservers.set( el, observer );
+	}
+
+	function setPlayState( el, running ) {
+		el.style.setProperty(
+			'--mb-play-state',
+			running ? 'running' : 'paused'
+		);
+	}
+
+	/**
+	 * Whether the block's layout box (where it sits before any
+	 * transform) overlaps the screen. Same offsetParent walk as Scroll
+	 * Appear's refreshBounds, here in screen coordinates.
+	 */
+	function layoutBoxOnScreen( el ) {
+		var top = 0;
+		var left = 0;
+		var n = el;
+		while ( n && n.offsetParent !== null ) {
+			top += n.offsetTop;
+			left += n.offsetLeft;
+			n = n.offsetParent;
+		}
+		if ( n === document.body ) {
+			// Offsets are from <html>'s box: add where that is on screen.
+			var page = document.documentElement.getBoundingClientRect();
+			top += page.top;
+			left += page.left;
+		} else if (
+			n &&
+			n.nodeType === 1 &&
+			window.getComputedStyle( n ).position === 'fixed'
+		) {
+			top += n.offsetTop;
+			left += n.offsetLeft;
+		} else {
+			// Not rendered (display: none somewhere up the tree).
+			return false;
+		}
+		return (
+			top < window.innerHeight &&
+			top + el.offsetHeight > 0 &&
+			left < window.innerWidth &&
+			left + el.offsetWidth > 0
+		);
+	}
+
+	// Looping blocks the observer currently reports as off-screen,
+	// re-checked against their layout box once per scroll / resize
+	// frame. Empty on most pages, most of the time.
+	var pauseWatch = [];
+	var pauseWatchListening = false;
+	var pauseWatchQueued = false;
+
+	function watchPause( el ) {
+		if ( pauseWatch.indexOf( el ) === -1 ) {
+			pauseWatch.push( el );
+		}
+		if ( pauseWatchListening ) {
+			return;
+		}
+		pauseWatchListening = true;
+		window.addEventListener( 'scroll', queuePauseWatch, {
+			passive: true,
+		} );
+		window.addEventListener( 'resize', queuePauseWatch );
+	}
+
+	function unwatchPause( el ) {
+		var i = pauseWatch.indexOf( el );
+		if ( i !== -1 ) {
+			pauseWatch.splice( i, 1 );
+		}
+	}
+
+	function queuePauseWatch() {
+		if ( pauseWatchQueued || ! pauseWatch.length ) {
+			return;
+		}
+		pauseWatchQueued = true;
+		window.requestAnimationFrame( function () {
+			pauseWatchQueued = false;
+			pauseWatch.slice().forEach( function ( el ) {
+				if ( ! el.isConnected ) {
+					unwatchPause( el );
+					return;
+				}
+				setPlayState( el, layoutBoxOnScreen( el ) );
+			} );
+		} );
 	}
 
 	/* ---------------------------------------------------------------
@@ -1311,11 +1426,14 @@ import {
 		 * don't affect it. That's the property we need: animation-stable
 		 * trigger geometry.
 		 *
-		 * Edge case: a `position: fixed` ancestor breaks the offsetParent
-		 * chain. For Scroll Appear blocks inside fixed containers the
-		 * bounds will be off; that's a corner case we accept (the
-		 * simpler implementation is worth more than the marginal
-		 * accuracy gain).
+		 * A `position: fixed` ancestor (or the block itself being fixed)
+		 * ends the offsetParent chain early: the block is laid out
+		 * against the screen, not the page, so its page position changes
+		 * with every scroll. Those blocks keep a screen-relative top in
+		 * `state.fixedTop` and tick() adds the scroll position each time.
+		 * Before, their bounds were just the offset inside the fixed box,
+		 * so a popup opened mid-page, or a fixed header on a page loaded
+		 * mid-page, never reached the band and stayed hidden (GH #4).
 		 */
 		function refreshBounds( state ) {
 			var top = 0;
@@ -1331,11 +1449,27 @@ import {
 			// (2026-10-20 review, #58). Add <html>'s own page offset.
 			// Skipped when the chain ended at a fixed-position ancestor
 			// (see the edge case above).
+			state.fixedTop = null;
 			if ( n === document.body ) {
 				top +=
 					document.documentElement.getBoundingClientRect().top +
 					window.scrollY;
+			} else if (
+				n &&
+				n.nodeType === 1 &&
+				window.getComputedStyle( n ).position === 'fixed'
+			) {
+				// `n` is the fixed box (a hidden one has no offsetParent
+				// either, hence the check). Its own offsetTop is from the
+				// screen's top edge.
+				top += n.offsetTop;
+				state.fixedTop = top;
+				top += window.scrollY;
 			}
+			// What refreshAll() compares to see whether a layout change
+			// moved the block: its place in the page, or on the screen
+			// for a fixed one (whose page position changes with scroll).
+			state.layoutTop = state.fixedTop === null ? top : state.fixedTop;
 			state.pageTop = top;
 			state.pageHeight = state.el.offsetHeight;
 			state.pageBottom = top + state.pageHeight;
@@ -1377,6 +1511,14 @@ import {
 			// on a block still on screen (GH #52 follow-up).
 			var dir = layoutDir || scrollDir;
 
+			// A block in a fixed container stays put on the screen, so
+			// its page position is its screen position plus the scroll
+			// (see refreshBounds).
+			if ( state.fixedTop !== null ) {
+				state.pageTop = state.fixedTop + currentScrollY;
+				state.pageBottom = state.pageTop + state.pageHeight;
+			}
+
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
 			var viewportBottom = currentScrollY + vh;
@@ -1413,6 +1555,18 @@ import {
 			var inViewport =
 				state.pageBottom > viewportTop &&
 				state.pageTop < viewportBottom;
+			// A block in a fixed container never moves on the screen, so
+			// scrolling can't carry it across the band's lines: a chat
+			// button in a bottom corner, a cookie bar or a slim fixed
+			// header sits outside the middle band for good and would
+			// never play (GH #4). The band means nothing for it. It is
+			// "in the zone" for as long as it is shown on screen, so its
+			// Entry plays when the page (or its popup) opens, and the
+			// band stretching and shrinking at the ends of the page
+			// can't play its Exit or reset it while it is in plain view.
+			if ( state.fixedTop !== null ) {
+				inZone = inViewport && state.pageHeight > 0;
+			}
 			// Off-screen cleanup defense-in-depth.
 			//
 			// `handleSlotLeaveBack` (Entry Replay = 'repeat' branch)
@@ -1475,6 +1629,56 @@ import {
 				state.el.classList.remove( 'mb-exit-triggered' );
 				showEntered( state );
 			}
+			// The same jump for an Exit-only block (GH #124). Its Exit
+			// played forward, then a jump back above it skipped the zone,
+			// so nothing reversed the Exit and the block stays hidden:
+			// the next onEnter has no Entry to play. Out of the zone on
+			// the low side, drop the Exit so the block is back at rest,
+			// where a normal scroll up would have left it. Exit Replay
+			// 'once' never gets here (the block is unobserved once its
+			// Exit plays, and stays exited by design).
+			if (
+				state.pageTop > zone.top &&
+				! inZone &&
+				! state.hasEntry &&
+				state.hasExit &&
+				state.el.classList.contains( 'mb-exit-triggered' ) &&
+				state.el.style.getPropertyValue( '--mb-direction' ) !==
+					'reverse'
+			) {
+				state.el.classList.remove( 'mb-exit-triggered' );
+				state.el.style.removeProperty( '--mb-direction' );
+			}
+			// Landed above the band (GH #124, #125). A block that has
+			// never entered, sits on screen wholly above the band, and
+			// isn't being scrolled up towards it, has no way in: only a
+			// scroll UP brings it into the band, and scrolling down takes
+			// it off screen still hidden. That is where an anchor link, a
+			// #hash load or a reload with restored scroll leaves whatever
+			// is in the top 15% of the screen, and where a sticky header
+			// sits on any page loaded mid-way. Play its Entry now: it is
+			// the first sighting, like a first entry from above (GH #2).
+			//
+			// Not while scrolling up: a block coming in from the top is
+			// about to cross into the band and play there. Not with an
+			// Exit slot: above the band is where that block is exited, so
+			// hidden is right. (A fixed block is in the zone whenever it
+			// is on screen, see above, so it never gets here.)
+			if (
+				! state.hasEntered &&
+				state.hasEntry &&
+				! state.hasExit &&
+				! inZone &&
+				inViewport &&
+				state.pageHeight > 0 &&
+				state.pageTop < zone.top &&
+				dir !== 'up'
+			) {
+				state.hasEntered = true;
+				state.inViewport = inViewport;
+				handleSlotEnter( state );
+				return;
+			}
 			state.inViewport = inViewport;
 
 			// The trigger decision (computed above, src/trigger-zone.js):
@@ -1514,7 +1718,18 @@ import {
 				// state forever (GH #2).
 				var firstEntry = ! state.hasEntered;
 				state.hasEntered = true;
-				if ( dir === 'up' && ! firstEntry ) {
+				// The off-screen reset above clears a Repeat / Reverse
+				// Entry's classes but keeps hasEntered. If that block next
+				// enters going "up" (the window grew, a phone rotated, or
+				// a jump landed below it), onEnterBack has nothing to
+				// reverse and never shows a block with no trigger class,
+				// so it sat in the zone hidden (GH #124). No class means
+				// it is waiting for its Entry, whichever way it comes in.
+				var awaitingEntry =
+					state.hasEntry &&
+					! state.el.classList.contains( 'mb-triggered' ) &&
+					! state.el.classList.contains( 'mb-exit-triggered' );
+				if ( dir === 'up' && ! firstEntry && ! awaitingEntry ) {
 					// onEnterBack — genuine re-entry from above; Exit
 					// slot owns this.
 					handleSlotEnterBack( state );
@@ -1661,6 +1876,11 @@ import {
 				exitPendingUntil: 0,
 				unobserved: false,
 				pageTop: 0,
+				// Screen-relative top for a block in a fixed container,
+				// else null; and the scroll-independent top refreshAll()
+				// compares (see refreshBounds).
+				fixedTop: null,
+				layoutTop: 0,
 				pageBottom: 0,
 				pageHeight: 0,
 				io: null,
@@ -1718,12 +1938,12 @@ import {
 			docHeight = readDocHeight();
 			drawTriggerLines();
 			states.forEach( function ( state ) {
-				var prevTop = state.pageTop;
+				var prevTop = state.layoutTop;
 				refreshBounds( state );
 				var layoutDir = null;
-				if ( state.pageTop > prevTop ) {
+				if ( state.layoutTop > prevTop ) {
 					layoutDir = 'up';
-				} else if ( state.pageTop < prevTop ) {
+				} else if ( state.layoutTop < prevTop ) {
 					layoutDir = 'down';
 				}
 				tick( state, layoutDir );

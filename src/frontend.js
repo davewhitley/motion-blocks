@@ -192,6 +192,7 @@ import {
 		if ( pauseObservers.has( el ) ) {
 			pauseObservers.get( el ).disconnect();
 			pauseObservers.delete( el );
+			unwatchPause( el );
 			el.style.removeProperty( '--mb-play-state' );
 		}
 	}
@@ -1153,13 +1154,18 @@ import {
 		var repeat = el.dataset.mbRepeat || 'once';
 		var isLooping = repeat === 'loop' || repeat === 'alternate';
 
+		// `backwards`, not `none`: a loop never ends, so only the delay
+		// is filled. With `none` the block showed at rest for the delay
+		// (the pre-hide stops matching once `mb-triggered` is on), then
+		// snapped to the keyframe's hidden start and animated: a flash
+		// on every load (GH #128).
 		if ( repeat === 'loop' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
-			el.style.setProperty( '--mb-fill-mode', 'none' );
+			el.style.setProperty( '--mb-fill-mode', 'backwards' );
 		} else if ( repeat === 'alternate' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
 			el.style.setProperty( '--mb-direction', 'alternate' );
-			el.style.setProperty( '--mb-fill-mode', 'none' );
+			el.style.setProperty( '--mb-fill-mode', 'backwards' );
 		}
 
 		// A one-shot Page Load never plays again: once it finishes,
@@ -1190,6 +1196,16 @@ import {
 	 * reaches them (the triggered rules in animations.css read it).
 	 * The observer stays connected — a looping animation needs it for
 	 * the life of the page.
+	 *
+	 * The observer sees the block where its animation has moved it, not
+	 * where it sits in the layout. A loop that carries the block off the
+	 * screen (a marquee, a fly-across) then looked off-screen, was
+	 * paused there, and could never come back: paused, it stays out, so
+	 * the observer never fires again (GH #128). So "not intersecting" is
+	 * only a hint: the block is paused when its layout box is off the
+	 * screen too, and while the observer says "out" it is re-checked on
+	 * scroll and resize (`pauseWatch`), since the observer stays silent
+	 * for as long as the moved box stays out.
 	 */
 	function setupPauseOffscreen( el ) {
 		if ( pauseObservers.has( el ) ) {
@@ -1198,10 +1214,13 @@ import {
 		var observer = new IntersectionObserver(
 			function ( entries ) {
 				entries.forEach( function ( entry ) {
-					el.style.setProperty(
-						'--mb-play-state',
-						entry.isIntersecting ? 'running' : 'paused'
-					);
+					if ( entry.isIntersecting ) {
+						unwatchPause( el );
+						setPlayState( el, true );
+					} else {
+						watchPause( el );
+						setPlayState( el, layoutBoxOnScreen( el ) );
+					}
 				} );
 			},
 			{ threshold: 0 }
@@ -1209,6 +1228,96 @@ import {
 
 		observer.observe( el );
 		pauseObservers.set( el, observer );
+	}
+
+	function setPlayState( el, running ) {
+		el.style.setProperty(
+			'--mb-play-state',
+			running ? 'running' : 'paused'
+		);
+	}
+
+	/**
+	 * Whether the block's layout box (where it sits before any
+	 * transform) overlaps the screen. Same offsetParent walk as Scroll
+	 * Appear's refreshBounds, here in screen coordinates.
+	 */
+	function layoutBoxOnScreen( el ) {
+		var top = 0;
+		var left = 0;
+		var n = el;
+		while ( n && n.offsetParent !== null ) {
+			top += n.offsetTop;
+			left += n.offsetLeft;
+			n = n.offsetParent;
+		}
+		if ( n === document.body ) {
+			// Offsets are from <html>'s box: add where that is on screen.
+			var page = document.documentElement.getBoundingClientRect();
+			top += page.top;
+			left += page.left;
+		} else if (
+			n &&
+			n.nodeType === 1 &&
+			window.getComputedStyle( n ).position === 'fixed'
+		) {
+			top += n.offsetTop;
+			left += n.offsetLeft;
+		} else {
+			// Not rendered (display: none somewhere up the tree).
+			return false;
+		}
+		return (
+			top < window.innerHeight &&
+			top + el.offsetHeight > 0 &&
+			left < window.innerWidth &&
+			left + el.offsetWidth > 0
+		);
+	}
+
+	// Looping blocks the observer currently reports as off-screen,
+	// re-checked against their layout box once per scroll / resize
+	// frame. Empty on most pages, most of the time.
+	var pauseWatch = [];
+	var pauseWatchListening = false;
+	var pauseWatchQueued = false;
+
+	function watchPause( el ) {
+		if ( pauseWatch.indexOf( el ) === -1 ) {
+			pauseWatch.push( el );
+		}
+		if ( pauseWatchListening ) {
+			return;
+		}
+		pauseWatchListening = true;
+		window.addEventListener( 'scroll', queuePauseWatch, {
+			passive: true,
+		} );
+		window.addEventListener( 'resize', queuePauseWatch );
+	}
+
+	function unwatchPause( el ) {
+		var i = pauseWatch.indexOf( el );
+		if ( i !== -1 ) {
+			pauseWatch.splice( i, 1 );
+		}
+	}
+
+	function queuePauseWatch() {
+		if ( pauseWatchQueued || ! pauseWatch.length ) {
+			return;
+		}
+		pauseWatchQueued = true;
+		window.requestAnimationFrame( function () {
+			pauseWatchQueued = false;
+			pauseWatch.slice().forEach( function ( el ) {
+				if ( ! el.isConnected ) {
+					unwatchPause( el );
+					return;
+				}
+				setPlayState( el, layoutBoxOnScreen( el ) );
+			} );
+		} );
 	}
 
 	/* ---------------------------------------------------------------

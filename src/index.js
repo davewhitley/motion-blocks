@@ -1906,7 +1906,9 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 					'--mb-iteration-count': isLooping ? 'infinite' : '1',
 					'--mb-direction':
 						repeat === 'alternate' ? 'alternate' : 'normal',
-					'--mb-fill-mode': isLooping ? 'none' : 'both',
+					// `backwards` for a loop: hold the start state through
+					// the delay, as the front end does (GH #128).
+					'--mb-fill-mode': isLooping ? 'backwards' : 'both',
 				};
 				if ( animationType === 'blur' ) {
 					previewStyles[ '--mb-blur-amount' ] =

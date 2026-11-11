@@ -1656,8 +1656,8 @@ import {
 			// it off screen still hidden. That is where an anchor link, a
 			// #hash load or a reload with restored scroll leaves whatever
 			// is in the top 15% of the screen, and where a sticky header
-			// sits on any page loaded mid-way. Play its Entry now: it is the first sighting, like a first entry
-			// from above (GH #2).
+			// sits on any page loaded mid-way. Play its Entry now: it is
+			// the first sighting, like a first entry from above (GH #2).
 			//
 			// Not while scrolling up: a block coming in from the top is
 			// about to cross into the band and play there. Not with an

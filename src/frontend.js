@@ -1555,6 +1555,18 @@ import {
 			var inViewport =
 				state.pageBottom > viewportTop &&
 				state.pageTop < viewportBottom;
+			// A block in a fixed container never moves on the screen, so
+			// scrolling can't carry it across the band's lines: a chat
+			// button in a bottom corner, a cookie bar or a slim fixed
+			// header sits outside the middle band for good and would
+			// never play (GH #4). The band means nothing for it. It is
+			// "in the zone" for as long as it is shown on screen, so its
+			// Entry plays when the page (or its popup) opens, and the
+			// band stretching and shrinking at the ends of the page
+			// can't play its Exit or reset it while it is in plain view.
+			if ( state.fixedTop !== null ) {
+				inZone = inViewport && state.pageHeight > 0;
+			}
 			// Off-screen cleanup defense-in-depth.
 			//
 			// `handleSlotLeaveBack` (Entry Replay = 'repeat' branch)
@@ -1643,20 +1655,19 @@ import {
 			// scroll UP brings it into the band, and scrolling down takes
 			// it off screen still hidden. That is where an anchor link, a
 			// #hash load or a reload with restored scroll leaves whatever
-			// is in the top 15% of the screen, and where a sticky or
-			// fixed header sits on any page loaded mid-way. Play its
-			// Entry now: it is the first sighting, like a first entry
+			// is in the top 15% of the screen, and where a sticky header
+			// sits on any page loaded mid-way. Play its Entry now: it is the first sighting, like a first entry
 			// from above (GH #2).
 			//
 			// Not while scrolling up: a block coming in from the top is
 			// about to cross into the band and play there. Not with an
 			// Exit slot: above the band is where that block is exited, so
-			// hidden is right. A fixed block never leaves the screen, so
-			// its Exit can't have played and it is shown either way.
+			// hidden is right. (A fixed block is in the zone whenever it
+			// is on screen, see above, so it never gets here.)
 			if (
 				! state.hasEntered &&
 				state.hasEntry &&
-				( ! state.hasExit || state.fixedTop !== null ) &&
+				! state.hasExit &&
 				! inZone &&
 				inViewport &&
 				state.pageHeight > 0 &&

@@ -219,6 +219,55 @@ describe( 'a block in a sticky or fixed container on a page loaded mid-way', () 
 		scrollTo( 3000 );
 		expect( shown( el ) ).toBe( true );
 	} );
+
+	// A chat button, a cookie bar: fixed below the band's 85% line,
+	// where scrolling can never bring it into the band.
+	it( 'shows a fixed block in the bottom corner of the screen', async () => {
+		const corner = fixedBox( 740 );
+		const el = layout( block(), 10, 40, corner );
+		corner.append( el );
+		document.body.append( corner );
+		await wired();
+		expect( shown( el ) ).toBe( true );
+	} );
+
+	it( 'shows one on a page opened at the top, too', async () => {
+		scrollTo( 0 );
+		const corner = fixedBox( 740 );
+		const el = layout( block(), 10, 40, corner );
+		corner.append( el );
+		document.body.append( corner );
+		await wired();
+		expect( shown( el ) ).toBe( true );
+	} );
+
+	// The band stretches to the page's top and bottom edges there and
+	// shrinks back on the way out. A fixed block must not take that
+	// for leaving the band.
+	it( "does not play a fixed header's Exit when the page leaves the top", async () => {
+		scrollTo( 0 );
+		const header = fixedBox( 0 );
+		const el = layout( block( { exit: true } ), 10, 40, header );
+		header.append( el );
+		document.body.append( header );
+		await wired();
+		expect( shown( el ) ).toBe( true );
+		scrollTo( 3000 );
+		expect( shown( el ) ).toBe( true );
+		expect( exited( el ) ).toBe( false );
+	} );
+
+	it( 'does not reset a repeating fixed block after a visit to the bottom of the page', async () => {
+		const corner = fixedBox( 740 );
+		const el = layout( block( { replay: 'repeat' } ), 10, 40, corner );
+		corner.append( el );
+		document.body.append( corner );
+		await wired();
+		expect( shown( el ) ).toBe( true );
+		scrollTo( 20000 - VH );
+		scrollTo( 15000 );
+		expect( shown( el ) ).toBe( true );
+	} );
 } );
 
 describe( 'an Exit-only block after a jump back above it', () => {

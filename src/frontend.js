@@ -1317,11 +1317,14 @@ import {
 		 * don't affect it. That's the property we need: animation-stable
 		 * trigger geometry.
 		 *
-		 * Edge case: a `position: fixed` ancestor breaks the offsetParent
-		 * chain. For Scroll Appear blocks inside fixed containers the
-		 * bounds will be off; that's a corner case we accept (the
-		 * simpler implementation is worth more than the marginal
-		 * accuracy gain).
+		 * A `position: fixed` ancestor (or the block itself being fixed)
+		 * ends the offsetParent chain early: the block is laid out
+		 * against the screen, not the page, so its page position changes
+		 * with every scroll. Those blocks keep a screen-relative top in
+		 * `state.fixedTop` and tick() adds the scroll position each time.
+		 * Before, their bounds were just the offset inside the fixed box,
+		 * so a popup opened mid-page, or a fixed header on a page loaded
+		 * mid-page, never reached the band and stayed hidden (GH #4).
 		 */
 		function refreshBounds( state ) {
 			var top = 0;
@@ -1337,11 +1340,27 @@ import {
 			// (2026-10-20 review, #58). Add <html>'s own page offset.
 			// Skipped when the chain ended at a fixed-position ancestor
 			// (see the edge case above).
+			state.fixedTop = null;
 			if ( n === document.body ) {
 				top +=
 					document.documentElement.getBoundingClientRect().top +
 					window.scrollY;
+			} else if (
+				n &&
+				n.nodeType === 1 &&
+				window.getComputedStyle( n ).position === 'fixed'
+			) {
+				// `n` is the fixed box (a hidden one has no offsetParent
+				// either, hence the check). Its own offsetTop is from the
+				// screen's top edge.
+				top += n.offsetTop;
+				state.fixedTop = top;
+				top += window.scrollY;
 			}
+			// What refreshAll() compares to see whether a layout change
+			// moved the block: its place in the page, or on the screen
+			// for a fixed one (whose page position changes with scroll).
+			state.layoutTop = state.fixedTop === null ? top : state.fixedTop;
 			state.pageTop = top;
 			state.pageHeight = state.el.offsetHeight;
 			state.pageBottom = top + state.pageHeight;
@@ -1382,6 +1401,14 @@ import {
 			// the last scroll direction would pick — that played the Exit
 			// on a block still on screen (GH #52 follow-up).
 			var dir = layoutDir || scrollDir;
+
+			// A block in a fixed container stays put on the screen, so
+			// its page position is its screen position plus the scroll
+			// (see refreshBounds).
+			if ( state.fixedTop !== null ) {
+				state.pageTop = state.fixedTop + currentScrollY;
+				state.pageBottom = state.pageTop + state.pageHeight;
+			}
 
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
@@ -1481,6 +1508,57 @@ import {
 				state.el.classList.remove( 'mb-exit-triggered' );
 				showEntered( state );
 			}
+			// The same jump for an Exit-only block (GH #124). Its Exit
+			// played forward, then a jump back above it skipped the zone,
+			// so nothing reversed the Exit and the block stays hidden:
+			// the next onEnter has no Entry to play. Out of the zone on
+			// the low side, drop the Exit so the block is back at rest,
+			// where a normal scroll up would have left it. Exit Replay
+			// 'once' never gets here (the block is unobserved once its
+			// Exit plays, and stays exited by design).
+			if (
+				state.pageTop > zone.top &&
+				! inZone &&
+				! state.hasEntry &&
+				state.hasExit &&
+				state.el.classList.contains( 'mb-exit-triggered' ) &&
+				state.el.style.getPropertyValue( '--mb-direction' ) !==
+					'reverse'
+			) {
+				state.el.classList.remove( 'mb-exit-triggered' );
+				state.el.style.removeProperty( '--mb-direction' );
+			}
+			// Landed above the band (GH #124, #125). A block that has
+			// never entered, sits on screen wholly above the band, and
+			// isn't being scrolled up towards it, has no way in: only a
+			// scroll UP brings it into the band, and scrolling down takes
+			// it off screen still hidden. That is where an anchor link, a
+			// #hash load or a reload with restored scroll leaves whatever
+			// is in the top 15% of the screen, and where a sticky or
+			// fixed header sits on any page loaded mid-way. Play its
+			// Entry now: it is the first sighting, like a first entry
+			// from above (GH #2).
+			//
+			// Not while scrolling up: a block coming in from the top is
+			// about to cross into the band and play there. Not with an
+			// Exit slot: above the band is where that block is exited, so
+			// hidden is right. A fixed block never leaves the screen, so
+			// its Exit can't have played and it is shown either way.
+			if (
+				! state.hasEntered &&
+				state.hasEntry &&
+				( ! state.hasExit || state.fixedTop !== null ) &&
+				! inZone &&
+				inViewport &&
+				state.pageHeight > 0 &&
+				state.pageTop < zone.top &&
+				dir !== 'up'
+			) {
+				state.hasEntered = true;
+				state.inViewport = inViewport;
+				handleSlotEnter( state );
+				return;
+			}
 			state.inViewport = inViewport;
 
 			// The trigger decision (computed above, src/trigger-zone.js):
@@ -1520,7 +1598,18 @@ import {
 				// state forever (GH #2).
 				var firstEntry = ! state.hasEntered;
 				state.hasEntered = true;
-				if ( dir === 'up' && ! firstEntry ) {
+				// The off-screen reset above clears a Repeat / Reverse
+				// Entry's classes but keeps hasEntered. If that block next
+				// enters going "up" (the window grew, a phone rotated, or
+				// a jump landed below it), onEnterBack has nothing to
+				// reverse and never shows a block with no trigger class,
+				// so it sat in the zone hidden (GH #124). No class means
+				// it is waiting for its Entry, whichever way it comes in.
+				var awaitingEntry =
+					state.hasEntry &&
+					! state.el.classList.contains( 'mb-triggered' ) &&
+					! state.el.classList.contains( 'mb-exit-triggered' );
+				if ( dir === 'up' && ! firstEntry && ! awaitingEntry ) {
 					// onEnterBack — genuine re-entry from above; Exit
 					// slot owns this.
 					handleSlotEnterBack( state );
@@ -1667,6 +1756,11 @@ import {
 				exitPendingUntil: 0,
 				unobserved: false,
 				pageTop: 0,
+				// Screen-relative top for a block in a fixed container,
+				// else null; and the scroll-independent top refreshAll()
+				// compares (see refreshBounds).
+				fixedTop: null,
+				layoutTop: 0,
 				pageBottom: 0,
 				pageHeight: 0,
 				io: null,
@@ -1724,12 +1818,12 @@ import {
 			docHeight = readDocHeight();
 			drawTriggerLines();
 			states.forEach( function ( state ) {
-				var prevTop = state.pageTop;
+				var prevTop = state.layoutTop;
 				refreshBounds( state );
 				var layoutDir = null;
-				if ( state.pageTop > prevTop ) {
+				if ( state.layoutTop > prevTop ) {
 					layoutDir = 'up';
-				} else if ( state.pageTop < prevTop ) {
+				} else if ( state.layoutTop < prevTop ) {
 					layoutDir = 'down';
 				}
 				tick( state, layoutDir );

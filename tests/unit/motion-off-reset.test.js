@@ -10,7 +10,8 @@
  * is on (src/motion-gate.js), and there is nothing to reset.
  *
  * Guards:
- *   - no `!important` anywhere in the file;
+ *   - no `!important` anywhere in the file, except the print rule
+ *     (GH #127);
  *   - every rule that sets a motion property is gated, on every
  *     selector in its list, and nothing else is (the custom-property
  *     defaults and the page overflow clip stay ungated);
@@ -64,10 +65,17 @@ function styleRules() {
 const rules = styleRules();
 
 describe( 'motion gate in animations.css (#53)', () => {
-	it( 'has no !important declarations', () => {
+	it( 'has no !important declarations outside the print rule', () => {
 		const important = [];
 		css.walkDecls( ( d ) => {
-			if ( d.important ) {
+			// The print rule (GH #127) is the one exception: only
+			// `!important` outranks a running animation's value.
+			// tests/unit/print-css.test.js covers it.
+			const inPrint =
+				d.parent.parent?.type === 'atrule' &&
+				d.parent.parent.name === 'media' &&
+				d.parent.parent.params === 'print';
+			if ( d.important && ! inPrint ) {
 				important.push( `${ d.parent.selector } { ${ d.prop } }` );
 			}
 		} );
@@ -116,7 +124,8 @@ describe( 'motion gate in animations.css (#53)', () => {
 		expect( text ).not.toMatch( /html\.mb-js/ );
 		const media = [];
 		css.walkAtRules( 'media', ( at ) => media.push( at.params ) );
-		expect( media ).toEqual( [] );
+		// Print is not a motion-off state: it has its own rule (GH #127).
+		expect( media ).toEqual( [ 'print' ] );
 	} );
 
 	it( 'only sets preserve-3d on Flip rules (GH #33)', () => {

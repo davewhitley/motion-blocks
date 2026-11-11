@@ -1239,3 +1239,38 @@
 :where(html.mb-motion) [data-mb-target="img"].mb-triggered.mb-settled > picture > img:first-of-type {
 	animation: none;
 }
+
+/* ----------------------------------------------------------------
+ * Print (GH #127)
+ *
+ * Printing and "Save as PDF" lay the page out as it is right now:
+ * blocks still waiting for their Entry are at opacity 0, blocks an
+ * Exit has hidden stay hidden, and anything caught mid-animation
+ * prints mid-animation. Nothing scrolls on paper, so every animated
+ * block prints at rest instead.
+ *
+ * The one place this file uses `!important` (see #53), because it is
+ * the only thing that outranks a running animation's value. The
+ * alternatives replay: `animation: none` here, or dropping the motion
+ * gate on `beforeprint`, both restart every unsettled animation when
+ * the print dialog closes. These rules leave the animations alone, so
+ * the screen is unchanged before and after.
+ *
+ * Settled blocks are left out: their animation is already gone and
+ * the theme's own opacity / transform shows (see "Settled" above).
+ * Gated like every other motion rule, so with motion off nothing is
+ * overridden. tests/unit/print-css.test.js checks the targets match
+ * the ones "Settled" covers.
+ * -------------------------------------------------------------- */
+@media print {
+	:where(html.mb-motion) .mb-animated:where(:not(.mb-settled)),
+	:where(html.mb-motion) .mb-stagger-parent:where(:not(.mb-settled)) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+	:where(html.mb-motion) .mb-stagger-parent:where(:not(.mb-settled)) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
+	:where(html.mb-motion) [data-mb-target="img"]:where(:not(.mb-settled)) > img:first-of-type,
+	:where(html.mb-motion) [data-mb-target="img"]:where(:not(.mb-settled)) > picture > img:first-of-type {
+		opacity: 1 !important;
+		transform: none !important;
+		clip-path: none !important;
+		filter: none !important;
+	}
+}

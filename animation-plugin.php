@@ -1002,6 +1002,27 @@ function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
 }
 
 /**
+ * Move a tag processor to the block's own element: the first tag that
+ * isn't a `<style>`, `<script>`, `<link>` or `<meta>`.
+ *
+ * Some dynamic blocks print their styles or script ahead of their
+ * wrapper. Taking the very first tag put the animation classes on that
+ * `<style>` / `<script>`, so the block never animated (GH #41).
+ *
+ * @param WP_HTML_Tag_Processor $processor Processor at the start of the block's markup.
+ * @return bool False when the markup holds no such tag.
+ */
+function motion_blocks_seek_block_tag( $processor ) {
+    $skip = array( 'STYLE', 'SCRIPT', 'LINK', 'META' );
+    while ( $processor->next_tag() ) {
+        if ( ! in_array( $processor->get_tag(), $skip, true ) ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Render-time filter that injects mb-* classes and data-mb-* attrs
  * onto the block wrapper based on the block's stored animation
  * attributes. Runs on every block; bails early when no animation is
@@ -1076,7 +1097,7 @@ function motion_blocks_render_block( $block_content, $block ) {
 
     $processor = new WP_HTML_Tag_Processor( $block_content );
 
-    if ( ! $processor->next_tag() ) {
+    if ( ! motion_blocks_seek_block_tag( $processor ) ) {
         return $block_content;
     }
 

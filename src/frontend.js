@@ -18,7 +18,17 @@
 import SHARED from '../shared-constants.json';
 import { isValidFromToValue } from './css-values';
 import { setStaggerIndices } from './stagger-index';
-import { imgTargetSelector, imgFrameSelector } from './img-target';
+import {
+	imgTargetSelector,
+	imgFrameSelector,
+	imgTargetsOf,
+} from './img-target';
+import {
+	scrollContainersOf,
+	layoutTopOf,
+	pageScrollRange,
+	rangePercent,
+} from './scroll-containers';
 import { startMotionGate, deviceQueries } from './motion-gate';
 import {
 	TRIGGER_ZONE_TOP_PCT,
@@ -107,6 +117,7 @@ import {
 			if ( scrollAppear ) {
 				scrollAppear.refreshAll();
 			}
+			refreshScrollInteractive();
 		};
 		// Read by the head failsafe on `load` (GH #57,
 		// motion_blocks_print_js_marker): set only once every mode is
@@ -676,7 +687,9 @@ import {
 		if ( mode === 'scroll-interactive' ) {
 			animProps = [
 				'animation-name: ' + keyframeName,
-				'animation-timeline: view()',
+				// `--mb-timeline` is only set when a cropping box
+				// around the block would hijack view() (GH #126).
+				'animation-timeline: var(--mb-timeline, view())',
 				'animation-range-start: var(--mb-range-start, entry 0%)',
 				'animation-range-end: var(--mb-range-end, exit 100%)',
 				'animation-duration: 1ms',
@@ -1473,6 +1486,90 @@ import {
 			state.pageTop = top;
 			state.pageHeight = state.el.offsetHeight;
 			state.pageBottom = top + state.pageHeight;
+
+			// Boxes around the block that scroll on their own (a
+			// fixed-height `overflow: auto` panel, a scrolling popup,
+			// a theme that scrolls <body> or a wrapper instead of the
+			// page). The offsets above don't change when such a box
+			// scrolls, so tick() takes each box's scroll position off
+			// the block's top and crops the block to the box (GH #4).
+			// For a block in a fixed container only the boxes inside
+			// that container count: the ones outside don't move it.
+			var fixedBox = state.fixedTop === null ? null : n;
+			state.scrollers = [];
+			scrollContainersOf( state.el ).forEach( function ( c ) {
+				if ( ! c.live || ( fixedBox && ! fixedBox.contains( c.el ) ) ) {
+					return;
+				}
+				var box = layoutTopOf( c.el );
+				if ( ! box || box.fixed !== ( fixedBox !== null ) ) {
+					return;
+				}
+				// Outermost first, the order tick() needs.
+				state.scrollers.unshift( {
+					el: c.el,
+					top: box.top + c.el.clientTop,
+					height: c.el.clientHeight,
+				} );
+			} );
+		}
+
+		/**
+		 * Where a block inside scrolling boxes really is (GH #4).
+		 *
+		 * `top` is the block's page top without any inner scrolling.
+		 * Take each box's scroll position off it, then see how much of
+		 * the block shows through the boxes. Scrolled out of a box, the
+		 * block is as good as off screen, so it is reported just past
+		 * the screen edge on that side and every rule in tick() treats
+		 * it like a block the page itself scrolled away. Part-shown, it
+		 * is cropped to what shows.
+		 *
+		 * @param {Object} state  Block state.
+		 * @param {number} top    Page top before inner scrolling.
+		 * @param {number} shift  Scroll position to add to the boxes'
+		 *                        tops (they are screen-relative inside a
+		 *                        fixed container), else 0.
+		 * @param {number} viewTop    Page position of the screen's top.
+		 * @param {number} viewBottom Page position of the screen's bottom.
+		 * @return {{top: number, bottom: number, rawTop: number}} Cropped
+		 *         top and bottom, and the uncropped top.
+		 */
+		function placeInScrollers( state, top, shift, viewTop, viewBottom ) {
+			var scrolled = 0;
+			var clipTop = -Infinity;
+			var clipBottom = Infinity;
+			state.scrollers.forEach( function ( s ) {
+				var boxTop = s.top + shift - scrolled;
+				clipTop = Math.max( clipTop, boxTop );
+				clipBottom = Math.min( clipBottom, boxTop + s.height );
+				scrolled += s.el.scrollTop;
+			} );
+			var rawTop = top - scrolled;
+			var rawBottom = rawTop + state.pageHeight;
+			if ( rawBottom <= clipTop ) {
+				// Scrolled out through the top of a box.
+				var bottom = Math.min( rawBottom, viewTop - 1 );
+				return {
+					top: bottom - state.pageHeight,
+					bottom: bottom,
+					rawTop: rawTop,
+				};
+			}
+			if ( rawTop >= clipBottom ) {
+				// Not scrolled into view yet (or scrolled back down).
+				var below = Math.max( rawTop, viewBottom + 1 );
+				return {
+					top: below,
+					bottom: below + state.pageHeight,
+					rawTop: rawTop,
+				};
+			}
+			return {
+				top: Math.max( rawTop, clipTop ),
+				bottom: Math.min( rawBottom, clipBottom ),
+				rawTop: rawTop,
+			};
 		}
 
 		/**
@@ -1522,6 +1619,33 @@ import {
 			var vh = window.innerHeight;
 			var viewportTop = currentScrollY;
 			var viewportBottom = currentScrollY + vh;
+
+			// A block inside boxes that scroll on their own: its place
+			// depends on their scroll positions too, and its direction
+			// on which way it last moved on the screen, since scrolling
+			// a box moves it while the page stands still (GH #4).
+			if ( state.scrollers.length ) {
+				var fixed = state.fixedTop !== null;
+				var placed = placeInScrollers(
+					state,
+					fixed ? state.fixedTop + currentScrollY : state.layoutTop,
+					fixed ? currentScrollY : 0,
+					viewportTop,
+					viewportBottom
+				);
+				state.pageTop = placed.top;
+				state.pageBottom = placed.bottom;
+				var screenTop = placed.rawTop - currentScrollY;
+				if ( state.screenTop !== null ) {
+					if ( screenTop < state.screenTop ) {
+						state.scrollerDir = 'down';
+					} else if ( screenTop > state.screenTop ) {
+						state.scrollerDir = 'up';
+					}
+				}
+				state.screenTop = screenTop;
+				dir = layoutDir || state.scrollerDir;
+			}
 			var zone = zoneBounds( currentScrollY, vh, docHeight );
 			var overlap = zoneOverlap(
 				state.pageTop,
@@ -1883,6 +2007,12 @@ import {
 				layoutTop: 0,
 				pageBottom: 0,
 				pageHeight: 0,
+				// Boxes around the block that scroll on their own
+				// (outermost first), its last top on the screen and the
+				// way it last moved there (see refreshBounds, tick).
+				scrollers: [],
+				screenTop: null,
+				scrollerDir: 'same',
 				io: null,
 				ro: null,
 			};
@@ -2020,8 +2150,13 @@ import {
 		// tick() function's `inZone === state.inZone` short-circuit
 		// makes redundant calls (when IO already fired for this same
 		// frame) cheap no-ops.
+		//
+		// Listening on the document in the capture phase hears the
+		// page's scroll and the scroll of any box inside it (a scroll
+		// event on an element doesn't bubble), so blocks inside a
+		// scrolling box are ticked when that box scrolls (GH #4).
 		var scrollScheduled = false;
-		window.addEventListener(
+		document.addEventListener(
 			'scroll',
 			function () {
 				if ( scrollScheduled ) {
@@ -2039,7 +2174,7 @@ import {
 					} );
 				} );
 			},
-			{ passive: true }
+			{ passive: true, capture: true }
 		);
 
 		return {
@@ -2588,13 +2723,132 @@ import {
 		// scoped CSS rule consumes `var(--mb-range-start)`,
 		// which doesn't propagate from inline `animation-range-*`
 		// declarations on the parent).
+		bindScrollTimeline( el );
+		scrollInteractiveEls.add( el );
+		watchScrollInteractiveLayout();
+	}
+
+	// Every wired Scroll Interactive block, so their timelines can be
+	// re-bound when the layout changes (refreshScrollInteractive).
+	var scrollInteractiveEls = new Set();
+
+	/**
+	 * Bind a Scroll Interactive block's timeline and range.
+	 *
+	 * Normally `view()`: the browser tracks the block through the
+	 * screen. But view() follows the nearest scroll container, and a box
+	 * with `overflow: hidden` (a rounded card, a theme's page wrapper,
+	 * `html, body { overflow-x: hidden }`) is one even though it never
+	 * scrolls. The timeline then never moves and the block sits frozen
+	 * part-way through its effect, near-invisible low on a long page
+	 * (GH #126).
+	 *
+	 * When every scroll container around the block is one that can't
+	 * scroll, bind the page's own scroll instead, `scroll(root)`, with
+	 * the range as the two scroll positions view() would have used
+	 * (pageScrollRange). Those are fixed numbers, so they are worked out
+	 * again on every layout change. A box that really scrolls keeps
+	 * view(): following that box is then the right thing.
+	 */
+	function bindScrollTimeline( el ) {
 		var rangeStart = el.dataset.mbRangeStart || 'entry 0%';
 		var rangeEnd = el.dataset.mbRangeEnd || 'exit 100%';
-		el.style.animationTimeline = 'view()';
+		var timeline = 'view()';
+
+		var containers = scrollContainersOf( el );
+		var cropped =
+			containers.length > 0 &&
+			! containers.some( function ( c ) {
+				return c.live;
+			} );
+		if ( cropped ) {
+			// The element that animates: the image for an image
+			// target, else the block.
+			var subject = el;
+			if (
+				el.dataset.mbTarget === 'img' ||
+				SHARED.imageEffectTypes.indexOf( el.dataset.mbType ) !== -1
+			) {
+				subject = imgTargetsOf( el )[ 0 ] || el;
+			}
+			var box = layoutTopOf( subject );
+			// Hidden, or in a fixed box (which doesn't move with the
+			// page): leave view().
+			if ( box && ! box.fixed ) {
+				var range = pageScrollRange(
+					box.top,
+					subject.offsetHeight,
+					window.innerHeight,
+					rangePercent( rangeStart, 0 ),
+					rangePercent( rangeEnd, 100 )
+				);
+				timeline = 'scroll(root)';
+				rangeStart = Math.round( range.start ) + 'px';
+				rangeEnd = Math.round( range.end ) + 'px';
+			}
+		}
+
+		// Set both inline animation props (so the block itself
+		// animates) AND CSS custom properties (so img-target blocks
+		// can read them via inheritance — the img's scoped CSS rule
+		// consumes `var(--mb-range-start)`, which doesn't propagate
+		// from inline `animation-range-*` declarations on the parent).
+		el.style.animationTimeline = timeline;
 		el.style.animationRangeStart = rangeStart;
 		el.style.animationRangeEnd = rangeEnd;
 		el.style.setProperty( '--mb-range-start', rangeStart );
 		el.style.setProperty( '--mb-range-end', rangeEnd );
+		if ( timeline === 'view()' ) {
+			el.style.removeProperty( '--mb-timeline' );
+		} else {
+			el.style.setProperty( '--mb-timeline', timeline );
+		}
+	}
+
+	/** Re-bind every Scroll Interactive block after a layout change. */
+	function refreshScrollInteractive() {
+		scrollInteractiveEls.forEach( function ( el ) {
+			if ( ! el.isConnected ) {
+				scrollInteractiveEls.delete( el );
+				return;
+			}
+			bindScrollTimeline( el );
+		} );
+	}
+
+	/**
+	 * Layout changes that can move a block, resize the screen, or
+	 * change which boxes crop (a theme rule inside a media query):
+	 * window resize, late images and fonts, and the page growing or
+	 * shrinking. Started with the first Scroll Interactive block.
+	 */
+	var scrollInteractiveWatching = false;
+	function watchScrollInteractiveLayout() {
+		if ( scrollInteractiveWatching ) {
+			return;
+		}
+		scrollInteractiveWatching = true;
+		var scheduled = false;
+		function schedule() {
+			if ( scheduled ) {
+				return;
+			}
+			scheduled = true;
+			requestAnimationFrame( function () {
+				scheduled = false;
+				refreshScrollInteractive();
+			} );
+		}
+		window.addEventListener( 'resize', schedule );
+		if ( document.readyState !== 'complete' ) {
+			window.addEventListener( 'load', schedule );
+		}
+		if ( document.fonts && document.fonts.ready ) {
+			document.fonts.ready.then( schedule );
+		}
+		if ( typeof ResizeObserver !== 'undefined' && document.body ) {
+			new ResizeObserver( schedule ).observe( document.body );
+		}
 	}
 
 	/* ---------------------------------------------------------------

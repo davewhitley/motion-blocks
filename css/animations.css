@@ -72,6 +72,7 @@
 	--mb-flip-transform: rotateY(90deg);
 	--mb-range-start: entry 0%;
 	--mb-range-end: exit 100%;
+	--mb-timeline: view();
 }
 
 /* ----------------------------------------------------------------
@@ -771,7 +772,9 @@
 @supports (animation-timeline: view()) {
 	:where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive > img:first-of-type,
 	:where(html.mb-motion) [data-mb-target="img"].mb-mode-scroll-interactive > picture > img:first-of-type {
-		animation-timeline: view();
+		/* --mb-timeline is set by frontend.js only when a cropping
+		   box around the block would hijack view() (GH #126). */
+		animation-timeline: var(--mb-timeline, view());
 		animation-range-start: var(--mb-range-start, entry 0%);
 		animation-range-end: var(--mb-range-end, exit 100%);
 		animation-duration: 1ms;

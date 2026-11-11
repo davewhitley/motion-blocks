@@ -295,6 +295,7 @@ $mb_invalid = array(
 	array( 'bad range', array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'range' => array( 'start' => 'top' ) ), 'core/paragraph', 'range.start' ),
 	array( 'field from another mode', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade' ), 'repeat' => 'loop' ), 'core/paragraph', 'repeat' ),
 	array( 'Custom HTML block', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/html', '' ),
+	array( 'Synced pattern block', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/block', '' ),
 );
 foreach ( $mb_invalid as $inv ) {
 	list( $label, $recipe, $name, $want_path ) = $inv;

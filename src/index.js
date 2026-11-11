@@ -48,6 +48,8 @@ import {
 	defaultAcceleration,
 	resetPreviewUiAttributes,
 	canAnimateBlock,
+	clearAnimationAttributes,
+	SYNCED_PATTERN_BLOCK,
 } from './components/constants';
 
 import '../css/editor.scss';
@@ -914,6 +916,23 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 				canAnimateBlock( getBlockName( id ) )
 			);
 		}, [ registry, multiSelectedClientIds ] );
+
+		// A synced pattern can't be animated as a whole (GH #41): drop
+		// an animation saved on one before, so nothing stale shows in
+		// the editor preview or counts as "already animated". Not an
+		// edit the user made, so it adds no undo step; the front end
+		// ignores these attributes either way.
+		const staleMode =
+			name === SYNCED_PATTERN_BLOCK && !! attributes.animationMode;
+		useEffect( () => {
+			if ( ! staleMode ) {
+				return;
+			}
+			registry
+				.dispatch( blockEditorStore )
+				.__unstableMarkNextChangeAsNotPersistent();
+			setAttributes( clearAnimationAttributes() );
+		}, [ staleMode, registry, setAttributes ] );
 
 		// When multi-selecting, route attribute updates through the
 		// store dispatch so they apply to every selected block at

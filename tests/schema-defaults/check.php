@@ -469,6 +469,80 @@ foreach ( $template_errors as $error ) {
 	echo "        {$error}\n";
 }
 
-if ( $failed || $preview_failed || $template_errors ) {
+// --- Blocks that print a <style> / <script> first (GH #41) ---
+// The animation goes on the block's own element, not on the tag the
+// block happens to print first.
+echo "\nLeading <style> / <script> tags are skipped\n";
+register_block_type(
+	'mb-test/leading-style',
+	array(
+		'render_callback' => function () {
+			return '<style>.mb-test-ls{color:red}</style><script>window.mbTestLs=1;</script><link rel="stylesheet" href="#mb-test"><meta itemprop="x" content="y"><div class="wp-block-mb-test-leading-style"><p>Hi</p></div>';
+		},
+	)
+);
+$leading_html = do_blocks( '<!-- wp:mb-test/leading-style {"animationMode":"page-load","animationType":"fade"} /-->' );
+register_block_type(
+	'mb-test/only-style',
+	array(
+		'render_callback' => function () {
+			return '<style>.mb-test-os{color:red}</style>';
+		},
+	)
+);
+$only_html = do_blocks( '<!-- wp:mb-test/only-style {"animationMode":"page-load","animationType":"fade"} /-->' );
+unregister_block_type( 'mb-test/leading-style' );
+unregister_block_type( 'mb-test/only-style' );
+$leading_errors = array();
+if ( ! preg_match( '/<div[^>]*class="[^"]*mb-animated[^"]*"[^>]*data-mb-mode="page-load"|<div[^>]*data-mb-mode="page-load"[^>]*class="[^"]*mb-animated/', $leading_html ) ) {
+	$leading_errors[] = 'the block\'s <div> is not animated';
+}
+if ( 1 !== substr_count( $leading_html, 'mb-animated' ) ) {
+	$leading_errors[] = 'expected exactly 1 animated element';
+}
+foreach ( array( '<style>', '<script>', '<link rel="stylesheet" href="#mb-test">', '<meta itemprop="x" content="y">' ) as $leading_tag ) {
+	if ( false === strpos( $leading_html, $leading_tag ) ) {
+		$leading_errors[] = "{$leading_tag} was changed";
+	}
+}
+if ( '<style>.mb-test-os{color:red}</style>' !== trim( $only_html ) ) {
+	$leading_errors[] = 'a block that prints only a <style> was changed';
+}
+echo ( $leading_errors ? 'FAIL' : 'PASS' ) . "  the animation lands on the block's own element\n";
+foreach ( $leading_errors as $error ) {
+	echo "        {$error}\n";
+}
+
+// --- Synced patterns (GH #41) ---
+// A synced pattern has no wrapper element, so an animation saved on
+// the pattern block is dropped; blocks inside keep their own.
+echo "\nSynced patterns are not animated as a whole\n";
+$synced_id   = wp_insert_post(
+	array(
+		'post_type'    => 'wp_block',
+		'post_status'  => 'publish',
+		'post_title'   => 'Motion Blocks test pattern',
+		'post_content' => '<!-- wp:heading --><h2 class="wp-block-heading">One</h2><!-- /wp:heading -->'
+			. '<!-- wp:paragraph {"animationMode":"page-load","animationType":"fade"} --><p>Two</p><!-- /wp:paragraph -->',
+	)
+);
+$synced_html = do_blocks( '<!-- wp:block {"ref":' . (int) $synced_id . ',"animationMode":"page-load","animationType":"slide"} /-->' );
+wp_delete_post( $synced_id, true );
+$synced_errors = array();
+if ( false === strpos( $synced_html, '>One</h2>' ) ) {
+	$synced_errors[] = 'the pattern did not render (check the fixture)';
+}
+if ( preg_match( '/<h2[^>]*mb-animated/', $synced_html ) ) {
+	$synced_errors[] = 'the pattern\'s animation landed on its first block';
+}
+if ( ! preg_match( '/<p[^>]*mb-enter-fade/', $synced_html ) ) {
+	$synced_errors[] = 'a block inside the pattern lost its own animation';
+}
+echo ( $synced_errors ? 'FAIL' : 'PASS' ) . "  the pattern's animation is dropped, inner blocks keep theirs\n";
+foreach ( $synced_errors as $error ) {
+	echo "        {$error}\n";
+}
+
+if ( $failed || $preview_failed || $template_errors || $leading_errors || $synced_errors ) {
 	exit( 1 );
 }

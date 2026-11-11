@@ -406,6 +406,12 @@ import {
 			horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
 			vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
 		},
+		// Curtain Close — same vars as `curtain`: mbCurtainClose
+		// animates inset(0) → that slit shape (GH #129).
+		'curtain-out': {
+			horizontal: { '--mb-curtain-from': 'inset(0 50% 0 50%)' },
+			vertical: { '--mb-curtain-from': 'inset(50% 0 50% 0)' },
+		},
 		flip: {
 			ltr: { '--mb-flip-transform': 'rotateY(-90deg)' },
 			rtl: { '--mb-flip-transform': 'rotateY(90deg)' },

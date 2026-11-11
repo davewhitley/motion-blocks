@@ -15,7 +15,8 @@
 		"core/freeform",
 		"core/html",
 		"core/shortcode",
-		"core/spacer"
+		"core/spacer",
+		"core/block"
 	],
 
 	"staggerIncompatibleTypes": [ "image-move", "image-zoom" ],

@@ -94,6 +94,12 @@ export const IMAGE_TARGETABLE_BLOCKS = [ 'core/cover' ];
  *   animate them.
  * - `core/spacer`: empty space, so an effect on it shows nothing.
  *   Stagger skips spacers too (src/stagger-index.js).
+ * - `core/block` (synced pattern): no wrapper element on the front end
+ *   either, so the effect landed on the pattern's first block only
+ *   while the editor preview moved the whole pattern (GH #41).
+ *   WordPress shows no plugin panels on a synced pattern (checked on
+ *   6.8 and 7.1), so these animations came from Auto-animate and
+ *   recipes; one saved before is cleared when the editor loads it.
  *
  * The render filter skips these too, so animations saved on them
  * before are dropped on the front end.
@@ -109,6 +115,9 @@ export const NON_ANIMATABLE_BLOCKS = SHARED.nonAnimatableBlocks;
 export function canAnimateBlock( blockName ) {
 	return ! NON_ANIMATABLE_BLOCKS.includes( blockName );
 }
+
+/** The synced pattern block (a reference to a `wp_block` post). */
+export const SYNCED_PATTERN_BLOCK = 'core/block';
 
 /**
  * Fit a pasted or applied animation to the block it lands on (GH #30).

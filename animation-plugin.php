@@ -1021,11 +1021,12 @@ function motion_blocks_render_block( $block_content, $block ) {
     }
 
     // Blocks that can't keep animation settings (Classic, Custom HTML,
-    // Shortcode, Spacer — `nonAnimatableBlocks`, the editor's
-    // NON_ANIMATABLE_BLOCKS). Custom HTML and Shortcode have no wrapper
-    // of their own, so the first-tag rule below would animate whatever
-    // their content prints first. The editor no longer offers the
-    // panel on them; this drops animations saved on them before.
+    // Shortcode, Spacer, synced patterns — `nonAnimatableBlocks`, the
+    // editor's NON_ANIMATABLE_BLOCKS). Custom HTML, Shortcode and
+    // synced patterns (`core/block`, GH #41) have no wrapper of their
+    // own, so the first-tag rule below would animate whatever their
+    // content prints first. The editor no longer offers the controls
+    // on them; this drops animations saved on them before.
     $non_animatable = motion_blocks_shared_constants()['nonAnimatableBlocks'] ?? array();
     if ( in_array( $block_name, $non_animatable, true ) ) {
         return $block_content;

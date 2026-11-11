@@ -794,6 +794,17 @@ describe( 'restraint and safety', () => {
 		expect( p.skipExisting ).toHaveLength( 1 );
 	} );
 
+	it( 'skips a synced pattern and does not reach inside it (GH #41)', () => {
+		const synced = b( 'core/block', [ heading(), para() ], { ref: 12 } );
+		const p = plan( [ synced, heading() ] );
+		const ids = p.apply.map( ( a ) => a.clientId );
+		expect( ids ).not.toContain( synced.clientId );
+		synced.innerBlocks.forEach( ( inner ) =>
+			expect( ids ).not.toContain( inner.clientId )
+		);
+		expect( p.skipBody ).toContain( synced );
+	} );
+
 	it.each( PRESETS )(
 		'%s: Scroll Appear payloads use the slot shape only (GH #25)',
 		( preset ) => {
@@ -1262,6 +1273,8 @@ describe( 'Classic block', () => {
 		expect( canAnimateBlock( 'core/html' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/shortcode' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/spacer' ) ).toBe( false );
+		// Synced patterns: no wrapper on the front end (GH #41).
+		expect( canAnimateBlock( 'core/block' ) ).toBe( false );
 		expect( canAnimateBlock( 'core/paragraph' ) ).toBe( true );
 		expect( canAnimateBlock( 'acme/custom' ) ).toBe( true );
 	} );

@@ -67,7 +67,8 @@ const CATEGORY_BY_BLOCK_NAME = {
 	'core/separator': 'CHROME',
 	'core/site-logo': 'CHROME',
 	'core/navigation': 'CHROME',
-	// Synced pattern reference — animate the reference as one unit.
+	// Synced pattern reference: can't be animated as one unit (it has
+	// no wrapper element on the front end, GH #41), so it is skipped.
 	'core/block': 'SECTION',
 	// Broken-block placeholder for a missing plugin: skipped.
 	'core/missing': 'BROKEN',
@@ -1014,7 +1015,8 @@ export function computeAutoAnimatePlan(
 		const name = block.name;
 		const category = classifyBlock( block );
 		// Blocks that can't keep animation settings (Classic, Custom
-		// HTML, Shortcode, Spacer): the front end would ignore them,
+		// HTML, Shortcode, Spacer, synced patterns): the front end would
+		// ignore them,
 		// leaving a gap in a sequence. A Spacer still counts as chrome
 		// in the summary.
 		if ( ! canAnimateBlock( name ) ) {

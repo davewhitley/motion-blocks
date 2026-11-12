@@ -116,8 +116,12 @@ export default function PageLoadControls( {
 		attributes
 	);
 	const typeOptions = ANIMATION_TYPE_OPTIONS.filter( ( opt ) => {
+		// Out effects aren't offered here, but a block can still hold
+		// one (older content, a saved animation, an agent). Keep that
+		// one option so the select shows what the block really does
+		// and "Fade In" can be picked over it (GH #133).
 		if ( opt.value.endsWith( '-out' ) ) {
-			return false;
+			return opt.value === animationType;
 		}
 		if (
 			! blockSupportsImageEffects &&

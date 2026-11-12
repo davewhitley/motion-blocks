@@ -784,3 +784,16 @@
 	}
 }
 
+// Server-rendered post content inside the canvas (GH #133).
+//
+// The preview never puts `mb-mode-*` classes on an editor block, so an
+// element that has one is markup rendered by PHP: Post Content for a
+// post the user can't edit, or a third-party block that prints rendered
+// content. Nothing triggers those in the editor, so the front end's
+// pre-hide rules (animations.css) would leave them blank. Show them at
+// rest.
+.editor-styles-wrapper :is(.mb-mode-page-load, .mb-mode-scroll-appear),
+.editor-styles-wrapper :is(.mb-mode-page-load, .mb-mode-scroll-appear)[data-mb-target="img"] > img:first-of-type,
+.editor-styles-wrapper :is(.mb-mode-page-load, .mb-mode-scroll-appear)[data-mb-target="img"] > picture > img:first-of-type {
+	opacity: 1 !important;
+}

@@ -1888,7 +1888,10 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 
 		// Page-load / Scroll-appear: class-based preview.
 		else {
-			const loop = animationLoop || 'off';
+			// Loop is a Page Load setting. A value kept from an earlier
+			// visit to Page Load must not loop a Scroll Appear preview.
+			const loop =
+				animationMode === 'page-load' ? animationLoop || 'off' : 'off';
 			const isLooping = loop === 'loop' || loop === 'alternate';
 
 			const isPageLoadOrScrollAppear =

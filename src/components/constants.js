@@ -298,6 +298,23 @@ export function isStaggerCompatible( attrs ) {
 }
 
 /**
+ * Does this block stagger its direct children on the page? Mirrors
+ * the render filter's test for adding `mb-stagger-parent`.
+ *
+ * @param {string} blockName Block name.
+ * @param {Object} attrs     Block attributes.
+ * @return {boolean} True when its children play its effect in turn.
+ */
+export function staggersChildren( blockName, attrs ) {
+	return (
+		!! attrs?.animationMode &&
+		!! attrs.animationStaggerEnabled &&
+		STAGGER_PARENT_BLOCKS.includes( blockName ) &&
+		isStaggerCompatible( attrs )
+	);
+}
+
+/**
  * Default stagger step in seconds — matches the units used by
  * `animationDuration` and `animationDelay` so all three timing
  * controls in the panel are read the same way.
@@ -787,6 +804,9 @@ export function materializeScrollAppearPatch( attrs, patch ) {
 const LINEAR_SPRING = SHARED.easingPresets.spring;
 const LINEAR_SPRING_BOUNCY = SHARED.easingPresets.bouncy;
 const LINEAR_SPRING_SNAPPY = SHARED.easingPresets.snappy;
+// A fast start with a long, soft landing. Auto-animate uses it for
+// every block, so it has a name in the menu (GH #138).
+export const EASING_SMOOTH_OUT = SHARED.easingPresets[ 'smooth-out' ];
 
 export const EASING_OPTIONS = [
 	{ label: __( 'Ease', 'motion-blocks' ), value: 'ease' },
@@ -794,6 +814,7 @@ export const EASING_OPTIONS = [
 	{ label: __( 'Ease In', 'motion-blocks' ), value: 'ease-in' },
 	{ label: __( 'Ease Out', 'motion-blocks' ), value: 'ease-out' },
 	{ label: __( 'Ease In-Out', 'motion-blocks' ), value: 'ease-in-out' },
+	{ label: __( 'Smooth Out', 'motion-blocks' ), value: EASING_SMOOTH_OUT },
 	// Spring presets built on CSS `linear()`. Each is a damped
 	// harmonic oscillator with different damping ratio (ζ) and
 	// angular frequency (ω):
@@ -2378,20 +2399,16 @@ export function switchModeAttributes( attributes, newMode ) {
 		animationPreviewSlot: 'entry',
 	};
 
-	// Reset attributes that belonged to the OLD mode and don't
-	// apply to the new one. Each block only fires when the user
-	// is leaving that specific mode.
-	if ( oldMode === 'page-load' ) {
-		out.animationLoop = DEFAULT_ATTRIBUTES.animationLoop;
-		out.animationPauseOffscreen =
-			DEFAULT_ATTRIBUTES.animationPauseOffscreen;
-	}
+	// Settings that belong to one mode stay on the block when it
+	// leaves that mode, so switching back to compare restores them
+	// (GH #138): Page Load's Loop and Pause off-screen, Scroll
+	// Interactive's start and end offsets, Scroll Appear's Replay. Each
+	// is read only in its own mode (the render filter, frontend.js and
+	// the editor preview all check the mode first), so a kept value is
+	// inert elsewhere. The retired Scroll Appear trigger is the one
+	// exception and is still cleared.
 	if ( oldMode === 'scroll-appear' ) {
 		out.animationScrollTrigger = DEFAULT_ATTRIBUTES.animationScrollTrigger;
-	}
-	if ( oldMode === 'scroll-interactive' ) {
-		out.animationRangeStart = DEFAULT_ATTRIBUTES.animationRangeStart;
-		out.animationRangeEnd = DEFAULT_ATTRIBUTES.animationRangeEnd;
 	}
 
 	// The Scroll Interactive panel offers no Stagger control, so a
@@ -2447,7 +2464,9 @@ export function switchModeAttributes( attributes, newMode ) {
 			out.animationEntryRotateAngle =
 				attributes.animationRotateAngle ??
 				DEFAULT_ATTRIBUTES.animationEntryRotateAngle;
-			out.animationEntryReplay = DEFAULT_ATTRIBUTES.animationEntryReplay;
+			out.animationEntryReplay =
+				attributes.animationEntryReplay ||
+				DEFAULT_ATTRIBUTES.animationEntryReplay;
 			// Carry the Custom From/To bag onto the Entry slot. Writing
 			// `animationEntryType` short-circuits the migration shim, so
 			// it won't copy these for us. Only when the shared bag has

@@ -40,6 +40,22 @@ const STYLE_LABELS = {
 	bold: __( 'Bold', 'motion-blocks' ),
 };
 
+/** One line on what each style does, shown under the picker. */
+const STYLE_DESCRIPTIONS = {
+	subtle: __(
+		'Short, gentle moves. Each section rises as one piece.',
+		'motion-blocks'
+	),
+	balanced: __(
+		'Medium moves. Items in a section rise one after another.',
+		'motion-blocks'
+	),
+	bold: __(
+		'Long, large moves. Items rise one after another, more slowly.',
+		'motion-blocks'
+	),
+};
+
 /**
  * Estimate which blocks start on the visitor's first screen, measured
  * in the editor canvas. The planner picks the hero by structure (see
@@ -223,6 +239,10 @@ function AutoAnimateModalContent( {
 	// blocks: their saved HTML no longer matches, so any change to them is
 	// lost on save, and they need recovering before they can be animated.
 	const invalidCount = plan.skipInvalid?.length || 0;
+	// Nothing left to animate because it is all animated already: the
+	// usual case when the dialog is opened a second time (GH #138).
+	const alreadyAnimated =
+		applyCount === 0 && ( plan.skipExisting?.length || 0 ) > 0;
 
 	const handleApply = () => {
 		if ( applyCount === 0 ) {
@@ -280,6 +300,7 @@ function AutoAnimateModalContent( {
 					label={ __( 'Style', 'motion-blocks' ) }
 					value={ stylePreset }
 					onChange={ ( v ) => setStylePreset( v ) }
+					help={ STYLE_DESCRIPTIONS[ stylePreset ] }
 					isBlock
 					__nextHasNoMarginBottom
 					__next40pxDefaultSize
@@ -313,14 +334,23 @@ function AutoAnimateModalContent( {
 
 				{ applyCount === 0 && (
 					<p className="mb-auto-animate-modal__note">
-						{ sprintf(
-							/* translators: %s: editor context noun — page, pattern, template, etc. */
-							__(
-								'Nothing to animate on this %s.',
-								'motion-blocks'
-							),
-							contextNoun
-						) }
+						{ alreadyAnimated
+							? sprintf(
+									/* translators: %s: editor context noun — page, pattern, template, etc. */
+									__(
+										'Every block Auto-animate would animate on this %s already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+										'motion-blocks'
+									),
+									contextNoun
+							  )
+							: sprintf(
+									/* translators: %s: editor context noun — page, pattern, template, etc. */
+									__(
+										'Nothing to animate on this %s.',
+										'motion-blocks'
+									),
+									contextNoun
+							  ) }
 					</p>
 				) }
 
@@ -361,7 +391,9 @@ function AutoAnimateModalContent( {
 						__next40pxDefaultSize
 					>
 						{ applyCount === 0
-							? __( 'Nothing to animate', 'motion-blocks' )
+							? alreadyAnimated
+								? __( 'Already animated', 'motion-blocks' )
+								: __( 'Nothing to animate', 'motion-blocks' )
 							: sprintf(
 									/* translators: %d: number of blocks to animate */
 									_n(

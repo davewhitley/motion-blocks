@@ -59,6 +59,7 @@ import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
 import { customizeAndKeepFocus } from './keyboardFocus';
 import DurationControl from './DurationControl';
+import { imageTargetUnavailableText } from './imageTargetText';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -364,10 +365,7 @@ export default function SlotControls( {
 							isDismissible={ false }
 							className="mb-image-effect-unavailable-notice"
 						>
-							{ __(
-								'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
-								'motion-blocks'
-							) }
+							{ imageTargetUnavailableText( attributes ).notice }
 						</Notice>
 					) }
 
@@ -399,10 +397,9 @@ export default function SlotControls( {
 										blockName,
 										attributes
 									)
-										? __(
-												'Unavailable while “Fixed background” or “Repeated background” is on.',
-												'motion-blocks'
-										  )
+										? imageTargetUnavailableText(
+												attributes
+										  ).help
 										: __(
 												'Animate the background only. Text and other inner blocks are excluded.',
 												'motion-blocks'

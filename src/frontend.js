@@ -29,7 +29,12 @@ import {
 	pageScrollRange,
 	rangePercent,
 } from './scroll-containers';
-import { startMotionGate, deviceQueries } from './motion-gate';
+import {
+	startMotionGate,
+	deviceQueries,
+	motionWanted,
+	disabledDevicesFrom,
+} from './motion-gate';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
@@ -2575,14 +2580,33 @@ import {
 	 */
 	function settleWhenFinished( el, type, toPrefix ) {
 		cancelSettle( el );
-		if (
-			typeof el.getAnimations !== 'function' ||
-			! endsAtRest( type, el.dataset, toPrefix )
-		) {
+		if ( ! endsAtRest( type, el.dataset, toPrefix ) ) {
 			return;
 		}
 		var targets = settleTargets( el );
 		if ( ! targets ) {
+			return;
+		}
+		// Motion is off (reduced motion, or this device is switched
+		// off): nothing plays, so no animation will ever end. Settle
+		// now. Left unsettled, the block hid and played once when motion
+		// came back mid-visit, after a resize or rotation into another
+		// device's range (GH #170). Asked of the gate itself, not the
+		// `mb-motion` class, which a page whose assets arrive late
+		// doesn't have yet at this point.
+		if (
+			! motionWanted(
+				window,
+				disabledDevicesFrom(
+					document.body,
+					window.motionBlocksDisabledDevices
+				)
+			)
+		) {
+			el.classList.add( 'mb-settled' );
+			return;
+		}
+		if ( typeof el.getAnimations !== 'function' ) {
 			return;
 		}
 		function isOurs( name ) {

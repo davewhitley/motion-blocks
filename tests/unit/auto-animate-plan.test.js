@@ -36,7 +36,7 @@ const RETIRED = [
 	'animationDirection',
 	'animationDuration',
 	'animationDelay',
-	'animationAcceleration',
+	'animationEasing',
 	'animationScrollTrigger',
 	'animationPlayOnce',
 ];
@@ -99,7 +99,7 @@ describe( 'one motion language', () => {
 			expect( all.length ).toBe( 3 );
 			for ( const attrs of all ) {
 				expect( attrs.animationEntryType ).toBe( 'custom' );
-				expect( attrs.animationEntryAcceleration ).toBe( 'custom' );
+				expect( attrs.animationEntryEasing ).toBe( 'custom' );
 				expect( attrs.animationEntryCustomTimingFunction ).toBe(
 					MOTION_EASE
 				);

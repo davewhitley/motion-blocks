@@ -2,7 +2,7 @@
  * Motion Blocks — Frontend Script
  *
  * Handles three animation modes:
- *   1. Page Load — triggered on DOMContentLoaded, with optional repeat
+ *   1. Page Load — triggered on DOMContentLoaded, with optional loop
  *      and pause-offscreen.
  *   2. Scroll Appear — independent Entry and Exit slots, triggered from
  *      cached layout bounds woken by IntersectionObserver, ResizeObserver
@@ -57,14 +57,14 @@ import {
 		entry: {
 			duration: SHARED.schemaDefaults.animationEntryDuration,
 			delay: SHARED.schemaDefaults.animationEntryDelay,
-			acceleration: SHARED.schemaDefaults.animationEntryAcceleration,
+			easing: SHARED.schemaDefaults.animationEntryEasing,
 			blurAmount: SHARED.schemaDefaults.animationEntryBlurAmount,
 			rotateAngle: SHARED.schemaDefaults.animationEntryRotateAngle,
 		},
 		exit: {
 			duration: SHARED.schemaDefaults.animationExitDuration,
 			delay: SHARED.schemaDefaults.animationExitDelay,
-			acceleration: SHARED.schemaDefaults.animationExitAcceleration,
+			easing: SHARED.schemaDefaults.animationExitEasing,
 			blurAmount: SHARED.schemaDefaults.animationExitBlurAmount,
 			rotateAngle: SHARED.schemaDefaults.animationExitRotateAngle,
 		},
@@ -463,7 +463,7 @@ import {
 	function applyTimingProps( el ) {
 		var duration = el.dataset.mbDuration;
 		var delay = el.dataset.mbDelay;
-		var acceleration = el.dataset.mbAcceleration;
+		var easing = el.dataset.mbEasing;
 
 		if ( duration ) {
 			el.style.setProperty( '--mb-duration', duration + 's' );
@@ -471,8 +471,8 @@ import {
 		if ( delay ) {
 			el.style.setProperty( '--mb-delay', delay + 's' );
 		}
-		if ( acceleration ) {
-			el.style.setProperty( '--mb-timing', acceleration );
+		if ( easing ) {
+			el.style.setProperty( '--mb-timing', easing );
 		}
 	}
 
@@ -1221,8 +1221,8 @@ import {
 			// scrolls the focused element into view.
 			return;
 		}
-		var repeat = el.dataset.mbRepeat || 'once';
-		if ( repeat === 'loop' || repeat === 'alternate' ) {
+		var loop = el.dataset.mbLoop || 'off';
+		if ( loop === 'loop' || loop === 'alternate' ) {
 			if ( keyboard && focusPaused.indexOf( el ) === -1 ) {
 				focusPaused.push( el );
 				el.style.setProperty( '--mb-play-state', 'paused' );
@@ -1296,15 +1296,15 @@ import {
 		applyRotateProps( el );
 		applyCustomKeyframe( el );
 
-		// Handle repeat mode. Set CSS custom properties instead
+		// Handle loop mode. Set CSS custom properties instead
 		// of inline `animation-*` shorthand — the custom props
 		// inherit through the cascade, so a staggered parent's
 		// loop / alternate settings propagate to its inner blocks
 		// via the `.mb-stagger-parent.mb-triggered > *` rule in
 		// animations.css. Inline `animationIterationCount` on the
 		// parent would NOT cascade.
-		var repeat = el.dataset.mbRepeat || 'once';
-		var isLooping = repeat === 'loop' || repeat === 'alternate';
+		var loop = el.dataset.mbLoop || 'off';
+		var isLooping = loop === 'loop' || loop === 'alternate';
 
 		// `backwards`, not `none`: a loop never ends, so only the delay
 		// is filled. With `none` the block showed at rest for the delay
@@ -1320,10 +1320,10 @@ import {
 				);
 			}
 		}
-		if ( repeat === 'loop' ) {
+		if ( loop === 'loop' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
 			el.style.setProperty( '--mb-fill-mode', 'backwards' );
-		} else if ( repeat === 'alternate' ) {
+		} else if ( loop === 'alternate' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
 			el.style.setProperty( '--mb-direction', 'alternate' );
 			el.style.setProperty( '--mb-fill-mode', 'backwards' );
@@ -1331,7 +1331,7 @@ import {
 
 		// A one-shot Page Load never plays again: once it finishes,
 		// drop its filled last frame (GH #20).
-		if ( isOneShotPageLoad( repeat ) ) {
+		if ( isOneShotPageLoad( loop ) ) {
 			settleWhenFinished( el, el.dataset.mbType, 'mbTo' );
 		}
 
@@ -2460,8 +2460,7 @@ import {
 			direction: el.dataset[ prefix + 'Direction' ] || '',
 			duration: el.dataset[ prefix + 'Duration' ] || defaults.duration,
 			delay: el.dataset[ prefix + 'Delay' ] || defaults.delay,
-			acceleration:
-				el.dataset[ prefix + 'Acceleration' ] || defaults.acceleration,
+			easing: el.dataset[ prefix + 'Easing' ] || defaults.easing,
 			blurAmount:
 				el.dataset[ prefix + 'BlurAmount' ] || defaults.blurAmount,
 			rotateAngle:
@@ -2483,7 +2482,7 @@ import {
 	function applySlotVars( el, slotConfig ) {
 		el.style.setProperty( '--mb-duration', slotConfig.duration + 's' );
 		el.style.setProperty( '--mb-delay', slotConfig.delay + 's' );
-		el.style.setProperty( '--mb-timing', slotConfig.acceleration );
+		el.style.setProperty( '--mb-timing', slotConfig.easing );
 		el.style.setProperty(
 			'--mb-blur-amount',
 			slotConfig.blurAmount + 'px'
@@ -2902,10 +2901,10 @@ import {
 		applyRotateProps( el );
 		applyCustomKeyframe( el );
 
-		// Apply acceleration (timing function).
-		var acceleration = el.dataset.mbAcceleration;
-		if ( acceleration ) {
-			el.style.setProperty( '--mb-timing', acceleration );
+		// Apply easing (timing function).
+		var easing = el.dataset.mbEasing;
+		if ( easing ) {
+			el.style.setProperty( '--mb-timing', easing );
 		}
 
 		// Apply scroll-driven animation to container. Set both

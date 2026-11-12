@@ -121,17 +121,17 @@ function motion_blocks_attr_default( $key ) {
 }
 
 /**
- * The Acceleration a Page Load or Scroll Interactive block gets when it
+ * The Easing a Page Load or Scroll Interactive block gets when it
  * has none stored (the schema default is '', "this effect's default").
  * Scroll Interactive effects in `scrollLinearTypes` default to linear,
  * so they follow the scroll evenly; everything else defaults to ease
- * (GH #109). Mirrors defaultAcceleration() in src/components/constants.js.
+ * (GH #109). Mirrors defaultEasing() in src/components/constants.js.
  *
  * @param string $mode Animation mode.
  * @param string $type Effect type.
  * @return string 'linear' or 'ease'.
  */
-function motion_blocks_default_acceleration( $mode, $type ) {
+function motion_blocks_default_easing( $mode, $type ) {
     $linear = motion_blocks_shared_constants()['scrollLinearTypes'] ?? array();
     return 'scroll-interactive' === $mode && in_array( $type, $linear, true )
         ? 'linear'
@@ -915,7 +915,7 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
     $duration     = $attrs['animationDuration'] ?? motion_blocks_attr_default( 'animationDuration' );
     $delay        = $attrs['animationDelay'] ?? motion_blocks_attr_default( 'animationDelay' );
     // Unset ('') is "this effect's default": always ease in Scroll Appear.
-    $acceleration = ( $attrs['animationAcceleration'] ?? '' ) ?: 'ease';
+    $easing = ( $attrs['animationEasing'] ?? '' ) ?: 'ease';
     $custom_tf    = $attrs['animationCustomTimingFunction']
         ?? motion_blocks_attr_default( 'animationCustomTimingFunction' );
     $blur         = $attrs['animationBlurAmount'] ?? motion_blocks_attr_default( 'animationBlurAmount' );
@@ -939,7 +939,7 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
         $direction,
         $duration,
         $delay,
-        $acceleration,
+        $easing,
         $custom_tf,
         $blur,
         $rotate,
@@ -950,7 +950,7 @@ function motion_blocks_migrate_scroll_appear_attrs( $attrs ) {
             "{$prefix}Direction"             => $direction,
             "{$prefix}Duration"              => $duration,
             "{$prefix}Delay"                 => $is_exit_only ? 0 : $delay,
-            "{$prefix}Acceleration"          => $acceleration,
+            "{$prefix}Easing"          => $easing,
             "{$prefix}CustomTimingFunction"  => $custom_tf,
             "{$prefix}BlurAmount"            => $blur,
             "{$prefix}RotateAngle"           => $rotate,
@@ -1265,8 +1265,8 @@ function motion_blocks_render_block( $block_content, $block ) {
                     ?? motion_blocks_attr_default( "{$slot['prefix']}Delay" ) )
             );
 
-            $slot_accel = $attrs[ "{$slot['prefix']}Acceleration" ]
-                ?? motion_blocks_attr_default( "{$slot['prefix']}Acceleration" );
+            $slot_accel = $attrs[ "{$slot['prefix']}Easing" ]
+                ?? motion_blocks_attr_default( "{$slot['prefix']}Easing" );
             if ( $slot_accel === 'custom' ) {
                 // `?? ''` here is intentional — distinguishes "user
                 // typed nothing in the Custom field" (falls back to
@@ -1284,7 +1284,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             }
             if ( $slot_accel !== 'ease' ) {
                 $processor->set_attribute(
-                    "{$slot['data']}-acceleration",
+                    "{$slot['data']}-easing",
                     (string) $slot_accel
                 );
             }
@@ -1355,22 +1355,22 @@ function motion_blocks_render_block( $block_content, $block ) {
             }
         }
 
-        $acceleration = $attrs['animationAcceleration'] ?? '';
-        if ( ! is_string( $acceleration ) || '' === $acceleration ) {
-            $acceleration = motion_blocks_default_acceleration( $mode, (string) $type );
+        $easing = $attrs['animationEasing'] ?? '';
+        if ( ! is_string( $easing ) || '' === $easing ) {
+            $easing = motion_blocks_default_easing( $mode, (string) $type );
         }
-        if ( $acceleration === 'custom' ) {
+        if ( $easing === 'custom' ) {
             // `?? ''` distinguishes "user typed nothing" from "user has
             // a value"; the default cubic-bezier comes from the central
             // source.
             $custom_tf = $attrs['animationCustomTimingFunction'] ?? '';
             // See the slot loop above: never trim() a non-string.
-            $acceleration = is_string( $custom_tf ) && trim( $custom_tf ) !== ''
+            $easing = is_string( $custom_tf ) && trim( $custom_tf ) !== ''
                 ? $custom_tf
                 : motion_blocks_attr_default( 'animationCustomTimingFunction' );
         }
-        if ( $acceleration !== 'ease' ) {
-            $processor->set_attribute( 'data-mb-acceleration', (string) $acceleration );
+        if ( $easing !== 'ease' ) {
+            $processor->set_attribute( 'data-mb-easing', (string) $easing );
         }
 
         $direction = $attrs['animationDirection']
@@ -1434,9 +1434,9 @@ function motion_blocks_render_block( $block_content, $block ) {
                     ?? motion_blocks_attr_default( 'animationDelay' ) )
             );
             $processor->set_attribute(
-                'data-mb-repeat',
-                (string) ( $attrs['animationRepeat']
-                    ?? motion_blocks_attr_default( 'animationRepeat' ) )
+                'data-mb-loop',
+                (string) ( $attrs['animationLoop']
+                    ?? motion_blocks_attr_default( 'animationLoop' ) )
             );
             $pause = $attrs['animationPauseOffscreen']
                 ?? motion_blocks_attr_default( 'animationPauseOffscreen' );
@@ -2478,11 +2478,11 @@ function motion_blocks_base_recipe_attributes() {
         'animationDirection'                  => '',
         'animationDuration'                   => 0.6,
         'animationDelay'                      => 0,
-        'animationRepeat'                     => 'once',
+        'animationLoop'                       => 'off',
         'animationPauseOffscreen'             => true,
         'animationPlayOnce'                   => true,
         'animationScrollTrigger'              => 'enter',
-        'animationAcceleration'               => '',
+        'animationEasing'               => '',
         'animationCustomTimingFunction'       => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationBlurAmount'                 => 8,
         'animationRotateAngle'                => 90,
@@ -2518,7 +2518,7 @@ function motion_blocks_base_recipe_attributes() {
         'animationEntryDirection'             => '',
         'animationEntryDuration'              => 0.6,
         'animationEntryDelay'                 => 0,
-        'animationEntryAcceleration'          => 'ease',
+        'animationEntryEasing'          => 'ease',
         'animationEntryCustomTimingFunction'  => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationEntryBlurAmount'            => 8,
         'animationEntryRotateAngle'           => 90,
@@ -2547,7 +2547,7 @@ function motion_blocks_base_recipe_attributes() {
         'animationExitDirection'              => '',
         'animationExitDuration'               => 0.6,
         'animationExitDelay'                  => 0,
-        'animationExitAcceleration'           => 'ease',
+        'animationExitEasing'           => 'ease',
         'animationExitCustomTimingFunction'   => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
         'animationExitBlurAmount'             => 8,
         'animationExitRotateAngle'            => 90,
@@ -2585,8 +2585,8 @@ function motion_blocks_spin_recipe_attributes() {
             'animationMode'        => 'page-load',
             'animationType'        => 'custom',
             'animationDuration'    => 2,
-            'animationRepeat'      => 'loop',
-            'animationAcceleration' => 'linear',
+            'animationLoop'      => 'loop',
+            'animationEasing' => 'linear',
             'animationFromRotate'  => '0deg',
             'animationToRotate'    => '360deg',
         )

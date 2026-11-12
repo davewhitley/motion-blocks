@@ -48,7 +48,7 @@ import {
 	materializeScrollAppearPatch,
 	aliasSlotForPreview,
 	resolveTimingFunction,
-	defaultAcceleration,
+	defaultEasing,
 	resetPreviewUiAttributes,
 	canAnimateBlock,
 	clearAnimationAttributes,
@@ -368,9 +368,9 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: SCHEMA_DEFAULTS.animationDelay,
 			},
-			animationRepeat: {
+			animationLoop: {
 				type: 'string',
-				default: SCHEMA_DEFAULTS.animationRepeat,
+				default: SCHEMA_DEFAULTS.animationLoop,
 			},
 			animationPauseOffscreen: {
 				type: 'boolean',
@@ -384,11 +384,11 @@ function addAnimationAttributes( settings ) {
 				type: 'string',
 				default: SCHEMA_DEFAULTS.animationScrollTrigger,
 			},
-			animationAcceleration: {
+			animationEasing: {
 				type: 'string',
-				default: SCHEMA_DEFAULTS.animationAcceleration,
+				default: SCHEMA_DEFAULTS.animationEasing,
 			},
-			// Stored CSS timing function used when animationAcceleration
+			// Stored CSS timing function used when animationEasing
 			// is set to 'custom'. Free-form so users can enter any valid
 			// CSS value (cubic-bezier, steps, linear() with stops, etc.).
 			animationCustomTimingFunction: {
@@ -595,9 +595,9 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: SCHEMA_DEFAULTS.animationEntryDelay,
 			},
-			animationEntryAcceleration: {
+			animationEntryEasing: {
 				type: 'string',
-				default: SCHEMA_DEFAULTS.animationEntryAcceleration,
+				default: SCHEMA_DEFAULTS.animationEntryEasing,
 			},
 			animationEntryCustomTimingFunction: {
 				type: 'string',
@@ -627,9 +627,9 @@ function addAnimationAttributes( settings ) {
 				type: 'number',
 				default: SCHEMA_DEFAULTS.animationExitDelay,
 			},
-			animationExitAcceleration: {
+			animationExitEasing: {
 				type: 'string',
-				default: SCHEMA_DEFAULTS.animationExitAcceleration,
+				default: SCHEMA_DEFAULTS.animationExitEasing,
 			},
 			animationExitCustomTimingFunction: {
 				type: 'string',
@@ -1437,11 +1437,11 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			animationDirection,
 			animationDuration,
 			animationDelay,
-			animationAcceleration,
+			animationEasing,
 			animationCustomTimingFunction,
 			animationBlurAmount,
 			animationRotateAngle,
-			animationRepeat,
+			animationLoop,
 			animationRangeStart,
 			animationRangeEnd,
 			animationPreviewEnabled,
@@ -1570,12 +1570,11 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			);
 		}
 
-		// Resolve `custom` acceleration to the user's custom CSS
+		// Resolve `custom` easing to the user's custom CSS
 		// timing function string. Used wherever the legacy code
-		// passed `animationAcceleration` directly.
+		// passed `animationEasing` directly.
 		const resolvedTiming = resolveTimingFunction(
-			animationAcceleration ||
-				defaultAcceleration( animationMode, animationType ),
+			animationEasing || defaultEasing( animationMode, animationType ),
 			animationCustomTimingFunction
 		);
 
@@ -1889,8 +1888,8 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 
 		// Page-load / Scroll-appear: class-based preview.
 		else {
-			const repeat = animationRepeat || 'once';
-			const isLooping = repeat === 'loop' || repeat === 'alternate';
+			const loop = animationLoop || 'off';
+			const isLooping = loop === 'loop' || loop === 'alternate';
 
 			const isPageLoadOrScrollAppear =
 				animationMode === 'page-load' ||
@@ -1977,7 +1976,7 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 					'--mb-timing': resolvedTiming,
 					'--mb-iteration-count': isLooping ? 'infinite' : '1',
 					'--mb-direction':
-						repeat === 'alternate' ? 'alternate' : 'normal',
+						loop === 'alternate' ? 'alternate' : 'normal',
 					// `backwards` for a loop: hold the start state through
 					// the delay, as the front end does (GH #128).
 					'--mb-fill-mode': isLooping ? 'backwards' : 'both',

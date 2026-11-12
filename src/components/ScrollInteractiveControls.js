@@ -22,21 +22,14 @@ import {
 	Notice,
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import {
-	seen,
-	unseen,
-	arrowUp,
-	arrowDown,
-	arrowLeft,
-	arrowRight,
-} from '@wordpress/icons';
+import { arrowUp, arrowDown, arrowLeft, arrowRight } from '@wordpress/icons';
 
 import {
 	ANIMATION_TYPE_OPTIONS,
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
 	DEFAULT_DIRECTION,
-	ACCELERATION_OPTIONS,
+	EASING_OPTIONS,
 	BLUR_SETTINGS,
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
@@ -44,9 +37,10 @@ import {
 	IMAGE_EFFECT_BLOCKS,
 	IMAGE_TARGETABLE_BLOCKS,
 	isImageTargetUnavailable,
+	isChosenImageEffectBlocked,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
-	defaultAcceleration,
+	defaultEasing,
 } from './constants';
 import { DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
@@ -81,7 +75,7 @@ export default function ScrollInteractiveControls( {
 	const {
 		animationType,
 		animationDirection,
-		animationAcceleration,
+		animationEasing,
 		animationCustomTimingFunction,
 		animationBlurAmount,
 		animationRotateAngle,
@@ -91,15 +85,15 @@ export default function ScrollInteractiveControls( {
 		animationScrubPosition,
 	} = attributes;
 
-	// The eye and the scrubber are editor preview state. `setAttributes`
+	// The preview switch and the scrubber are editor preview state. `setAttributes`
 	// is the panel's router, which sends them to the
-	// motion-blocks/editor-preview store, so neither the eye nor a drag
+	// motion-blocks/editor-preview store, so neither the switch nor a drag
 	// adds undo steps or reaches the saved block (GH #29).
 	const scrubValue =
 		typeof animationScrubPosition === 'number'
 			? animationScrubPosition
 			: 100;
-	// The eye toggle governs the editor preview: it shows/hides the scrub
+	// The Scroll preview switch governs the editor preview: it shows/hides the scrub
 	// slider AND (when the live-preview beta is on) the live scroll
 	// animation. Off = the block renders its natural, un-animated state
 	// (same as deselecting).
@@ -143,7 +137,7 @@ export default function ScrollInteractiveControls( {
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
-	const effectDefaultAcceleration = defaultAcceleration(
+	const effectDefaultEasing = defaultEasing(
 		'scroll-interactive',
 		animationType
 	);
@@ -210,11 +204,11 @@ export default function ScrollInteractiveControls( {
 		// Custom defaults to Linear here. A preset that was on its
 		// default Ease keeps Ease, so Edit doesn't change how it moves.
 		if (
-			! animationAcceleration &&
-			effectDefaultAcceleration !==
-				defaultAcceleration( 'scroll-interactive', 'custom' )
+			! animationEasing &&
+			effectDefaultEasing !==
+				defaultEasing( 'scroll-interactive', 'custom' )
 		) {
-			newAttrs.animationAcceleration = effectDefaultAcceleration;
+			newAttrs.animationEasing = effectDefaultEasing;
 		}
 		if ( attributes.animationStaggerEnabled ) {
 			newAttrs.animationStaggerEnabled = false;
@@ -280,84 +274,68 @@ export default function ScrollInteractiveControls( {
 						/>
 					</div>
 				</FlexBlock>
-				{ /* Eye toggle: show/hide the scrub preview slider. Off
-				   clears the scrub value, returning the block to its
-				   natural state (same as deselecting). Independent of the
-				   From/To start/end eye icons in the Custom panel. The
-				   label stays constant; on/off is carried by the pressed
-				   state alone, so screen readers get one signal. */ }
-				{ animationType && (
-					<Button
-						icon={ previewOn ? seen : unseen }
-						label={ __( 'Scroll preview', 'motion-blocks' ) }
-						isPressed={ previewOn }
-						onClick={ () =>
-							setAttributes(
-								previewOn
-									? {
-											animationPreviewEnabled: false,
-											animationScrubPosition: undefined,
-									  }
-									: { animationPreviewEnabled: true }
-							)
-						}
-						__next40pxDefaultSize
-					/>
-				) }
 			</HStack>
 
-			{ /* Scrub preview — shown when the live-preview beta is OFF.
-			   Freezes the effect at a point (start → end) via a paused,
-			   delay-seeked animation so you can drag through it without a
-			   real scroll timeline. When the live beta is on, this is
-			   hidden in favor of scrolling the canvas (see the hint
-			   below), so the two never fight over one element. */ }
-			{ animationType && previewOn && ! liveActive && (
-				<BaseControl __nextHasNoMarginBottom>
-					<HStack
-						className="mb-info-label-row"
-						alignment="center"
-						spacing={ 1 }
-						justify="flex-start"
-					>
-						<BaseControl.VisualLabel>
-							{ __( 'Scroll preview', 'motion-blocks' ) }
-						</BaseControl.VisualLabel>
-						<InfoPopover
-							label={ __(
-								'About scroll preview',
-								'motion-blocks'
-							) }
-						>
-							<p>
-								{ __(
-									'Drag to preview the animation, from start to end. Scroll interaction only works on the live site.',
+			{ /* Scroll preview switch: a labelled toggle, so it is as easy
+			   to find as the Play button in the other modes (GH #137).
+			   Off by default, and off clears the scrub value, returning
+			   the block to its natural state (same as deselecting).
+			   Independent of the From/To start/end eye icons in the
+			   Custom panel. */ }
+			{ animationType && (
+				<ToggleControl
+					label={ __( 'Scroll preview', 'motion-blocks' ) }
+					checked={ previewOn }
+					onChange={ ( on ) =>
+						setAttributes(
+							on
+								? { animationPreviewEnabled: true }
+								: {
+										animationPreviewEnabled: false,
+										animationScrubPosition: undefined,
+								  }
+						)
+					}
+					help={
+						liveActive
+							? undefined
+							: __(
+									'Drag the slider to see the animation in the editor, from start to end. On the live site it follows the scroll.',
 									'motion-blocks'
-								) }
-							</p>
-						</InfoPopover>
-					</HStack>
-					<RangeControl
-						label={ __( 'Scroll preview', 'motion-blocks' ) }
-						hideLabelFromVision
-						className="mb-scrub-range"
-						value={ scrubValue }
-						onChange={ ( v ) => {
-							setAttributes( {
-								animationScrubPosition:
-									typeof v === 'number' ? v : 100,
-							} );
-						} }
-						min={ 0 }
-						max={ 100 }
-						step={ 1 }
-						withInputField={ false }
-						beforeIcon={ scrubFromIcon }
-						afterIcon={ scrubToIcon }
-						__next40pxDefaultSize
-						__nextHasNoMarginBottom
-					/>
-				</BaseControl>
+							  )
+					}
+					__nextHasNoMarginBottom
+				/>
+			) }
+
+			{ /* Scrub slider — shown while Scroll preview is on and the
+			   live-preview beta is OFF. Freezes the effect at a point
+			   (start → end) via a paused, delay-seeked animation so you
+			   can drag through it without a real scroll timeline. When
+			   the live beta is on, this is hidden in favor of scrolling
+			   the canvas (see the hint below), so the two never fight
+			   over one element. */ }
+			{ animationType && previewOn && ! liveActive && (
+				<RangeControl
+					label={ __( 'Scroll preview position', 'motion-blocks' ) }
+					hideLabelFromVision
+					className="mb-scrub-range"
+					value={ scrubValue }
+					onChange={ ( v ) => {
+						setAttributes( {
+							animationScrubPosition:
+								typeof v === 'number' ? v : 100,
+						} );
+					} }
+					min={ 0 }
+					max={ 100 }
+					step={ 1 }
+					withInputField={ false }
+					beforeIcon={ scrubFromIcon }
+					afterIcon={ scrubToIcon }
+					__next40pxDefaultSize
+					__nextHasNoMarginBottom
+				/>
 			) }
 
 			{ /* Live-preview hint — replaces the scrub slider while the
@@ -376,19 +354,22 @@ export default function ScrollInteractiveControls( {
 				</BaseControl>
 			) }
 
-			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
-				isImageTargetUnavailable( blockName, attributes ) && (
-					<Notice
-						status="warning"
-						isDismissible={ false }
-						className="mb-image-effect-unavailable-notice"
-					>
-						{ __(
-							'Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them.',
-							'motion-blocks'
-						) }
-					</Notice>
-				) }
+			{ isChosenImageEffectBlocked(
+				blockName,
+				attributes,
+				animationType
+			) && (
+				<Notice
+					status="warning"
+					isDismissible={ false }
+					className="mb-image-effect-unavailable-notice"
+				>
+					{ __(
+						'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
+						'motion-blocks'
+					) }
+				</Notice>
+			) }
 
 			{ IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
 				animationType &&
@@ -411,7 +392,7 @@ export default function ScrollInteractiveControls( {
 						help={
 							isImageTargetUnavailable( blockName, attributes )
 								? __(
-										'Unavailable while Fixed background or Repeated background is on — see the notice above.',
+										'Unavailable while “Fixed background” or “Repeated background” is on.',
 										'motion-blocks'
 								  )
 								: __(
@@ -554,10 +535,10 @@ export default function ScrollInteractiveControls( {
 
 			{ /* "Timing" section heading — matches the Page Load and
 			   Scroll Appear panels, which use the same heading above
-			   their Duration / Delay / Acceleration block. For
+			   their Duration / Delay / Easing block. For
 			   Scroll Interactive the scroll position IS the timing,
 			   so this section groups Start Offset / End Offset /
-			   Acceleration as the equivalent timing controls. */ }
+			   Easing as the equivalent timing controls. */ }
 			<h2 className="mb-section-heading">
 				{ __( 'Timing', 'motion-blocks' ) }
 			</h2>
@@ -644,21 +625,25 @@ export default function ScrollInteractiveControls( {
 			</BaseControl>
 
 			<SelectControl
-				label={ __( 'Acceleration', 'motion-blocks' ) }
-				value={ animationAcceleration || effectDefaultAcceleration }
-				options={ ACCELERATION_OPTIONS }
+				label={ __( 'Easing', 'motion-blocks' ) }
+				help={ __(
+					'How the speed changes from start to finish.',
+					'motion-blocks'
+				) }
+				value={ animationEasing || effectDefaultEasing }
+				options={ EASING_OPTIONS }
 				onChange={ ( value ) =>
 					// Picking the effect's default stores '' so the block
 					// keeps following it when the effect changes.
 					setAttributes( {
-						animationAcceleration:
-							value === effectDefaultAcceleration ? '' : value,
+						animationEasing:
+							value === effectDefaultEasing ? '' : value,
 					} )
 				}
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
-			{ animationAcceleration === 'custom' && (
+			{ animationEasing === 'custom' && (
 				<TextControl
 					label={ __( 'Custom timing function', 'motion-blocks' ) }
 					value={ animationCustomTimingFunction }

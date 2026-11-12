@@ -233,7 +233,7 @@
 	/* Loop / alternate support — the HOC and frontend.js both emit
 	   `--mb-iteration-count` (`infinite` for loop) and `--mb-direction`
 	   (`alternate` for back-and-forth). Without consuming them here,
-	   Repeat = Loop / Back-and-forth silently played once. */
+	   Loop = Loop continuously / Back and forth silently played once. */
 	animation-iteration-count: var(--mb-iteration-count, 1);
 	animation-direction: var(--mb-direction, normal);
 	/* Page Load "Pause when off-screen" — frontend.js toggles
@@ -1086,7 +1086,7 @@
 /* Triggered state — children inherit the parent's animation timing
    variables and animation-name (bound per enter type below).
    `--mb-iteration-count` and `--mb-direction` come from the parent
-   block's Repeat = Loop / Back-and-forth setting; the parent emits
+   block's Loop = Loop continuously / Back and forth setting; the parent emits
    them as CSS custom properties (frontend.js sets `--mb-iteration-
    count: infinite` on loop / alternate). These inherit down the
    cascade so staggered inner blocks loop in sync with the parent.

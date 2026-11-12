@@ -603,14 +603,14 @@
             ],
             "additionalProperties": false
         },
-        "repeat": {
+        "loop": {
             "type": "string",
             "enum": [
-                "once",
+                "off",
                 "loop",
                 "alternate"
             ],
-            "description": "Page Load only. Default once."
+            "description": "Page Load only. off (default): plays once. loop: restarts forever. alternate: plays back and forth forever."
         },
         "pauseOffscreen": {
             "type": "boolean",

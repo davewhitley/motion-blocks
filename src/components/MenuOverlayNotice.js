@@ -41,9 +41,9 @@ function fixLines() {
 			'Use <strong>On page load</strong> or <strong>Appear on scroll</strong>.',
 			'motion-blocks'
 		),
-		/* translators: Fix for a looping Page Load animation. "Repeat" is a setting and "Play once" one of its options. Keep the <strong> tags. */
+		/* translators: Fix for a looping Page Load animation. "Loop" is a setting and "Off" one of its options. Keep the <strong> tags. */
 		loop: __(
-			'Set <strong>Repeat</strong> to <strong>Play once</strong>.',
+			'Set <strong>Loop</strong> to <strong>Off</strong>.',
 			'motion-blocks'
 		),
 		/* translators: Fix for an Entry that replays. "Replay" is a setting and "Once" one of its options. Keep the <strong> tags. */

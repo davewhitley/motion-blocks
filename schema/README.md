@@ -28,7 +28,7 @@ A recipe is one block's Motion Blocks animation as JSON. AI agents and other too
 | `effect` | object | Page Load / Scroll Interactive: the effect. |
 | `entry` | object or null | Scroll Appear: what plays as the block enters the view (null for none). |
 | `exit` | object or null | Scroll Appear: what plays as the block leaves the view upwards (null for none). |
-| `repeat` | `once`, `loop`, `alternate` | Page Load only. Default once. |
+| `loop` | `off`, `loop`, `alternate` | Page Load only. off (default): plays once. loop: restarts forever. alternate: plays back and forth forever. |
 | `pauseOffscreen` | boolean | Page Load loops only: pause while off screen. Default true. |
 | `range` | object | Scroll Interactive only: where in the block's pass through the view the animation runs, e.g. "entry 0%" to "exit 100%" (the default). |
 | `target` | `block`, `image` | "image" animates only a Cover block's background image. Default block. |

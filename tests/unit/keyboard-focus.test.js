@@ -16,7 +16,7 @@
  */
 import {
 	LOOP_MIN_DURATION,
-	repeatChangeAttributes,
+	loopChangeAttributes,
 } from '../../src/components/constants';
 
 class FakeObserver {
@@ -70,7 +70,7 @@ function pageLoad( repeat, duration, pauseOffscreen ) {
 	const attrs = {
 		'data-mb-mode': 'page-load',
 		'data-mb-type': 'fade',
-		'data-mb-repeat': repeat,
+		'data-mb-loop': repeat,
 		'data-mb-duration': String( duration ),
 	};
 	if ( pauseOffscreen ) {
@@ -123,7 +123,7 @@ beforeAll( () => {
 	);
 	b.loop = layout( pageLoad( 'loop', 0.1 ), 100, 48 );
 	b.alternate = layout( pageLoad( 'alternate', 2, true ), 200, 48 );
-	b.once = layout( pageLoad( 'once', 0.1 ), 300, 48 );
+	b.once = layout( pageLoad( 'off', 0.1 ), 300, 48 );
 	b.outside = document.createElement( 'button' );
 	document.body.append(
 		b.waiting,
@@ -228,16 +228,16 @@ describe( 'loop minimum Duration', () => {
 		expect( duration( b.once ) ).toBe( '0.1s' );
 	} );
 
-	it( 'raises Duration in the editor when Repeat changes to a loop', () => {
-		expect( repeatChangeAttributes( 'loop', 0.1 ) ).toEqual( {
-			animationRepeat: 'loop',
+	it( 'raises Duration in the editor when Loop changes to a loop', () => {
+		expect( loopChangeAttributes( 'loop', 0.1 ) ).toEqual( {
+			animationLoop: 'loop',
 			animationDuration: LOOP_MIN_DURATION,
 		} );
-		expect( repeatChangeAttributes( 'alternate', 0.6 ) ).toEqual( {
-			animationRepeat: 'alternate',
+		expect( loopChangeAttributes( 'alternate', 0.6 ) ).toEqual( {
+			animationLoop: 'alternate',
 		} );
-		expect( repeatChangeAttributes( 'once', 0.1 ) ).toEqual( {
-			animationRepeat: 'once',
+		expect( loopChangeAttributes( 'off', 0.1 ) ).toEqual( {
+			animationLoop: 'off',
 		} );
 	} );
 } );

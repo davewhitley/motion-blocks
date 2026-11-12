@@ -239,7 +239,7 @@ foreach ( array( 'motion_blocks_spin_recipe_attributes', 'motion_blocks_iris_wip
 $mb_fixtures[] = array( 'Stagger Group, Scroll Appear slide', 'core/group', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'slide', 'animationEntryDirection' => 'ltr', 'animationStaggerEnabled' => true, 'animationStaggerStep' => 0.25 ) );
 $mb_fixtures[] = array( 'Cover image-only Custom zoom', 'core/cover', array( 'animationMode' => 'page-load', 'animationType' => 'custom', 'animationFromToTarget' => 'img', 'animationFromScale' => 1.1, 'animationToScale' => 1, 'animationDuration' => 1.6, 'animationDelay' => 0 ) );
 $mb_fixtures[] = array( 'Scroll Interactive custom range', 'core/paragraph', array( 'animationMode' => 'scroll-interactive', 'animationType' => 'rotate', 'animationRotateAngle' => 45, 'animationRangeStart' => 'entry 20%', 'animationRangeEnd' => 'exit 80%' ) );
-$mb_fixtures[] = array( 'Spring easing', 'core/paragraph', array( 'animationMode' => 'page-load', 'animationAcceleration' => motion_blocks_recipe_easings()['spring'] ) );
+$mb_fixtures[] = array( 'Spring easing', 'core/paragraph', array( 'animationMode' => 'page-load', 'animationEasing' => motion_blocks_recipe_easings()['spring'] ) );
 $mb_fixtures[] = array( 'Stagger step saved in milliseconds', 'core/group', array( 'animationMode' => 'scroll-appear', 'animationEntryType' => 'fade', 'animationStaggerEnabled' => true, 'animationStaggerStep' => 250 ) );
 $mb_fixtures[] = array( 'Fixed-background Cover, Animate image only', 'core/cover', array( 'hasParallax' => true, 'animationMode' => 'page-load', 'animationType' => 'fade', 'animationFromToTarget' => 'img' ) );
 $mb_fixtures[] = array( 'Repeated-background Cover, Image Zoom', 'core/cover', array( 'isRepeated' => true, 'animationMode' => 'scroll-interactive', 'animationType' => 'image-zoom' ) );
@@ -320,7 +320,7 @@ $mb_invalid = array(
 	array( 'stagger on a paragraph', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ), 'stagger' => array( 'step' => 0.1 ) ), 'core/paragraph', 'stagger' ),
 	array( 'stagger on scroll-interactive', array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'stagger' => array() ), 'core/group', 'stagger' ),
 	array( 'bad range', array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'range' => array( 'start' => 'top' ) ), 'core/paragraph', 'range.start' ),
-	array( 'field from another mode', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade' ), 'repeat' => 'loop' ), 'core/paragraph', 'repeat' ),
+	array( 'field from another mode', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade' ), 'loop' => 'loop' ), 'core/paragraph', 'loop' ),
 	array( 'Custom HTML block', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/html', '' ),
 	array( 'Synced pattern block', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ), 'core/block', '' ),
 );
@@ -441,7 +441,7 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 		}
 	}
 	mb_recipe_check( $group && ! empty( $group['attrs']['animationStaggerEnabled'] ) && empty( $second_p['attrs']['animationMode'] ), 'set-animations applies stagger and removes an animation (recipe null)', wp_json_encode( array( $group['attrs'], $second_p['attrs'] ) ) );
-	mb_recipe_check( false === strpos( $saved->post_content, 'animationPreview' ) && 1 === preg_match( '/<!-- wp:heading \{"animationMode":"scroll-appear","animationEntryType":"slide","animationEntryDirection":"btt","animationEntryDuration":0.8,"animationEntryDelay":0,"animationEntryAcceleration":"ease-out"\} -->/', $saved->post_content ), 'the saved block comment holds only non-default values, like the editor writes', substr( $saved->post_content, 0, 300 ) );
+	mb_recipe_check( false === strpos( $saved->post_content, 'animationPreview' ) && 1 === preg_match( '/<!-- wp:heading \{"animationMode":"scroll-appear","animationEntryType":"slide","animationEntryDirection":"btt","animationEntryDuration":0.8,"animationEntryDelay":0,"animationEntryEasing":"ease-out"\} -->/', $saved->post_content ), 'the saved block comment holds only non-default values, like the editor writes', substr( $saved->post_content, 0, 300 ) );
 	$rendered = do_blocks( $saved->post_content );
 	mb_recipe_check( false !== strpos( $rendered, 'data-mb-entry-type="slide"' ) && false !== strpos( $rendered, 'mb-stagger-parent' ), 'the front end renders the new animations' );
 

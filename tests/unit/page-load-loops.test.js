@@ -64,7 +64,7 @@ function loopBlock( repeat ) {
 	p.className = 'mb-animated mb-mode-page-load mb-enter-slide';
 	p.setAttribute( 'data-mb-mode', 'page-load' );
 	p.setAttribute( 'data-mb-type', 'slide' );
-	p.setAttribute( 'data-mb-repeat', repeat );
+	p.setAttribute( 'data-mb-loop', repeat );
 	p.setAttribute( 'data-mb-pause-offscreen', 'true' );
 	// Layout box: 100px down the page, 48px tall, 300px wide.
 	Object.defineProperties( p, {
@@ -99,7 +99,7 @@ beforeAll( () => {
 	} );
 	loop = loopBlock( 'loop' );
 	alternate = loopBlock( 'alternate' );
-	once = loopBlock( 'once' );
+	once = loopBlock( 'off' );
 	document.body.append( loop, alternate, once );
 	// jsdom's readyState is already 'complete', so this runs init().
 	require( '../../src/frontend.js' );

@@ -121,10 +121,10 @@ function motion_blocks_recipe_effect_catalog() {
 
 /**
  * Named easings an agent can use. Each maps to the value stored in the
- * Acceleration attribute (the spring curves are stored as their
+ * Easing attribute (the spring curves are stored as their
  * `linear()` string, exactly as the panel stores them).
  *
- * @return array<string, string> Name → stored acceleration value.
+ * @return array<string, string> Name → stored easing value.
  */
 function motion_blocks_recipe_easings() {
     $shared  = motion_blocks_shared_constants();
@@ -316,10 +316,10 @@ function motion_blocks_recipe_schema() {
                     'reverse (default): plays backwards when scrolled back. repeat: every time. once: only the first time.'
                 )
             ),
-            'repeat'         => array(
+            'loop'           => array(
                 'type'        => 'string',
-                'enum'        => array( 'once', 'loop', 'alternate' ),
-                'description' => 'Page Load only. Default once.',
+                'enum'        => array( 'off', 'loop', 'alternate' ),
+                'description' => 'Page Load only. off (default): plays once. loop: restarts forever. alternate: plays back and forth forever.',
             ),
             'pauseOffscreen' => array(
                 'type'        => 'boolean',
@@ -498,9 +498,9 @@ function motion_blocks_recipe_effect_to_attrs( $effect, $prefix, $part, $path, &
         $easing  = $effect['easing'];
         $named   = motion_blocks_recipe_easings();
         if ( is_string( $easing ) && isset( $named[ strtolower( $easing ) ] ) ) {
-            $out[ "{$prefix}Acceleration" ] = $named[ strtolower( $easing ) ];
+            $out[ "{$prefix}Easing" ] = $named[ strtolower( $easing ) ];
         } elseif ( motion_blocks_recipe_valid_timing_function( $easing ) ) {
-            $out[ "{$prefix}Acceleration" ]           = 'custom';
+            $out[ "{$prefix}Easing" ]           = 'custom';
             $out[ "{$prefix}CustomTimingFunction" ] = trim( $easing );
         } else {
             $errors[] = array(
@@ -707,7 +707,7 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
     } else {
         $allowed_top[] = 'effect';
         if ( 'page-load' === $mode ) {
-            $allowed_top = array_merge( $allowed_top, array( 'repeat', 'pauseOffscreen' ) );
+            $allowed_top = array_merge( $allowed_top, array( 'loop', 'pauseOffscreen' ) );
         } else {
             $allowed_top[] = 'range';
         }
@@ -718,11 +718,11 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
             // Shared-key Page Load blocks: the panel writes no -out type
             // for Page Load; allow it anyway (front end supports it).
         }
-        if ( isset( $recipe['repeat'] ) ) {
-            if ( in_array( $recipe['repeat'], array( 'once', 'loop', 'alternate' ), true ) ) {
-                $attrs['animationRepeat'] = $recipe['repeat'];
+        if ( isset( $recipe['loop'] ) ) {
+            if ( in_array( $recipe['loop'], array( 'off', 'loop', 'alternate' ), true ) ) {
+                $attrs['animationLoop'] = $recipe['loop'];
             } else {
-                $errors[] = array( 'path' => 'repeat', 'message' => 'Must be once, loop or alternate.' );
+                $errors[] = array( 'path' => 'loop', 'message' => 'Must be off, loop or alternate.' );
             }
         }
         if ( array_key_exists( 'pauseOffscreen', $recipe ) ) {
@@ -812,9 +812,9 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
     $cleared = motion_blocks_recipe_cleared_attributes();
     // An easing equal to the effect's default is left unset, as the
     // panel does, so the block keeps following that default (GH #109).
-    if ( isset( $attrs['animationAcceleration'], $attrs['animationMode'], $attrs['animationType'] )
-        && motion_blocks_default_acceleration( $attrs['animationMode'], $attrs['animationType'] ) === $attrs['animationAcceleration'] ) {
-        $attrs['animationAcceleration'] = $cleared['animationAcceleration'];
+    if ( isset( $attrs['animationEasing'], $attrs['animationMode'], $attrs['animationType'] )
+        && motion_blocks_default_easing( $attrs['animationMode'], $attrs['animationType'] ) === $attrs['animationEasing'] ) {
+        $attrs['animationEasing'] = $cleared['animationEasing'];
     }
     $compact = array();
     foreach ( $attrs as $key => $value ) {
@@ -855,10 +855,10 @@ function motion_blocks_recipe_effect_from_attrs( $a, $prefix ) {
     $effect['duration'] = (float) $a[ "{$prefix}Duration" ];
     $effect['delay']    = (float) $a[ "{$prefix}Delay" ];
 
-    $accel = (string) $a[ "{$prefix}Acceleration" ];
+    $accel = (string) $a[ "{$prefix}Easing" ];
     if ( '' === $accel ) {
         // Unset: the effect's default (GH #109).
-        $accel = motion_blocks_default_acceleration( (string) ( $a['animationMode'] ?? '' ), $type );
+        $accel = motion_blocks_default_easing( (string) ( $a['animationMode'] ?? '' ), $type );
     }
     if ( 'custom' === $accel ) {
         $tf               = isset( $a[ "{$prefix}CustomTimingFunction" ] ) && is_string( $a[ "{$prefix}CustomTimingFunction" ] )
@@ -932,8 +932,8 @@ function motion_blocks_attributes_to_recipe( $attrs, $block_name = '' ) {
     } else {
         $recipe['effect'] = motion_blocks_recipe_effect_from_attrs( $a, 'animation' );
         if ( 'page-load' === $a['animationMode'] ) {
-            $recipe['repeat'] = (string) $a['animationRepeat'];
-            if ( 'once' !== $recipe['repeat'] ) {
+            $recipe['loop'] = (string) $a['animationLoop'];
+            if ( 'off' !== $recipe['loop'] ) {
                 $recipe['pauseOffscreen'] = (bool) $a['animationPauseOffscreen'];
             }
         } else {

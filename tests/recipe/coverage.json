@@ -7,7 +7,7 @@
 		"Direction": "direction",
 		"Duration": "duration",
 		"Delay": "delay",
-		"Acceleration": "easing",
+		"Easing": "easing",
 		"CustomTimingFunction": "easing",
 		"BlurAmount": "blur",
 		"RotateAngle": "rotate",
@@ -19,7 +19,7 @@
 
 	"fields": {
 		"animationMode": "mode",
-		"animationRepeat": "repeat",
+		"animationLoop": "loop",
 		"animationPauseOffscreen": "pauseOffscreen",
 		"animationRangeStart": "range.start",
 		"animationRangeEnd": "range.end",

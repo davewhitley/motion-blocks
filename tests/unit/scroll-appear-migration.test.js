@@ -181,7 +181,7 @@ describe( 'materializeScrollAppearPatch', () => {
 		const timing = ( view ) => [
 			view.animationEntryDuration,
 			view.animationEntryDelay,
-			view.animationEntryAcceleration,
+			view.animationEntryEasing,
 		];
 
 		it( 'keeps the slot timing when an effect is picked again', () => {
@@ -189,7 +189,7 @@ describe( 'materializeScrollAppearPatch', () => {
 				animationEntryType: 'fade',
 				animationEntryDuration: 1.5,
 				animationEntryDelay: 0.3,
-				animationEntryAcceleration: 'ease-in',
+				animationEntryEasing: 'ease-in',
 				animationExitType: '',
 				animationDelay: 0,
 			} );

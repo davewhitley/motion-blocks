@@ -233,9 +233,9 @@ export function menuOverlayBlockers( blockName, attributes ) {
 		{
 			mode,
 			type,
-			// frontend.js reads `dataset.mbRepeat || 'once'` and
+			// frontend.js reads `dataset.mbLoop || 'off'` and
 			// `dataset.mbEntryReplay || 'once'`.
-			repeat: attr( a, 'animationRepeat' ) || 'once',
+			loop: attr( a, 'animationLoop' ) || 'off',
 			entryType,
 			entryReplay: attr( a, 'animationEntryReplay' ) || 'once',
 			exitType,

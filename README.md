@@ -152,14 +152,16 @@ All are public abilities in the `motion-blocks` category. They're available over
 | `motion-blocks/get-animations` | Every block of a post, page, template or pattern, with its `path`, type, a text excerpt and its recipe. | edit that post |
 | `motion-blocks/validate-recipe` | Checks a recipe and returns each problem with its path and a hint. Changes nothing. | `edit_posts` |
 | `motion-blocks/set-animations` | Sets or removes the animation of one or more blocks and saves straight away, published pages included. | edit that post |
-| `motion-blocks/list-saved-animations` | The saved library and the theme's recipes, as recipes. | `manage_options` (like the library in the editor) |
+| `motion-blocks/list-saved-animations` | The theme's recipes and, for administrators, the saved library, as recipes. | `edit_posts` (the library needs `manage_options`, like in the editor) |
 | `motion-blocks/save-animation` | Adds a recipe to the saved library. | `manage_options` |
 
 How `set-animations` behaves:
 - **All or nothing.** Every change is validated before anything is saved. If any change is invalid, nothing is written and every problem is returned.
-- **One revision.** Valid changes are saved together as one revision, so they can be rolled back from the editor's Revisions screen.
-- **Stale-path guard.** Each change names the `block_name` that `get-animations` reported at that path. If the page changed since, it's refused.
-- **No conflicting edits.** It's refused while another user has the post open in the editor.
+- **One revision.** Valid changes are saved together as one revision. Where revisions are on, the result's `previous_revision_id` is the version to restore from the editor's Revisions screen to undo them. It is `null` when the post type or the site keeps no revisions.
+- **Stale-path guard.** Each change names the `block_name` that `get-animations` reported at that path, and a mismatch is refused. Pass the `modified_gmt` that `get-animations` returned as well: the change is then refused if the post was saved in between, which also catches a block added or removed above the target.
+- **No conflicting edits.** It's refused while anyone, the agent's own account included, has the post open in the post editor. The Site Editor sets no lock, so a template, template part, or pattern open there is not detected: close it first, or the editor's next save overwrites the change.
+- **Per-device switches.** `get-animations` and `set-animations` return `disabled_devices`: the devices (`desktop`, `tablet`, `mobile`) this page has animations turned off for. Animations are saved as usual but don't play there.
+- **Known limit.** The whole post is parsed and written back, as WordPress's own PHP block functions do. Other blocks' markup is unchanged, but a block attribute that is an empty object can come back as an empty list.
 - **Block content only.** Revisions, autosaves and attachments can't be read or changed.
 
 ```bash

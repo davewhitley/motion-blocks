@@ -60,6 +60,44 @@ function motion_blocks_ability_post( $post_id ) {
 }
 
 /**
+ * The user holding a fresh editor lock on a post, the current user
+ * included. 0 when nobody has it open in the post editor.
+ *
+ * @param int $post_id Post ID.
+ * @return int User ID, or 0.
+ */
+function motion_blocks_ability_fresh_lock( $post_id ) {
+    $lock = get_post_meta( $post_id, '_edit_lock', true );
+    if ( ! is_string( $lock ) || '' === $lock ) {
+        return 0;
+    }
+    $parts = explode( ':', $lock );
+    $time  = (int) $parts[0];
+    $user  = isset( $parts[1] ) ? (int) $parts[1] : (int) get_post_meta( $post_id, '_edit_last', true );
+    /** This filter is documented in wp-admin/includes/ajax-actions.php */
+    $window = (int) apply_filters( 'wp_check_post_lock_window', 150 );
+    return $user && $time && $time > time() - $window ? $user : 0;
+}
+
+/**
+ * Devices a page has animations turned off for (the Page panel's
+ * "Disable on" switches). An agent's animations are saved as usual but
+ * don't play there.
+ *
+ * @param int $post_id Post ID.
+ * @return string[] Any of desktop, tablet, mobile.
+ */
+function motion_blocks_ability_disabled_devices( $post_id ) {
+    $out = array();
+    foreach ( array( 'desktop', 'tablet', 'mobile' ) as $device ) {
+        if ( get_post_meta( $post_id, 'mb_disabled_' . $device, true ) ) {
+            $out[] = $device;
+        }
+    }
+    return $out;
+}
+
+/**
  * Block content an editor edits: post types with the block editor, plus
  * templates, template parts and synced patterns. Never revisions (a
  * revision is history: `edit_post` on it maps to its parent, so it
@@ -250,11 +288,15 @@ function motion_blocks_ability_get_animations( $input ) {
     $list = array();
     motion_blocks_collect_blocks( parse_blocks( $post->post_content ), array(), $list );
     return array(
-        'post_id' => $post->ID,
-        'title'   => get_the_title( $post ),
-        'status'  => $post->post_status,
-        'url'     => (string) get_permalink( $post ),
-        'blocks'  => $list,
+        'post_id'          => $post->ID,
+        'title'            => get_the_title( $post ),
+        'status'           => $post->post_status,
+        'url'              => (string) get_permalink( $post ),
+        // Pass back to set-animations: it refuses when the post was
+        // saved in between.
+        'modified_gmt'     => (string) $post->post_modified_gmt,
+        'disabled_devices' => motion_blocks_ability_disabled_devices( $post->ID ),
+        'blocks'           => $list,
     );
 }
 
@@ -287,21 +329,33 @@ function motion_blocks_ability_set_animations( $input ) {
     if ( is_wp_error( $post ) ) {
         return $post;
     }
-    // Someone else has it open in the editor: their next save would
-    // silently undo this change (or this would undo theirs).
-    if ( ! function_exists( 'wp_check_post_lock' ) ) {
-        require_once ABSPATH . 'wp-admin/includes/post.php';
-    }
-    $lock = wp_check_post_lock( $post->ID );
+    // Someone has it open in the editor: their next save would silently
+    // undo this change (or this would undo theirs). The lock is read
+    // directly: wp_check_post_lock() ignores a lock held by the current
+    // user, and an agent usually runs as the site owner, who may have
+    // the page open (GH #139). The Site Editor sets no lock, so it is
+    // not detected; `modified_gmt` below covers a save made from there.
+    $lock = motion_blocks_ability_fresh_lock( $post->ID );
     if ( $lock ) {
         $user = get_userdata( $lock );
         return new WP_Error(
             'motion_blocks_post_locked',
-            sprintf(
-                /* translators: %s: name of the user editing the post */
-                __( '%s is editing this post right now. Try again when they have closed it, so neither of you overwrites the other.', 'motion-blocks' ),
-                $user ? $user->display_name : __( 'Someone else', 'motion-blocks' )
-            ),
+            get_current_user_id() === $lock
+                ? __( 'This post is open in the editor right now. Close it and try again in a few minutes, so the editor does not overwrite this change.', 'motion-blocks' )
+                : sprintf(
+                    /* translators: %s: name of the user editing the post */
+                    __( '%s is editing this post right now. Try again when they have closed it, so neither of you overwrites the other.', 'motion-blocks' ),
+                    $user ? $user->display_name : __( 'Someone else', 'motion-blocks' )
+                ),
+            array( 'status' => 409 )
+        );
+    }
+    // The post was saved after the agent read it: its paths may now
+    // point at other blocks.
+    if ( isset( $input['modified_gmt'] ) && (string) $input['modified_gmt'] !== (string) $post->post_modified_gmt ) {
+        return new WP_Error(
+            'motion_blocks_post_changed',
+            __( 'This post was saved after you read it. Read it again with get-animations and send the changes with the new modified_gmt.', 'motion-blocks' ),
             array( 'status' => 409 )
         );
     }
@@ -311,10 +365,26 @@ function motion_blocks_ability_set_animations( $input ) {
 
     foreach ( array_values( $input['changes'] ) as $i => $change ) {
         $recipe = array_key_exists( 'recipe', $change ) ? $change['recipe'] : null;
+        // Core's schema check lets a lone number or a string through as
+        // a list; shifting it would throw (GH #139).
+        $path = isset( $change['path'] ) && is_array( $change['path'] ) ? array_values( $change['path'] ) : array();
+        if ( ! $path || array_filter( $path, function ( $step ) {
+            return ! is_int( $step ) || $step < 0;
+        } ) ) {
+            return new WP_Error(
+                'motion_blocks_invalid_path',
+                sprintf(
+                    /* translators: %d: index of the change */
+                    __( 'changes[%d].path must be a list of whole numbers, e.g. [0, 2], as get-animations reports it.', 'motion-blocks' ),
+                    $i
+                ),
+                array( 'status' => 400, 'change' => $i )
+            );
+        }
         $result = motion_blocks_with_block_at(
             $blocks,
-            $change['path'],
-            function ( &$block ) use ( $change, $recipe, $i, &$errors, &$updated ) {
+            $path,
+            function ( &$block ) use ( $change, $recipe, $i, $path, &$errors, &$updated ) {
                 if ( $change['block_name'] !== $block['blockName'] ) {
                     return new WP_Error(
                         'motion_blocks_block_mismatch',
@@ -337,7 +407,7 @@ function motion_blocks_ability_set_animations( $input ) {
                 }
                 $block['attrs'] = motion_blocks_apply_animation_attributes( $attrs, $converted['attributes'] );
                 $updated[]      = array(
-                    'path'       => array_values( $change['path'] ),
+                    'path'       => $path,
                     'block_name' => $block['blockName'],
                     'recipe'     => motion_blocks_attributes_to_recipe( $block['attrs'], $block['blockName'] ),
                 );
@@ -353,6 +423,17 @@ function motion_blocks_ability_set_animations( $input ) {
         return motion_blocks_recipe_error( $errors );
     }
 
+    // Core stores a revision after an update, not before, so a post
+    // that was only ever inserted (WP-CLI, an importer, an agent) has
+    // nothing to roll back to. Store its current state first; core
+    // skips this when the newest revision already matches (GH #139).
+    $previous = null;
+    if ( wp_revisions_enabled( $post ) ) {
+        wp_save_post_revision( $post->ID );
+        $before   = wp_get_post_revisions( $post->ID, array( 'numberposts' => 1 ) );
+        $previous = $before ? reset( $before )->ID : null;
+    }
+
     $saved = wp_update_post(
         array(
             'ID'           => $post->ID,
@@ -366,11 +447,18 @@ function motion_blocks_ability_set_animations( $input ) {
     $revisions = wp_get_post_revisions( $post->ID, array( 'numberposts' => 1 ) );
     $revision  = $revisions ? reset( $revisions ) : null;
     return array(
-        'post_id'     => $post->ID,
-        'status'      => get_post_status( $post->ID ),
-        'url'         => (string) get_permalink( $post->ID ),
-        'revision_id' => $revision ? $revision->ID : null,
-        'updated'     => $updated,
+        'post_id'              => $post->ID,
+        'status'               => get_post_status( $post->ID ),
+        'url'                  => (string) get_permalink( $post->ID ),
+        // The revision holding the post as it is now.
+        'revision_id'          => $revision ? $revision->ID : null,
+        // The revision to restore to undo this change; null when the
+        // post type or the site keeps no revisions.
+        'previous_revision_id' => $previous && ( ! $revision || $previous !== $revision->ID ) ? $previous : null,
+        'modified_gmt'         => (string) get_post_field( 'post_modified_gmt', $post->ID ),
+        // Animations are saved either way, but don't play on these.
+        'disabled_devices'     => motion_blocks_ability_disabled_devices( $post->ID ),
+        'updated'              => $updated,
     );
 }
 
@@ -380,8 +468,10 @@ function motion_blocks_ability_set_animations( $input ) {
  * @return array
  */
 function motion_blocks_ability_list_saved() {
-    $out     = array();
-    $library = get_option( 'mb_saved_animations', array() );
+    $out = array();
+    // The library is a site setting, which only administrators read in
+    // the editor. The theme's animations show for everyone there.
+    $library = current_user_can( 'manage_options' ) ? get_option( 'mb_saved_animations', array() ) : array();
     foreach ( is_array( $library ) ? $library : array() as $id => $entry ) {
         if ( empty( $entry['attributes'] ) || ! is_array( $entry['attributes'] ) ) {
             continue;
@@ -421,8 +511,23 @@ function motion_blocks_ability_save_animation( $input ) {
     if ( $converted['errors'] ) {
         return motion_blocks_recipe_error( $converted['errors'] );
     }
+    $name = sanitize_text_field( $input['name'] );
+    if ( '' === $name ) {
+        return new WP_Error( 'motion_blocks_no_name', __( 'The name is empty once tags and extra spaces are removed. Give the animation a name.', 'motion-blocks' ), array( 'status' => 400 ) );
+    }
     $library = get_option( 'mb_saved_animations', array() );
     $library = is_array( $library ) ? $library : array();
+    if ( count( $library ) >= MOTION_BLOCKS_LIBRARY_MAX_ENTRIES ) {
+        return new WP_Error(
+            'motion_blocks_library_full',
+            sprintf(
+                /* translators: %d: the most saved animations the library holds */
+                __( 'The library is full (%d saved animations). Delete one in the editor first.', 'motion-blocks' ),
+                MOTION_BLOCKS_LIBRARY_MAX_ENTRIES
+            ),
+            array( 'status' => 409 )
+        );
+    }
     do {
         // 8 lowercase base36 characters, never all digits (#57).
         $uid = 'a' . strtolower( wp_generate_password( 7, false ) );
@@ -430,7 +535,7 @@ function motion_blocks_ability_save_animation( $input ) {
     // Library entries hold full attribute sets, like the editor saves.
     $attributes      = array_merge( motion_blocks_recipe_cleared_attributes(), $converted['attributes'] );
     $library[ $uid ] = array(
-        'name'       => sanitize_text_field( $input['name'] ),
+        'name'       => $name,
         'createdAt'  => gmdate( 'c' ),
         'attributes' => $attributes,
     );
@@ -501,7 +606,7 @@ function motion_blocks_register_abilities() {
         'motion-blocks/get-animations',
         array(
             'label'               => __( 'Get a post\'s animations', 'motion-blocks' ),
-            'description'         => __( 'Lists every block of a post, page, template or pattern with its path, type, a text excerpt, whether it can be animated, and its animation as a recipe (null when it has none). Use the paths with set-animations.', 'motion-blocks' ),
+            'description'         => __( 'Lists every block of a post, page, template or pattern with its path, type, a text excerpt, whether it can be animated, and its animation as a recipe (null when it has none). Use the paths and modified_gmt with set-animations. disabled_devices lists the devices this page has animations turned off for.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => 'object',
@@ -549,13 +654,17 @@ function motion_blocks_register_abilities() {
         'motion-blocks/set-animations',
         array(
             'label'               => __( 'Set animations on a post', 'motion-blocks' ),
-            'description'         => __( 'Sets or removes the animation of one or more blocks of a post, page, template or pattern, and saves it straight away (also when published). All changes are validated first; if any is invalid nothing is saved and every problem is reported. The save stores a revision, so it can be rolled back. Each change names the block_name get-animations reported at that path, to guard against the content having changed since. Refused while another user has the post open in the editor.', 'motion-blocks' ),
+            'description'         => __( 'Sets or removes the animation of one or more blocks of a post, page, template or pattern, and saves it straight away (also when published). All changes are validated first; if any is invalid nothing is saved and every problem is reported. Where revisions are on, the result names previous_revision_id, the revision to restore to undo it. Each change names the block_name get-animations reported at that path; also pass the modified_gmt it returned, so the change is refused if the post was saved since. Refused while the post is open in the post editor (an open Site Editor is not detected). The result lists disabled_devices: the devices this page has animations turned off for.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => 'object',
                 'properties'           => array(
-                    'post_id' => $post_id,
-                    'changes' => array(
+                    'post_id'      => $post_id,
+                    'modified_gmt' => array(
+                        'type'        => 'string',
+                        'description' => 'The modified_gmt get-animations returned. When given, the change is refused if the post was saved since, so a path can\'t land on the wrong block.',
+                    ),
+                    'changes'      => array(
                         'type'     => 'array',
                         'minItems' => 1,
                         'maxItems' => 500,
@@ -597,7 +706,7 @@ function motion_blocks_register_abilities() {
         'motion-blocks/list-saved-animations',
         array(
             'label'               => __( 'List saved animations', 'motion-blocks' ),
-            'description'         => __( 'Lists the site\'s saved animation library and the animations the theme ships, each as a recipe ready for set-animations. Needs a user who can manage site settings, like the library in the editor.', 'motion-blocks' ),
+            'description'         => __( 'Lists the animations the theme ships and, for a user who can manage site settings, the site\'s saved animation library, each as a recipe ready for set-animations.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => array( 'object', 'null' ),
@@ -605,10 +714,9 @@ function motion_blocks_register_abilities() {
             ),
             'output_schema'       => array( 'type' => 'object' ),
             'execute_callback'    => 'motion_blocks_ability_list_saved',
-            // Same gate as the library in the editor (/wp/v2/settings).
-            'permission_callback' => function () {
-                return current_user_can( 'manage_options' );
-            },
+            // Theme animations: anyone who can edit, as in the editor.
+            // The callback adds the library for administrators only.
+            'permission_callback' => $can_edit_posts,
             'meta'                => $meta( $readonly ),
         )
     );

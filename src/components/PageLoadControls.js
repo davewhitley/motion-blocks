@@ -468,37 +468,42 @@ export default function PageLoadControls( {
 					</ToggleGroupControl>
 				) }
 
-			{ ! isCustom && animationType === 'blur' && (
-				<RangeControl
-					label={ __( 'Blur', 'motion-blocks' ) }
-					value={ animationBlurAmount }
-					onChange={ ( value ) =>
-						setAttributes( { animationBlurAmount: value } )
-					}
-					min={ BLUR_SETTINGS.min }
-					max={ BLUR_SETTINGS.max }
-					step={ BLUR_SETTINGS.step }
-					renderTooltipContent={ ( value ) => `${ value }px` }
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				/>
-			) }
+			{ ! isCustom &&
+				( animationType === 'blur' ||
+					animationType === 'blur-out' ) && (
+					<RangeControl
+						label={ __( 'Blur', 'motion-blocks' ) }
+						value={ animationBlurAmount }
+						onChange={ ( value ) =>
+							setAttributes( { animationBlurAmount: value } )
+						}
+						min={ BLUR_SETTINGS.min }
+						max={ BLUR_SETTINGS.max }
+						step={ BLUR_SETTINGS.step }
+						renderTooltipContent={ ( value ) => `${ value }px` }
+						__next40pxDefaultSize
+						__nextHasNoMarginBottom
+					/>
+				) }
 
-			{ ! isCustom && animationType === 'rotate' && (
-				<NumberControl
-					label={ __( 'Angle', 'motion-blocks' ) }
-					value={ animationRotateAngle ?? 90 }
-					step={ 1 }
-					spinControls="custom"
-					suffix={ <DegreesSuffix /> }
-					onChange={ ( value ) =>
-						setAttributes( {
-							animationRotateAngle: parseInt( value, 10 ) || 0,
-						} )
-					}
-					__next40pxDefaultSize
-				/>
-			) }
+			{ ! isCustom &&
+				( animationType === 'rotate' ||
+					animationType === 'rotate-out' ) && (
+					<NumberControl
+						label={ __( 'Angle', 'motion-blocks' ) }
+						value={ animationRotateAngle ?? 90 }
+						step={ 1 }
+						spinControls="custom"
+						suffix={ <DegreesSuffix /> }
+						onChange={ ( value ) =>
+							setAttributes( {
+								animationRotateAngle:
+									parseInt( value, 10 ) || 0,
+							} )
+						}
+						__next40pxDefaultSize
+					/>
+				) }
 
 			<h3 className="mb-section-heading">
 				{ __( 'Timing', 'motion-blocks' ) }

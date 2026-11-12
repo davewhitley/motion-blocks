@@ -79,10 +79,11 @@ Every string people see goes through `__()` (or `_n()`, `_x()`, `sprintf()` with
 After changing strings, regenerate the template from the plugin folder:
 
 ```bash
-wp i18n make-pot . languages/motion-blocks.pot --domain=motion-blocks --exclude=src,tests,node_modules,schema,docs,examples,languages
+wp i18n make-pot . languages/motion-blocks.pot --domain=motion-blocks --exclude=src,tests,node_modules,schema,docs,examples,languages \
+  --headers='{"Report-Msgid-Bugs-To":"https://github.com/davewhitley/motion-blocks/issues"}'
 ```
 
-It reads `build/`, so run `npm run build` first. A translator turns it into `motion-blocks-{locale}.po`, then makes the `.mo` file and the editor's `.json` files with `wp i18n make-mo` and `wp i18n make-json`. The plugin loads them from `languages/` or `wp-content/languages/plugins/`.
+It reads `build/`, so run `npm run build` first. The `--headers` part points translators at GitHub issues; without it, WP-CLI guesses a wordpress.org support page from the folder name, and the plugin has none. A translator turns it into `motion-blocks-{locale}.po`, then makes the `.mo` file and the editor's `.json` files with `wp i18n make-mo` and `wp i18n make-json`. The plugin loads them from `languages/` or `wp-content/languages/plugins/`.
 
 The agent-facing recipe schema and its descriptions (`includes/recipe.php`, `schema/`) stay in English on purpose: they're read by AI agents and published as a fixed reference.
 

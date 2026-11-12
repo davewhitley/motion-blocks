@@ -1380,7 +1380,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             $processor->set_attribute( 'data-mb-direction', (string) $direction );
         }
 
-        if ( $type === 'blur' ) {
+        if ( in_array( $type, array( 'blur', 'blur-out' ), true ) ) {
             $blur_default = motion_blocks_attr_default( 'animationBlurAmount' );
             $blur_amount  = $attrs['animationBlurAmount'] ?? $blur_default;
             if ( (int) $blur_amount !== (int) $blur_default ) {
@@ -1388,7 +1388,7 @@ function motion_blocks_render_block( $block_content, $block ) {
             }
         }
 
-        if ( $type === 'rotate' ) {
+        if ( in_array( $type, array( 'rotate', 'rotate-out' ), true ) ) {
             $rotate_default = motion_blocks_attr_default( 'animationRotateAngle' );
             $rotate_angle   = $attrs['animationRotateAngle'] ?? $rotate_default;
             if ( (int) $rotate_angle !== (int) $rotate_default ) {
@@ -1824,6 +1824,10 @@ function motion_blocks_device_queries_script() {
 if ( ! defined( 'MOTION_BLOCKS_LIBRARY_STRING_MAX' ) ) {
     define( 'MOTION_BLOCKS_LIBRARY_STRING_MAX', 2000 );
 }
+// Most saved animations the library holds.
+if ( ! defined( 'MOTION_BLOCKS_LIBRARY_MAX_ENTRIES' ) ) {
+    define( 'MOTION_BLOCKS_LIBRARY_MAX_ENTRIES', 200 );
+}
 
 /**
  * Scrub a single string attribute value from a saved-animation recipe.
@@ -1877,7 +1881,7 @@ function motion_blocks_sanitize_saved_animations( $value ) {
 
     $clean = array();
     foreach ( $value as $uid => $entry ) {
-        if ( count( $clean ) >= 200 ) {
+        if ( count( $clean ) >= MOTION_BLOCKS_LIBRARY_MAX_ENTRIES ) {
             break;
         }
         // JS uids are 8-char base36 (generateUid); bundled uids are

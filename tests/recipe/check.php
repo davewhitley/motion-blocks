@@ -547,10 +547,60 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	mb_recipe_check( (bool) motion_blocks_recipe_to_attributes( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'blur', 'blur' => 8.5 ) ), 'core/paragraph' )['errors'], 'blur must be a whole number (the renderer compares integers)' );
 	wp_set_current_user( $mb_other );
 	$ed_list = wp_get_ability( 'motion-blocks/list-saved-animations' )->execute();
-	mb_recipe_check( is_wp_error( $ed_list ), 'list-saved-animations needs manage_options, like the editor\'s library' );
+	mb_recipe_check(
+		! is_wp_error( $ed_list ) && ! array_filter( $ed_list['animations'], function ( $entry ) {
+			return 'library' === $entry['source'];
+		} ),
+		'list-saved-animations lets an editor list theme animations, without the library',
+		is_wp_error( $ed_list ) ? $ed_list->get_error_message() : wp_json_encode( $ed_list )
+	);
 	wp_set_current_user( (int) $mb_admin[0] );
 	require_once ABSPATH . 'wp-admin/includes/user.php';
 	wp_delete_user( $mb_other );
+
+	// GH #139.
+	$get139 = wp_get_ability( 'motion-blocks/get-animations' )->execute( array( 'post_id' => $mb_post ) );
+	mb_recipe_check( ! is_wp_error( $get139 ) && '' !== $get139['modified_gmt'] && array() === $get139['disabled_devices'], 'get-animations returns modified_gmt and disabled_devices' );
+	$heading_null = array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => null ) );
+	$stale        = $set->execute( array( 'post_id' => $mb_post, 'modified_gmt' => '2001-01-01 00:00:00', 'changes' => $heading_null ) );
+	mb_recipe_check( is_wp_error( $stale ) && 'motion_blocks_post_changed' === $stale->get_error_code(), 'set-animations refuses a post saved since it was read' );
+	$bad_path = null;
+	try {
+		$bad_path = motion_blocks_ability_set_animations( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => 0, 'block_name' => 'core/heading', 'recipe' => null ) ) ) );
+	} catch ( \Throwable $e ) {
+		$bad_path = $e;
+	}
+	mb_recipe_check( is_wp_error( $bad_path ) && 'motion_blocks_invalid_path' === $bad_path->get_error_code(), 'set-animations reports a path that is not a list, without a PHP error' );
+	update_post_meta( $mb_post, '_edit_lock', time() . ':' . get_current_user_id() );
+	$own_lock = $set->execute( array( 'post_id' => $mb_post, 'changes' => $heading_null ) );
+	mb_recipe_check( is_wp_error( $own_lock ) && 'motion_blocks_post_locked' === $own_lock->get_error_code(), 'set-animations refuses while the same user has the post open in the editor' );
+	delete_post_meta( $mb_post, '_edit_lock' );
+	update_post_meta( $mb_post, 'mb_disabled_mobile', true );
+	$fresh = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'mb recipe check 139', 'post_content' => '<!-- wp:paragraph --><p>One</p><!-- /wp:paragraph -->' ) );
+	$first = $set->execute( array( 'post_id' => $fresh, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/paragraph', 'recipe' => array( 'version' => 1.0, 'mode' => 'page-load', 'effect' => array( 'type' => 'rotate-out', 'rotate' => 180, 'duration' => 0 ) ) ) ) ) );
+	$prev  = ! is_wp_error( $first ) && $first['previous_revision_id'] ? get_post( $first['previous_revision_id'] ) : null;
+	mb_recipe_check( $prev && false === strpos( $prev->post_content, 'animationMode' ) && $first['previous_revision_id'] !== $first['revision_id'], 'set-animations stores the earlier state of a never-revised post, and names it', is_wp_error( $first ) ? $first->get_error_message() : wp_json_encode( $first ) );
+	mb_recipe_check( ! is_wp_error( $first ) && false !== strpos( do_blocks( get_post( $fresh )->post_content ), 'data-mb-rotate-angle="180"' ), 'a rotate amount on rotate-out reaches the page' );
+	$with_flag = $set->execute( array( 'post_id' => $mb_post, 'changes' => $heading_null ) );
+	mb_recipe_check( ! is_wp_error( $with_flag ) && array( 'mobile' ) === $with_flag['disabled_devices'], 'set-animations reports the devices animations are off for' );
+	delete_post_meta( $mb_post, 'mb_disabled_mobile' );
+	wp_delete_post( $fresh, true );
+	$damaged = null;
+	try {
+		$damaged = motion_blocks_attributes_to_recipe( array( 'animationMode' => 'page-load', 'animationType' => 'blur', 'animationBlurAmount' => 'abc' ), 'core/paragraph' );
+	} catch ( \Throwable $e ) {
+		$damaged = null;
+	}
+	mb_recipe_check( is_array( $damaged ) && 8 === $damaged['effect']['blur'], 'a damaged blur amount reads as the default', wp_json_encode( $damaged ) );
+	$v139 = function ( $recipe ) {
+		return array_column( motion_blocks_recipe_to_attributes( $recipe, 'core/group' )['errors'], 'path' );
+	};
+	mb_recipe_check( array( 'effect.from.opacity', 'effect.from.scale' ) === $v139( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'custom', 'from' => array( 'opacity' => 5, 'scale' => -3 ), 'to' => array( 'opacity' => 1 ) ) ) ), 'the validator enforces the opacity and scale limits' );
+	mb_recipe_check( array( 'range' ) === $v139( array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'range' => 'abc' ) ), 'the validator rejects a range that is not an object' );
+	mb_recipe_check( array( 'range.strat' ) === $v139( array( 'version' => 1, 'mode' => 'scroll-interactive', 'effect' => array( 'type' => 'fade' ), 'range' => array( 'strat' => 'entry 0%' ) ) ), 'the validator reports a misspelled range key' );
+	mb_recipe_check( array( 'stagger.delay' ) === $v139( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ), 'stagger' => array( 'delay' => 1 ) ) ), 'the validator reports an unknown stagger key' );
+	$blank = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => ' ', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ) );
+	mb_recipe_check( is_wp_error( $blank ) && 'motion_blocks_no_name' === $blank->get_error_code(), 'save-animation refuses a name that is empty once cleaned' );
 
 	// Permissions.
 	wp_set_current_user( 0 );

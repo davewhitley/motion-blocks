@@ -1704,11 +1704,17 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 				// the live view() preview is active, so they don't
 				// normally coexist on one element.
 				scrubStyle.animationTimeline = 'auto';
-				if ( animationType === 'blur' ) {
+				if (
+					animationType === 'blur' ||
+					animationType === 'blur-out'
+				) {
 					scrubStyle[ '--mb-blur-amount' ] =
 						( animationBlurAmount ?? 8 ) + 'px';
 				}
-				if ( animationType === 'rotate' ) {
+				if (
+					animationType === 'rotate' ||
+					animationType === 'rotate-out'
+				) {
 					scrubStyle[ '--mb-rotate-angle' ] =
 						( animationRotateAngle ?? 90 ) + 'deg';
 				}
@@ -1838,11 +1844,17 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 					liveStyles[ '--mb-range-end' ] = rangeEndVal;
 					liveStyles[ '--mb-timing' ] = resolvedTiming;
 				}
-				if ( animationType === 'blur' ) {
+				if (
+					animationType === 'blur' ||
+					animationType === 'blur-out'
+				) {
 					liveStyles[ '--mb-blur-amount' ] =
 						( animationBlurAmount ?? 8 ) + 'px';
 				}
-				if ( animationType === 'rotate' ) {
+				if (
+					animationType === 'rotate' ||
+					animationType === 'rotate-out'
+				) {
 					liveStyles[ '--mb-rotate-angle' ] =
 						( animationRotateAngle ?? 90 ) + 'deg';
 				}
@@ -1983,11 +1995,17 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 					// the delay, as the front end does (GH #128).
 					'--mb-fill-mode': isLooping ? 'backwards' : 'both',
 				};
-				if ( animationType === 'blur' ) {
+				if (
+					animationType === 'blur' ||
+					animationType === 'blur-out'
+				) {
 					previewStyles[ '--mb-blur-amount' ] =
 						( animationBlurAmount ?? 8 ) + 'px';
 				}
-				if ( animationType === 'rotate' ) {
+				if (
+					animationType === 'rotate' ||
+					animationType === 'rotate-out'
+				) {
 					previewStyles[ '--mb-rotate-angle' ] =
 						( animationRotateAngle ?? 90 ) + 'deg';
 				}

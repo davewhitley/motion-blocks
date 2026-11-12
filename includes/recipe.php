@@ -232,7 +232,7 @@ function motion_blocks_recipe_schema() {
             ),
             'duration'  => array(
                 'type'        => 'number',
-                'minimum'     => 0.05,
+                'minimum'     => 0,
                 'maximum'     => 60,
                 'description' => 'Seconds. Default 0.6.',
             ),
@@ -473,7 +473,9 @@ function motion_blocks_recipe_effect_to_attrs( $effect, $prefix, $part, $path, &
     }
 
     // Timing.
-    foreach ( array( 'duration' => array( 0.05, 60 ), 'delay' => array( 0, 60 ) ) as $key => $range ) {
+    // Duration from 0: the panel can save 0, and a recipe read from
+    // such a block has to be writable again (GH #139).
+    foreach ( array( 'duration' => array( 0, 60 ), 'delay' => array( 0, 60 ) ) as $key => $range ) {
         if ( ! array_key_exists( $key, $effect ) ) {
             continue;
         }
@@ -578,6 +580,15 @@ function motion_blocks_recipe_effect_to_attrs( $effect, $prefix, $part, $path, &
                     );
                     continue;
                 }
+                // The limits the published schema declares.
+                $limits = array( 'opacity' => array( 0, 1 ), 'scale' => array( 0, 10 ) );
+                if ( isset( $limits[ $id ] ) && ( $value < $limits[ $id ][0] || $value > $limits[ $id ][1] ) ) {
+                    $errors[] = array(
+                        'path'    => "{$path}.{$side}.{$id}",
+                        'message' => "Must be a number from {$limits[ $id ][0]} to {$limits[ $id ][1]}.",
+                    );
+                    continue;
+                }
                 $out[ "{$prefix}{$side_key}{$suffix}" ] = $unit || 'clipPath' === $id ? (string) $value : $value + 0;
                 $count++;
             }
@@ -675,7 +686,8 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
     $recipe = motion_blocks_recipe_normalize_scalars( $recipe );
 
     $version = isset( $recipe['version'] ) ? $recipe['version'] : null;
-    if ( MOTION_BLOCKS_RECIPE_FORMAT !== $version ) {
+    // `1.0` is version 1 too: some clients send every number as a float.
+    if ( ! ( is_int( $version ) || is_float( $version ) ) || (float) MOTION_BLOCKS_RECIPE_FORMAT !== (float) $version ) {
         $errors[] = array( 'path' => 'version', 'message' => 'Must be ' . MOTION_BLOCKS_RECIPE_FORMAT . '.' );
     }
     $mode  = isset( $recipe['mode'] ) ? $recipe['mode'] : null;
@@ -732,7 +744,14 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
                 $errors[] = array( 'path' => 'pauseOffscreen', 'message' => 'Must be true or false.' );
             }
         }
-        if ( isset( $recipe['range'] ) ) {
+        if ( isset( $recipe['range'] ) && ! is_array( $recipe['range'] ) ) {
+            $errors[] = array( 'path' => 'range', 'message' => 'Must be an object like {"start": "entry 0%", "end": "exit 100%"}.' );
+        } elseif ( isset( $recipe['range'] ) ) {
+            foreach ( array_keys( $recipe['range'] ) as $key ) {
+                if ( ! in_array( $key, array( 'start', 'end' ), true ) ) {
+                    $errors[] = array( 'path' => "range.{$key}", 'message' => 'Unknown key. Use start and end.' );
+                }
+            }
             $pattern = '/^(entry|exit|cover|contain|entry-crossing|exit-crossing) -?\d+(\.\d+)?%$/';
             foreach ( array( 'start' => 'animationRangeStart', 'end' => 'animationRangeEnd' ) as $key => $attr ) {
                 if ( ! isset( $recipe['range'][ $key ] ) ) {
@@ -796,6 +815,11 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
         } elseif ( ! is_array( $stagger ) ) {
             $errors[] = array( 'path' => 'stagger', 'message' => 'Must be an object like {"step": 0.1}, or null.' );
         } else {
+            foreach ( array_keys( $stagger ) as $key ) {
+                if ( 'step' !== $key ) {
+                    $errors[] = array( 'path' => "stagger.{$key}", 'message' => 'Unknown key. Use step.' );
+                }
+            }
             $attrs['animationStaggerEnabled'] = true;
             if ( isset( $stagger['step'] ) ) {
                 if ( is_numeric( $stagger['step'] ) && $stagger['step'] >= 0 && $stagger['step'] <= 5 ) {
@@ -872,10 +896,12 @@ function motion_blocks_recipe_effect_from_attrs( $a, $prefix ) {
 
     $base = preg_replace( '/-out$/', '', $type );
     if ( 'blur' === $base ) {
-        $effect['blur'] = $a[ "{$prefix}BlurAmount" ] + 0;
+        // A damaged (non-numeric) amount reads as the default, not a
+        // TypeError that fails the whole post or library (GH #139).
+        $effect['blur'] = is_numeric( $a[ "{$prefix}BlurAmount" ] ) ? $a[ "{$prefix}BlurAmount" ] + 0 : motion_blocks_attr_default( "{$prefix}BlurAmount" );
     }
     if ( 'rotate' === $base ) {
-        $effect['rotate'] = $a[ "{$prefix}RotateAngle" ] + 0;
+        $effect['rotate'] = is_numeric( $a[ "{$prefix}RotateAngle" ] ) ? $a[ "{$prefix}RotateAngle" ] + 0 : motion_blocks_attr_default( "{$prefix}RotateAngle" );
     }
     if ( 'animation' !== $prefix ) {
         $effect['replay'] = (string) $a[ "{$prefix}Replay" ];

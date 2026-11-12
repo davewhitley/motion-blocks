@@ -22,8 +22,8 @@
  * so the theme's own styles show untouched: there is nothing to reset
  * and no `!important` anywhere. The editor canvas always has the class,
  * so previews play. `:where()` adds no weight, so every rule weighs
- * what it would without the gate. Left ungated: the custom-property
- * defaults and the page overflow clip, which never move anything.
+ * what it would without the gate. Left ungated: only the
+ * custom-property defaults, which never move anything.
  * tests/unit/motion-off-reset.test.js checks both rules.
  */
 
@@ -115,8 +115,15 @@
  * can opt out with one line in functions.php:
  *
  *     add_filter( 'motion_blocks_apply_overflow_clip', '__return_false' );
+ *
+ * Behind the motion gate like every other rule (GH #134): with motion
+ * off (reduced motion, a disabled device, no JS) nothing is moved off
+ * the page, so there is nothing to clip, and a visitor can still
+ * scroll sideways to content wider than the screen (a wide table, a
+ * fixed-width embed, the page at 400% zoom). The second `:where()`
+ * keeps the whole selector at zero specificity.
  * -------------------------------------------------------------- */
-:where(body.mb-clip-page-overflow) {
+:where(html.mb-motion) :where(body.mb-clip-page-overflow) {
 	overflow-x: clip;
 }
 

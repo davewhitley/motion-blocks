@@ -13,8 +13,9 @@
  *   - no `!important` anywhere in the file, except the print rule
  *     (GH #127);
  *   - every rule that sets a motion property is gated, on every
- *     selector in its list, and nothing else is (the custom-property
- *     defaults and the page overflow clip stay ungated);
+ *     selector in its list, and nothing else is (only the
+ *     custom-property defaults stay ungated; the page overflow clip is
+ *     gated too, GH #134);
  *   - no reset rule and no media query for reduced motion or device
  *     buckets left to keep in step (GH #26 / #44);
  *   - the img rules frontend.js injects at runtime are gated too;
@@ -90,20 +91,27 @@ describe( 'motion gate in animations.css (#53)', () => {
 		expect( ungated ).toEqual( [] );
 	} );
 
-	it( 'leaves only the custom-property defaults and the overflow clip ungated', () => {
-		const ungated = rules.filter( ( r ) => ! r.motion );
+	it( 'leaves only the custom-property defaults ungated', () => {
+		// Not a motion property, but gated all the same (next test).
+		const ungated = rules.filter(
+			( r ) => ! r.motion && ! r.props.includes( 'overflow-x' )
+		);
 		ungated.forEach( ( r ) => {
 			r.selectors.forEach( ( s ) => expect( s ).not.toContain( GATE ) );
 			r.props.forEach( ( p ) =>
-				expect( p === 'overflow-x' || p.startsWith( '--' ) ).toBe(
-					true
-				)
+				expect( p.startsWith( '--' ) ).toBe( true )
 			);
 		} );
 		expect( ungated.map( ( r ) => r.selectors[ 0 ] ) ).toEqual( [
 			'.mb-animated',
 			expect.stringMatching( /^\.mb-animated:not\(/ ),
-			':where(body.mb-clip-page-overflow)',
+		] );
+	} );
+
+	it( 'gates the page overflow clip, at zero specificity (GH #134)', () => {
+		const clip = rules.filter( ( r ) => r.props.includes( 'overflow-x' ) );
+		expect( clip.map( ( r ) => r.selectors ) ).toEqual( [
+			[ ':where(html.mb-motion) :where(body.mb-clip-page-overflow)' ],
 		] );
 	} );
 

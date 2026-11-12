@@ -832,6 +832,40 @@ export function resolveTimingFunction( acceleration, customValue ) {
 /**
  * Repeat options (page-load only).
  */
+/**
+ * The shortest Duration a looping Page Load animation can have. A loop
+ * repeats once per Duration, and content that flashes more than three
+ * times a second can trigger seizures (WCAG 2.3.1). frontend.js raises
+ * a shorter stored value to the same number (GH #134).
+ */
+export const LOOP_MIN_DURATION = 0.35;
+
+/**
+ * Is this Repeat value one that never stops?
+ *
+ * @param {string} repeat Page Load Repeat value.
+ * @return {boolean} True for Loop continuously and Back and forth.
+ */
+export function isLoopingRepeat( repeat ) {
+	return repeat === 'loop' || repeat === 'alternate';
+}
+
+/**
+ * The attributes to set when Repeat changes: the new value, plus a
+ * Duration raised to the loop minimum when the new value loops.
+ *
+ * @param {string} repeat   New Repeat value.
+ * @param {number} duration Current Duration in seconds.
+ * @return {Object} Attributes to set.
+ */
+export function repeatChangeAttributes( repeat, duration ) {
+	const next = { animationRepeat: repeat };
+	if ( isLoopingRepeat( repeat ) && duration < LOOP_MIN_DURATION ) {
+		next.animationDuration = LOOP_MIN_DURATION;
+	}
+	return next;
+}
+
 export const REPEAT_OPTIONS = [
 	{ label: __( 'Play once', 'motion-blocks' ), value: 'once' },
 	{ label: __( 'Loop continuously', 'motion-blocks' ), value: 'loop' },

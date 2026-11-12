@@ -104,6 +104,7 @@ import {
 		wire( document );
 		watchForLateContent();
 		watchStaggerBreakpoints();
+		watchFocus();
 		// Public hook (GH #50). Content added later is picked up on its
 		// own (watchForLateContent), so themes rarely need this; it's
 		// for content the observer can't see coming, e.g. blocks moved
@@ -200,6 +201,11 @@ import {
 			scrollAppear.release( el );
 		}
 		cancelSettle( el );
+		var paused = focusPaused.indexOf( el );
+		if ( paused !== -1 ) {
+			focusPaused.splice( paused, 1 );
+			el.style.removeProperty( '--mb-play-state' );
+		}
 		if ( pauseObservers.has( el ) ) {
 			pauseObservers.get( el ).disconnect();
 			pauseObservers.delete( el );
@@ -1140,8 +1146,141 @@ import {
 	}
 
 	/* ---------------------------------------------------------------
+	 * Keyboard focus (GH #134)
+	 *
+	 * A block waiting for its Entry, a Stagger child waiting its turn, a
+	 * Page Load block in its Delay and a block that has played its Exit
+	 * are only hidden with `opacity: 0`, so the links and buttons inside
+	 * them can still take focus. A visitor tabbing through the page then
+	 * lands on something they can't see. When focus moves into an
+	 * animated block, show it at rest straight away, without playing
+	 * anything: the focused control has to be visible now, not after a
+	 * Delay and a fade.
+	 *
+	 * A looping Page Load block also holds still while focus (from the
+	 * keyboard) is inside it, so the focused control can be read.
+	 * ------------------------------------------------------------- */
+
+	// Looping blocks paused because keyboard focus is inside them.
+	var focusPaused = [];
+
+	function watchFocus() {
+		document.addEventListener( 'focusin', function ( e ) {
+			var target = e.target;
+			if ( ! target || ! target.closest ) {
+				return;
+			}
+			var keyboard = false;
+			try {
+				keyboard = target.matches( ':focus-visible' );
+			} catch ( err ) {
+				// No :focus-visible support: treat every focus as keyboard.
+				keyboard = true;
+			}
+			// Loops that focus has left start again.
+			focusPaused.slice().forEach( function ( el ) {
+				if ( ! el.contains( target ) ) {
+					resumeAfterFocus( el );
+				}
+			} );
+			// Every animated block around the focused element, innermost
+			// first: each one may be hiding it.
+			var el = target.closest( '.mb-animated' );
+			while ( el ) {
+				if ( isWired( el ) ) {
+					revealForFocus( el, keyboard );
+				}
+				el = el.parentElement
+					? el.parentElement.closest( '.mb-animated' )
+					: null;
+			}
+		} );
+		// `blur` doesn't bubble, so listen in the capture phase.
+		document.addEventListener(
+			'blur',
+			function ( e ) {
+				// Focus left the page (or went nowhere): no focusin follows.
+				var next = e.relatedTarget;
+				if ( ! next || next.nodeType !== 1 ) {
+					focusPaused.slice().forEach( resumeAfterFocus );
+				}
+			},
+			true
+		);
+	}
+
+	function revealForFocus( el, keyboard ) {
+		if ( el.classList.contains( 'mb-mode-scroll-appear' ) ) {
+			if ( scrollAppear ) {
+				scrollAppear.reveal( el );
+			}
+			return;
+		}
+		if ( ! el.classList.contains( 'mb-mode-page-load' ) ) {
+			// Scroll Interactive follows the scroll position; the browser
+			// scrolls the focused element into view.
+			return;
+		}
+		var repeat = el.dataset.mbRepeat || 'once';
+		if ( repeat === 'loop' || repeat === 'alternate' ) {
+			if ( keyboard && focusPaused.indexOf( el ) === -1 ) {
+				focusPaused.push( el );
+				el.style.setProperty( '--mb-play-state', 'paused' );
+			}
+			return;
+		}
+		finishOwnAnimations( el );
+	}
+
+	function resumeAfterFocus( el ) {
+		var i = focusPaused.indexOf( el );
+		if ( i === -1 ) {
+			return;
+		}
+		focusPaused.splice( i, 1 );
+		if ( ! el.isConnected ) {
+			return;
+		}
+		if ( pauseObservers.has( el ) ) {
+			// "Pause off-screen" decides again.
+			setPlayState( el, layoutBoxOnScreen( el ) );
+		} else {
+			el.style.removeProperty( '--mb-play-state' );
+		}
+	}
+
+	/**
+	 * Jump `el`'s own animations (the wrapper's, plus staggered children
+	 * or an img-target image) to their end, skipping any Delay. Nested
+	 * animated blocks are left alone.
+	 */
+	function finishOwnAnimations( el ) {
+		if ( typeof el.getAnimations !== 'function' ) {
+			return;
+		}
+		el.getAnimations( { subtree: true } ).forEach( function ( anim ) {
+			var target = anim.effect && anim.effect.target;
+			if ( ! target || target.closest( '.mb-animated' ) !== el ) {
+				return;
+			}
+			try {
+				anim.finish();
+			} catch ( e ) {
+				// Infinite iteration count: can't finish, leave it running.
+			}
+		} );
+	}
+
+	/* ---------------------------------------------------------------
 	 * 1. Page Load Animations
 	 * ------------------------------------------------------------- */
+
+	// The shortest Duration a looping Page Load animation plays at. A
+	// loop repeats once per Duration, and content that flashes more
+	// than three times a second can trigger seizures (WCAG 2.3.1), so
+	// a shorter stored value is raised to this (GH #134). Keep in step
+	// with LOOP_MIN_DURATION in src/components/constants.js.
+	var LOOP_MIN_DURATION = 0.35;
 
 	// Pause-offscreen observers by element, so a re-wire replaces one.
 	var pauseObservers = new WeakMap();
@@ -1172,6 +1311,15 @@ import {
 		// (the pre-hide stops matching once `mb-triggered` is on), then
 		// snapped to the keyframe's hidden start and animated: a flash
 		// on every load (GH #128).
+		if ( isLooping ) {
+			var loopDuration = parseFloat( el.dataset.mbDuration );
+			if ( loopDuration < LOOP_MIN_DURATION ) {
+				el.style.setProperty(
+					'--mb-duration',
+					LOOP_MIN_DURATION + 's'
+				);
+			}
+		}
 		if ( repeat === 'loop' ) {
 			el.style.setProperty( '--mb-iteration-count', 'infinite' );
 			el.style.setProperty( '--mb-fill-mode', 'backwards' );
@@ -1244,6 +1392,10 @@ import {
 	}
 
 	function setPlayState( el, running ) {
+		// Held still while keyboard focus is inside it (GH #134).
+		if ( focusPaused.indexOf( el ) !== -1 ) {
+			running = false;
+		}
 		el.style.setProperty(
 			'--mb-play-state',
 			running ? 'running' : 'paused'
@@ -1948,6 +2100,50 @@ import {
 			} );
 		}
 
+		/**
+		 * Keyboard focus moved into `el` (GH #134): show it at rest now.
+		 *
+		 *   - Exit played forward (the block is hidden above the band):
+		 *     drop it. With Exit Replay 'once' the block is no longer
+		 *     observed, so it stays shown for the rest of the visit.
+		 *   - Exit playing in reverse, or Entry playing: jump to the end.
+		 *   - Waiting for its Entry, or its Entry played backward (Entry
+		 *     Replay 'reverse'): put it in its entered state. The Entry
+		 *     doesn't play when the scroll then brings it into the band
+		 *     (handleSlotEnter sees it already entered).
+		 */
+		function reveal( el ) {
+			var state = stateByEl.get( el );
+			if ( ! state ) {
+				return;
+			}
+			var reversed =
+				el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
+			if ( el.classList.contains( 'mb-exit-triggered' ) ) {
+				if ( reversed ) {
+					finishOwnAnimations( el );
+					return;
+				}
+				state.exitPendingUntil = 0;
+				el.classList.remove( 'mb-exit-triggered' );
+				if ( state.hasEntry ) {
+					showEntered( state );
+				} else {
+					el.style.removeProperty( '--mb-direction' );
+				}
+				return;
+			}
+			if ( ! state.hasEntry ) {
+				return;
+			}
+			if ( el.classList.contains( 'mb-triggered' ) && ! reversed ) {
+				finishOwnAnimations( el );
+				return;
+			}
+			state.hasEntered = true;
+			showEntered( state );
+		}
+
 		/** Forget `el`'s state, if it has one (see release()). */
 		function releaseEl( el ) {
 			if ( stateByEl.has( el ) ) {
@@ -2180,6 +2376,7 @@ import {
 		return {
 			add: add,
 			release: releaseEl,
+			reveal: reveal,
 			refreshAll: refreshAll,
 			prune: prune,
 		};
@@ -2408,20 +2605,7 @@ import {
 		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'normal' );
 		el.classList.add( 'mb-triggered' );
-		if ( typeof el.getAnimations !== 'function' ) {
-			return;
-		}
-		el.getAnimations( { subtree: true } ).forEach( function ( anim ) {
-			var target = anim.effect && anim.effect.target;
-			if ( ! target || target.closest( '.mb-animated' ) !== el ) {
-				return;
-			}
-			try {
-				anim.finish();
-			} catch ( e ) {
-				// Infinite iteration count: can't finish, leave it running.
-			}
-		} );
+		finishOwnAnimations( el );
 	}
 
 	/**

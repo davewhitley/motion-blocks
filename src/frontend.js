@@ -16,7 +16,7 @@
 /* eslint-disable no-var, object-shorthand -- this file is written in ES5 style (`var`, `key: value`) throughout; converting it is a separate change. */
 
 import SHARED from '../shared-constants.json';
-import { isValidFromToValue } from './css-values';
+import { isValidFromToValue, BARE_NUMBER } from './css-values';
 import { setStaggerIndices } from './stagger-index';
 import {
 	imgTargetSelector,
@@ -573,9 +573,9 @@ import {
 		if ( value === undefined || value === null ) {
 			return value;
 		}
-		return /^-?\d+(\.\d+)?$/.test( String( value ).trim() )
-			? value + unit
-			: value;
+		// The trimmed value gets the unit: "10 " + "px" is not a length.
+		var trimmed = String( value ).trim();
+		return BARE_NUMBER.test( trimmed ) ? trimmed + unit : value;
 	}
 
 	function buildSideBody( el, sideKey, attrPrefix ) {
@@ -988,6 +988,19 @@ import {
 			entryFrom = zoomSides.fromBody;
 			entryTo = zoomSides.toBody;
 		}
+		if (
+			entryType === 'custom' &&
+			! entryFrom &&
+			! entryTo &&
+			! imgTarget
+		) {
+			// An empty Custom (every property removed or rejected) plays
+			// nothing. 'none', not unset: unset, the variables inherit,
+			// and a block nested in another Custom block would play that
+			// block's keyframes (GH #141).
+			el.style.setProperty( '--mb-entry-anim-name', 'none' );
+			el.style.setProperty( '--mb-stagger-anim-name', 'none' );
+		}
 		if ( entryFrom || entryTo ) {
 			customKeyframeCounter += 1;
 			entryName = 'mb-custom-runtime-' + customKeyframeCounter;
@@ -1018,6 +1031,9 @@ import {
 			var zoomSidesExit = buildImageZoomSides();
 			exitFrom = zoomSidesExit.fromBody;
 			exitTo = zoomSidesExit.toBody;
+		}
+		if ( exitType === 'custom' && ! exitFrom && ! exitTo && ! imgTarget ) {
+			el.style.setProperty( '--mb-exit-anim-name', 'none' );
 		}
 		if ( exitFrom || exitTo ) {
 			customKeyframeCounter += 1;
@@ -1129,7 +1145,7 @@ import {
 	 * Apply direction CSS custom properties for a given type + direction.
 	 */
 	function applyDirectionProps( el, type, direction ) {
-		if ( ! type || ! direction ) {
+		if ( ! type ) {
 			return;
 		}
 		var typeVars = DIRECTION_VARS[ type ];
@@ -1138,6 +1154,16 @@ import {
 		}
 		var vars = typeVars[ direction ];
 		if ( ! vars ) {
+			// No direction (a recipe or hand-written attributes; the
+			// panel always writes one): play the effect's default from
+			// the stylesheet. Entry and Exit share these variables, so
+			// the other slot's inline values have to go, or this slot
+			// would play in that slot's direction (GH #141).
+			for ( var name in typeVars ) {
+				for ( var stale in typeVars[ name ] ) {
+					el.style.removeProperty( stale );
+				}
+			}
 			return;
 		}
 		for ( var prop in vars ) {
@@ -2361,7 +2387,23 @@ import {
 				scrollScheduled = true;
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
-					docHeight = readDocHeight();
+					var nextDocHeight = readDocHeight();
+					if (
+						docHeight !== undefined &&
+						nextDocHeight !== undefined &&
+						nextDocHeight !== docHeight
+					) {
+						// The page changed height since the last frame
+						// (an accordion opened, an embed loaded): the
+						// cached block positions are stale. The body
+						// ResizeObserver normally catches this, but not
+						// on a theme with a fixed-height body, whose box
+						// never resizes (GH #141). Re-measure, which
+						// ticks every block too.
+						refreshAll();
+						return;
+					}
+					docHeight = nextDocHeight;
 					drawTriggerLines();
 					// Not `forEach( tick )`: the index would land in
 					// tick()'s `layoutDir` and override the direction.

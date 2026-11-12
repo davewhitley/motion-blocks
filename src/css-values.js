@@ -12,6 +12,14 @@
  */
 
 const NUM = '-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)';
+
+/**
+ * A bare number, as the allowlist above accepts it (`.5` included).
+ * The unit helpers (frontend.js withUnit, constants.js coerceWithUnit)
+ * use it to decide whether a value needs its unit added, so every
+ * number the allowlist lets in gets one (GH #141).
+ */
+export const BARE_NUMBER = new RegExp( `^${ NUM }$` );
 const LENGTH_UNITS =
 	'px|%|em|rem|vw|vh|vmin|vmax|svw|svh|lvw|lvh|dvw|dvh|ch|ex';
 const ANGLE_UNITS = 'deg|turn|rad|grad';

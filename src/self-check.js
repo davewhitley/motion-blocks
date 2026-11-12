@@ -148,7 +148,13 @@ import {
 	 * setting, device bucket and disabled devices (src/motion-gate.js).
 	 */
 	function motionShouldBeOn() {
-		return motionWanted( window, disabledDevicesFrom( document.body ) );
+		return motionWanted(
+			window,
+			disabledDevicesFrom(
+				document.body,
+				window.motionBlocksDisabledDevices
+			)
+		);
 	}
 
 	function issue( id, severity, el, message, ref ) {

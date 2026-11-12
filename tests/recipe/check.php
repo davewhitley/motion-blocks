@@ -614,6 +614,8 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 
 	// GH #172: data saved under the old `mb_` names moves to the new ones.
 	$kept_library = get_option( 'motion_blocks_saved_animations' );
+	// CI turns this on for the page checks that run after this file.
+	$kept_markers = get_option( 'motion_blocks_debug_markers' );
 	delete_option( 'motion_blocks_storage_version' );
 	delete_option( 'motion_blocks_debug_markers' );
 	update_option( 'mb_debug_markers', '1' );
@@ -630,7 +632,11 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 			&& '' === get_post_meta( $mb_post, 'mb_disabled_tablet', true ),
 		'data under the old mb_ names moves to motion_blocks_ names, and newer data is kept'
 	);
-	delete_option( 'motion_blocks_debug_markers' );
+	if ( $kept_markers ) {
+		update_option( 'motion_blocks_debug_markers', $kept_markers );
+	} else {
+		delete_option( 'motion_blocks_debug_markers' );
+	}
 	delete_post_meta( $mb_post, 'motion_blocks_disabled_tablet' );
 
 	// Permissions.

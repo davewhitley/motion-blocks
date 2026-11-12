@@ -16,7 +16,7 @@ const {
 const html = document.documentElement;
 
 function runMarker( disabled = [] ) {
-	// eslint-disable-next-line no-new-func
+	// eslint-disable-next-line no-new-func -- runs the plugin's own source text
 	new Function( 'h', 'q', 'd', '(' + readGateScript() + ')(h,q,d);' )(
 		html,
 		QUERY_SETS.core,

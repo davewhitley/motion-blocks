@@ -161,7 +161,7 @@ export default function ScrollInteractiveControls( {
 		if ( value === 'custom' && ! hasAnyCustomFromToSet( attributes ) ) {
 			Object.assign( newAttrs, CUSTOM_DEFAULT_FROM_TO );
 		}
-		// Stagger isn't supported on custom / image-move — clear the
+		// Stagger isn't supported on the image effects — clear the
 		// flag on the way in so it doesn't silently persist and then
 		// re-activate when the user switches back to a preset. See
 		// PageLoadControls.handleTypeChange for the full rationale.
@@ -224,6 +224,19 @@ export default function ScrollInteractiveControls( {
 			rotateAngle: animationRotateAngle,
 			blurAmount: animationBlurAmount,
 		} );
+
+	// Kept out of the JSX so the translator notes sit on the line right
+	// before each call, where the string extractor reads them.
+	/* translators: "0%" and "100%" are amounts of the block, not placeholders. */
+	const startOffsetHelp = __(
+		'Where the animation begins as the block scrolls into view from the bottom of the screen. 0% triggers the moment the block starts entering; 100% waits until it’s fully on screen.',
+		'motion-blocks'
+	);
+	/* translators: "0%" and "100%" are amounts of the block, not placeholders. */
+	const endOffsetHelp = __(
+		'Where the animation ends as the block scrolls out of view at the top of the screen. 0% ends the moment the block starts exiting; 100% waits until it’s fully off screen.',
+		'motion-blocks'
+	);
 
 	return (
 		<div className="mb-sub-panel">
@@ -449,6 +462,7 @@ export default function ScrollInteractiveControls( {
 								}
 								isBlock
 								__nextHasNoMarginBottom
+								__next40pxDefaultSize
 							>
 								{ directionOptions.map( ( opt ) => (
 									<ToggleGroupControlOptionIcon
@@ -475,6 +489,7 @@ export default function ScrollInteractiveControls( {
 						}
 						isBlock
 						__nextHasNoMarginBottom
+						__next40pxDefaultSize
 					>
 						{ directionOptions.map( ( opt ) => (
 							<ToggleGroupControlOption
@@ -499,6 +514,7 @@ export default function ScrollInteractiveControls( {
 						}
 						isBlock
 						__nextHasNoMarginBottom
+						__next40pxDefaultSize
 					>
 						{ directionOptions.map( ( opt ) => (
 							<ToggleGroupControlOptionIcon
@@ -566,13 +582,7 @@ export default function ScrollInteractiveControls( {
 					<InfoPopover
 						label={ __( 'About start offset', 'motion-blocks' ) }
 					>
-						<p>
-							{ __(
-								/* translators: "0%" and "100%" are amounts of the block, not placeholders. */
-								'Where the animation begins as the block scrolls into view from the bottom of the screen. 0% triggers the moment the block starts entering; 100% waits until it’s fully on screen.',
-								'motion-blocks'
-							) }
-						</p>
+						<p>{ startOffsetHelp }</p>
 					</InfoPopover>
 				</HStack>
 				<RangeControl
@@ -606,14 +616,7 @@ export default function ScrollInteractiveControls( {
 					<InfoPopover
 						label={ __( 'About end offset', 'motion-blocks' ) }
 					>
-						<p>
-							{
-								/* translators: "0%" and "100%" are amounts of the block, not placeholders. */ __(
-									'Where the animation ends as the block scrolls out of view at the top of the screen. 0% ends the moment the block starts exiting; 100% waits until it’s fully off screen.',
-									'motion-blocks'
-								)
-							}
-						</p>
+						<p>{ endOffsetHelp }</p>
 					</InfoPopover>
 				</HStack>
 				<RangeControl

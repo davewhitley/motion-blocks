@@ -973,12 +973,15 @@ export const REPLAY_OPTIONS = [
 ];
 
 export const TRANSLATE_UNIT_OPTIONS = [
-	{ label: 'px', value: 'px' },
-	{ label: '%', value: '%' },
-	{ label: 'vh', value: 'vh' },
-	{ label: 'vw', value: 'vw' },
-	{ label: 'em', value: 'em' },
-	{ label: 'rem', value: 'rem' },
+	// Each unit carries its own step, as core's unit list does. With
+	// none, the field rounds every unit to whole numbers on Enter, so
+	// 1.5em became 2em (GH #136).
+	{ label: 'px', value: 'px', step: 1 },
+	{ label: '%', value: '%', step: 0.1 },
+	{ label: 'vh', value: 'vh', step: 0.1 },
+	{ label: 'vw', value: 'vw', step: 0.1 },
+	{ label: 'em', value: 'em', step: 0.01 },
+	{ label: 'rem', value: 'rem', step: 0.01 },
 ];
 
 /**
@@ -1023,7 +1026,11 @@ export const PROPERTY_DEFINITIONS = [
 		// slider clamps to `sliderMax` for a sensible drag range,
 		// but the user can type 6, 10, etc. in the number field.
 		sliderMax: 5,
-		step: 0.05,
+		// A typed value keeps two decimals (1.02). The slider and the
+		// +/- buttons still move by 0.05 (GH #136).
+		step: 0.01,
+		spinFactor: 5,
+		sliderStep: 0.05,
 		identity: 1,
 		withSlider: true,
 	},

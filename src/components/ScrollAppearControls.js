@@ -55,10 +55,11 @@ export default function ScrollAppearControls( props ) {
 	const exitType = attributes.animationExitType || '';
 	const hasEntry = entryType !== '';
 
-	// Active slot lives in component state, not in saved attributes.
-	// Default to whichever slot is filled (Exit-only blocks open on
-	// the Exit tab so the user lands on the relevant config).
-	const [ activeSlot, setActiveSlot ] = useState(
+	// The tab to open on: whichever slot is filled (an Exit-only block
+	// opens on Exit). Read once. TabPanel keeps the selected tab itself;
+	// feeding the selection back as `initialTabName` did nothing except
+	// make it call `onSelect` a second time on every switch (GH #136).
+	const [ initialSlot ] = useState( () =>
 		hasEntry || ! exitType ? 'entry' : 'exit'
 	);
 
@@ -74,7 +75,6 @@ export default function ScrollAppearControls( props ) {
 		if ( ! name ) {
 			return;
 		}
-		setActiveSlot( name );
 		const previewSide = attributes.animationFromToPreviewSide;
 		if (
 			previewSide &&
@@ -117,7 +117,7 @@ export default function ScrollAppearControls( props ) {
 			   always visible. */ }
 			<TabPanel
 				className="mb-slot-tabs"
-				initialTabName={ activeSlot }
+				initialTabName={ initialSlot }
 				onSelect={ onSelectSlot }
 				tabs={ [
 					{

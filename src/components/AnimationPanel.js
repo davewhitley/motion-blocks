@@ -11,7 +11,7 @@ import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { speak } from '@wordpress/a11y';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { desktop, seen } from '@wordpress/icons';
 import { scrollInteractiveIcon } from './icons';
 
@@ -482,8 +482,10 @@ export default function AnimationPanel( {
 					<Notice status="info" isDismissible={ false }>
 						{ sprintf(
 							/* translators: %d: number of blocks currently selected */
-							__(
+							_n(
+								'Changes apply to the %d selected block.',
 								'Changes apply to all %d selected blocks.',
+								multiSelectCount,
 								'motion-blocks'
 							),
 							multiSelectCount

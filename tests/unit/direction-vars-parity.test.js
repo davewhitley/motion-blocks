@@ -38,7 +38,7 @@ function readFrontendDirectionVars() {
 		}
 	}
 	expect( end ).toBeGreaterThan( open );
-	// eslint-disable-next-line no-new-func
+	// eslint-disable-next-line no-new-func -- runs the plugin's own source text
 	return new Function( 'return ' + source.slice( open, end + 1 ) + ';' )();
 }
 

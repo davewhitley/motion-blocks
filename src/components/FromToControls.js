@@ -200,11 +200,16 @@ function PropertyInput( { def, value, onChange } ) {
 							: def.identity
 					);
 				} }
+				// Blur can't go below 0: `blur(-1px)` is invalid CSS and
+				// the browser drops it (GH #136).
+				min={ def.min }
+				max={ def.max }
 				units={ [
 					{
 						value: def.unitSuffix,
 						label: def.unitSuffix,
 						default: 0,
+						step: def.step,
 					},
 				] }
 				__next40pxDefaultSize
@@ -219,6 +224,7 @@ function PropertyInput( { def, value, onChange } ) {
 			min={ def.min }
 			max={ def.max }
 			step={ def.step ?? 0.1 }
+			spinFactor={ def.spinFactor }
 			spinControls="custom"
 			onChange={ ( v ) => {
 				if ( v === '' || v === undefined || v === null ) {
@@ -290,7 +296,7 @@ function PropertyRow( { def, value, onChange } ) {
 					onChange={ handleSliderChange }
 					min={ def.sliderMin ?? def.min }
 					max={ def.sliderMax ?? def.max }
-					step={ def.step }
+					step={ def.sliderStep ?? def.step }
 					withInputField={ false }
 					__nextHasNoMarginBottom
 					__next40pxDefaultSize
@@ -538,6 +544,7 @@ export default function FromToControls( {
 						isBlock
 						help={ sideHelp }
 						__nextHasNoMarginBottom
+						__next40pxDefaultSize
 					>
 						<ToggleGroupControlOption
 							value="start"

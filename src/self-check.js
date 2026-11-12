@@ -1023,7 +1023,7 @@ import {
 				  ' issue' +
 				  ( results.length === 1 ? '' : 's' )
 				: 'no issues' );
-		/* eslint-disable no-console */
+		/* eslint-disable no-console -- the report is printed to the console on purpose */
 		if ( ! results.length ) {
 			console.info( title );
 			return;

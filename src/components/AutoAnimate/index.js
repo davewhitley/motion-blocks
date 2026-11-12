@@ -130,7 +130,7 @@ function measureScreensTall() {
  * @param {Object}   props                    Component props.
  * @param {boolean}  props.isOpen             Whether the modal is shown.
  * @param {Function} props.onClose            Close handler.
- * @param {string}   props.contextNoun        Editor context noun (page, template…).
+ * @param {Object}   props.contextStrings     Sentences for the post type being edited.
  * @param {?string}  props.rootClientId       Where the page's blocks are: `''`
  *                                            for the whole tree, the Post
  *                                            Content block when the template
@@ -144,7 +144,7 @@ function measureScreensTall() {
 export default function AutoAnimateModal( {
 	isOpen,
 	onClose,
-	contextNoun,
+	contextStrings,
 	rootClientId = '',
 	allowTemplateParts = false,
 } ) {
@@ -159,7 +159,7 @@ export default function AutoAnimateModal( {
 	return (
 		<AutoAnimateModalContent
 			onClose={ onClose }
-			contextNoun={ contextNoun }
+			contextStrings={ contextStrings }
 			rootClientId={ rootClientId }
 			stylePreset={ stylePreset }
 			setStylePreset={ setStylePreset }
@@ -172,7 +172,7 @@ export default function AutoAnimateModal( {
 
 function AutoAnimateModalContent( {
 	onClose,
-	contextNoun,
+	contextStrings,
 	rootClientId,
 	stylePreset,
 	setStylePreset,
@@ -281,11 +281,7 @@ function AutoAnimateModalContent( {
 
 	return (
 		<Modal
-			title={ sprintf(
-				/* translators: %s: editor context noun — page, pattern, template, etc. */
-				__( 'Auto-animate this %s', 'motion-blocks' ),
-				contextNoun
-			) }
+			title={ contextStrings.autoAnimateTitle }
 			onRequestClose={ onClose }
 			className="mb-auto-animate-modal"
 			// 512px isn't one of WP's standard `size` values
@@ -335,22 +331,8 @@ function AutoAnimateModalContent( {
 				{ applyCount === 0 && (
 					<p className="mb-auto-animate-modal__note">
 						{ alreadyAnimated
-							? sprintf(
-									/* translators: %s: editor context noun — page, pattern, template, etc. */
-									__(
-										'Every block Auto-animate would animate on this %s already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
-										'motion-blocks'
-									),
-									contextNoun
-							  )
-							: sprintf(
-									/* translators: %s: editor context noun — page, pattern, template, etc. */
-									__(
-										'Nothing to animate on this %s.',
-										'motion-blocks'
-									),
-									contextNoun
-							  ) }
+							? contextStrings.alreadyAnimated
+							: contextStrings.nothingToAnimate }
 					</p>
 				) }
 
@@ -359,8 +341,8 @@ function AutoAnimateModalContent( {
 						{ sprintf(
 							/* translators: %d: number of invalid blocks */
 							_n(
-								'%d invalid block won’t be animated: choose “Attempt Block Recovery” on it, then run this again.',
-								'%d invalid blocks won’t be animated: choose “Attempt Block Recovery” on each, then run this again.',
+								'%d invalid block won’t be animated: choose “Attempt recovery” on it, then run this again.',
+								'%d invalid blocks won’t be animated: choose “Attempt recovery” on each, then run this again.',
 								invalidCount,
 								'motion-blocks'
 							),

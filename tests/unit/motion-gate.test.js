@@ -58,7 +58,7 @@ const COMBOS = [];
 const html = document.documentElement;
 
 function runHeadScript( queries, disabled ) {
-	// eslint-disable-next-line no-new-func
+	// eslint-disable-next-line no-new-func -- runs the plugin's own source text
 	new Function( 'h', 'q', 'd', '(' + readGateScript() + ')(h,q,d);' )(
 		html,
 		queries,

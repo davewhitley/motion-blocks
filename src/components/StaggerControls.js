@@ -118,7 +118,9 @@ export default function StaggerControls( {
 					}
 					min={ 0 }
 					max={ 5 }
-					step={ 0.05 }
+					// Keeps a typed 0.02; +/- still move by 0.05 (GH #136).
+					step={ 0.01 }
+					spinFactor={ 5 }
 					spinControls="custom"
 					suffix={ <SecondsSuffix /> }
 					__next40pxDefaultSize

@@ -18,7 +18,8 @@ const ANGLE_UNITS = 'deg|turn|rad|grad';
 
 const NUMBER = new RegExp( `^${ NUM }$` );
 const LENGTH = new RegExp( `^${ NUM }(?:${ LENGTH_UNITS })?$`, 'i' );
-const BLUR = new RegExp( `^${ NUM }(?:px|em|rem)?$`, 'i' );
+// No leading minus: `blur(-1px)` is invalid and the browser drops it.
+const BLUR = new RegExp( `^${ NUM.replace( '-?', '' ) }(?:px|em|rem)?$`, 'i' );
 const ANGLE = new RegExp( `^${ NUM }(?:${ ANGLE_UNITS })?$`, 'i' );
 
 // `none`, a basic shape with only numbers, units, keywords, spaces,

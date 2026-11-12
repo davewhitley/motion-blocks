@@ -137,6 +137,9 @@ export default function ScrollInteractiveControls( {
 	);
 
 	const isCustom = animationType === 'custom';
+	// Scale In and Scale Out both have a plain, no-direction version,
+	// so both get the "Scale with direction" toggle (GH #137).
+	const isScale = animationType === 'scale' || animationType === 'scale-out';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
@@ -318,7 +321,7 @@ export default function ScrollInteractiveControls( {
 						justify="flex-start"
 					>
 						<BaseControl.VisualLabel>
-							{ __( 'Scroll Preview', 'motion-blocks' ) }
+							{ __( 'Scroll preview', 'motion-blocks' ) }
 						</BaseControl.VisualLabel>
 						<InfoPopover
 							label={ __(
@@ -335,7 +338,7 @@ export default function ScrollInteractiveControls( {
 						</InfoPopover>
 					</HStack>
 					<RangeControl
-						label={ __( 'Scroll Preview', 'motion-blocks' ) }
+						label={ __( 'Scroll preview', 'motion-blocks' ) }
 						hideLabelFromVision
 						className="mb-scrub-range"
 						value={ scrubValue }
@@ -428,7 +431,7 @@ export default function ScrollInteractiveControls( {
 				/>
 			) }
 
-			{ ! isCustom && animationType === 'scale' && (
+			{ ! isCustom && isScale && (
 				<>
 					<ToggleControl
 						label={ __( 'Scale with direction', 'motion-blocks' ) }
@@ -494,7 +497,7 @@ export default function ScrollInteractiveControls( {
 
 			{ ! isCustom &&
 				hasDirection &&
-				animationType !== 'scale' &&
+				! isScale &&
 				animationType !== 'curtain' &&
 				animationType !== 'curtain-out' && (
 					<ToggleGroupControl
@@ -567,22 +570,22 @@ export default function ScrollInteractiveControls( {
 					justify="flex-start"
 				>
 					<BaseControl.VisualLabel>
-						{ __( 'Start Offset', 'motion-blocks' ) }
+						{ __( 'Start offset', 'motion-blocks' ) }
 					</BaseControl.VisualLabel>
 					<InfoPopover
 						label={ __( 'About start offset', 'motion-blocks' ) }
 					>
 						<p>
 							{ __(
-								/* translators: "0%" and "100%" are amounts of the element, not placeholders. */
-								"Where the animation begins as the element scrolls into view from the bottom of the screen. 0% triggers the moment the element starts entering; 100% waits until it's fully on screen.",
+								/* translators: "0%" and "100%" are amounts of the block, not placeholders. */
+								'Where the animation begins as the block scrolls into view from the bottom of the screen. 0% triggers the moment the block starts entering; 100% waits until it’s fully on screen.',
 								'motion-blocks'
 							) }
 						</p>
 					</InfoPopover>
 				</HStack>
 				<RangeControl
-					label={ __( 'Start Offset', 'motion-blocks' ) }
+					label={ __( 'Start offset', 'motion-blocks' ) }
 					hideLabelFromVision
 					value={ startOffset }
 					onChange={ ( value ) =>
@@ -607,15 +610,15 @@ export default function ScrollInteractiveControls( {
 					justify="flex-start"
 				>
 					<BaseControl.VisualLabel>
-						{ __( 'End Offset', 'motion-blocks' ) }
+						{ __( 'End offset', 'motion-blocks' ) }
 					</BaseControl.VisualLabel>
 					<InfoPopover
 						label={ __( 'About end offset', 'motion-blocks' ) }
 					>
 						<p>
 							{
-								/* translators: "0%" and "100%" are amounts of the element, not placeholders. */ __(
-									"Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen.",
+								/* translators: "0%" and "100%" are amounts of the block, not placeholders. */ __(
+									'Where the animation ends as the block scrolls out of view at the top of the screen. 0% ends the moment the block starts exiting; 100% waits until it’s fully off screen.',
 									'motion-blocks'
 								)
 							}
@@ -623,7 +626,7 @@ export default function ScrollInteractiveControls( {
 					</InfoPopover>
 				</HStack>
 				<RangeControl
-					label={ __( 'End Offset', 'motion-blocks' ) }
+					label={ __( 'End offset', 'motion-blocks' ) }
 					hideLabelFromVision
 					value={ endOffset }
 					onChange={ ( value ) =>

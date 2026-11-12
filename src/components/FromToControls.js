@@ -469,8 +469,8 @@ export default function FromToControls( {
 					// effect above), so screen readers get one signal.
 					label={
 						side === 'start'
-							? __( 'Preview "from" state', 'motion-blocks' )
-							: __( 'Preview "to" state', 'motion-blocks' )
+							? __( 'Preview “from” state', 'motion-blocks' )
+							: __( 'Preview “to” state', 'motion-blocks' )
 					}
 					onClick={ togglePreview }
 				/>

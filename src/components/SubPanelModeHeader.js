@@ -114,7 +114,7 @@ export default function SubPanelModeHeader( {
 						// It renders a plain unstyled div.
 						<NavigableMenu
 							aria-label={ __(
-								'Animation mode',
+								'Animation type',
 								'motion-blocks'
 							) }
 						>
@@ -139,9 +139,9 @@ export default function SubPanelModeHeader( {
 											);
 											speak(
 												sprintf(
-													/* translators: %s: animation mode, e.g. "Appear on scroll" */
+													/* translators: %s: animation type, e.g. "Appear on scroll" */
 													__(
-														'Mode changed to %s.',
+														'Animation type changed to %s.',
 														'motion-blocks'
 													),
 													getLabel( m )
@@ -158,7 +158,7 @@ export default function SubPanelModeHeader( {
 					) }
 				/>
 				<VisuallyHidden as="span" id={ descriptionId }>
-					{ __( 'Change animation mode', 'motion-blocks' ) }
+					{ __( 'Change animation type', 'motion-blocks' ) }
 				</VisuallyHidden>
 				<AnimationOptionsMenu
 					attributes={ attributes }

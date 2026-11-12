@@ -106,7 +106,7 @@ export default function ScrollAppearControls( props ) {
 				onRemove={ onRemove }
 				onBeforeModeSwitch={ onBeforeModeSwitch }
 				helpText={ __(
-					'Trigger animations when the element enters or exits the screen.',
+					'Trigger animations when the block enters or exits the screen.',
 					'motion-blocks'
 				) }
 			/>
@@ -146,8 +146,9 @@ export default function ScrollAppearControls( props ) {
 			   Reads from the Entry slot's type since Stagger's CSS
 			   bindings key on `mb-enter-{type}`. If only the Exit slot
 			   is filled, stagger doesn't apply (the inner blocks have
-			   no enter animation to cascade). */ }
-			{ ! staggerIncompatible && (
+			   no enter animation to cascade), so the toggle is hidden
+			   there (GH #138). */ }
+			{ ! staggerIncompatible && !! entryType && (
 				<StaggerControls
 					attributes={ {
 						...attributes,

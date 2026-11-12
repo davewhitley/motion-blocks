@@ -228,7 +228,7 @@ function motion_blocks_recipe_schema() {
             'direction' => array(
                 'type'        => 'string',
                 'enum'        => $directions,
-                'description' => 'Where the motion comes from: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. Optional; each effect has a sensible default.',
+                'description' => 'The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional; each effect has a sensible default.',
             ),
             'duration'  => array(
                 'type'        => 'number',

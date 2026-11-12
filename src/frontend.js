@@ -2682,14 +2682,22 @@ import {
 		if ( state.entryReplay !== 'reverse' || ! state.hasEntry ) {
 			return;
 		}
-		// With an Exit slot present, onLeave already drove the Exit
-		// animation forward — don't override it with an entry reverse.
-		if ( state.hasExit ) {
-			return;
-		}
 		var el = state.el;
-		if ( el.style.getPropertyValue( '--mb-direction' ) === 'reverse' ) {
-			return; // already reversing
+		var inExited = el.classList.contains( 'mb-exit-triggered' );
+		var wasReversed =
+			el.style.getPropertyValue( '--mb-direction' ) === 'reverse';
+		if ( inExited ) {
+			// An Exit slot is filled and the block still carries its
+			// Exit state (GH #130). Played forward, the Exit already
+			// hid the block (it was jumped past on the way back), so
+			// there is nothing visible to reverse. Played in reverse,
+			// it holds the block at its natural look: fall through and
+			// take over from there with the Entry played backward.
+			if ( ! wasReversed ) {
+				return;
+			}
+		} else if ( wasReversed ) {
+			return; // already reversing the Entry
 		}
 		applySlotVars( el, state.entry );
 		el.style.setProperty( '--mb-direction', 'reverse' );

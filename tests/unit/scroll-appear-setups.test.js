@@ -95,8 +95,8 @@ const JOURNEYS = {
 			'repeat / repeat': '.V..VV.V.V',
 			'repeat / reverse': '.V..VV.V.V',
 			'reverse / once': '.V........',
-			'reverse / repeat': '.V..VV.V.V',
-			'reverse / reverse': '.V..VV.V.V',
+			'reverse / repeat': '.V..V..V.V',
+			'reverse / reverse': '.V..V..V.V',
 		},
 	},
 	'jumping past the block and back': {

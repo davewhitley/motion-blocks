@@ -39,7 +39,7 @@ import { SVG, Path } from '@wordpress/primitives';
 import {
 	ENTRY_TYPE_OPTIONS,
 	EXIT_TYPE_OPTIONS,
-	DIRECTION_OPTIONS,
+	slotDirectionOptions,
 	TYPES_WITH_DIRECTION,
 	DEFAULT_DIRECTION,
 	ACCELERATION_OPTIONS,
@@ -110,7 +110,7 @@ export default function SlotControls( {
 	const isCustom = animationType === 'custom';
 	const isEmpty = animationType === '';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
-	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+	const directionOptions = slotDirectionOptions( animationType, slot );
 
 	// True when the last Preview press came from the keyboard. See the
 	// Preview button below.
@@ -426,7 +426,7 @@ export default function SlotControls( {
 									<ToggleGroupControlOptionIcon
 										key={ opt.value }
 										value={ opt.value }
-										icon={ DIRECTION_ICON_MAP[ opt.value ] }
+										icon={ DIRECTION_ICON_MAP[ opt.shown ] }
 										label={ opt.label }
 									/>
 								) ) }
@@ -476,7 +476,7 @@ export default function SlotControls( {
 							<ToggleGroupControlOptionIcon
 								key={ opt.value }
 								value={ opt.value }
-								icon={ DIRECTION_ICON_MAP[ opt.value ] }
+								icon={ DIRECTION_ICON_MAP[ opt.shown ] }
 								label={ opt.label }
 							/>
 						) ) }

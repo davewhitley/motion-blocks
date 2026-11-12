@@ -51,6 +51,25 @@ export function isKeyboardActivation( event ) {
 }
 
 /**
+ * Click handler for the "Customize" link beside Effect. The link
+ * removes itself (the effect becomes Custom), so after a keyboard
+ * press focus moves to the Effect dropdown next to it instead of
+ * falling to <body> (GH #135).
+ *
+ * @param {Event}    event  The click event.
+ * @param {Function} action Turns the preset into a Custom animation.
+ */
+export function customizeAndKeepFocus( event, action ) {
+	const field = event?.currentTarget?.closest?.( '.mb-effect-field' );
+	const select = field ? field.querySelector( 'select' ) : null;
+	const fromKeyboard = isKeyboardActivation( event );
+	action();
+	if ( fromKeyboard && select ) {
+		select.focus();
+	}
+}
+
+/**
  * Puts keyboard focus back in the panel when a dialog closes.
  *
  * A Modal returns focus to whatever had it when the Modal opened. For

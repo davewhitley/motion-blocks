@@ -611,6 +611,10 @@ export default function AnimationOptionsMenu( {
 										{ canManageLibrary !== false && (
 											<Button
 												className="mb-saved-animation-row__delete"
+												// A menu may only hold menu items:
+												// with the role, screen readers
+												// count it like the arrow keys do.
+												role="menuitem"
 												icon={ trash }
 												iconSize={ 16 }
 												label={ sprintf(

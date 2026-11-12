@@ -27,7 +27,7 @@ import {
 import { useInstanceId } from '@wordpress/compose';
 import { speak } from '@wordpress/a11y';
 import { __, sprintf } from '@wordpress/i18n';
-import { desktop, seen, chevronDown } from '@wordpress/icons';
+import { desktop, seen, chevronDown, check } from '@wordpress/icons';
 
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import { MODE_META, MODE_ORDER, switchModeAttributes } from './constants';
@@ -123,8 +123,25 @@ export default function SubPanelModeHeader( {
 									<MenuItem
 										key={ m }
 										icon={ getIcon( m ) }
-										disabled={ m === mode }
+										// The current mode is ticked, not
+										// greyed out: a screen reader then
+										// says "checked", not "unavailable"
+										// (GH #135).
+										role="menuitemradio"
+										isSelected={ m === mode }
+										suffix={
+											m === mode ? (
+												<Icon
+													icon={ check }
+													size={ 18 }
+												/>
+											) : undefined
+										}
 										onClick={ ( event ) => {
+											if ( m === mode ) {
+												onClose();
+												return;
+											}
 											// Switching remounts the whole
 											// sub-panel; lets the parent put
 											// keyboard focus back on the toggle.

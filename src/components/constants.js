@@ -600,9 +600,9 @@ export const EXIT_TYPE_OPTIONS = toOptions(
  * values are written to the block on its first slot edit by
  * `materializeScrollAppearPatch()` (GH #25).
  *
- * Returns a NEW object when migration is needed, or the same
- * `attrs` reference unchanged when nothing applies — cheap to call
- * on every render.
+ * Always returns a new object, also when nothing needs migrating (the
+ * Custom From / To values are normalized on the way out). Nothing
+ * memoizes on the result.
  *
  * @param {Object} attrs Block attributes (raw, as-saved).
  * @return {Object} Normalized attributes.
@@ -1168,9 +1168,8 @@ export const TO_ATTR = {
  * block attributes are legacy only — never written, reset on parse —
  * so a value saved by an older version can't pick the slot.
  *
- * Returns the same `attrs` reference unchanged when the chosen
- * slot is empty — the preview branch will see `animationType === ''`
- * and skip animating.
+ * When the chosen slot is empty the result has `animationType === ''`,
+ * so the preview branch skips animating. Always a new object.
  */
 export function aliasSlotForPreview( attrs ) {
 	const eyeOn =

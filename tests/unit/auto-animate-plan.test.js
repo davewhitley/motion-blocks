@@ -58,11 +58,11 @@ const buttons = ( n = 2 ) =>
 const image = ( align ) => b( 'core/image', [], align ? { align } : {} );
 const section = () => b( 'core/group', [ heading(), para(), buttons() ] );
 const plan = ( blocks, firstScreen = [] ) =>
-	computeAutoAnimatePlan( blocks, () => 0, {
+	computeAutoAnimatePlan( blocks, {
 		isOnFirstScreen: ( id ) => firstScreen.includes( id ),
 	} );
 /** Planned with no measurement at all (the hero alone decides). */
-const planUnmeasured = ( blocks ) => computeAutoAnimatePlan( blocks, () => 0 );
+const planUnmeasured = ( blocks ) => computeAutoAnimatePlan( blocks );
 const roleOf = ( p, block ) =>
 	p.apply.find( ( i ) => i.clientId === block.clientId )?.role;
 const attrsOf = ( p, preset, block ) =>
@@ -182,7 +182,7 @@ describe( 'the opening sequence', () => {
 	it( 'without a measurement, only a leading Cover opens the page', () => {
 		const cover = b( 'core/cover', [ heading() ], { url: 'h.jpg' } );
 		const after = section();
-		const withCover = computeAutoAnimatePlan( [ cover, after ], () => 0 );
+		const withCover = computeAutoAnimatePlan( [ cover, after ] );
 		expect( withCover.apply[ 0 ].trigger ).toBe( 'load' );
 		expect(
 			withCover.apply.find( ( i ) => i.clientId === after.clientId )
@@ -193,7 +193,7 @@ describe( 'the opening sequence', () => {
 		const first = section();
 		const second = section();
 		const wrapped = b( 'core/group', [ first, second ] );
-		const p = computeAutoAnimatePlan( [ wrapped ], () => 0 );
+		const p = computeAutoAnimatePlan( [ wrapped ] );
 		const trig = ( x ) =>
 			p.apply.find( ( i ) => i.clientId === x.clientId ).trigger;
 		expect( trig( first ) ).toBe( 'load' );
@@ -372,7 +372,7 @@ describe( 'finding the hero', () => {
 		const other = section();
 		const wrapper = b( 'core/group', [ hero, other, section() ] );
 		// The hero is on the first screen; one of its blocks is not.
-		const measured = computeAutoAnimatePlan( [ wrapper ], () => 0, {
+		const measured = computeAutoAnimatePlan( [ wrapper ], {
 			isOnFirstScreen: ( id ) =>
 				id === hero.clientId || id === other.clientId,
 		} );
@@ -391,7 +391,7 @@ describe( 'finding the hero', () => {
 			real,
 			wrapper,
 		];
-		const p = computeAutoAnimatePlan( page, () => 0, {
+		const p = computeAutoAnimatePlan( page, {
 			// Only the heading sits on the first screen; the found hero is below it.
 			isOnFirstScreen: ( id ) => id === real.clientId,
 		} );
@@ -411,7 +411,7 @@ describe( 'with no hero found, the measured first screen opens the page', () => 
 		return { lead, first, page: [ b( 'core/group', [ first, rest ] ) ] };
 	};
 	const measuredPlan = ( blocks, onScreen ) =>
-		computeAutoAnimatePlan( blocks, () => 0, {
+		computeAutoAnimatePlan( blocks, {
 			// `strict` is the fallback's cutoff, the stricter one.
 			isOnFirstScreen: ( id, strict ) =>
 				strict ? onScreen.includes( id ) : true,
@@ -995,7 +995,7 @@ describe( 'invalid blocks', () => {
 		blk.isValid = false;
 		return blk;
 	};
-	const unmeasured = ( blocks ) => computeAutoAnimatePlan( blocks, () => 0 );
+	const unmeasured = ( blocks ) => computeAutoAnimatePlan( blocks );
 	const clientIdsOf = ( p ) => p.apply.map( ( i ) => i.clientId );
 
 	it( 'skips an invalid block and everything inside it, and says so', () => {
@@ -1009,13 +1009,6 @@ describe( 'invalid blocks', () => {
 		expect( roleOf( p, cover ) ).toBeUndefined();
 		expect( roleOf( p, inside ) ).toBeUndefined();
 		expect( clientIdsOf( p ) ).toEqual( [ ok.clientId ] );
-	} );
-
-	it( 'counts what is inside the invalid block', () => {
-		const cover = invalid( b( 'core/cover', [ heading(), para() ] ) );
-		const p = computeAutoAnimatePlan( [ cover ], () => 7, {} );
-		expect( p.skipInvalid ).toHaveLength( 1 );
-		expect( p.invalidInnerCount ).toBe( 7 );
 	} );
 
 	it( 'treats a block with no validity flag as valid', () => {
@@ -1111,7 +1104,7 @@ describe( 'including the header and footer (GH #101)', () => {
 		);
 	// With no `firstScreen`, unmeasured: the hero alone decides.
 	const planParts = ( blocks, firstScreen ) =>
-		computeAutoAnimatePlan( blocks, () => 0, {
+		computeAutoAnimatePlan( blocks, {
 			isOnFirstScreen: firstScreen
 				? ( id ) => firstScreen.includes( id )
 				: undefined,
@@ -1295,5 +1288,146 @@ describe( 'Classic block', () => {
 		expect( src ).toMatch(
 			/\{ shouldRenderPanel && canAnimateBlock\( name \) && \(/
 		);
+	} );
+} );
+
+// GH #140.
+describe( 'planner edge cases', () => {
+	const delayOf = ( p, block ) => {
+		const a = attrsOf( p, 'balanced', block );
+		return a.animationEntryDelay ?? a.animationDelay;
+	};
+
+	it( 'leaves an animated post card, a Spacer and a Separator alone', () => {
+		const mine = b( 'core/group', [ heading() ], {
+			animationMode: 'scroll-appear',
+		} );
+		const text = para();
+		const spacer = b( 'core/spacer' );
+		const rule = b( 'core/separator' );
+		const list = b( 'core/post-template', [ mine, spacer, rule, text ] );
+		const p = planUnmeasured( [
+			b( 'core/query', [ list ], { query: { perPage: 10 } } ),
+		] );
+		expect( p.apply.map( ( i ) => i.clientId ) ).toEqual( [
+			text.clientId,
+		] );
+		expect( p.skipExisting ).toContain( mine );
+	} );
+
+	it( 'does not cascade a one-row Post Template over an animated card', () => {
+		const mine = b( 'core/group', [ heading() ], {
+			animationMode: 'scroll-appear',
+		} );
+		const list = b( 'core/post-template', [ mine ], {
+			layout: { type: 'grid', columnCount: 3 },
+		} );
+		const p = planUnmeasured( [
+			b( 'core/query', [ list ], { query: { perPage: 3 } } ),
+		] );
+		expect( p.apply ).toHaveLength( 0 );
+	} );
+
+	it( 'counts an inheriting Query Loop as the site default, not its stale perPage', () => {
+		const card = section();
+		const list = b( 'core/post-template', [ card ], {
+			layout: { type: 'grid', columnCount: 3 },
+		} );
+		const p = planUnmeasured( [
+			b( 'core/query', [ list ], {
+				query: { perPage: 3, inherit: true },
+			} ),
+		] );
+		expect( roleOf( p, list ) ).toBeUndefined();
+		expect( roleOf( p, card ) ).toBe( 'rise' );
+	} );
+
+	it( 'caps the scroll delay inside a long Cover', () => {
+		const items = Array.from( { length: 14 }, () => heading() );
+		const cover = b( 'core/cover', items );
+		const p = plan( [ b( 'core/group', [ heading() ] ), cover ] );
+		const last = delayOf( p, items[ 13 ] );
+		expect( last ).toBeLessThanOrEqual( 0.72 );
+		expect( last ).toBe( delayOf( p, items[ 4 ] ) );
+	} );
+
+	it( 'starts a fifth first-screen block after the opening, not before it', () => {
+		const blocks = Array.from( { length: 6 }, () => heading() );
+		const p = plan(
+			blocks,
+			blocks.map( ( x ) => x.clientId )
+		);
+		const fifth = attrsOf( p, 'balanced', blocks[ 4 ] );
+		expect( fifth.animationMode ).toBe( 'scroll-appear' );
+		expect( fifth.animationEntryDelay ).toBeGreaterThan(
+			attrsOf( p, 'balanced', blocks[ 3 ] ).animationDelay
+		);
+	} );
+
+	it( 'does not animate a header part whole when something inside it is animated', () => {
+		const header = b( 'core/template-part', [], { slug: 'header' } );
+		const p = computeAutoAnimatePlan( [ header, section() ], {
+			partHasAnimation: ( id ) => id === header.clientId,
+		} );
+		expect( roleOf( p, header ) ).toBeUndefined();
+		expect( p.skipExisting ).toContain( header );
+	} );
+
+	it( 'holds a loose-run hero to the stricter first-screen cutoff', () => {
+		const title = heading();
+		const far = image();
+		const p = computeAutoAnimatePlan( [ title, para(), far ], {
+			// `far` is on the first screen by the generous cutoff only.
+			isOnFirstScreen: ( id, strict ) =>
+				id === far.clientId ? ! strict : true,
+		} );
+		expect(
+			p.apply.find( ( i ) => i.clientId === title.clientId ).trigger
+		).toBe( 'load' );
+		expect(
+			p.apply.find( ( i ) => i.clientId === far.clientId ).trigger
+		).toBe( 'scroll' );
+	} );
+
+	it( 'lets a section’s intro paragraph rise with its heading and columns', () => {
+		const intro = para();
+		const cols = b( 'core/columns', [
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+		] );
+		const p = planUnmeasured( [
+			b( 'core/group', [ heading() ] ),
+			b( 'core/group', [ heading(), intro, cols ] ),
+		] );
+		expect( roleOf( p, intro ) ).toBe( 'rise' );
+		expect( roleOf( p, cols ) ).toBe( 'cascade' );
+	} );
+
+	it( 'still skips a run of body text in a walked-into section', () => {
+		const one = para();
+		const two = para();
+		const cols = b( 'core/columns', [
+			b( 'core/column', [ heading(), para() ] ),
+			b( 'core/column', [ heading(), para() ] ),
+		] );
+		const p = planUnmeasured( [
+			b( 'core/group', [ heading() ] ),
+			b( 'core/group', [ heading(), one, two, cols ] ),
+		] );
+		expect( roleOf( p, one ) ).toBeUndefined();
+		expect( roleOf( p, two ) ).toBeUndefined();
+	} );
+
+	it( 'animates posts one by one when the Query Loop sits in its own Group', () => {
+		const card = section();
+		const list = b( 'core/post-template', [ card ] );
+		const outer = b( 'core/group', [
+			heading(),
+			b( 'core/group', [ b( 'core/query', [ list ] ) ] ),
+		] );
+		const p = planUnmeasured( [ b( 'core/group', [ heading() ] ), outer ] );
+		expect( roleOf( p, outer ) ).toBeUndefined();
+		expect( roleOf( p, card ) ).toBe( 'rise' );
 	} );
 } );

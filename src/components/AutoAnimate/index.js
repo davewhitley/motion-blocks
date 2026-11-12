@@ -31,7 +31,7 @@ import {
 	templatePartsWithContents,
 	withTemplatePartContents,
 } from './plan';
-import { countDescendantsIn, EMPTY_IDS } from '../selectStable';
+import { EMPTY_IDS } from '../selectStable';
 
 /** Style names for the picker; plan.js keeps no UI strings. */
 const STYLE_LABELS = {
@@ -214,22 +214,41 @@ function AutoAnimateModalContent( {
 		[ filledBlocks ]
 	);
 	const usesParts = hasParts && includeParts;
+	// Parts with an animation somewhere inside. With parts left out of
+	// the run, the planner would otherwise animate such a header whole,
+	// on top of what is already inside it (GH #140).
+	const animatedPartIds = useMemo( () => {
+		const ids = new Set();
+		const isAnimated = ( blocks ) =>
+			( blocks || [] ).some(
+				( block ) =>
+					!! block.attributes?.animationMode ||
+					isAnimated( block.innerBlocks )
+			);
+		templatePartsWithContents( filledBlocks ).forEach( ( part ) => {
+			if ( isAnimated( part.innerBlocks ) ) {
+				ids.add( part.clientId );
+			}
+		} );
+		return ids;
+	}, [ filledBlocks ] );
 
 	// Recompute the plan whenever the block tree changes (or the modal
 	// reopens). Style preset doesn't affect the plan, only the dispatched
 	// attributes — so no need to rerun on preset change.
 	const plan = useMemo( () => {
-		const sel = registry.select( blockEditorStore );
 		return computeAutoAnimatePlan(
 			usesParts ? filledBlocks : topLevelBlocks,
-			( id ) => countDescendantsIn( sel, id ),
 			{
 				isOnFirstScreen: measureFirstScreen(),
 				screensTall: measureScreensTall(),
 				includeParts: usesParts,
+				// Template parts that hold an animation, read from the
+				// filled tree even when parts are left out of the run.
+				partHasAnimation: ( id ) => animatedPartIds.has( id ),
 			}
 		);
-	}, [ topLevelBlocks, filledBlocks, usesParts, registry ] );
+	}, [ topLevelBlocks, filledBlocks, usesParts, animatedPartIds ] );
 
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );

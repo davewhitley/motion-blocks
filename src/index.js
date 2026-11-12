@@ -50,7 +50,12 @@ import {
 	canAnimateBlock,
 	clearAnimationAttributes,
 	SYNCED_PATTERN_BLOCK,
+	adaptAnimationToBlock,
 } from './components/constants';
+import {
+	selectionHasMixedAnimations,
+	keepAnimationOnTransform,
+} from './components/savedAnimations';
 
 import '../css/editor.scss';
 
@@ -860,6 +865,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			isMultiSelecting,
 			shouldRenderPanel,
 			animatableCount,
+			mixedAnimations,
 			inSelection,
 		} = useSelect(
 			( select ) => {
@@ -888,6 +894,23 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 									canAnimateBlock( sel.getBlockName( id ) )
 							  ).length
 							: 0,
+					// Whether the selected blocks' animations differ. The
+					// panel shows the first block's settings only, so it
+					// has to say so (GH #132).
+					mixedAnimations:
+						isMulti && isPanelBlock
+							? selectionHasMixedAnimations(
+									multi
+										.filter( ( id ) =>
+											canAnimateBlock(
+												sel.getBlockName( id )
+											)
+										)
+										.map( ( id ) =>
+											sel.getBlockAttributes( id )
+										)
+							  )
+							: false,
 					inSelection:
 						isSingle || sel.isBlockMultiSelected( clientId ),
 				};
@@ -1064,6 +1087,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 							blockName={ name }
 							clientId={ clientId }
 							multiSelectCount={ animatableCount }
+							multiSelectMixed={ mixedAnimations }
 						/>
 					</InspectorControls>
 				) }
@@ -2075,6 +2099,22 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 		);
 	};
 }, 'withAnimationPreview' );
+
+// Keep the animation when a block is converted to another type
+// (GH #132). This is the hook core uses to carry block-support
+// attributes across a transform.
+addFilter(
+	'blocks.switchToBlockType.transformedBlock',
+	'motion-blocks/keep-animation-on-transform',
+	( result, sources, index, results ) =>
+		keepAnimationOnTransform(
+			result,
+			sources,
+			results?.length,
+			canAnimateBlock,
+			adaptAnimationToBlock
+		)
+);
 
 // Priority 190 ensures this HOC runs after other filters that modify
 // wrapperProps (e.g. block supports), so our style/className wins.

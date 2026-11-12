@@ -20,10 +20,74 @@
 // same reference on every run.
 export const EMPTY_IDS = [];
 
+// Blocks whose inner blocks belong to another document, or to shared
+// content: a header or footer, a synced pattern, the page inside its
+// template.
+const SCOPE_BLOCKS = [
+	'core/template-part',
+	'core/block',
+	'core/post-content',
+];
+
 /**
- * Client ids of every block named `blockName` (nested matches
- * included, current block included) plus how many of the *other*
- * ones already carry an animation.
+ * The document a block belongs to: the client id of its nearest
+ * template part, synced pattern or Post Content ancestor, or `''`.
+ *
+ * @param {Object} sel `select( blockEditorStore )`.
+ * @param {string} id  Block client id.
+ * @return {string} Scope id.
+ */
+function scopeOf( sel, id ) {
+	const parents = sel.getBlockParents( id ) || EMPTY_IDS;
+	for ( let i = parents.length - 1; i >= 0; i-- ) {
+		if ( SCOPE_BLOCKS.includes( sel.getBlockName( parents[ i ] ) ) ) {
+			return parents[ i ];
+		}
+	}
+	return '';
+}
+
+// `ids` array (as memoized by the store) -> clientId -> filtered ids.
+// Keeps the result's identity stable between runs (GH #27): the store
+// hands out a new `ids` array whenever the block order changes, which
+// is also the only time a block's ancestors change.
+const scopeCache = new WeakMap();
+
+/**
+ * The ids that sit in the same document as `clientId` (GH #132).
+ * "Apply to other blocks" used to reach every block of the type in the
+ * editor: with a page shown inside its template that included the
+ * header and footer, which are shared with every other page.
+ *
+ * @param {Object}   sel      `select( blockEditorStore )`.
+ * @param {string[]} ids      Candidate client ids.
+ * @param {string}   clientId The block the menu belongs to.
+ * @return {string[]} Ids in the same scope, `clientId` included.
+ */
+function sameScopeIds( sel, ids, clientId ) {
+	if ( ids === EMPTY_IDS || ids.length === 0 ) {
+		return EMPTY_IDS;
+	}
+	let byClient = scopeCache.get( ids );
+	if ( ! byClient ) {
+		byClient = new Map();
+		scopeCache.set( ids, byClient );
+	}
+	if ( ! byClient.has( clientId ) ) {
+		const scope = scopeOf( sel, clientId );
+		byClient.set(
+			clientId,
+			ids.filter( ( id ) => scopeOf( sel, id ) === scope )
+		);
+	}
+	return byClient.get( clientId );
+}
+
+/**
+ * Client ids of every block named `blockName` in the same document as
+ * the current block (nested matches included, current block included;
+ * see sameScopeIds) plus how many of the *other* ones already carry an
+ * animation.
  *
  * `getBlocksByName` is a store selector memoized on block order and
  * block identity but not on attributes, so it hands back the same
@@ -45,7 +109,8 @@ export function selectSameTypeInfo( sel, blockName, clientId, pasteOnly ) {
 	}
 	const getByName =
 		sel.getBlocksByName || sel.__experimentalGetGlobalBlocksByName;
-	const ids = getByName ? getByName( blockName ) || EMPTY_IDS : EMPTY_IDS;
+	const all = getByName ? getByName( blockName ) || EMPTY_IDS : EMPTY_IDS;
+	const ids = sameScopeIds( sel, all, clientId );
 	let existingCount = 0;
 	for ( const id of ids ) {
 		if ( id !== clientId && sel.getBlockAttributes( id )?.animationMode ) {

@@ -22,7 +22,6 @@ import {
 } from '@wordpress/components';
 import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { useInstanceId } from '@wordpress/compose';
-import { speak } from '@wordpress/a11y';
 import {
 	store as blockEditorStore,
 	useSettings,
@@ -48,8 +47,9 @@ import { useFocusAfterDialog } from './keyboardFocus';
 import { canAnimateBlock } from './constants';
 
 /**
- * Module-level clipboard — persists across block selections
- * within the current editor session.
+ * The copied animation. Kept in the browser's localStorage so it
+ * survives a reload and reaches other posts and tabs (GH #132); it
+ * used to live in a variable and was lost with the page.
  *
  * `attributes` here is the panel's view: block attributes with the
  * block's editor preview state laid over them (GH #29). Copy, Apply to
@@ -57,7 +57,48 @@ import { canAnimateBlock } from './constants';
  * which leaves the preview keys out, so a block previewed with the eye
  * on never hands a frozen state to another block.
  */
-let copiedAnimation = null;
+const CLIPBOARD_KEY = 'motionBlocksCopiedAnimation';
+// Fallback when storage is blocked (private window, site data off).
+let memoryClipboard = null;
+// The last stored text and what it parsed to, so a render doesn't
+// parse the same JSON again.
+let parsedClipboard = { raw: null, value: null };
+
+function readClipboard() {
+	let raw = null;
+	try {
+		raw = window.localStorage.getItem( CLIPBOARD_KEY );
+	} catch ( e ) {
+		return memoryClipboard;
+	}
+	if ( ! raw ) {
+		return memoryClipboard;
+	}
+	if ( parsedClipboard.raw !== raw ) {
+		let value = null;
+		try {
+			const data = JSON.parse( raw );
+			if ( data && typeof data === 'object' && ! Array.isArray( data ) ) {
+				// Animation settings only, whatever else is in there.
+				value = pickAnimationAttributes( data );
+			}
+		} catch ( e ) {
+			// Not ours, or damaged: nothing to paste.
+		}
+		parsedClipboard = { raw, value };
+	}
+	return parsedClipboard.value;
+}
+
+function writeClipboard( value ) {
+	memoryClipboard = value;
+	try {
+		window.localStorage.setItem( CLIPBOARD_KEY, JSON.stringify( value ) );
+	} catch ( e ) {
+		// Storage blocked or full: the in-memory copy still works
+		// until the page reloads.
+	}
+}
 
 export default function AnimationOptionsMenu( {
 	attributes,
@@ -174,15 +215,22 @@ export default function AnimationOptionsMenu( {
 	const showSave = ! pasteOnly && canManageLibrary !== false;
 
 	const handleCopy = ( onClose ) => {
-		copiedAnimation = pickAnimationAttributes( attributes );
-		// Copy changes nothing on screen, so tell screen readers it worked.
-		speak( __( 'Animation copied.', 'motion-blocks' ) );
+		writeClipboard( pickAnimationAttributes( attributes ) );
+		// Copy changes nothing on screen, so say it worked. A snackbar
+		// is also announced to screen readers.
+		createSuccessNotice( __( 'Animation copied.', 'motion-blocks' ), {
+			type: 'snackbar',
+		} );
 		onClose();
 	};
 
 	const handlePaste = ( onClose ) => {
-		if ( copiedAnimation ) {
-			onPaste( { ...copiedAnimation } );
+		const copied = readClipboard();
+		if ( copied ) {
+			onPaste( { ...copied } );
+			createSuccessNotice( __( 'Animation pasted.', 'motion-blocks' ), {
+				type: 'snackbar',
+			} );
 		}
 		onClose();
 	};
@@ -420,7 +468,7 @@ export default function AnimationOptionsMenu( {
 								</MenuItem>
 							) }
 							<MenuItem
-								disabled={ ! copiedAnimation }
+								disabled={ ! readClipboard() }
 								onClick={ () => handlePaste( onClose ) }
 							>
 								{ __( 'Paste animation', 'motion-blocks' ) }

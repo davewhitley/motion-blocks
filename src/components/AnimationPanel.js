@@ -55,6 +55,7 @@ export default function AnimationPanel( {
 	blockName,
 	clientId,
 	multiSelectCount = 0,
+	multiSelectMixed = false,
 } ) {
 	// Detect whether any ancestor of this block has an animation set.
 	// If so, the user is editing an inner block of an animated parent
@@ -404,8 +405,9 @@ export default function AnimationPanel( {
 		if ( data?.animationMode && data.animationMode !== animationMode ) {
 			requestFocusRestore();
 		}
+		// No `speak` here: Paste and Apply saved each show a snackbar,
+		// which screen readers announce.
 		pasteAnimation( data );
-		speak( __( 'Animation pasted.', 'motion-blocks' ) );
 	};
 
 	const panelTitle = animationMode ? (
@@ -429,7 +431,17 @@ export default function AnimationPanel( {
 			title={ panelTitle }
 			initialOpen={ !! animationMode }
 		>
-			{ multiSelectCount > 1 && (
+			{ multiSelectCount > 1 && multiSelectMixed && (
+				<div className="mb-panel-notice">
+					<Notice status="warning" isDismissible={ false }>
+						{ __(
+							'The selected blocks have different animations. Only the first block’s settings are shown, and applying an animation here replaces the existing ones.',
+							'motion-blocks'
+						) }
+					</Notice>
+				</div>
+			) }
+			{ multiSelectCount > 1 && ! multiSelectMixed && (
 				<div className="mb-panel-notice">
 					<Notice status="info" isDismissible={ false }>
 						{ sprintf(

@@ -31,33 +31,34 @@ const NOTHING_TO_ANIMATE = {
 	fallback: __( 'Nothing to animate on this content.', 'motion-blocks' ),
 };
 
-const ALREADY_ANIMATED = {
+// Auto-animate replaces the animations already there (it redoes the
+// whole page, one undo step); this opens the dialog's notice.
+const REPLACES_ANIMATIONS = {
 	page: __(
-		'Every block Auto-animate would animate on this page already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+		'This replaces the animations already on this page.',
 		'motion-blocks'
 	),
 	post: __(
-		'Every block Auto-animate would animate on this post already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+		'This replaces the animations already on this post.',
 		'motion-blocks'
 	),
 	wp_block: __(
-		'Every block Auto-animate would animate on this pattern already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+		'This replaces the animations already on this pattern.',
 		'motion-blocks'
 	),
 	wp_template: __(
-		'Every block Auto-animate would animate on this template already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+		'This replaces the animations already on this template.',
 		'motion-blocks'
 	),
 	wp_template_part: __(
-		'Every block Auto-animate would animate on this template part already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+		'This replaces the animations already on this template part.',
 		'motion-blocks'
 	),
 	fallback: __(
-		'Every block Auto-animate would animate on this content already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again.',
+		'This replaces the animations already on this content.',
 		'motion-blocks'
 	),
 };
-
 const REMOVE_ALL = {
 	page: ( count ) =>
 		/* translators: %d: number of animated blocks */
@@ -122,7 +123,7 @@ export function editorContextStrings( postType ) {
 	return {
 		autoAnimateTitle: pick( AUTO_ANIMATE_TITLE, postType ),
 		nothingToAnimate: pick( NOTHING_TO_ANIMATE, postType ),
-		alreadyAnimated: pick( ALREADY_ANIMATED, postType ),
+		replacesAnimations: pick( REPLACES_ANIMATIONS, postType ),
 		removeAllConfirm: ( count ) =>
 			sprintf( pick( REMOVE_ALL, postType )( count ), count ),
 	};

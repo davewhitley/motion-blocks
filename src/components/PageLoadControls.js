@@ -49,6 +49,7 @@ import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
 import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';
+import { customizeAndKeepFocus } from './keyboardFocus';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -248,7 +249,16 @@ export default function PageLoadControls( {
 								<Button
 									variant="link"
 									size="small"
-									onClick={ handleEditPreset }
+									aria-label={ __(
+										'Customize: change this effect to a Custom animation',
+										'motion-blocks'
+									) }
+									onClick={ ( event ) =>
+										customizeAndKeepFocus(
+											event,
+											handleEditPreset
+										)
+									}
 								>
 									{ __( 'Customize', 'motion-blocks' ) }
 								</Button>
@@ -489,9 +499,9 @@ export default function PageLoadControls( {
 				/>
 			) }
 
-			<h2 className="mb-section-heading">
+			<h3 className="mb-section-heading">
 				{ __( 'Timing', 'motion-blocks' ) }
-			</h2>
+			</h3>
 
 			{ /* Stagger lives inside Timing — semantically it's about
 			   when each inner block starts animating. Renders nothing

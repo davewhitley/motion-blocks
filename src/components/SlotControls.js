@@ -56,6 +56,7 @@ import {
 } from './constants';
 import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
+import { customizeAndKeepFocus } from './keyboardFocus';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -236,36 +237,33 @@ export default function SlotControls( {
 			slot
 		);
 
-	// If the slot is empty, render only the Effect dropdown. Nothing
-	// else makes sense without a chosen type.
+	let emptyHelp;
 	if ( isEmpty ) {
-		return (
-			<div className="mb-slot-controls mb-slot-controls--empty">
-				<SelectControl
-					label={ __( 'Effect', 'motion-blocks' ) }
-					value={ animationType }
-					options={ typeOptions }
-					onChange={ handleTypeChange }
-					help={
-						slot === 'entry'
-							? __(
-									'Pick an effect to animate the block into view.',
-									'motion-blocks'
-							  )
-							: __(
-									'Pick an effect to animate the block out of view.',
-									'motion-blocks'
-							  )
-					}
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				/>
-			</div>
-		);
+		emptyHelp =
+			slot === 'entry'
+				? __(
+						'Pick an effect to animate the block into view.',
+						'motion-blocks'
+				  )
+				: __(
+						'Pick an effect to animate the block out of view.',
+						'motion-blocks'
+				  );
 	}
 
+	// An empty slot shows only the Effect dropdown: nothing else makes
+	// sense without a chosen type. The dropdown is the same element in
+	// both states, at the same place in the tree, so picking an effect
+	// (or going back to None) from the keyboard keeps focus on it
+	// (GH #135).
 	return (
-		<div className="mb-slot-controls">
+		<div
+			className={
+				isEmpty
+					? 'mb-slot-controls mb-slot-controls--empty'
+					: 'mb-slot-controls'
+			}
+		>
 			<HStack alignment="bottom" spacing={ 3 }>
 				<FlexBlock>
 					<div className="mb-effect-field">
@@ -281,7 +279,16 @@ export default function SlotControls( {
 								<Button
 									variant="link"
 									size="small"
-									onClick={ handleEditPreset }
+									aria-label={ __(
+										'Customize: change this effect to a Custom animation',
+										'motion-blocks'
+									) }
+									onClick={ ( event ) =>
+										customizeAndKeepFocus(
+											event,
+											handleEditPreset
+										)
+									}
 								>
 									{ __( 'Customize', 'motion-blocks' ) }
 								</Button>
@@ -293,6 +300,7 @@ export default function SlotControls( {
 							value={ animationType }
 							options={ typeOptions }
 							onChange={ handleTypeChange }
+							help={ emptyHelp }
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
 						/>
@@ -304,124 +312,203 @@ export default function SlotControls( {
 				   decide whether to apply `mb-triggered` (Entry phase,
 				   uses mb-enter-{type} classes) or `mb-exit-triggered`
 				   (Exit phase, uses mb-exit-{type} classes). */ }
-				<Button
-					icon={ playIcon }
-					label={ __( 'Preview animation', 'motion-blocks' ) }
-					variant="secondary"
-					onClick={ ( event ) => {
-						// `detail` is 0 for Enter / Space presses.
-						setKeepFocusWhilePending( event.detail === 0 );
-						if ( onPreview ) {
-							onPreview( slot );
-						}
-					} }
-					onBlur={ ( event ) => {
-						// Ignore the blur the browser sends when the whole
-						// window loses focus (switching apps or tabs mid
-						// preview): focus is still on the button and comes
-						// back to it, so it must stay focusable.
-						if ( event.currentTarget.ownerDocument.hasFocus() ) {
-							setKeepFocusWhilePending( false );
-						}
-					} }
-					disabled={ isPlayPending }
-					// A natively disabled button drops keyboard focus
-					// to the page. After a keyboard press, disable it
-					// with aria-disabled instead so focus stays put.
-					// Mouse clicks keep the native disable, so the
-					// button still loses focus (and its focus ring)
-					// as before. `__experimentalIsFocusable` is the
-					// pre-6.7 name of the same prop.
-					accessibleWhenDisabled={ keepFocusWhilePending }
-					__experimentalIsFocusable={ keepFocusWhilePending }
-					__next40pxDefaultSize
-				/>
-			</HStack>
-
-			{ isChosenImageEffectBlocked(
-				blockName,
-				attributes,
-				animationType
-			) && (
-				<Notice
-					status="warning"
-					isDismissible={ false }
-					className="mb-image-effect-unavailable-notice"
-				>
-					{ __(
-						'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
-						'motion-blocks'
-					) }
-				</Notice>
-			) }
-
-			{ IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
-				animationType &&
-				! IMAGE_EFFECT_TYPES.includes( animationType ) && (
-					<ToggleControl
-						label={ __( 'Animate image only', 'motion-blocks' ) }
-						checked={
-							( attributes.animationFromToTarget || 'block' ) ===
-							'img'
-						}
-						disabled={ isImageTargetUnavailable(
-							blockName,
-							attributes
-						) }
-						onChange={ ( on ) =>
-							setAttributes( {
-								animationFromToTarget: on ? 'img' : 'block',
-							} )
-						}
-						help={
-							isImageTargetUnavailable( blockName, attributes )
-								? __(
-										'Unavailable while “Fixed background” or “Repeated background” is on.',
-										'motion-blocks'
-								  )
-								: __(
-										'Animate the background only. Text and other inner blocks are excluded.',
-										'motion-blocks'
-								  )
-						}
-						__nextHasNoMarginBottom
+				{ ! isEmpty && (
+					<Button
+						icon={ playIcon }
+						label={ __( 'Preview animation', 'motion-blocks' ) }
+						variant="secondary"
+						onClick={ ( event ) => {
+							// `detail` is 0 for Enter / Space presses.
+							setKeepFocusWhilePending( event.detail === 0 );
+							if ( onPreview ) {
+								onPreview( slot );
+							}
+						} }
+						onBlur={ ( event ) => {
+							// Ignore the blur the browser sends when the whole
+							// window loses focus (switching apps or tabs mid
+							// preview): focus is still on the button and comes
+							// back to it, so it must stay focusable.
+							if (
+								event.currentTarget.ownerDocument.hasFocus()
+							) {
+								setKeepFocusWhilePending( false );
+							}
+						} }
+						disabled={ isPlayPending }
+						// A natively disabled button drops keyboard focus
+						// to the page. After a keyboard press, disable it
+						// with aria-disabled instead so focus stays put.
+						// Mouse clicks keep the native disable, so the
+						// button still loses focus (and its focus ring)
+						// as before. `__experimentalIsFocusable` is the
+						// pre-6.7 name of the same prop.
+						accessibleWhenDisabled={ keepFocusWhilePending }
+						__experimentalIsFocusable={ keepFocusWhilePending }
+						__next40pxDefaultSize
 					/>
 				) }
+			</HStack>
 
-			{ isCustom && (
-				<FromToControls
-					attributes={ attributes }
-					setAttributes={ setAttributes }
-					blockName={ blockName }
-					slot={ slot }
-				/>
-			) }
-
-			{ ! isCustom && animationType === 'scale' && (
+			{ ! isEmpty && (
 				<>
-					<ToggleControl
-						label={ __( 'Scale with direction', 'motion-blocks' ) }
-						checked={
-							animationDirection !== 'none' &&
-							animationDirection !== ''
-						}
-						onChange={ ( checked ) =>
-							setAttributes( {
-								// Up arrow in either slot (stored as
-								// `ttb` for an Exit).
-								[ attrName( 'Direction' ) ]: checked
-									? slotDirectionOptions(
-											'scale',
-											slot
-									  ).find( ( opt ) => opt.shown === 'btt' )
-											.value
-									: 'none',
-							} )
-						}
-						__nextHasNoMarginBottom
-					/>
-					{ animationDirection !== 'none' &&
-						animationDirection !== '' && (
+					{ isChosenImageEffectBlocked(
+						blockName,
+						attributes,
+						animationType
+					) && (
+						<Notice
+							status="warning"
+							isDismissible={ false }
+							className="mb-image-effect-unavailable-notice"
+						>
+							{ __(
+								'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
+								'motion-blocks'
+							) }
+						</Notice>
+					) }
+
+					{ IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
+						animationType &&
+						! IMAGE_EFFECT_TYPES.includes( animationType ) && (
+							<ToggleControl
+								label={ __(
+									'Animate image only',
+									'motion-blocks'
+								) }
+								checked={
+									( attributes.animationFromToTarget ||
+										'block' ) === 'img'
+								}
+								disabled={ isImageTargetUnavailable(
+									blockName,
+									attributes
+								) }
+								onChange={ ( on ) =>
+									setAttributes( {
+										animationFromToTarget: on
+											? 'img'
+											: 'block',
+									} )
+								}
+								help={
+									isImageTargetUnavailable(
+										blockName,
+										attributes
+									)
+										? __(
+												'Unavailable while “Fixed background” or “Repeated background” is on.',
+												'motion-blocks'
+										  )
+										: __(
+												'Animate the background only. Text and other inner blocks are excluded.',
+												'motion-blocks'
+										  )
+								}
+								__nextHasNoMarginBottom
+							/>
+						) }
+
+					{ isCustom && (
+						<FromToControls
+							attributes={ attributes }
+							setAttributes={ setAttributes }
+							blockName={ blockName }
+							slot={ slot }
+						/>
+					) }
+
+					{ ! isCustom && animationType === 'scale' && (
+						<>
+							<ToggleControl
+								label={ __(
+									'Scale with direction',
+									'motion-blocks'
+								) }
+								checked={
+									animationDirection !== 'none' &&
+									animationDirection !== ''
+								}
+								onChange={ ( checked ) =>
+									setAttributes( {
+										// Up arrow in either slot (stored as
+										// `ttb` for an Exit).
+										[ attrName( 'Direction' ) ]: checked
+											? slotDirectionOptions(
+													'scale',
+													slot
+											  ).find(
+													( opt ) =>
+														opt.shown === 'btt'
+											  ).value
+											: 'none',
+									} )
+								}
+								__nextHasNoMarginBottom
+							/>
+							{ animationDirection !== 'none' &&
+								animationDirection !== '' && (
+									<ToggleGroupControl
+										label={ __(
+											'Direction',
+											'motion-blocks'
+										) }
+										value={ animationDirection }
+										onChange={ ( value ) =>
+											setAttributes( {
+												[ attrName( 'Direction' ) ]:
+													value,
+											} )
+										}
+										isBlock
+										__nextHasNoMarginBottom
+									>
+										{ directionOptions.map( ( opt ) => (
+											<ToggleGroupControlOptionIcon
+												key={ opt.value }
+												value={ opt.value }
+												icon={
+													DIRECTION_ICON_MAP[
+														opt.shown
+													]
+												}
+												label={ opt.label }
+											/>
+										) ) }
+									</ToggleGroupControl>
+								) }
+						</>
+					) }
+
+					{ ! isCustom &&
+						hasDirection &&
+						animationType === 'curtain' && (
+							<ToggleGroupControl
+								label={ __( 'Direction', 'motion-blocks' ) }
+								value={ animationDirection }
+								onChange={ ( value ) =>
+									setAttributes( {
+										[ attrName( 'Direction' ) ]: value,
+									} )
+								}
+								isBlock
+								__nextHasNoMarginBottom
+							>
+								{ directionOptions.map( ( opt ) => (
+									<ToggleGroupControlOption
+										key={ opt.value }
+										value={ opt.value }
+										label={ opt.label }
+									/>
+								) ) }
+							</ToggleGroupControl>
+						) }
+
+					{ ! isCustom &&
+						hasDirection &&
+						animationType !== 'scale' &&
+						animationType !== 'curtain' && (
 							<ToggleGroupControl
 								label={ __( 'Direction', 'motion-blocks' ) }
 								value={ animationDirection }
@@ -443,178 +530,131 @@ export default function SlotControls( {
 								) ) }
 							</ToggleGroupControl>
 						) }
-				</>
-			) }
 
-			{ ! isCustom && hasDirection && animationType === 'curtain' && (
-				<ToggleGroupControl
-					label={ __( 'Direction', 'motion-blocks' ) }
-					value={ animationDirection }
-					onChange={ ( value ) =>
-						setAttributes( {
-							[ attrName( 'Direction' ) ]: value,
-						} )
-					}
-					isBlock
-					__nextHasNoMarginBottom
-				>
-					{ directionOptions.map( ( opt ) => (
-						<ToggleGroupControlOption
-							key={ opt.value }
-							value={ opt.value }
-							label={ opt.label }
+					{ ! isCustom && animationType === 'blur' && (
+						<RangeControl
+							label={ __( 'Blur', 'motion-blocks' ) }
+							value={ animationBlurAmount }
+							onChange={ ( value ) =>
+								setAttributes( {
+									[ attrName( 'BlurAmount' ) ]: value,
+								} )
+							}
+							min={ BLUR_SETTINGS.min }
+							max={ BLUR_SETTINGS.max }
+							step={ BLUR_SETTINGS.step }
+							renderTooltipContent={ ( value ) => `${ value }px` }
+							__next40pxDefaultSize
+							__nextHasNoMarginBottom
 						/>
-					) ) }
-				</ToggleGroupControl>
-			) }
+					) }
 
-			{ ! isCustom &&
-				hasDirection &&
-				animationType !== 'scale' &&
-				animationType !== 'curtain' && (
-					<ToggleGroupControl
-						label={ __( 'Direction', 'motion-blocks' ) }
-						value={ animationDirection }
-						onChange={ ( value ) =>
-							setAttributes( {
-								[ attrName( 'Direction' ) ]: value,
-							} )
-						}
-						isBlock
-						__nextHasNoMarginBottom
-					>
-						{ directionOptions.map( ( opt ) => (
-							<ToggleGroupControlOptionIcon
-								key={ opt.value }
-								value={ opt.value }
-								icon={ DIRECTION_ICON_MAP[ opt.shown ] }
-								label={ opt.label }
-							/>
-						) ) }
-					</ToggleGroupControl>
-				) }
+					{ ! isCustom && animationType === 'rotate' && (
+						<NumberControl
+							label={ __( 'Angle', 'motion-blocks' ) }
+							value={ animationRotateAngle ?? 90 }
+							step={ 1 }
+							spinControls="custom"
+							suffix={ <DegreesSuffix /> }
+							onChange={ ( value ) =>
+								setAttributes( {
+									[ attrName( 'RotateAngle' ) ]:
+										parseInt( value, 10 ) || 0,
+								} )
+							}
+							__next40pxDefaultSize
+						/>
+					) }
 
-			{ ! isCustom && animationType === 'blur' && (
-				<RangeControl
-					label={ __( 'Blur', 'motion-blocks' ) }
-					value={ animationBlurAmount }
-					onChange={ ( value ) =>
-						setAttributes( {
-							[ attrName( 'BlurAmount' ) ]: value,
-						} )
-					}
-					min={ BLUR_SETTINGS.min }
-					max={ BLUR_SETTINGS.max }
-					step={ BLUR_SETTINGS.step }
-					renderTooltipContent={ ( value ) => `${ value }px` }
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				/>
-			) }
-
-			{ ! isCustom && animationType === 'rotate' && (
-				<NumberControl
-					label={ __( 'Angle', 'motion-blocks' ) }
-					value={ animationRotateAngle ?? 90 }
-					step={ 1 }
-					spinControls="custom"
-					suffix={ <DegreesSuffix /> }
-					onChange={ ( value ) =>
-						setAttributes( {
-							[ attrName( 'RotateAngle' ) ]:
-								parseInt( value, 10 ) || 0,
-						} )
-					}
-					__next40pxDefaultSize
-				/>
-			) }
-
-			{ /* "Timing" section heading — matches the Page Load and
+					{ /* "Timing" section heading — matches the Page Load and
 			   Scroll Interactive panels, grouping Duration / Delay /
 			   Easing / Replay under one visual divider. The
 			   heading's styles (`.mb-section-heading` in editor.scss)
 			   pull it tight against the controls below via negative
 			   margin-bottom. */ }
-			<h2 className="mb-section-heading">
-				{ __( 'Timing', 'motion-blocks' ) }
-			</h2>
+					<h3 className="mb-section-heading">
+						{ __( 'Timing', 'motion-blocks' ) }
+					</h3>
 
-			<HStack spacing={ 3 }>
-				<FlexBlock>
-					<NumberControl
-						label={ __( 'Duration', 'motion-blocks' ) }
-						value={ animationDuration }
-						min={ 0 }
-						step={ 0.01 }
-						// Keep two decimals (0.25) when typed; +/- and arrow keys
-						// still move by 0.1 (step × spinFactor).
-						spinFactor={ 10 }
-						spinControls="custom"
-						suffix={ <SecondsSuffix /> }
+					<HStack spacing={ 3 }>
+						<FlexBlock>
+							<NumberControl
+								label={ __( 'Duration', 'motion-blocks' ) }
+								value={ animationDuration }
+								min={ 0 }
+								step={ 0.01 }
+								// Keep two decimals (0.25) when typed; +/- and arrow keys
+								// still move by 0.1 (step × spinFactor).
+								spinFactor={ 10 }
+								spinControls="custom"
+								suffix={ <SecondsSuffix /> }
+								onChange={ ( value ) =>
+									setAttributes( {
+										[ attrName( 'Duration' ) ]:
+											parseFloat( value ) || 0,
+									} )
+								}
+								__next40pxDefaultSize
+							/>
+						</FlexBlock>
+						<FlexBlock>
+							<NumberControl
+								label={ __( 'Delay', 'motion-blocks' ) }
+								value={ animationDelay }
+								min={ 0 }
+								step={ 0.01 }
+								spinFactor={ 10 }
+								spinControls="custom"
+								suffix={ <SecondsSuffix /> }
+								onChange={ ( value ) =>
+									setAttributes( {
+										[ attrName( 'Delay' ) ]:
+											parseFloat( value ) || 0,
+									} )
+								}
+								__next40pxDefaultSize
+							/>
+						</FlexBlock>
+					</HStack>
+
+					<SelectControl
+						label={ __( 'Easing', 'motion-blocks' ) }
+						help={ __(
+							'How the speed changes from start to finish.',
+							'motion-blocks'
+						) }
+						value={ animationEasing }
+						options={ EASING_OPTIONS }
 						onChange={ ( value ) =>
 							setAttributes( {
-								[ attrName( 'Duration' ) ]:
-									parseFloat( value ) || 0,
+								[ attrName( 'Easing' ) ]: value,
 							} )
 						}
 						__next40pxDefaultSize
+						__nextHasNoMarginBottom
 					/>
-				</FlexBlock>
-				<FlexBlock>
-					<NumberControl
-						label={ __( 'Delay', 'motion-blocks' ) }
-						value={ animationDelay }
-						min={ 0 }
-						step={ 0.01 }
-						spinFactor={ 10 }
-						spinControls="custom"
-						suffix={ <SecondsSuffix /> }
-						onChange={ ( value ) =>
-							setAttributes( {
-								[ attrName( 'Delay' ) ]:
-									parseFloat( value ) || 0,
-							} )
-						}
-						__next40pxDefaultSize
-					/>
-				</FlexBlock>
-			</HStack>
-
-			<SelectControl
-				label={ __( 'Easing', 'motion-blocks' ) }
-				help={ __(
-					'How the speed changes from start to finish.',
-					'motion-blocks'
-				) }
-				value={ animationEasing }
-				options={ EASING_OPTIONS }
-				onChange={ ( value ) =>
-					setAttributes( {
-						[ attrName( 'Easing' ) ]: value,
-					} )
-				}
-				__next40pxDefaultSize
-				__nextHasNoMarginBottom
-			/>
-			{ animationEasing === 'custom' && (
-				<TextControl
-					label={ __( 'Custom timing function', 'motion-blocks' ) }
-					value={ animationCustomTimingFunction }
-					onChange={ ( v ) =>
-						setAttributes( {
-							[ attrName( 'CustomTimingFunction' ) ]: v,
-						} )
-					}
-					help={ __(
-						'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
-						'motion-blocks'
+					{ animationEasing === 'custom' && (
+						<TextControl
+							label={ __(
+								'Custom timing function',
+								'motion-blocks'
+							) }
+							value={ animationCustomTimingFunction }
+							onChange={ ( v ) =>
+								setAttributes( {
+									[ attrName( 'CustomTimingFunction' ) ]: v,
+								} )
+							}
+							help={ __(
+								'Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1).',
+								'motion-blocks'
+							) }
+							__nextHasNoMarginBottom
+							__next40pxDefaultSize
+						/>
 					) }
-					__nextHasNoMarginBottom
-					__next40pxDefaultSize
-				/>
-			) }
 
-			{ /* Replay control. Each slot maps to a GSAP-style
+					{ /* Replay control. Each slot maps to a GSAP-style
 			     "play / none / none / X" toggle:
 			       Entry — plays forward on scroll-in; the Replay option
 			         sets what happens at the bottom edge as you scroll
@@ -627,63 +667,68 @@ export default function SlotControls( {
 			     When both slots are filled, the Exit slot owns the
 			     scroll-back (top) edge. See REPLAY_OPTIONS in
 			     constants.js. */ }
-			<SelectControl
-				label={ __( 'Replay', 'motion-blocks' ) }
-				value={ animationReplay }
-				// Append "(default)" to the slot's default option label
-				// (Once for Entry, Reverse for Exit) so users can see
-				// at a glance which value preserves baseline behavior.
-				options={ REPLAY_OPTIONS.map( ( opt ) =>
-					opt.value === slotReplayDefault
-						? {
-								...opt,
-								label: sprintf(
-									/* translators: %s: name of a Replay option, such as "Once". */
-									__( '%s (default)', 'motion-blocks' ),
-									opt.label
-								),
-						  }
-						: opt
-				) }
-				onChange={ ( value ) =>
-					setAttributes( {
-						[ attrName( 'Replay' ) ]: value,
-					} )
-				}
-				help={
-					slot === 'entry'
-						? animationReplay === 'once'
-							? __(
-									'Entry animation plays once on first appearance, then stays.',
-									'motion-blocks'
-							  )
-							: animationReplay === 'repeat'
-							? __(
-									'Entry animation replays every time the block scrolls into view. It resets off-screen after you scroll past it, so each pass plays again.',
-									'motion-blocks'
-							  )
-							: __(
-									'Entry animation plays forward as the block scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up.',
-									'motion-blocks'
-							  )
-						: animationReplay === 'once'
-						? __(
-								'Exit animation plays once, then stays exited.',
-								'motion-blocks'
-						  )
-						: animationReplay === 'repeat'
-						? __(
-								'Exit animation plays every time the block scrolls off the top of the screen. When you scroll back, the block shows again instantly.',
-								'motion-blocks'
-						  )
-						: __(
-								'Exit animation plays in reverse when you scroll back to the block.',
-								'motion-blocks'
-						  )
-				}
-				__next40pxDefaultSize
-				__nextHasNoMarginBottom
-			/>
+					<SelectControl
+						label={ __( 'Replay', 'motion-blocks' ) }
+						value={ animationReplay }
+						// Append "(default)" to the slot's default option label
+						// (Once for Entry, Reverse for Exit) so users can see
+						// at a glance which value preserves baseline behavior.
+						options={ REPLAY_OPTIONS.map( ( opt ) =>
+							opt.value === slotReplayDefault
+								? {
+										...opt,
+										label: sprintf(
+											/* translators: %s: name of a Replay option, such as "Once". */
+											__(
+												'%s (default)',
+												'motion-blocks'
+											),
+											opt.label
+										),
+								  }
+								: opt
+						) }
+						onChange={ ( value ) =>
+							setAttributes( {
+								[ attrName( 'Replay' ) ]: value,
+							} )
+						}
+						help={
+							slot === 'entry'
+								? animationReplay === 'once'
+									? __(
+											'Entry animation plays once on first appearance, then stays.',
+											'motion-blocks'
+									  )
+									: animationReplay === 'repeat'
+									? __(
+											'Entry animation replays every time the block scrolls into view. It resets off-screen after you scroll past it, so each pass plays again.',
+											'motion-blocks'
+									  )
+									: __(
+											'Entry animation plays forward as the block scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up.',
+											'motion-blocks'
+									  )
+								: animationReplay === 'once'
+								? __(
+										'Exit animation plays once, then stays exited.',
+										'motion-blocks'
+								  )
+								: animationReplay === 'repeat'
+								? __(
+										'Exit animation plays every time the block scrolls off the top of the screen. When you scroll back, the block shows again instantly.',
+										'motion-blocks'
+								  )
+								: __(
+										'Exit animation plays in reverse when you scroll back to the block.',
+										'motion-blocks'
+								  )
+						}
+						__next40pxDefaultSize
+						__nextHasNoMarginBottom
+					/>
+				</>
+			) }
 		</div>
 	);
 }

@@ -47,9 +47,14 @@ import {
 	Dropdown,
 	MenuGroup,
 	MenuItem,
+	NavigableMenu,
 	ExternalLink,
 } from '@wordpress/components';
-import { createInterpolateElement, useEffect } from '@wordpress/element';
+import {
+	createInterpolateElement,
+	useEffect,
+	useRef,
+} from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { seen, unseen } from '@wordpress/icons';
 
@@ -61,6 +66,7 @@ import {
 	isPropertyAdded,
 	isImageTargetUnavailable,
 } from './constants';
+import { isKeyboardActivation } from './keyboardFocus';
 
 /**
  * Compute the attribute-name maps for a slot.
@@ -312,6 +318,37 @@ export default function FromToControls( {
 	const setSide = ( newSide ) =>
 		setAttributes( { animationFromToActiveSide: newSide } );
 
+	// Switching side remounts the panel below (it is keyed by side),
+	// From / To toggle included, and the browser drops focus to <body>.
+	// After a keyboard switch, focus the toggle's checked option again
+	// (GH #135).
+	const wrapperRef = useRef( null );
+	const refocusToggle = useRef( false );
+	useEffect( () => {
+		if ( ! refocusToggle.current ) {
+			return undefined;
+		}
+		refocusToggle.current = false;
+		// The new panel puts its contents in the page a moment after it
+		// mounts, so look again for a short while. By position, not
+		// aria-checked: the fresh toggle marks its checked option late.
+		let timer;
+		let tries = 0;
+		const focusChecked = () => {
+			const options = wrapperRef.current?.querySelectorAll(
+				'.mb-from-to__state-toggle [role="radio"]'
+			);
+			const checked = options?.[ side === 'start' ? 0 : 1 ];
+			if ( checked ) {
+				checked.focus();
+			} else if ( tries++ < 10 ) {
+				timer = setTimeout( focusChecked, 20 );
+			}
+		};
+		focusChecked();
+		return () => clearTimeout( timer );
+	}, [ side ] );
+
 	const { from: fromMap, to: toMap } = slotAttrMaps( slot );
 	const attrMap = side === 'start' ? fromMap : toMap;
 	const panelId = `mb-from-to-${ slot || 'shared' }-${ side }`;
@@ -458,7 +495,7 @@ export default function FromToControls( {
 			 * absolutely-positioned over the panel header next to
 			 * the kebab.
 			 */ }
-			<div className="mb-from-to__panel-wrapper">
+			<div className="mb-from-to__panel-wrapper" ref={ wrapperRef }>
 				<Button
 					className="mb-from-to__preview-toggle"
 					icon={ isPreviewing ? seen : unseen }
@@ -491,9 +528,13 @@ export default function FromToControls( {
 						label={ __( 'Animation state', 'motion-blocks' ) }
 						hideLabelFromVision
 						value={ side }
-						onChange={ ( newSide ) =>
-							newSide && setSide( newSide )
-						}
+						onChange={ ( newSide ) => {
+							if ( ! newSide ) {
+								return;
+							}
+							refocusToggle.current = isKeyboardActivation();
+							setSide( newSide );
+						} }
 						isBlock
 						help={ sideHelp }
 						__nextHasNoMarginBottom
@@ -560,27 +601,38 @@ export default function FromToControls( {
 									variant="link"
 									onClick={ onToggle }
 									aria-expanded={ isOpen }
+									aria-haspopup="menu"
 								>
 									{ __( 'Add property', 'motion-blocks' ) }
 								</Button>
 							) }
 							renderContent={ ( { onClose } ) => (
-								<MenuGroup>
-									{ addableProperties.map( ( def ) => (
-										<MenuItem
-											key={ def.id }
-											onClick={ () => {
-												setAttributes( {
-													[ attrMap[ def.id ] ]:
-														def.identity,
-												} );
-												onClose();
-											} }
-										>
-											{ def.label }
-										</MenuItem>
-									) ) }
-								</MenuGroup>
+								// NavigableMenu supplies role="menu" and
+								// Up / Down arrow-key movement, like the
+								// other menus in the panel.
+								<NavigableMenu
+									aria-label={ __(
+										'Add property',
+										'motion-blocks'
+									) }
+								>
+									<MenuGroup>
+										{ addableProperties.map( ( def ) => (
+											<MenuItem
+												key={ def.id }
+												onClick={ () => {
+													setAttributes( {
+														[ attrMap[ def.id ] ]:
+															def.identity,
+													} );
+													onClose();
+												} }
+											>
+												{ def.label }
+											</MenuItem>
+										) ) }
+									</MenuGroup>
+								</NavigableMenu>
 							) }
 						/>
 					) }

@@ -47,6 +47,7 @@ import FromToControls from './FromToControls';
 import InfoPopover from './InfoPopover';
 import SubPanelModeHeader from './SubPanelModeHeader';
 import { scrubFromIcon, scrubToIcon } from './icons';
+import { customizeAndKeepFocus } from './keyboardFocus';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -257,7 +258,16 @@ export default function ScrollInteractiveControls( {
 								<Button
 									variant="link"
 									size="small"
-									onClick={ handleEditPreset }
+									aria-label={ __(
+										'Customize: change this effect to a Custom animation',
+										'motion-blocks'
+									) }
+									onClick={ ( event ) =>
+										customizeAndKeepFocus(
+											event,
+											handleEditPreset
+										)
+									}
 								>
 									{ __( 'Customize', 'motion-blocks' ) }
 								</Button>
@@ -539,9 +549,9 @@ export default function ScrollInteractiveControls( {
 			   Scroll Interactive the scroll position IS the timing,
 			   so this section groups Start Offset / End Offset /
 			   Easing as the equivalent timing controls. */ }
-			<h2 className="mb-section-heading">
+			<h3 className="mb-section-heading">
 				{ __( 'Timing', 'motion-blocks' ) }
-			</h2>
+			</h3>
 
 			<BaseControl __nextHasNoMarginBottom>
 				<HStack

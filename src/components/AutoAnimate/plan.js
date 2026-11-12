@@ -28,8 +28,6 @@
  *     skipBroken:    [ Block ],
  *     skipInvalid:   [ Block ],
  *     skipExisting:  [ Block ],
- *     descendantCount: number,
- *     invalidInnerCount: number,
  *   }
  *
  * The modal turns `apply` into per-block payloads with
@@ -162,20 +160,16 @@ export const MOTION_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
  *   heroZoom     starting scale of the hero background's zoom-out
  *   stagger      whether a cascade staggers its children; when false
  *                the section rises as one block
- *
- * `ctaDuration` and `sequenceStep` are kept for older callers.
  */
 export const STYLE_PRESETS = {
 	subtle: {
 		label: 'Subtle',
 		duration: 0.8,
-		ctaDuration: 0.6,
 		distance: 24,
 		settleScale: 1.04,
 		// No stagger: a cascade's section rises as one block.
 		stagger: false,
 		beat: 0.08,
-		sequenceStep: 0.08,
 		spread: 0.6,
 		openingBeat: 0.12,
 		heroZoom: 1.06,
@@ -183,12 +177,10 @@ export const STYLE_PRESETS = {
 	balanced: {
 		label: 'Balanced',
 		duration: 1.0,
-		ctaDuration: 0.8,
 		distance: 48,
 		settleScale: 1.08,
 		stagger: true,
 		beat: 0.12,
-		sequenceStep: 0.12,
 		spread: 0.9,
 		openingBeat: 0.18,
 		heroZoom: 1.12,
@@ -196,12 +188,10 @@ export const STYLE_PRESETS = {
 	bold: {
 		label: 'Bold',
 		duration: 1.3,
-		ctaDuration: 1.0,
 		distance: 80,
 		settleScale: 1.14,
 		stagger: true,
 		beat: 0.16,
-		sequenceStep: 0.16,
 		spread: 1.2,
 		openingBeat: 0.24,
 		heroZoom: 1.2,
@@ -219,6 +209,12 @@ const MAX_OPENING_DELAY = 1.2;
  * as soon as the page loads for a block already in view.
  */
 const MAX_OPENING_ITEMS = 4;
+
+/**
+ * Most steps of delay a scroll sequence (a Cover's content) builds up.
+ * Later items share the last step.
+ */
+const MAX_SEQUENCE_STEPS = 4;
 
 /**
  * Pick a category for a block: 'HERO' | 'MEDIA' | 'SECTION' | 'CTA' |
@@ -452,7 +448,24 @@ export function buildAutoAnimateUpdates( apply, stylePreset ) {
 				MAX_OPENING_DELAY
 			);
 		} else {
-			resolved.delay = ( item.sequenceIndex || 0 ) * style.beat * 1.5;
+			// Capped: each block waits for its own scroll position, so
+			// a long sequence left later blocks on screen but invisible
+			// for seconds (GH #140).
+			resolved.delay =
+				Math.min( item.sequenceIndex || 0, MAX_SEQUENCE_STEPS ) *
+				style.beat *
+				1.5;
+			if ( item.afterOpening ) {
+				// On the first screen, past the opening's last slot: start
+				// after the opening, not ahead of it.
+				resolved.delay = Math.max(
+					resolved.delay,
+					Math.min(
+						OPENING_START + MAX_OPENING_ITEMS * style.openingBeat,
+						MAX_OPENING_DELAY
+					)
+				);
+			}
 		}
 		if ( item.role === 'cascade' ) {
 			resolved.step = cascadeStep( item.count || 1, style );
@@ -748,7 +761,9 @@ export function findHero( topLevelBlocks, { includeParts = false } = {} ) {
 				'core/cover',
 			].includes( b.name )
 		);
-		return opens ? { blocks: run } : null;
+		// `loose`: a run of loose blocks can be a whole article, so the
+		// planner holds it to the stricter first-screen cutoff (GH #140).
+		return opens ? { blocks: run, loose: true } : null;
 	}
 	let block = first;
 	for ( let depth = 0; depth < 8; depth += 1 ) {
@@ -807,11 +822,14 @@ function isSection( block ) {
 	}
 	// A Query Loop is always a block of its own to walk into, even with
 	// just a Post Template inside: its posts are what should animate.
+	// That holds for one nested in a wrapper Group too (GH #140).
+	if ( holds( block, ( b ) => b.name === 'core/query' ) ) {
+		return false;
+	}
 	return ! children.some(
 		( child ) =>
 			COMPOSITE_BLOCKS.has( child.name ) &&
-			( child.name === 'core/query' ||
-				( child.innerBlocks || [] ).length > 1 )
+			( child.innerBlocks || [] ).length > 1
 	);
 }
 
@@ -819,9 +837,6 @@ function isSection( block ) {
  * Walk the blocks and decide what to animate, how, and in what order.
  *
  * @param {Array}    topLevelBlocks   `getBlocks()` (top level only).
- * @param {Function} countDescendants `(clientId) → number`, for the
- *   modal's "nested blocks" line (passed in: pure logic doesn't read
- *   the store).
  * @param {Object}   [options]
  * @param {Function} [options.isOnFirstScreen] `(clientId, strict?) → boolean|null`:
  *   whether the block starts on the first screen. The modal measures it
@@ -834,17 +849,15 @@ function isSection( block ) {
  *   how tall the block is, in screens of the editor canvas. A Columns
  *   block taller than 2 screens, or holding a Query Loop or many designed
  *   units, is a page wrapper and is walked into.
+ * @param {Function} [options.partHasAnimation] `(clientId) → boolean`: does this
+ *   template part hold an animation? Such a part is not animated whole.
  * @param {boolean}  [options.includeParts] Animate what's inside template
  *   parts (header, footer), loaded with withTemplatePartContents, instead
  *   of the header as one block and the footer not at all. A hero in the
  *   header opens the page; everything else in a part waits for the scroll.
  * @return {Object} Plan.
  */
-export function computeAutoAnimatePlan(
-	topLevelBlocks,
-	countDescendants,
-	options = {}
-) {
+export function computeAutoAnimatePlan( topLevelBlocks, options = {} ) {
 	const apply = [];
 	const skipBody = [];
 	const skipChrome = [];
@@ -855,9 +868,7 @@ export function computeAutoAnimatePlan(
 	// change to it or anything inside it is silently dropped on save. They
 	// are skipped, with their contents, and the modal says so.
 	const skipInvalid = [];
-	let invalidInnerCount = 0;
 	const skipExisting = [];
-	let descendantCount = 0;
 	let openingIndex = 0;
 
 	// What plays on load is the hero (see findHero), not whatever a
@@ -873,7 +884,9 @@ export function computeAutoAnimatePlan(
 		( block.innerBlocks || [] ).forEach( markHero );
 	};
 	const includeParts = !! options.includeParts;
-	const found = findHero( topLevelBlocks, { includeParts } )?.blocks || [];
+	const hero = findHero( topLevelBlocks, { includeParts } );
+	const found = hero?.blocks || [];
+	const looseHero = !! hero?.loose;
 	// Blocks inside a template part. Unless they are the hero, they never
 	// join the opening: a header animating on load is a flash, and a
 	// footer is far below the first screen.
@@ -928,7 +941,10 @@ export function computeAutoAnimatePlan(
 			if ( ! heroIds.has( block.clientId ) ) {
 				return false;
 			}
-			return ( measure ? measure( block.clientId ) : null ) !== false;
+			return (
+				( measure ? measure( block.clientId, looseHero ) : null ) !==
+				false
+			);
 		}
 		// No hero was found (a post list, a sidebar, a hero made of plain
 		// text, a hero inside the header): fall back to the measured first
@@ -942,7 +958,8 @@ export function computeAutoAnimatePlan(
 		return measure( block.clientId, true ) === true;
 	};
 
-	const count = ( block ) => countDescendants( block.clientId ) || 0;
+	// Intro paragraphs of walked-into sections, by client id.
+	const introIds = new Set();
 
 	// Posts a Query Loop shows per page, while walking inside one.
 	let queryPerPage = null;
@@ -969,6 +986,17 @@ export function computeAutoAnimatePlan(
 			trigger: first ? 'load' : 'scroll',
 			...extra,
 		};
+		// A fifth or later block on the first screen waits for the scroll,
+		// which fires at once for a block in view. Marked so its delay
+		// puts it after the opening (GH #140).
+		if (
+			! first &&
+			! repeated &&
+			openingIndex >= MAX_OPENING_ITEMS &&
+			onFirstScreen( block )
+		) {
+			item.afterOpening = true;
+		}
 		if ( first ) {
 			item.openingIndex = openingIndex;
 			// The hero background starts with the sequence, without
@@ -1001,7 +1029,6 @@ export function computeAutoAnimatePlan(
 			return false;
 		}
 		skipInvalid.push( block );
-		invalidInnerCount += count( block );
 		return true;
 	}
 
@@ -1012,7 +1039,6 @@ export function computeAutoAnimatePlan(
 		// Already animated: that animation owns the subtree.
 		if ( block.attributes?.animationMode ) {
 			skipExisting.push( block );
-			descendantCount += count( block );
 			return;
 		}
 		const name = block.name;
@@ -1060,8 +1086,12 @@ export function computeAutoAnimatePlan(
 		// setting (the site default, 10, when it inherits).
 		if ( name === 'core/query' ) {
 			const outerPerPage = queryPerPage;
-			queryPerPage =
-				block.attributes?.query?.perPage || DEFAULT_QUERY_COUNT;
+			// WordPress ignores perPage on an inheriting query and shows
+			// the site's posts per page.
+			const query = block.attributes?.query;
+			queryPerPage = query?.inherit
+				? DEFAULT_QUERY_COUNT
+				: query?.perPage || DEFAULT_QUERY_COUNT;
 			for ( const child of block.innerBlocks || [] ) {
 				recurse( child, sequence );
 			}
@@ -1076,16 +1106,38 @@ export function computeAutoAnimatePlan(
 			// Posts that fit on one row arrive together, so they cascade.
 			// Posts that wrap onto more rows arrive as you scroll, so each
 			// post (the card it's built from) rises when it comes into view.
-			if ( columns && posts <= columns ) {
+			// A card that already has an animation keeps it, and the Post
+			// Template is then not cascaded over it (GH #140).
+			if ( columns && posts <= columns && ! hasAnimatedChild( block ) ) {
 				push( block, 'cascade', { ...seq(), count: posts } );
-			} else {
-				for ( const child of block.innerBlocks || [] ) {
-					if ( ! skipIfInvalid( child ) ) {
-						push( child, 'rise', seq(), { repeated: true } );
-					}
-				}
+				return;
 			}
-			descendantCount += count( block );
+			for ( const child of block.innerBlocks || [] ) {
+				if ( skipIfInvalid( child ) ) {
+					continue;
+				}
+				if ( child.attributes?.animationMode ) {
+					skipExisting.push( child );
+					continue;
+				}
+				// Spacers, Separators and blocks that can't keep an
+				// animation are left alone, as everywhere else.
+				const childCategory = classifyBlock( child );
+				if ( ! canAnimateBlock( child.name ) ) {
+					( childCategory === 'CHROME' ? skipChrome : skipBody ).push(
+						child
+					);
+					continue;
+				}
+				if (
+					childCategory === 'CHROME' ||
+					childCategory === 'BROKEN'
+				) {
+					skipLeaf( child, childCategory );
+					continue;
+				}
+				push( child, 'rise', seq(), { repeated: true } );
+			}
 			return;
 		}
 
@@ -1099,6 +1151,18 @@ export function computeAutoAnimatePlan(
 			for ( const child of block.innerBlocks ) {
 				recurse( child, sequence );
 			}
+			return;
+		}
+
+		// Not walked into, but something inside it is animated already
+		// (an earlier run that included parts, or by hand): leave it, or
+		// the header would move twice (GH #140).
+		if (
+			name === 'core/template-part' &&
+			options.partHasAnimation &&
+			options.partHasAnimation( block.clientId )
+		) {
+			skipExisting.push( block );
 			return;
 		}
 
@@ -1152,7 +1216,6 @@ export function computeAutoAnimatePlan(
 					seq()
 				);
 			}
-			descendantCount += count( block );
 			return;
 		}
 
@@ -1168,7 +1231,6 @@ export function computeAutoAnimatePlan(
 					...seq(),
 					count: meaningfulChildren( block ).length,
 				} );
-				descendantCount += count( block );
 				return;
 			}
 			const children = block.innerBlocks || [];
@@ -1179,6 +1241,28 @@ export function computeAutoAnimatePlan(
 			if ( children.length === 0 ) {
 				return;
 			}
+			// A short section walked into (it holds a row of columns, say):
+			// one paragraph between a heading and something that isn't
+			// body text is the section's intro, and rises with them. The
+			// same text animates when the section cascades whole, so it
+			// would otherwise sit still between two moving blocks
+			// (GH #140). Runs of body text are still skipped.
+			const kids = meaningfulChildren( block );
+			if ( kids.length <= MAX_SECTION_CHILDREN ) {
+				kids.forEach( ( kid, i ) => {
+					const before = kids[ i - 1 ];
+					const after = kids[ i + 1 ];
+					if (
+						kid.name === 'core/paragraph' &&
+						before &&
+						HEADING_LIKE.has( before.name ) &&
+						after &&
+						classifyBlock( after ) !== 'BODY'
+					) {
+						introIds.add( kid.clientId );
+					}
+				} );
+			}
 			for ( const child of children ) {
 				recurse( child, sequence );
 			}
@@ -1186,10 +1270,13 @@ export function computeAutoAnimatePlan(
 		}
 
 		// Inside a Cover's sequence, text belongs to the hero, so it
-		// rises with the rest instead of being skipped as body copy.
-		if ( sequence && category === 'BODY' ) {
+		// rises with the rest instead of being skipped as body copy. So
+		// does a section's intro paragraph (see above).
+		if (
+			( sequence || introIds.has( block.clientId ) ) &&
+			category === 'BODY'
+		) {
 			push( block, 'rise', seq() );
-			descendantCount += count( block );
 			return;
 		}
 
@@ -1197,7 +1284,6 @@ export function computeAutoAnimatePlan(
 			return;
 		}
 		push( block, category === 'MEDIA' ? 'media' : 'rise', seq() );
-		descendantCount += count( block );
 	}
 
 	for ( const block of topLevelBlocks || [] ) {
@@ -1211,8 +1297,6 @@ export function computeAutoAnimatePlan(
 		skipBroken,
 		skipInvalid,
 		skipExisting,
-		descendantCount,
-		invalidInnerCount,
 	};
 }
 
@@ -1240,45 +1324,4 @@ export function summarizeChoreography( apply ) {
 		}
 	}
 	return out;
-}
-
-/**
- * Group `apply` items by role. Returns a Map preserving insertion order.
- *
- * @param {Array} applyItems Plan items.
- * @return {Map<string, Array>} Items by role.
- */
-export function groupApplyByCategory( applyItems ) {
-	const grouped = new Map();
-	for ( const item of applyItems ) {
-		const key = item.role || item.category;
-		if ( ! grouped.has( key ) ) {
-			grouped.set( key, [] );
-		}
-		grouped.get( key ).push( item );
-	}
-	return grouped;
-}
-
-/**
- * Block-name → human label lookup for the modal. Falls back to the raw
- * block name if the type isn't registered.
- *
- * @param {Array}    items             Array of `{ block }` items.
- * @param {Function} getBlockTypeTitle `(name) → string|undefined`.
- * @return {Array<{ name: string, count: number }>} Sorted descending by count.
- */
-export function summarizeByBlockType( items, getBlockTypeTitle ) {
-	const counts = {};
-	for ( const item of items ) {
-		const name = item?.block?.name || item?.name;
-		if ( ! name ) {
-			continue;
-		}
-		const label = getBlockTypeTitle( name ) || name;
-		counts[ label ] = ( counts[ label ] || 0 ) + 1;
-	}
-	return Object.entries( counts )
-		.map( ( [ name, count ] ) => ( { name, count } ) )
-		.sort( ( a, b ) => b.count - a.count );
 }

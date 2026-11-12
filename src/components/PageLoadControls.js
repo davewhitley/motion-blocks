@@ -30,6 +30,7 @@ import {
 	EASING_OPTIONS,
 	BLUR_SETTINGS,
 	LOOP_OPTIONS,
+	DEFAULT_ATTRIBUTES,
 	LOOP_MIN_DURATION,
 	isLoopingValue,
 	loopChangeAttributes,
@@ -50,6 +51,7 @@ import FromToControls from './FromToControls';
 import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';
 import { customizeAndKeepFocus } from './keyboardFocus';
+import DurationControl from './DurationControl';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -405,6 +407,7 @@ export default function PageLoadControls( {
 								}
 								isBlock
 								__nextHasNoMarginBottom
+								__next40pxDefaultSize
 							>
 								{ directionOptions.map( ( opt ) => (
 									<ToggleGroupControlOptionIcon
@@ -419,34 +422,31 @@ export default function PageLoadControls( {
 				</>
 			) }
 
-			{ ! isCustom &&
-				hasDirection &&
-				( animationType === 'curtain' ||
-					animationType === 'curtain-out' ) && (
-					<ToggleGroupControl
-						label={ __( 'Direction', 'motion-blocks' ) }
-						value={ animationDirection }
-						onChange={ ( value ) =>
-							setAttributes( { animationDirection: value } )
-						}
-						isBlock
-						__nextHasNoMarginBottom
-					>
-						{ directionOptions.map( ( opt ) => (
-							<ToggleGroupControlOption
-								key={ opt.value }
-								value={ opt.value }
-								label={ opt.label }
-							/>
-						) ) }
-					</ToggleGroupControl>
-				) }
+			{ ! isCustom && hasDirection && animationType === 'curtain' && (
+				<ToggleGroupControl
+					label={ __( 'Direction', 'motion-blocks' ) }
+					value={ animationDirection }
+					onChange={ ( value ) =>
+						setAttributes( { animationDirection: value } )
+					}
+					isBlock
+					__nextHasNoMarginBottom
+					__next40pxDefaultSize
+				>
+					{ directionOptions.map( ( opt ) => (
+						<ToggleGroupControlOption
+							key={ opt.value }
+							value={ opt.value }
+							label={ opt.label }
+						/>
+					) ) }
+				</ToggleGroupControl>
+			) }
 
 			{ ! isCustom &&
 				hasDirection &&
 				animationType !== 'scale' &&
-				animationType !== 'curtain' &&
-				animationType !== 'curtain-out' && (
+				animationType !== 'curtain' && (
 					<ToggleGroupControl
 						label={ __( 'Direction', 'motion-blocks' ) }
 						value={ animationDirection }
@@ -455,6 +455,7 @@ export default function PageLoadControls( {
 						}
 						isBlock
 						__nextHasNoMarginBottom
+						__next40pxDefaultSize
 					>
 						{ directionOptions.map( ( opt ) => (
 							<ToggleGroupControlOptionIcon
@@ -517,27 +518,15 @@ export default function PageLoadControls( {
 
 			<HStack spacing={ 3 }>
 				<FlexBlock>
-					<NumberControl
-						label={ __( 'Duration', 'motion-blocks' ) }
+					<DurationControl
 						value={ animationDuration }
+						defaultValue={ DEFAULT_ATTRIBUTES.animationDuration }
 						// A loop can't flash faster than three times a
 						// second (GH #134).
 						min={ isLooping ? LOOP_MIN_DURATION : 0 }
-						step={ 0.01 }
-						// Keep two decimals (0.25) when typed; +/- and arrow keys
-						// still move by 0.1 (step × spinFactor).
-						spinFactor={ 10 }
-						spinControls="custom"
-						suffix={ <SecondsSuffix /> }
 						onChange={ ( value ) =>
-							setAttributes( {
-								animationDuration: Math.max(
-									parseFloat( value ) || 0,
-									isLooping ? LOOP_MIN_DURATION : 0
-								),
-							} )
+							setAttributes( { animationDuration: value } )
 						}
-						__next40pxDefaultSize
 					/>
 				</FlexBlock>
 				<FlexBlock>

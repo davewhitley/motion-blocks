@@ -299,7 +299,7 @@ async function editorCheck( options = {} ) {
 		} );
 	} );
 
-	/* eslint-disable no-console */
+	/* eslint-disable no-console -- the report is printed to the console on purpose */
 	const title = `[Motion Blocks] editor check: ${ total } blocks (${ animated } animated), ${
 		results.length
 			? `${ results.length } issue${ results.length === 1 ? '' : 's' }`

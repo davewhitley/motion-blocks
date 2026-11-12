@@ -256,10 +256,15 @@
 			box-shadow: inset 0 -2px 0 0 var(--wp-admin-theme-color, #3858e9);
 		}
 
-		&:focus-visible {
-			outline: 1.5px solid var(--wp-admin-theme-color, #3858e9);
-			outline-offset: -1.5px;
+		// Core draws its own active indicator on `::after` (grey on
+		// WordPress 7.1), which painted over the accent underline
+		// above. Ours is the one that shows (GH #136).
+		&::after {
+			display: none;
 		}
+
+		// No focus rule here: core draws the keyboard focus ring on
+		// `::before`. A second outline of ours doubled it.
 	}
 }
 

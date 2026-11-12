@@ -1065,8 +1065,7 @@ const withAnimationControls = createHigherOrderComponent( ( BlockEdit ) => {
 			) {
 				clearPreview( clientId, { keepPrefs: true } );
 			}
-			// Only react to selection changes.
-			// eslint-disable-next-line react-hooks/exhaustive-deps
+			// eslint-disable-next-line react-hooks/exhaustive-deps -- only react to selection changes
 		}, [ inSelection ] );
 
 		// Drop the block's preview state when it unmounts (removed,
@@ -1364,7 +1363,7 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			cls.remove( triggerClass );
 			void blockEl.offsetWidth;
 			cls.add( triggerClass );
-			// eslint-disable-next-line react-hooks/exhaustive-deps
+			// eslint-disable-next-line react-hooks/exhaustive-deps -- replay only when Play is pressed; the rest is read fresh
 		}, [ preview.animationPreviewPlaying ] );
 
 		// Stagger position per inner block (GH #53). The stepped
@@ -2153,8 +2152,11 @@ addFilter(
 		)
 );
 
-// Priority 190 ensures this HOC runs after other filters that modify
-// wrapperProps (e.g. block supports), so our style/className wins.
+// Priority 190 makes this the outermost wrapper: it runs before the
+// default-priority filters (block supports and others), which sit
+// inside it and merge their wrapper props on top of ours. So on a
+// conflicting style key they win, not us. Core sets none of the keys
+// the preview uses, so nothing collides today.
 addFilter(
 	'editor.BlockListBlock',
 	'motion-blocks/with-animation-preview',

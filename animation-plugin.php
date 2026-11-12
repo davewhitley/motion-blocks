@@ -830,7 +830,8 @@ function motion_blocks_valid_from_to_value( $prop_id, $value ) {
             $pattern = "/^{$num}(?:{$length})?$/i";
             break;
         case 'blur':
-            $pattern = "/^{$num}(?:px|em|rem)?$/i";
+            // No leading minus: blur(-1px) is invalid and the browser drops it.
+            $pattern = '/^(?:\d+(?:\.\d+)?|\.\d+)(?:px|em|rem)?$/i';
             break;
         case 'rotate':
         case 'rotateX':

@@ -43,6 +43,7 @@ import {
 	TYPES_WITH_DIRECTION,
 	slotDefaultDirection,
 	EASING_OPTIONS,
+	DEFAULT_ATTRIBUTES,
 	REPLAY_OPTIONS,
 	BLUR_SETTINGS,
 	IMAGE_EFFECT_TYPES,
@@ -57,6 +58,7 @@ import {
 import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
 import { customizeAndKeepFocus } from './keyboardFocus';
+import DurationControl from './DurationControl';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -463,6 +465,7 @@ export default function SlotControls( {
 										}
 										isBlock
 										__nextHasNoMarginBottom
+										__next40pxDefaultSize
 									>
 										{ directionOptions.map( ( opt ) => (
 											<ToggleGroupControlOptionIcon
@@ -494,6 +497,7 @@ export default function SlotControls( {
 								}
 								isBlock
 								__nextHasNoMarginBottom
+								__next40pxDefaultSize
 							>
 								{ directionOptions.map( ( opt ) => (
 									<ToggleGroupControlOption
@@ -519,6 +523,7 @@ export default function SlotControls( {
 								}
 								isBlock
 								__nextHasNoMarginBottom
+								__next40pxDefaultSize
 							>
 								{ directionOptions.map( ( opt ) => (
 									<ToggleGroupControlOptionIcon
@@ -578,23 +583,16 @@ export default function SlotControls( {
 
 					<HStack spacing={ 3 }>
 						<FlexBlock>
-							<NumberControl
-								label={ __( 'Duration', 'motion-blocks' ) }
+							<DurationControl
 								value={ animationDuration }
-								min={ 0 }
-								step={ 0.01 }
-								// Keep two decimals (0.25) when typed; +/- and arrow keys
-								// still move by 0.1 (step × spinFactor).
-								spinFactor={ 10 }
-								spinControls="custom"
-								suffix={ <SecondsSuffix /> }
+								defaultValue={
+									DEFAULT_ATTRIBUTES[ attrName( 'Duration' ) ]
+								}
 								onChange={ ( value ) =>
 									setAttributes( {
-										[ attrName( 'Duration' ) ]:
-											parseFloat( value ) || 0,
+										[ attrName( 'Duration' ) ]: value,
 									} )
 								}
-								__next40pxDefaultSize
 							/>
 						</FlexBlock>
 						<FlexBlock>

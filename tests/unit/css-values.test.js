@@ -42,6 +42,8 @@ describe( 'isValidFromToValue', () => {
 		[ 'translateX', '40px) translate(9999px' ],
 		[ 'translateX', 'calc(10px + 5px)' ],
 		[ 'blur', '8deg' ],
+		// blur(-1px) is invalid CSS; a negative Move is fine.
+		[ 'blur', '-1px' ],
 		[ 'rotate', '45px' ],
 		[ 'rotate', '45deg }' ],
 		[ 'clipPath', 'none } x {' ],

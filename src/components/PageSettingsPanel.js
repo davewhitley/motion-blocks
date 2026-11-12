@@ -47,6 +47,7 @@ import { useFocusAfterDialog } from './keyboardFocus';
 import { clearAnimationAttributes } from './constants';
 import { deviceRangeHelp } from './deviceRanges';
 import { selectPageContentRoot, clientIdsUnder } from './selectStable';
+import { editorContextStrings } from './editorContextStrings';
 
 const DEVICE_OPTIONS = [
 	{
@@ -68,25 +69,6 @@ const DEVICE_OPTIONS = [
 		icon: mobile,
 	},
 ];
-
-/**
- * The "Motion Effects" panel renders in every post-editor context, not
- * just pages — the pattern editor (`wp_block`), templates, and template
- * parts all show it. Map the current post type to a noun so the copy
- * reads correctly ("this pattern" / "this template" / …) instead of
- * always saying "page". Unknown / transient post types fall back to the
- * neutral "content".
- */
-const EDITOR_CONTEXT_NOUNS = {
-	page: __( 'page', 'motion-blocks' ),
-	post: __( 'post', 'motion-blocks' ),
-	wp_block: __( 'pattern', 'motion-blocks' ),
-	wp_template: __( 'template', 'motion-blocks' ),
-	wp_template_part: __( 'template part', 'motion-blocks' ),
-};
-
-const editorContextNoun = ( postType ) =>
-	EDITOR_CONTEXT_NOUNS[ postType ] || __( 'content', 'motion-blocks' );
 
 /**
  * Animation attributes that get reset when the user clicks
@@ -112,7 +94,7 @@ function MotionBlocksPagePanel() {
 		( select ) => select( editorStore ).getCurrentPostType(),
 		[]
 	);
-	const contextNoun = editorContextNoun( postType );
+	const contextStrings = editorContextStrings( postType );
 
 	// The page's own blocks. With "Show template" on, the tree is the whole
 	// template, and these tools must not change it (see
@@ -248,11 +230,7 @@ function MotionBlocksPagePanel() {
 					onClick={ () => setAutoAnimateOpen( true ) }
 					__next40pxDefaultSize
 				>
-					{ sprintf(
-						/* translators: %s: editor context noun — page, pattern, template, etc. */
-						__( 'Auto-animate this %s', 'motion-blocks' ),
-						contextNoun
-					) }
+					{ contextStrings.autoAnimateTitle }
 				</Button>
 
 				<div className="mb-page-settings__divider" />
@@ -317,17 +295,7 @@ function MotionBlocksPagePanel() {
 				aria={ { describedby: removeAllMessageId } }
 			>
 				<span id={ removeAllMessageId }>
-					{ sprintf(
-						/* translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks */
-						_n(
-							'Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button.',
-							'Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button.',
-							animatedCount,
-							'motion-blocks'
-						),
-						contextNoun,
-						animatedCount
-					) }
+					{ contextStrings.removeAllConfirm( animatedCount ) }
 					{ animatedInPartsCount > 0 &&
 						' ' +
 							sprintf(
@@ -346,7 +314,7 @@ function MotionBlocksPagePanel() {
 			<AutoAnimateModal
 				isOpen={ autoAnimateOpen }
 				onClose={ () => setAutoAnimateOpen( false ) }
-				contextNoun={ contextNoun }
+				contextStrings={ contextStrings }
 				rootClientId={ rootClientId }
 				// Only a template in the Site Editor has template parts whose
 				// contents can be edited from here (GH #101).

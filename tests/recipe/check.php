@@ -519,8 +519,30 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	$req4->set_query_params( array( 'input' => array( 'foo' => '1' ) ) );
 	$rest4 = rest_do_request( $req4 );
 	mb_recipe_check( 400 === $rest4->get_status(), 'an unexpected input key is a 400, not a fatal error', $rest4->get_status() . ' ' . wp_json_encode( $rest4->get_data() ) );
-	$long = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => 'Too long', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => 'linear(' . implode( ', ', array_fill( 0, 60, '0.5' ) ) . ')' ) ) ) );
-	mb_recipe_check( is_wp_error( $long ) && false !== strpos( $long->get_error_message(), '200 characters' ), 'save-animation refuses values the library would truncate' );
+	// Long values (GH #131). The library used to cut every string at 200
+	// characters, which broke long easings and clip-paths.
+	$library_before = get_option( 'mb_saved_animations' );
+	$long_easing    = 'linear(' . implode( ', ', array_fill( 0, 60, '0.5' ) ) . ')';
+	$long           = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => 'Long easing', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => $long_easing ) ) ) );
+	$stored         = is_wp_error( $long ) ? array() : get_option( 'mb_saved_animations' )[ $long['id'] ]['attributes'];
+	mb_recipe_check( strlen( $long_easing ) > 200 && ( $stored['animationCustomTimingFunction'] ?? '' ) === $long_easing, 'save-animation keeps an easing longer than 200 characters whole', wp_json_encode( is_wp_error( $long ) ? $long->get_error_message() : $stored ) );
+	update_option( 'mb_saved_animations', $library_before, false );
+
+	$long_clip = 'polygon(' . implode( ', ', array_fill( 0, 60, '10% 20%' ) ) . ')';
+	$clean     = motion_blocks_sanitize_saved_animations(
+		array(
+			'longclip1' => array(
+				'name'       => 'Long clip',
+				'attributes' => array(
+					'animationType'         => 'custom',
+					'animationFromClipPath' => $long_clip,
+					'animationBogus'        => array( 'x' ),
+				),
+			),
+		)
+	);
+	mb_recipe_check( strlen( $long_clip ) > 200 && $clean['longclip1']['attributes']['animationFromClipPath'] === $long_clip, 'the library keeps a clip-path longer than 200 characters whole' );
+	mb_recipe_check( ! array_key_exists( 'animationBogus', $clean['longclip1']['attributes'] ), 'the library drops an array value' );
 	mb_recipe_check( ! isset( motion_blocks_attributes_to_recipe( array( 'animationMode' => 'page-load', 'animationStaggerEnabled' => true ), 'core/paragraph' )['stagger'] ), 'a recipe leaves out a Stagger flag the block can\'t use' );
 	mb_recipe_check( (bool) motion_blocks_recipe_to_attributes( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'blur', 'blur' => 8.5 ) ), 'core/paragraph' )['errors'], 'blur must be a whole number (the renderer compares integers)' );
 	wp_set_current_user( $mb_other );

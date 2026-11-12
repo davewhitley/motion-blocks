@@ -8,6 +8,8 @@
 import {
 	pickAnimationAttributes,
 	saveLibraryChange,
+	compareSavedEntry,
+	completeSavedAttributes,
 	stripUiState,
 	generateUid,
 } from '../../src/components/savedAnimations';
@@ -320,5 +322,111 @@ describe( 'generateUid', () => {
 		const uid = generateUid();
 		expect( uid ).toMatch( /^[0-9a-z]{8}$/ );
 		expect( uid ).not.toMatch( /^\d+$/ );
+	} );
+} );
+
+describe( 'saveLibraryChange with an empty library on the server (GH #131)', () => {
+	const mine = { name: 'Mine', attributes: {} };
+	const stale = { name: 'Deleted elsewhere', attributes: {} };
+
+	it( 'treats `[]` as an empty library, not a failed read', async () => {
+		const next = await saveLibraryChange(
+			{
+				// This tab still has an entry another tab deleted.
+				cached: { b: stale },
+				fetchLibrary: async () => [],
+				saveLibrary: async () => {},
+			},
+			( lib ) => ( { ...lib, a: mine } )
+		);
+		expect( next ).toEqual( { a: mine } );
+	} );
+} );
+
+describe( 'compareSavedEntry', () => {
+	const sent = {
+		attributes: {
+			animationType: 'custom',
+			animationDuration: 0.6,
+			animationFromClipPath: 'inset(0 50% 0 50%)',
+			animationFromOpacity: null,
+		},
+	};
+
+	it( 'accepts an entry stored as sent', () => {
+		expect(
+			compareSavedEntry( sent, { attributes: { ...sent.attributes } } )
+		).toBe( 'ok' );
+	} );
+
+	it( 'reports an entry the server dropped', () => {
+		expect( compareSavedEntry( sent, undefined ) ).toBe( 'missing' );
+	} );
+
+	it( 'reports a value the server cleared or cut short', () => {
+		expect(
+			compareSavedEntry( sent, {
+				attributes: { ...sent.attributes, animationFromClipPath: null },
+			} )
+		).toBe( 'changed' );
+		expect(
+			compareSavedEntry( sent, {
+				attributes: {
+					...sent.attributes,
+					animationFromClipPath: 'inset(0 50%',
+				},
+			} )
+		).toBe( 'changed' );
+	} );
+
+	it( 'ignores surrounding whitespace the server trims', () => {
+		expect(
+			compareSavedEntry(
+				{ attributes: { animationCustomTimingFunction: ' linear ' } },
+				{ attributes: { animationCustomTimingFunction: 'linear' } }
+			)
+		).toBe( 'ok' );
+	} );
+} );
+
+describe( 'completeSavedAttributes', () => {
+	const defaults = {
+		animationMode: '',
+		animationType: 'fade',
+		animationDelay: 0,
+		animationExitType: '',
+		animationStaggerEnabled: false,
+		animationPreviewPlaying: false,
+	};
+
+	it( 'fills the keys an entry leaves out with the defaults', () => {
+		expect(
+			completeSavedAttributes(
+				{ animationMode: 'page-load', animationType: 'rotate' },
+				defaults,
+				[ 'animationPreviewPlaying' ]
+			)
+		).toEqual( {
+			animationMode: 'page-load',
+			animationType: 'rotate',
+			animationDelay: 0,
+			animationExitType: '',
+			animationStaggerEnabled: false,
+		} );
+	} );
+
+	it( "keeps every value the entry sets, even ones that aren't defaults", () => {
+		const full = {
+			animationMode: 'scroll-appear',
+			animationType: 'fade',
+			animationDelay: 0.4,
+			animationExitType: 'slide',
+			animationStaggerEnabled: true,
+		};
+		expect(
+			completeSavedAttributes( full, defaults, [
+				'animationPreviewPlaying',
+			] )
+		).toEqual( full );
 	} );
 } );

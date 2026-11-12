@@ -178,6 +178,21 @@ function motion_blocks_enqueue_editor_assets() {
         'before'
     );
 
+    // The saved-animation library, for reading. /wp/v2/settings needs
+    // `manage_options`, so Editors, Authors and Contributors got a 403
+    // and saw no library at all, not even the bundled animations
+    // (GH #131). Everyone who can open the editor may apply an entry;
+    // saving and deleting still go through /wp/v2/settings.
+    $library = get_option( 'mb_saved_animations', array() );
+    wp_add_inline_script(
+        'motion-blocks-editor',
+        'window.motionBlocksSavedAnimations = ' . wp_json_encode(
+            (object) ( is_array( $library ) ? $library : array() ),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        ) . ';',
+        'before'
+    );
+
     // Beta flag bridge: expose the live-preview opt-in to the editor
     // bundle as a global it reads at load (LIVE_SCROLL_PREVIEW_OK in
     // src/index.js). 'before' so it runs prior to the bundle.
@@ -1804,6 +1819,11 @@ function motion_blocks_device_queries_script() {
  * which always requires `manage_options` (GH #28). The editor hides
  * Save and Delete for users who can't update settings.
  */
+// Longest string a saved animation may hold (see below).
+if ( ! defined( 'MOTION_BLOCKS_LIBRARY_STRING_MAX' ) ) {
+    define( 'MOTION_BLOCKS_LIBRARY_STRING_MAX', 2000 );
+}
+
 /**
  * Scrub a single string attribute value from a saved-animation recipe.
  *
@@ -1816,14 +1836,19 @@ function motion_blocks_device_queries_script() {
  * values) byte-identical.
  *
  * @param string $value Raw string value.
- * @return string Scrubbed value, capped at 200 characters.
+ * The cap matches the longest value the renderer accepts (a Custom
+ * clip-path, see motion_blocks_valid_from_to_value()), so nothing the
+ * editor can play is cut short on save (GH #131). It was 200, which
+ * broke long clip-paths and `linear()` easings.
+ *
+ * @return string Scrubbed value, capped at MOTION_BLOCKS_LIBRARY_STRING_MAX characters.
  */
 function motion_blocks_scrub_recipe_string( $value ) {
     $value = wp_check_invalid_utf8( $value );
     $value = wp_strip_all_tags( $value );
     $value = preg_replace( '/[\x00-\x1f\x7f]/', '', $value );
     $value = trim( $value );
-    return mb_substr( $value, 0, 200 );
+    return mb_substr( $value, 0, MOTION_BLOCKS_LIBRARY_STRING_MAX );
 }
 
 /**
@@ -1893,6 +1918,9 @@ function motion_blocks_sanitize_saved_animations( $value ) {
                     $attrs[ $key ] = $attr_value;
                 } elseif ( is_string( $attr_value ) ) {
                     $attrs[ $key ] = motion_blocks_scrub_recipe_string( $attr_value );
+                } else {
+                    // Arrays / objects: dropped.
+                    continue;
                 }
                 // Custom From/To values end up in @keyframes text: keep
                 // only well-formed values for their property.
@@ -1903,7 +1931,6 @@ function motion_blocks_sanitize_saved_animations( $value ) {
                 ) {
                     $attrs[ $key ] = null;
                 }
-                // Arrays / objects: dropped.
             }
         }
 

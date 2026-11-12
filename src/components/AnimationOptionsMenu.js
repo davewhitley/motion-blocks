@@ -31,7 +31,7 @@ import { store as blocksStore } from '@wordpress/blocks';
 import { store as coreStore, useEntityProp } from '@wordpress/core-data';
 import { store as noticesStore } from '@wordpress/notices';
 import apiFetch from '@wordpress/api-fetch';
-import { useState, useMemo } from '@wordpress/element';
+import { useState, useMemo, useRef } from '@wordpress/element';
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { moreVertical, copy, reset, trash } from '@wordpress/icons';
 
@@ -41,11 +41,17 @@ import {
 	saveLibraryChange,
 	sortLibrary,
 	sortThemeLibrary,
+	compareSavedEntry,
+	completeSavedAttributes,
 } from './savedAnimations';
 import SavedAnimationsModal from './SavedAnimationsModal';
 import { selectSameTypeInfo } from './selectStable';
 import { useFocusAfterDialog } from './keyboardFocus';
-import { canAnimateBlock } from './constants';
+import {
+	canAnimateBlock,
+	DEFAULT_ATTRIBUTES,
+	PREVIEW_UI_KEYS,
+} from './constants';
 
 /**
  * Module-level clipboard — persists across block selections
@@ -107,11 +113,19 @@ export default function AnimationOptionsMenu( {
 	// Read-only here: changes are saved straight to the server with
 	// persistLibrary(), never as a pending edit on the site entity
 	// (GH #28).
-	const [ savedAnimations = {} ] = useEntityProp(
+	const [ entityLibrary ] = useEntityProp(
 		'root',
 		'site',
 		'mb_saved_animations'
 	);
+	// The site entity needs `manage_options` to read, so for Editors,
+	// Authors and Contributors it never loads. They read the copy PHP
+	// printed with the editor script (GH #131): enough to apply an
+	// entry, which is all they can do with the library.
+	const savedAnimations =
+		entityLibrary ?? window.motionBlocksSavedAnimations ?? {};
+	// The server's copy of the library after the last save.
+	const lastSavedLibrary = useRef( null );
 	// Only users who can save site settings (`manage_options`, which
 	// /wp/v2/settings requires) can save or delete library entries.
 	// `undefined` while the permission check is still loading.
@@ -247,7 +261,10 @@ export default function AnimationOptionsMenu( {
 						'site',
 						{ mb_saved_animations: next },
 						{ throwOnError: true }
-					),
+					).then( ( record ) => {
+						lastSavedLibrary.current =
+							record?.mb_saved_animations ?? null;
+					} ),
 			},
 			change
 		);
@@ -266,6 +283,7 @@ export default function AnimationOptionsMenu( {
 		const uid = generateUid();
 		const cleaned = pickAnimationAttributes( attributes );
 		setSaveModalOpen( false );
+		lastSavedLibrary.current = null;
 		try {
 			await persistLibrary( ( library ) => ( {
 				...library,
@@ -275,6 +293,36 @@ export default function AnimationOptionsMenu( {
 					attributes: cleaned,
 				},
 			} ) );
+			// The save can succeed while the server drops the entry
+			// (the library is full) or one of its values (GH #131).
+			const kept = lastSavedLibrary.current
+				? compareSavedEntry(
+						{ attributes: cleaned },
+						lastSavedLibrary.current[ uid ]
+				  )
+				: 'ok';
+			if ( kept === 'missing' ) {
+				throw new Error(
+					__(
+						'The library is full. Delete a saved animation first.',
+						'motion-blocks'
+					)
+				);
+			}
+			if ( kept === 'changed' ) {
+				createErrorNotice(
+					sprintf(
+						/* translators: %s: user-supplied animation name */
+						__(
+							"Saved '%s', but one of its values was too long or not valid and was left out.",
+							'motion-blocks'
+						),
+						name
+					),
+					{ type: 'snackbar' }
+				);
+				return;
+			}
 		} catch ( error ) {
 			reportLibraryError(
 				sprintf(
@@ -306,7 +354,16 @@ export default function AnimationOptionsMenu( {
 		// settings to the block type (GH #29, GH #30), then writes
 		// through the routed setAttributes, which covers every block
 		// of a multi-selection in one undo step (GH #30).
-		onPaste( { ...saved.attributes } );
+		// On top of the new-block defaults, so the entry replaces the
+		// block's animation: a theme.json entry lists only some keys,
+		// and the rest must not keep the block's old values (GH #131).
+		onPaste(
+			completeSavedAttributes(
+				saved.attributes,
+				DEFAULT_ATTRIBUTES,
+				PREVIEW_UI_KEYS
+			)
+		);
 		// Same blocks the routed write covered: not the ones that can't
 		// keep animation settings (Classic, Custom HTML, Shortcode).
 		const { getMultiSelectedBlockClientIds, getBlockName } =

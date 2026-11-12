@@ -810,3 +810,49 @@
 .editor-styles-wrapper :is(.mb-mode-page-load, .mb-mode-scroll-appear)[data-mb-target="img"] > picture > img:first-of-type {
 	opacity: 1 !important;
 }
+
+// Auto-animate live preview card (prototype). Portaled to <body>, so it
+// sits outside every editor scope; fixed bottom-right over the canvas,
+// clear of the middle of the page being previewed.
+.mb-auto-preview-card {
+	position: fixed;
+	right: vars.$grid-unit-30;
+	bottom: vars.$grid-unit-30;
+	z-index: 100000;
+	box-sizing: border-box;
+	width: 300px;
+	max-width: calc(100vw - #{vars.$grid-unit-60});
+	padding: vars.$grid-unit-20;
+	background: #fff;
+	border-radius: vars.$radius-large;
+	// WordPress elevation scale: "medium" is for floating surfaces that
+	// offer actions (menus, command palette).
+	box-shadow: vars.$elevation-medium;
+
+	.mb-auto-preview-card__title {
+		margin: 0;
+		font-size: 13px;
+		font-weight: 600;
+		color: colors.$gray-900;
+	}
+
+	.mb-auto-preview-card__hint {
+		margin: 0;
+		font-size: 12px;
+		color: colors.$gray-700;
+	}
+}
+
+// Auto-animate preview screen (prototype): on top of distraction-free
+// mode, keep the header from sliding in on hover and hide the sidebar
+// and block popovers, so only the page and the preview bar remain.
+body.mb-auto-previewing {
+	.interface-interface-skeleton__header,
+	.interface-interface-skeleton__sidebar,
+	.interface-interface-skeleton__secondary-sidebar,
+	.interface-interface-skeleton__footer,
+	.block-editor-block-popover,
+	.components-snackbar-list {
+		display: none !important;
+	}
+}

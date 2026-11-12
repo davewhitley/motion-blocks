@@ -42,6 +42,7 @@ import {
 import { desktop, tablet, mobile } from '@wordpress/icons';
 
 import AutoAnimateModal from './AutoAnimate';
+import AutoPreviewBar from './AutoAnimate/PreviewBar';
 import { store as previewStore } from './previewStore';
 import { useFocusAfterDialog } from './keyboardFocus';
 import { clearAnimationAttributes } from './constants';
@@ -324,6 +325,13 @@ function MotionBlocksPagePanel() {
 	);
 }
 
+// The Auto-animate preview bar renders beside the Document panel, not
+// inside it, so it stays mounted when the sidebar switches tabs.
 registerPlugin( 'motion-blocks-page-settings', {
-	render: MotionBlocksPagePanel,
+	render: () => (
+		<>
+			<MotionBlocksPagePanel />
+			<AutoPreviewBar />
+		</>
+	),
 } );

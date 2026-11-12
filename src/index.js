@@ -21,6 +21,7 @@ import {
 	useCallback,
 	useMemo,
 	useRef,
+	useState,
 } from '@wordpress/element';
 
 import AnimationPanel from './components/AnimationPanel';
@@ -54,6 +55,7 @@ import {
 	clearAnimationAttributes,
 	SYNCED_PATTERN_BLOCK,
 	adaptAnimationToBlock,
+	PREVIEW_DEFAULTS,
 } from './components/constants';
 import {
 	selectionHasMixedAnimations,
@@ -64,6 +66,8 @@ import '../css/editor.scss';
 
 // Editor preview state store (GH #29) — registers itself on import.
 import { store as previewStore } from './components/previewStore';
+// Auto-animate preview overlay store (prototype) — registers on import.
+import { store as autoPreviewStore } from './components/AutoAnimate/autoPreviewStore';
 import {
 	splitPreviewPatch,
 	overlayPreviewState,
@@ -1176,10 +1180,57 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 		// the old attribute names; values saved in older posts are
 		// replaced by the store's (or the defaults). Must stay above
 		// every early return (hook order).
-		const preview = useSelect(
+		const blockPreview = useSelect(
 			( select ) => select( previewStore ).getBlockPreview( clientId ),
 			[ clientId ]
 		);
+		// Auto-animate preview (prototype): while a preview runs, a
+		// planned block renders with its overlay attributes on top of its
+		// real ones (nothing is written to the block). Its "Play" state is
+		// the reveal flag from the auto-preview store, so the restart
+		// effect and the class branch below work unchanged.
+		// Subscribed by hand, not with useSelect: unselected blocks render
+		// in Gutenberg's async mode, where useSelect updates are deferred
+		// and (in practice) never reach blocks the user isn't touching, so
+		// the overlay would only show on the selected block.
+		const autoRegistry = useRegistry();
+		const readAuto = () => {
+			const s = autoRegistry.select( autoPreviewStore );
+			const overlay = s.getAutoPreviewOverlay( clientId );
+			return {
+				autoOverlay: overlay,
+				autoPlayed: overlay ? s.isAutoPreviewPlayed( clientId ) : false,
+			};
+		};
+		const [ { autoOverlay, autoPlayed }, setAuto ] = useState( readAuto );
+		useEffect( () => {
+			const sync = () => {
+				const next = readAuto();
+				setAuto( ( prev ) =>
+					prev.autoOverlay === next.autoOverlay &&
+					prev.autoPlayed === next.autoPlayed
+						? prev
+						: next
+				);
+			};
+			sync();
+			return autoRegistry.subscribe( sync, autoPreviewStore );
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ autoRegistry, clientId ] );
+		const preview = useMemo(
+			() =>
+				autoOverlay
+					? {
+							...PREVIEW_DEFAULTS,
+							animationPreviewPlaying: autoPlayed,
+							animationPreviewSlot: 'entry',
+					  }
+					: blockPreview,
+			[ autoOverlay, autoPlayed, blockPreview ]
+		);
+		const realAttrs = autoOverlay
+			? { ...props.attributes, ...autoOverlay }
+			: props.attributes;
 		// A block type that can't be animated (Custom HTML, Shortcode,
 		// Spacer, a synced pattern…) can still carry settings from
 		// older content or pasted markup. The front end skips it and it
@@ -1187,14 +1238,20 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 		// (GH #133): read it as un-animated.
 		const baseAttrs = overlayPreviewState(
 			canAnimateBlock( props.name )
-				? props.attributes
-				: { ...props.attributes, animationMode: '' },
+				? realAttrs
+				: { ...realAttrs, animationMode: '' },
 			preview
 		);
 		// The editor canvas always has the motion gate open, so that
 		// Play works with Reduce Motion on. Playing on its own is a
 		// different matter: see `shouldAnimate` below.
 		const prefersReducedMotion = useReducedMotion();
+		// Scroll Appear blocks in the preview stay hidden until they
+		// scroll into view in the canvas, so you see them enter.
+		const autoHidden =
+			!! autoOverlay &&
+			! autoPlayed &&
+			baseAttrs.animationMode === 'scroll-appear';
 		// For Scroll Appear, normalize legacy attrs into slot form
 		// then alias one slot's per-slot attrs onto the shared
 		// `animationType` / `animationDuration` / etc. names that
@@ -1561,9 +1618,23 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			// path) would change the React tree shape from a
 			// bare BlockListBlock to a Fragment with BlockListBlock
 			// at index 0 — forcing a remount + visible flicker.
+			// An Auto-animate preview block waiting to scroll into
+			// view rests here too (its effects are Custom): keep it
+			// hidden so it visibly enters when revealed.
 			return (
 				<>
-					<BlockListBlock { ...props } />
+					<BlockListBlock
+						{ ...props }
+						{ ...( autoHidden && {
+							wrapperProps: {
+								...wrapperProps,
+								style: {
+									...( wrapperProps?.style || {} ),
+									opacity: 0,
+								},
+							},
+						} ) }
+					/>
 					{ null }
 				</>
 			);
@@ -2144,7 +2215,17 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 				<BlockListBlock
 					{ ...props }
 					className={ computedClassName }
-					wrapperProps={ computedWrapperProps }
+					wrapperProps={
+						autoHidden
+							? {
+									...computedWrapperProps,
+									style: {
+										...computedWrapperProps?.style,
+										opacity: 0,
+									},
+							  }
+							: computedWrapperProps
+					}
 				/>
 				{ injectedKeyframeRule ? (
 					<style>{ injectedKeyframeRule }</style>

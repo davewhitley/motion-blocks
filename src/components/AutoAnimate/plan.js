@@ -38,6 +38,7 @@ import {
 	isImageTargetUnavailable,
 	canAnimateBlock,
 	clearAnimationAttributes,
+	SYNCED_PATTERN_BLOCK,
 } from '../constants';
 
 /**
@@ -478,6 +479,94 @@ export function buildAutoAnimateUpdates( apply, stylePreset ) {
 		attributesByClientId[ item.clientId ] = attrs;
 	}
 	return { clientIds, attributesByClientId };
+}
+
+/**
+ * Like `buildAutoAnimateUpdates`, but replacing existing animations:
+ * every block in `clearIds` is reset (as "Remove all animations" does),
+ * and planned blocks get the reset plus their new animation, so no old
+ * setting survives underneath. Still one `updateBlockAttributes` call,
+ * so the whole replace is one undo step. With no `clearIds` it is the
+ * same as `buildAutoAnimateUpdates`.
+ *
+ * @param {Array}    apply       `computeAutoAnimatePlan().apply`.
+ * @param {string}   stylePreset Key of STYLE_PRESETS.
+ * @param {string[]} clearIds    Animated blocks to reset first.
+ * @return {{clientIds: string[], attributesByClientId: Object}} Payloads.
+ */
+export function buildReplaceUpdates( apply, stylePreset, clearIds = [] ) {
+	const planned = buildAutoAnimateUpdates( apply, stylePreset );
+	if ( ! clearIds.length ) {
+		return planned;
+	}
+	const clear = clearAnimationAttributes();
+	const attributesByClientId = {};
+	clearIds.forEach( ( id ) => {
+		attributesByClientId[ id ] = { ...clear };
+	} );
+	planned.clientIds.forEach( ( id ) => {
+		attributesByClientId[ id ] = {
+			...clear,
+			...planned.attributesByClientId[ id ],
+		};
+	} );
+	return {
+		clientIds: Object.keys( attributesByClientId ),
+		attributesByClientId,
+	};
+}
+
+/**
+ * What replacing does to the blocks that are already animated: how many
+ * the new plan animates again, and how many it leaves still, so they
+ * just lose their animation. The style doesn't change the plan, so
+ * neither does it change these counts.
+ *
+ * @param {Array}    apply       The new plan's `apply` items.
+ * @param {string[]} animatedIds Blocks animated now (withoutExistingAnimations).
+ * @return {{renewed: number, removed: number}} Counts.
+ */
+export function summarizeReplace( apply, animatedIds ) {
+	const planned = new Set( apply.map( ( item ) => item.clientId ) );
+	const renewed = animatedIds.filter( ( id ) => planned.has( id ) ).length;
+	return { renewed, removed: animatedIds.length - renewed };
+}
+
+/**
+ * Animated blocks in a tree (every depth), and a copy of the tree with
+ * those animations marked as gone. Planning the copy gives the plan
+ * Auto-animate would make on the page without its current animations,
+ * which is what "Replace existing animations" applies. Client ids are
+ * kept, so the plan's ids point at the real blocks.
+ *
+ * Stops at a synced pattern: its blocks belong to the pattern, shared by
+ * every page that uses it, and Auto-animate doesn't touch synced
+ * patterns (GH #41). The planner skips them too, so they stay as is.
+ *
+ * @param {Object[]} blocks Blocks to scan (may include filled template parts).
+ * @return {{animatedIds: string[], stripped: Object[]}} Ids and stripped copy.
+ */
+export function withoutExistingAnimations( blocks ) {
+	const animatedIds = [];
+	const strip = ( list ) =>
+		( list || [] ).map( ( block ) => {
+			const animated = !! block.attributes?.animationMode;
+			if ( animated ) {
+				animatedIds.push( block.clientId );
+			}
+			return {
+				...block,
+				attributes: animated
+					? { ...block.attributes, animationMode: '' }
+					: block.attributes,
+				innerBlocks:
+					block.name === SYNCED_PATTERN_BLOCK
+						? block.innerBlocks
+						: strip( block.innerBlocks ),
+			};
+		} );
+	const stripped = strip( blocks );
+	return { animatedIds, stripped };
 }
 
 /**

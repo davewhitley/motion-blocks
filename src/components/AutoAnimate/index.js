@@ -12,6 +12,7 @@
 import {
 	Modal,
 	Button,
+	Notice,
 	CheckboxControl,
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
@@ -26,35 +27,48 @@ import { __, sprintf, _n } from '@wordpress/i18n';
 
 import {
 	STYLE_PRESETS,
-	buildAutoAnimateUpdates,
+	buildReplaceUpdates,
+	summarizeReplace,
 	computeAutoAnimatePlan,
+	withoutExistingAnimations,
 	templatePartsWithContents,
 	withTemplatePartContents,
 } from './plan';
 import { EMPTY_IDS } from '../selectStable';
+import { store as autoPreviewStore } from './autoPreviewStore';
+import { STYLE_LABELS, STYLE_DESCRIPTIONS } from './styleStrings';
 
-/** Style names for the picker; plan.js keeps no UI strings. */
-const STYLE_LABELS = {
-	subtle: __( 'Subtle', 'motion-blocks' ),
-	balanced: __( 'Balanced', 'motion-blocks' ),
-	bold: __( 'Bold', 'motion-blocks' ),
-};
-
-/** One line on what each style does, shown under the picker. */
-const STYLE_DESCRIPTIONS = {
-	subtle: __(
-		'Short, gentle moves. Each section rises as one piece.',
-		'motion-blocks'
-	),
-	balanced: __(
-		'Medium moves. Items in a section rise one after another.',
-		'motion-blocks'
-	),
-	bold: __(
-		'Long, large moves. Items rise one after another, more slowly.',
-		'motion-blocks'
-	),
-};
+/**
+ * The dialog's notice when Auto-animate will replace animations. The
+ * button already says how many blocks get animated, so this only says
+ * that current animations are replaced, and how many blocks just lose
+ * theirs (the new plan leaves them still), the one number that might
+ * surprise. Whole sentences, so each can be translated.
+ *
+ * @param {number} removed       Animated blocks the new plan leaves still.
+ * @param {string} replacesFirst Opening sentence for the post type
+ *                               (editorContextStrings().replacesAnimations).
+ * @return {string} Notice text.
+ */
+function replaceNotice( removed, replacesFirst ) {
+	const parts = [ replacesFirst ];
+	if ( removed ) {
+		parts.push(
+			sprintf(
+				/* translators: %d: number of blocks whose animation is removed */
+				_n(
+					'%d block will lose its animation.',
+					'%d blocks will lose their animations.',
+					removed,
+					'motion-blocks'
+				),
+				removed
+			)
+		);
+	}
+	parts.push( __( 'You can undo this.', 'motion-blocks' ) );
+	return parts.join( ' ' );
+}
 
 /**
  * Estimate which blocks start on the visitor's first screen, measured
@@ -250,18 +264,44 @@ function AutoAnimateModalContent( {
 		);
 	}, [ topLevelBlocks, filledBlocks, usesParts, animatedPartIds ] );
 
+	// Replace mode: the plan Auto-animate would make with the page's
+	// current animations gone, and the animated blocks to reset first.
+	// Only computed when something is animated.
+	const { animatedIds, freshPlan } = useMemo( () => {
+		const source = usesParts ? filledBlocks : topLevelBlocks;
+		const { animatedIds: ids, stripped } =
+			withoutExistingAnimations( source );
+		if ( ! ids.length ) {
+			return { animatedIds: ids, freshPlan: null };
+		}
+		return {
+			animatedIds: ids,
+			freshPlan: computeAutoAnimatePlan( stripped, {
+				isOnFirstScreen: measureFirstScreen(),
+				screensTall: measureScreensTall(),
+				includeParts: usesParts,
+				// Read from the real tree: with parts left out, their
+				// animations aren't replaced, so a header that has some
+				// still isn't animated whole on top (GH #140).
+				partHasAnimation: ( id ) => animatedPartIds.has( id ),
+			} ),
+		};
+	}, [ topLevelBlocks, filledBlocks, usesParts, animatedPartIds ] );
+	// Auto-animate always redoes the whole page: anything already
+	// animated is replaced (one undo step, and the preview shows it first).
+	const replacing = !! freshPlan;
+	const activePlan = replacing ? freshPlan : plan;
+	const clearIds = replacing ? animatedIds : EMPTY_IDS;
+
 	const { updateBlockAttributes } = useDispatch( blockEditorStore );
 	const { createSuccessNotice } = useDispatch( noticesStore );
+	const { startAutoPreview } = useDispatch( autoPreviewStore );
 
-	const applyCount = plan.apply.length;
+	const applyCount = activePlan.apply.length;
 	// Blocks that stay still aren't listed. The one exception is invalid
 	// blocks: their saved HTML no longer matches, so any change to them is
 	// lost on save, and they need recovering before they can be animated.
-	const invalidCount = plan.skipInvalid?.length || 0;
-	// Nothing left to animate because it is all animated already: the
-	// usual case when the dialog is opened a second time (GH #138).
-	const alreadyAnimated =
-		applyCount === 0 && ( plan.skipExisting?.length || 0 ) > 0;
+	const invalidCount = activePlan.skipInvalid?.length || 0;
 
 	const handleApply = () => {
 		if ( applyCount === 0 ) {
@@ -274,9 +314,10 @@ function AutoAnimateModalContent( {
 		// preset's timing (see plan.js). They go out in one action via
 		// `uniqueByBlock` so a single Cmd/Ctrl+Z reverts the whole
 		// apply (GH #33 / #56).
-		const { clientIds, attributesByClientId } = buildAutoAnimateUpdates(
-			plan.apply,
-			stylePreset
+		const { clientIds, attributesByClientId } = buildReplaceUpdates(
+			activePlan.apply,
+			stylePreset,
+			clearIds
 		);
 		if ( clientIds.length ) {
 			updateBlockAttributes( clientIds, attributesByClientId, true );
@@ -294,6 +335,19 @@ function AutoAnimateModalContent( {
 				applyCount
 			),
 			{ type: 'snackbar' }
+		);
+		onClose();
+	};
+
+	// Try the plan on the real canvas: close the modal and hand over to
+	// the floating preview bar (Keep / Undo). Nothing is written yet.
+	const handlePreview = () => {
+		startAutoPreview(
+			buildReplaceUpdates( activePlan.apply, stylePreset, clearIds )
+				.attributesByClientId,
+			activePlan,
+			stylePreset,
+			clearIds
 		);
 		onClose();
 	};
@@ -347,11 +401,19 @@ function AutoAnimateModalContent( {
 					/>
 				) }
 
+				{ replacing && applyCount > 0 && (
+					<Notice status="info" isDismissible={ false }>
+						{ replaceNotice(
+							summarizeReplace( activePlan.apply, animatedIds )
+								.removed,
+							contextStrings.replacesAnimations
+						) }
+					</Notice>
+				) }
+
 				{ applyCount === 0 && (
 					<p className="mb-auto-animate-modal__note">
-						{ alreadyAnimated
-							? contextStrings.alreadyAnimated
-							: contextStrings.nothingToAnimate }
+						{ contextStrings.nothingToAnimate }
 					</p>
 				) }
 
@@ -369,14 +431,12 @@ function AutoAnimateModalContent( {
 						) }
 					</p>
 				) }
-
 				<p className="mb-auto-animate-modal__hint">
 					{ __(
 						'You can edit each block’s animation after it’s applied. To take them all off again, use “Remove all animations”.',
 						'motion-blocks'
 					) }
 				</p>
-
 				<HStack justify="flex-end" spacing={ 3 }>
 					<Button
 						variant="tertiary"
@@ -386,15 +446,21 @@ function AutoAnimateModalContent( {
 						{ __( 'Cancel', 'motion-blocks' ) }
 					</Button>
 					<Button
+						variant="secondary"
+						onClick={ handlePreview }
+						disabled={ applyCount === 0 }
+						__next40pxDefaultSize
+					>
+						{ __( 'Preview', 'motion-blocks' ) }
+					</Button>
+					<Button
 						variant="primary"
 						onClick={ handleApply }
 						disabled={ applyCount === 0 }
 						__next40pxDefaultSize
 					>
 						{ applyCount === 0
-							? alreadyAnimated
-								? __( 'Already animated', 'motion-blocks' )
-								: __( 'Nothing to animate', 'motion-blocks' )
+							? __( 'Nothing to animate', 'motion-blocks' )
 							: sprintf(
 									/* translators: %d: number of blocks to animate */
 									_n(

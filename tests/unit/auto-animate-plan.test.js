@@ -16,18 +16,22 @@ import {
 	attrsForItem,
 	attrsForCategory,
 	buildAutoAnimateUpdates,
+	buildReplaceUpdates,
+	summarizeReplace,
 	cascadeStep,
 	computeAutoAnimatePlan,
 	findHero,
 	summarizeChoreography,
 	templatePartsWithContents,
 	withTemplatePartContents,
+	withoutExistingAnimations,
 } from '../../src/components/AutoAnimate/plan';
 import {
 	SCHEMA_DEFAULTS,
 	STAGGER_PARENT_BLOCKS,
 	migrateScrollAppearAttrs,
 	isStaggerCompatible,
+	clearAnimationAttributes,
 } from '../../src/components/constants';
 import { isValidFromToValue } from '../../src/css-values';
 
@@ -1429,5 +1433,114 @@ describe( 'planner edge cases', () => {
 		const p = planUnmeasured( [ b( 'core/group', [ heading() ] ), outer ] );
 		expect( roleOf( p, outer ) ).toBeUndefined();
 		expect( roleOf( p, card ) ).toBe( 'rise' );
+	} );
+} );
+
+describe( 'replacing existing animations', () => {
+	const animated = ( block ) => {
+		block.attributes = {
+			...block.attributes,
+			animationMode: 'scroll-appear',
+		};
+		return block;
+	};
+
+	it( 'finds animated blocks at every depth and plans as if they were gone', () => {
+		const inner = animated( heading() );
+		const outer = animated( b( 'core/group', [ inner, para() ] ) );
+		const { animatedIds, stripped } = withoutExistingAnimations( [
+			outer,
+		] );
+		expect( animatedIds ).toEqual( [ outer.clientId, inner.clientId ] );
+		expect( stripped[ 0 ].attributes.animationMode ).toBe( '' );
+		expect( stripped[ 0 ].innerBlocks[ 0 ].attributes.animationMode ).toBe(
+			''
+		);
+		// Ids are kept, and the original tree is left alone.
+		expect( stripped[ 0 ].clientId ).toBe( outer.clientId );
+		expect( outer.attributes.animationMode ).toBe( 'scroll-appear' );
+		// The stripped page plans normally, instead of skipping it all.
+		expect( plan( [ outer ] ).apply ).toHaveLength( 0 );
+		expect( plan( stripped ).apply.length ).toBeGreaterThan( 0 );
+	} );
+
+	it( "leaves a synced pattern's blocks alone (GH #41)", () => {
+		const inside = animated( heading() );
+		const synced = b( 'core/block', [ inside, para() ], { ref: 12 } );
+		const { animatedIds, stripped } = withoutExistingAnimations( [
+			synced,
+			section(),
+		] );
+		expect( animatedIds ).not.toContain( inside.clientId );
+		expect( stripped[ 0 ].innerBlocks ).toBe( synced.innerBlocks );
+		const ids = Object.keys(
+			buildReplaceUpdates(
+				plan( stripped ).apply,
+				'balanced',
+				animatedIds
+			).attributesByClientId
+		);
+		expect( ids ).not.toContain( synced.clientId );
+		expect( ids ).not.toContain( inside.clientId );
+	} );
+
+	it( 'clears replaced blocks and resets planned ones before the new animation', () => {
+		const old = animated( image() );
+		const blocks = [ section(), old ];
+		const { animatedIds, stripped } = withoutExistingAnimations( blocks );
+		const p = plan( stripped );
+		const clear = clearAnimationAttributes();
+		const { attributesByClientId } = buildReplaceUpdates(
+			p.apply,
+			'balanced',
+			animatedIds
+		);
+		const planned = buildAutoAnimateUpdates( p.apply, 'balanced' );
+		planned.clientIds.forEach( ( id ) =>
+			expect( attributesByClientId[ id ] ).toEqual( {
+				...clear,
+				...planned.attributesByClientId[ id ],
+			} )
+		);
+		// A replaced block the new plan leaves out is just cleared.
+		animatedIds
+			.filter( ( id ) => ! planned.clientIds.includes( id ) )
+			.forEach( ( id ) =>
+				expect( attributesByClientId[ id ] ).toEqual( clear )
+			);
+		// No clear ids: same as a plain apply.
+		expect( buildReplaceUpdates( p.apply, 'balanced' ) ).toEqual( planned );
+	} );
+} );
+
+describe( 'summarizeReplace', () => {
+	it( 'splits animated blocks into re-animated and left still', () => {
+		const apply = [
+			{ clientId: 'a' },
+			{ clientId: 'b' },
+			{ clientId: 'x' },
+		];
+		expect( summarizeReplace( apply, [ 'a', 'b', 'c' ] ) ).toEqual( {
+			renewed: 2,
+			removed: 1,
+		} );
+		expect( summarizeReplace( apply, [] ) ).toEqual( {
+			renewed: 0,
+			removed: 0,
+		} );
+		expect( summarizeReplace( [], [ 'a' ] ) ).toEqual( {
+			renewed: 0,
+			removed: 1,
+		} );
+	} );
+
+	it( 'counts a body paragraph someone animated by hand as removed', () => {
+		const p1 = para();
+		p1.attributes = { animationMode: 'scroll-appear' };
+		const blocks = [ section(), p1 ];
+		const { animatedIds, stripped } = withoutExistingAnimations( blocks );
+		expect(
+			summarizeReplace( plan( stripped ).apply, animatedIds )
+		).toEqual( { renewed: 0, removed: 1 } );
 	} );
 } );

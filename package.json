@@ -18,7 +18,7 @@
     "npm": ">=8.19.2"
   },
   "scripts": {
-    "build": "wp-scripts build src/index.js src/frontend.js src/self-check.js src/editor-check.js",
+    "build": "wp-scripts build src/index.js src/frontend.js src/self-check.js src/editor-check.js && node bin/build-css.mjs",
     "start": "wp-scripts start src/index.js src/frontend.js src/self-check.js src/editor-check.js",
     "test:unit": "wp-scripts test-unit-js tests/unit",
     "test:pages": "node tests/self-check/run.mjs",

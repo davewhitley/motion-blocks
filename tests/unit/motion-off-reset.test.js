@@ -168,3 +168,45 @@ describe( 'motion gate in the CSS frontend.js injects (#53)', () => {
 		).toBe( 2 );
 	} );
 } );
+
+// GH #145: the stylesheet the plugin serves is a minified build of the
+// commented source. It must hold the same rules, in the same order.
+describe( 'build/animations.css', () => {
+	const read = ( file ) =>
+		require( 'fs' ).readFileSync(
+			require( 'path' ).join( __dirname, '../..', file ),
+			'utf8'
+		);
+	// The minifier may change whitespace and quote style, nothing else.
+	const squash = ( text ) => text.replace( /\s+/g, '' ).replace( /'/g, '"' );
+	// Every rule and at-rule as "selector{property,property…}", in order.
+	const outline = ( file ) => {
+		const out = [];
+		postcss.parse( read( file ) ).walk( ( node ) => {
+			if ( node.type === 'rule' ) {
+				out.push(
+					squash( node.selector ) +
+						'{' +
+						node.nodes
+							.filter( ( n ) => n.type === 'decl' )
+							.map( ( n ) => n.prop )
+							.join( ',' ) +
+						'}'
+				);
+			} else if ( node.type === 'atrule' ) {
+				out.push( '@' + node.name + squash( node.params ) );
+			}
+		} );
+		return out;
+	};
+
+	it( 'has no comments left', () => {
+		expect( read( 'build/animations.css' ) ).not.toMatch( /\/\*/ );
+	} );
+
+	it( 'holds the same rules and properties as the source, in the same order', () => {
+		const built = outline( 'build/animations.css' );
+		expect( built.length ).toBeGreaterThan( 150 );
+		expect( built ).toEqual( outline( 'css/animations.css' ) );
+	} );
+} );

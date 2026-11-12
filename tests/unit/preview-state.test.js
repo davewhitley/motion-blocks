@@ -503,3 +503,36 @@ describe( 'editor flows', () => {
 		expect( state ).toEqual( {} );
 	} );
 } );
+
+describe( 'switching to Page Load with an Out effect (GH #133)', () => {
+	const {
+		switchModeAttributes,
+	} = require( '../../src/components/constants' );
+
+	it( 'maps a Scroll Interactive Out effect to its In counterpart', () => {
+		const out = switchModeAttributes(
+			{
+				animationMode: 'scroll-interactive',
+				animationType: 'fade-out',
+			},
+			'page-load'
+		);
+		expect( out.animationType ).toBe( 'fade' );
+	} );
+
+	it( 'leaves an In effect alone', () => {
+		const out = switchModeAttributes(
+			{ animationMode: 'scroll-interactive', animationType: 'slide' },
+			'page-load'
+		);
+		expect( out.animationType ?? 'slide' ).toBe( 'slide' );
+	} );
+
+	it( 'keeps an Out effect when switching to Scroll Interactive', () => {
+		const out = switchModeAttributes(
+			{ animationMode: 'page-load', animationType: 'slide-out' },
+			'scroll-interactive'
+		);
+		expect( out.animationType ?? 'slide-out' ).toBe( 'slide-out' );
+	} );
+} );

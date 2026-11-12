@@ -2466,5 +2466,16 @@ export function switchModeAttributes( attributes, newMode ) {
 		}
 	}
 
+	// Page Load offers no Out effects, so one carried over from Scroll
+	// Interactive (the only mode that does) would keep playing while the
+	// Effect select showed "Fade In" (GH #133). Map it to its In
+	// counterpart, as the Scroll Appear branch above does.
+	if ( newMode === 'page-load' ) {
+		const carried = out.animationType ?? attributes?.animationType ?? '';
+		if ( /-out$/.test( carried ) ) {
+			out.animationType = carried.replace( /-out$/, '' );
+		}
+	}
+
 	return out;
 }

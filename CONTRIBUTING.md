@@ -44,9 +44,11 @@ Agents pick the new effect up automatically. `tests/unit/recipe-coverage.test.js
 
 1. Add it to `PROPERTY_DEFINITIONS` in `src/components/constants.js`, to `propertyCssVar` and `propertyDefaultUnits` in `shared-constants.json`, and to `motion_blocks_valid_from_to_value()` in `animation-plugin.php` and `isValidFromToValue()` in `src/css-values.js`.
 2. Register its `animation`, `animationEntry` and `animationExit` `From*` / `To*` attributes.
-3. Run `wp eval-file tests/recipe/check.php schema`.
-
-Recipes read the property list from `propertyDefaultUnits`, so no recipe code changes are needed.
+3. Add it to `CUSTOM_PROPS` in `src/frontend.js` and to the keyframe it builds in `buildSideBody()`. Without this the property does not play on the front end.
+4. Add it to `CUSTOM_PROPERTY_IDS` in `src/settle.js`, and to `isNeutralValue()` there if its resting value is not obvious.
+5. Add it to the `from` / `to` properties in `motion_blocks_recipe_schema()` in `includes/recipe.php`. The schema lists the properties by hand and rejects any other. The recipe converter itself reads the list from `propertyDefaultUnits`.
+6. Add it to the property list in the saved-animations sanitizer (`motion_blocks_sanitize_saved_animations()` in `animation-plugin.php`) and to `motion_blocks_base_recipe_attributes()`.
+7. Run `wp eval-file tests/recipe/check.php schema`.
 
 ### Changing the recipe format
 
@@ -80,7 +82,7 @@ Every string people see goes through `__()` (or `_n()`, `_x()`, `sprintf()` with
 After changing strings, regenerate the template from the plugin folder:
 
 ```bash
-wp i18n make-pot . languages/motion-blocks.pot --domain=motion-blocks --exclude=src,tests,node_modules,schema,docs,examples,languages
+wp i18n make-pot . languages/motion-blocks.pot --domain=motion-blocks --exclude=src,tests,node_modules,schema,docs,examples,languages --headers='{"Report-Msgid-Bugs-To":"https://github.com/davewhitley/motion-blocks/issues"}'
 ```
 
 It reads `build/`, so run `npm run build` first. A translator turns it into `motion-blocks-{locale}.po`, then makes the `.mo` file and the editor's `.json` files with `wp i18n make-mo` and `wp i18n make-json`. The plugin loads them from `languages/` or `wp-content/languages/plugins/`.

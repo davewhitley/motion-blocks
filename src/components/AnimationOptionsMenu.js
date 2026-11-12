@@ -362,7 +362,7 @@ export default function AnimationOptionsMenu( {
 					sprintf(
 						/* translators: %s: user-supplied animation name */
 						__(
-							"Saved '%s', but one of its values was too long or not valid and was left out.",
+							'Saved “%s”, but one of its values was too long or not valid and was left out.',
 							'motion-blocks'
 						),
 						name
@@ -375,7 +375,7 @@ export default function AnimationOptionsMenu( {
 			reportLibraryError(
 				sprintf(
 					/* translators: %s: user-supplied animation name */
-					__( "Couldn't save '%s'.", 'motion-blocks' ),
+					__( 'Couldn’t save “%s”.', 'motion-blocks' ),
 					name
 				),
 				error
@@ -385,7 +385,7 @@ export default function AnimationOptionsMenu( {
 		createSuccessNotice(
 			sprintf(
 				/* translators: %s: user-supplied animation name */
-				__( "Animation saved as '%s'.", 'motion-blocks' ),
+				__( 'Animation saved as “%s”.', 'motion-blocks' ),
 				name
 			),
 			{ type: 'snackbar' }
@@ -434,7 +434,7 @@ export default function AnimationOptionsMenu( {
 				  )
 				: sprintf(
 						/* translators: %s: user-supplied animation name */
-						__( "Applied '%s' to this block.", 'motion-blocks' ),
+						__( 'Applied “%s” to this block.', 'motion-blocks' ),
 						saved.name || ''
 				  ),
 			{ type: 'snackbar' }
@@ -467,7 +467,7 @@ export default function AnimationOptionsMenu( {
 			reportLibraryError(
 				sprintf(
 					/* translators: %s: user-supplied animation name */
-					__( "Couldn't delete '%s'.", 'motion-blocks' ),
+					__( 'Couldn’t delete “%s”.', 'motion-blocks' ),
 					name || ''
 				),
 				error
@@ -477,7 +477,7 @@ export default function AnimationOptionsMenu( {
 		createSuccessNotice(
 			sprintf(
 				/* translators: %s: user-supplied animation name */
-				__( "Deleted '%s'.", 'motion-blocks' ),
+				__( 'Deleted “%s”.', 'motion-blocks' ),
 				name || ''
 			),
 			{ type: 'snackbar' }
@@ -731,7 +731,7 @@ export default function AnimationOptionsMenu( {
 					{ sprintf(
 						/* translators: %s: saved animation name */
 						__(
-							"Delete '%s'? This won't affect blocks already using it.",
+							'Delete “%s”? This won’t affect blocks already using it.',
 							'motion-blocks'
 						),
 						deletePending?.name || ''

@@ -2018,7 +2018,7 @@ function motion_blocks_register_settings() {
         'mb_beta_live_scroll_preview',
         array(
             'type'              => 'boolean',
-            'description'       => __( 'Live Scroll Interactive preview in the editor (beta).', 'motion-blocks' ),
+            'description'       => __( 'Live Interactive scroll preview in the editor (beta).', 'motion-blocks' ),
             'default'           => false,
             'sanitize_callback' => 'rest_sanitize_boolean',
             'show_in_rest'      => true,
@@ -2046,6 +2046,23 @@ function motion_blocks_add_settings_page() {
     );
 }
 add_action( 'admin_menu', 'motion_blocks_add_settings_page' );
+
+/**
+ * Add a Settings link to the plugin's row on the Plugins screen.
+ *
+ * @param string[] $links Action links for the row.
+ * @return string[] Links with Settings first.
+ */
+function motion_blocks_plugin_action_links( $links ) {
+    $settings = sprintf(
+        '<a href="%s">%s</a>',
+        esc_url( admin_url( 'options-general.php?page=motion-blocks' ) ),
+        esc_html__( 'Settings', 'motion-blocks' )
+    );
+    array_unshift( $links, $settings );
+    return $links;
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'motion_blocks_plugin_action_links' );
 
 /**
  * Register the Settings API section + field used by the page above.
@@ -2228,10 +2245,10 @@ function motion_blocks_render_trigger_lines_field() {
             value="1"
             <?php checked( $value ); ?>
         />
-        <?php esc_html_e( 'Show where "Appear on scroll" animations start and stop', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Show where “Appear on scroll” animations start and stop', 'motion-blocks' ); ?>
     </label>
     <p class="description">
-        <?php esc_html_e( 'Draws two lines on pages with "Appear on scroll" animations. A block\'s Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only users who can edit posts see them, so visitors are never affected.', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Draws two lines on pages with “Appear on scroll” animations. A block’s Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only users who can edit posts see them, so visitors are never affected.', 'motion-blocks' ); ?>
     </p>
     <?php
 }
@@ -2260,7 +2277,7 @@ function motion_blocks_render_beta_live_preview_field() {
             value="1"
             <?php checked( $value ); ?>
         />
-        <?php esc_html_e( 'Preview Scroll Interactive animations live in the editor', 'motion-blocks' ); ?>
+        <?php esc_html_e( 'Preview Interactive scroll animations live in the editor', 'motion-blocks' ); ?>
     </label>
     <p class="description">
         <?php esc_html_e( 'Scrolling the editor canvas plays the real scroll-driven animation, matching the live site. Experimental: it works in current browsers but may not run (or may be unstable) in older or unsupported ones. If the editor misbehaves, turn this off here — this page is separate from the editor and always works.', 'motion-blocks' ); ?>

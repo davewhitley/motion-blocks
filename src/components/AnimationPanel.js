@@ -569,7 +569,7 @@ export default function AnimationPanel( {
 							</div>
 							<p className="mb-mode-card__description">
 								{ __(
-									'Trigger animations when the element enters or exits the screen.',
+									'Trigger animations when the block enters or exits the screen.',
 									'motion-blocks'
 								) }
 							</p>

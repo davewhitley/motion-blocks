@@ -249,11 +249,11 @@ export default function SlotControls( {
 					help={
 						slot === 'entry'
 							? __(
-									'Pick an effect to animate the element into view.',
+									'Pick an effect to animate the block into view.',
 									'motion-blocks'
 							  )
 							: __(
-									'Pick an effect to animate the element out of view.',
+									'Pick an effect to animate the block out of view.',
 									'motion-blocks'
 							  )
 					}
@@ -652,11 +652,11 @@ export default function SlotControls( {
 							  )
 							: animationReplay === 'repeat'
 							? __(
-									'Entry animation replays every time the element scrolls into view. It resets off-screen after you scroll past it, so each pass plays again.',
+									'Entry animation replays every time the block scrolls into view. It resets off-screen after you scroll past it, so each pass plays again.',
 									'motion-blocks'
 							  )
 							: __(
-									'Entry animation plays forward as the element scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up.',
+									'Entry animation plays forward as the block scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up.',
 									'motion-blocks'
 							  )
 						: animationReplay === 'once'
@@ -666,11 +666,11 @@ export default function SlotControls( {
 						  )
 						: animationReplay === 'repeat'
 						? __(
-								'Element snap-returns to natural state when the user scrolls back to it.',
+								'Exit animation plays every time the block scrolls off the top of the screen. When you scroll back, the block shows again instantly.',
 								'motion-blocks'
 						  )
 						: __(
-								'Exit animation plays in reverse when the user scrolls back to the element.',
+								'Exit animation plays in reverse when you scroll back to the block.',
 								'motion-blocks'
 						  )
 				}

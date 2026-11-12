@@ -261,7 +261,7 @@ function MotionBlocksPagePanel() {
 					{ supportsDeviceToggles && (
 						<p className="mb-page-settings__intro">
 							{ __(
-								'Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices.',
+								'Disable animations on this page for selected screen sizes. Helpful for reducing motion on smaller devices.',
 								'motion-blocks'
 							) }
 						</p>

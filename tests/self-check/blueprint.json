@@ -14,7 +14,7 @@
 		{
 			"step": "setSiteOptions",
 			"options": {
-				"mb_debug_markers": "1",
+				"motion_blocks_debug_markers": "1",
 				"permalink_structure": "/%postname%/"
 			}
 		},

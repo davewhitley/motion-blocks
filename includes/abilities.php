@@ -90,7 +90,7 @@ function motion_blocks_ability_fresh_lock( $post_id ) {
 function motion_blocks_ability_disabled_devices( $post_id ) {
     $out = array();
     foreach ( array( 'desktop', 'tablet', 'mobile' ) as $device ) {
-        if ( get_post_meta( $post_id, 'mb_disabled_' . $device, true ) ) {
+        if ( get_post_meta( $post_id, 'motion_blocks_disabled_' . $device, true ) ) {
             $out[] = $device;
         }
     }
@@ -471,7 +471,7 @@ function motion_blocks_ability_list_saved() {
     $out = array();
     // The library is a site setting, which only administrators read in
     // the editor. The theme's animations show for everyone there.
-    $library = current_user_can( 'manage_options' ) ? get_option( 'mb_saved_animations', array() ) : array();
+    $library = current_user_can( 'manage_options' ) ? get_option( 'motion_blocks_saved_animations', array() ) : array();
     foreach ( is_array( $library ) ? $library : array() as $id => $entry ) {
         if ( empty( $entry['attributes'] ) || ! is_array( $entry['attributes'] ) ) {
             continue;
@@ -515,7 +515,7 @@ function motion_blocks_ability_save_animation( $input ) {
     if ( '' === $name ) {
         return new WP_Error( 'motion_blocks_no_name', __( 'The name is empty once tags and extra spaces are removed. Give the animation a name.', 'motion-blocks' ), array( 'status' => 400 ) );
     }
-    $library = get_option( 'mb_saved_animations', array() );
+    $library = get_option( 'motion_blocks_saved_animations', array() );
     $library = is_array( $library ) ? $library : array();
     if ( count( $library ) >= MOTION_BLOCKS_LIBRARY_MAX_ENTRIES ) {
         return new WP_Error(
@@ -539,8 +539,8 @@ function motion_blocks_ability_save_animation( $input ) {
         'createdAt'  => gmdate( 'c' ),
         'attributes' => $attributes,
     );
-    update_option( 'mb_saved_animations', $library, false );
-    $saved = get_option( 'mb_saved_animations', array() );
+    update_option( 'motion_blocks_saved_animations', $library, false );
+    $saved = get_option( 'motion_blocks_saved_animations', array() );
     if ( ! isset( $saved[ $uid ] ) ) {
         return new WP_Error( 'motion_blocks_not_saved', __( 'The animation could not be saved.', 'motion-blocks' ), array( 'status' => 500 ) );
     }

@@ -26,7 +26,7 @@ define( 'MOTION_BLOCKS_VERSION', '0.5.0' );
  * activations.
  *
  * History:
- *   1 — Spin only (legacy one-shot `mb_saved_animations_seeded` flag)
+ *   1 — Spin only (legacy one-shot `motion_blocks_saved_animations_seeded` flag)
  *   2 — + Iris Wipe, Diagonal Wipe
  */
 define( 'MOTION_BLOCKS_RECIPE_VERSION', 2 );
@@ -183,7 +183,7 @@ function motion_blocks_enqueue_editor_assets() {
     // and saw no library at all, not even the bundled animations
     // (GH #131). Everyone who can open the editor may apply an entry;
     // saving and deleting still go through /wp/v2/settings.
-    $library = get_option( 'mb_saved_animations', array() );
+    $library = get_option( 'motion_blocks_saved_animations', array() );
     wp_add_inline_script(
         'motion-blocks-editor',
         'window.motionBlocksSavedAnimations = ' . wp_json_encode(
@@ -196,7 +196,7 @@ function motion_blocks_enqueue_editor_assets() {
     // Beta flag bridge: expose the live-preview opt-in to the editor
     // bundle as a global it reads at load (LIVE_SCROLL_PREVIEW_OK in
     // src/index.js). 'before' so it runs prior to the bundle.
-    if ( get_option( 'mb_beta_live_scroll_preview' ) ) {
+    if ( get_option( 'motion_blocks_beta_live_scroll_preview' ) ) {
         wp_add_inline_script(
             'motion-blocks-editor',
             'window.motionBlocksBetaLivePreview = true;',
@@ -215,7 +215,7 @@ add_action( 'enqueue_block_editor_assets', 'motion_blocks_enqueue_editor_assets'
  */
 function motion_blocks_enqueue_editor_check() {
     $asset_file = plugin_dir_path( __FILE__ ) . 'build/editor-check.asset.php';
-    if ( ! get_option( 'mb_debug_markers' ) || ! file_exists( $asset_file ) ) {
+    if ( ! get_option( 'motion_blocks_debug_markers' ) || ! file_exists( $asset_file ) ) {
         return;
     }
     $asset = include $asset_file;
@@ -527,7 +527,7 @@ function motion_blocks_enqueue_frontend_assets() {
         // edit posts, so subscribers and shop customers never see them;
         // frontend.js draws them only on pages with a Scroll Appear
         // block.
-        if ( get_option( 'mb_debug_trigger_lines' ) && current_user_can( 'edit_posts' ) ) {
+        if ( get_option( 'motion_blocks_debug_trigger_lines' ) && current_user_can( 'edit_posts' ) ) {
             // The line labels, translated here so frontend.js needs
             // no wp-i18n on the front end.
             wp_add_inline_script(
@@ -552,7 +552,7 @@ function motion_blocks_enqueue_frontend_assets() {
         // overlay it replaced.
         $self_check_asset_file = plugin_dir_path( __FILE__ ) . 'build/self-check.asset.php';
         if (
-            get_option( 'mb_debug_markers' )
+            get_option( 'motion_blocks_debug_markers' )
             && current_user_can( 'edit_posts' )
             && file_exists( $self_check_asset_file )
         ) {
@@ -1649,9 +1649,9 @@ add_filter( 'rest_pre_dispatch', 'motion_blocks_strip_block_renderer_attrs', 10,
  * symmetric and avoids a fourth "all" key whose state would have
  * to stay in sync with the others.
  *
- *   mb_disabled_mobile   → core's mobile viewport (width ≤ 480px by default)
- *   mb_disabled_tablet   → core's tablet viewport (480px < width ≤ 782px)
- *   mb_disabled_desktop  → wider than that
+ *   motion_blocks_disabled_mobile   → core's mobile viewport (width ≤ 480px by default)
+ *   motion_blocks_disabled_tablet   → core's tablet viewport (480px < width ≤ 782px)
+ *   motion_blocks_disabled_desktop  → wider than that
  *
  * The ranges follow the theme's `settings.viewport` breakpoints; see
  * motion_blocks_device_media_queries().
@@ -1684,9 +1684,9 @@ function motion_blocks_register_meta_for_post_type( $post_type ) {
         return;
     }
     $keys = array(
-        'mb_disabled_desktop',
-        'mb_disabled_tablet',
-        'mb_disabled_mobile',
+        'motion_blocks_disabled_desktop',
+        'motion_blocks_disabled_tablet',
+        'motion_blocks_disabled_mobile',
     );
     foreach ( $keys as $key ) {
         if ( registered_meta_key_exists( 'post', $key, $post_type ) ) {
@@ -1773,7 +1773,7 @@ function motion_blocks_disabled_devices() {
     }
     $devices = array();
     foreach ( array( 'desktop', 'tablet', 'mobile' ) as $device ) {
-        if ( get_post_meta( $post_id, 'mb_disabled_' . $device, true ) ) {
+        if ( get_post_meta( $post_id, 'motion_blocks_disabled_' . $device, true ) ) {
             $devices[] = $device;
         }
     }
@@ -2014,7 +2014,7 @@ function motion_blocks_sanitize_saved_animations( $value ) {
 function motion_blocks_register_settings() {
     register_setting(
         'options',
-        'mb_saved_animations',
+        'motion_blocks_saved_animations',
         array(
             'type'         => 'object',
             'description'  => __( 'Motion Blocks saved animation library.', 'motion-blocks' ),
@@ -2050,7 +2050,7 @@ function motion_blocks_register_settings() {
     // plain boolean coerced through rest_sanitize_boolean.
     register_setting(
         'motion_blocks_settings',
-        'mb_debug_markers',
+        'motion_blocks_debug_markers',
         array(
             'type'              => 'boolean',
             'description'       => __( 'Run the animation self-check on the front end.', 'motion-blocks' ),
@@ -2064,7 +2064,7 @@ function motion_blocks_register_settings() {
     // Exit lines on the front end for logged-in users.
     register_setting(
         'motion_blocks_settings',
-        'mb_debug_trigger_lines',
+        'motion_blocks_debug_trigger_lines',
         array(
             'type'              => 'boolean',
             'description'       => __( 'Show the Scroll Appear trigger lines on the front end.', 'motion-blocks' ),
@@ -2082,7 +2082,7 @@ function motion_blocks_register_settings() {
     // is safe everywhere.
     register_setting(
         'motion_blocks_settings',
-        'mb_beta_live_scroll_preview',
+        'motion_blocks_beta_live_scroll_preview',
         array(
             'type'              => 'boolean',
             'description'       => __( 'Live Interactive scroll preview in the editor (beta).', 'motion-blocks' ),
@@ -2143,7 +2143,7 @@ function motion_blocks_register_settings_ui() {
     );
 
     add_settings_field(
-        'mb_debug_markers',
+        'motion_blocks_debug_markers',
         __( 'Self-check', 'motion-blocks' ),
         'motion_blocks_render_debug_markers_field',
         'motion-blocks',
@@ -2151,7 +2151,7 @@ function motion_blocks_register_settings_ui() {
     );
 
     add_settings_field(
-        'mb_debug_trigger_lines',
+        'motion_blocks_debug_trigger_lines',
         __( 'Trigger lines', 'motion-blocks' ),
         'motion_blocks_render_trigger_lines_field',
         'motion-blocks',
@@ -2162,7 +2162,7 @@ function motion_blocks_register_settings_ui() {
     // release zip leaves tests/ out, so there'd be nothing to run.
     if ( file_exists( motion_blocks_fixtures_script_path() ) ) {
         add_settings_field(
-            'mb_test_pages',
+            'motion_blocks_test_pages',
             __( 'Test pages', 'motion-blocks' ),
             'motion_blocks_render_test_pages_field',
             'motion-blocks',
@@ -2178,7 +2178,7 @@ function motion_blocks_register_settings_ui() {
     );
 
     add_settings_field(
-        'mb_beta_live_scroll_preview',
+        'motion_blocks_beta_live_scroll_preview',
         __( 'Live scroll preview', 'motion-blocks' ),
         'motion_blocks_render_beta_live_preview_field',
         'motion-blocks',
@@ -2282,12 +2282,12 @@ function motion_blocks_render_test_pages_field() {
  * Self-check checkbox.
  */
 function motion_blocks_render_debug_markers_field() {
-    $value = (bool) get_option( 'mb_debug_markers', false );
+    $value = (bool) get_option( 'motion_blocks_debug_markers', false );
     ?>
     <label>
         <input
             type="checkbox"
-            name="mb_debug_markers"
+            name="motion_blocks_debug_markers"
             value="1"
             <?php checked( $value ); ?>
         />
@@ -2303,12 +2303,12 @@ function motion_blocks_render_debug_markers_field() {
  * Trigger lines checkbox.
  */
 function motion_blocks_render_trigger_lines_field() {
-    $value = (bool) get_option( 'mb_debug_trigger_lines', false );
+    $value = (bool) get_option( 'motion_blocks_debug_trigger_lines', false );
     ?>
     <label>
         <input
             type="checkbox"
-            name="mb_debug_trigger_lines"
+            name="motion_blocks_debug_trigger_lines"
             value="1"
             <?php checked( $value ); ?>
         />
@@ -2335,12 +2335,12 @@ function motion_blocks_render_beta_section() {
  * Live Scroll Interactive preview toggle.
  */
 function motion_blocks_render_beta_live_preview_field() {
-    $value = (bool) get_option( 'mb_beta_live_scroll_preview', false );
+    $value = (bool) get_option( 'motion_blocks_beta_live_scroll_preview', false );
     ?>
     <label>
         <input
             type="checkbox"
-            name="mb_beta_live_scroll_preview"
+            name="motion_blocks_beta_live_scroll_preview"
             value="1"
             <?php checked( $value ); ?>
         />
@@ -2377,7 +2377,7 @@ function motion_blocks_render_settings_page() {
  * Bundled saved-animation recipes that ship with the plugin.
  *
  * Each is keyed by a stable uid and lives in the user library
- * (`mb_saved_animations`) — the user can rename / edit / delete any
+ * (`motion_blocks_saved_animations`) — the user can rename / edit / delete any
  * of them like an animation they authored. The seeder
  * (`motion_blocks_seed_default_animations`) reads this registry to
  * decide what to add.
@@ -2411,14 +2411,14 @@ function motion_blocks_bundled_recipes() {
 /**
  * Seed the bundled recipes into the saved-animations library.
  *
- * Per-uid tracking: `mb_saved_animations_seeded_uids` records which
+ * Per-uid tracking: `motion_blocks_saved_animations_seeded_uids` records which
  * recipe uids have ever been seeded. A uid in that list is never
  * re-added — so an explicit user delete is respected (deleting "Iris
  * Wipe" won't see it reappear on the next update), while genuinely
  * new recipes still reach installs that seeded earlier ones.
  *
  * Migration: prior versions used a one-shot boolean
- * `mb_saved_animations_seeded`. The first time this runs without the
+ * `motion_blocks_saved_animations_seeded`. The first time this runs without the
  * new uids option present, we translate that flag into "spin-default
  * was already seeded" so the legacy Spin entry isn't duplicated and a
  * user who deleted Spin under the old scheme doesn't get it back.
@@ -2427,11 +2427,11 @@ function motion_blocks_bundled_recipes() {
  * just avoids running it on every page load).
  */
 function motion_blocks_seed_default_animations() {
-    $seeded_uids = get_option( 'mb_saved_animations_seeded_uids', null );
+    $seeded_uids = get_option( 'motion_blocks_saved_animations_seeded_uids', null );
 
     if ( null === $seeded_uids ) {
         $seeded_uids = array();
-        if ( get_option( 'mb_saved_animations_seeded', false ) ) {
+        if ( get_option( 'motion_blocks_saved_animations_seeded', false ) ) {
             $seeded_uids[] = 'spin-default';
         }
     }
@@ -2439,7 +2439,7 @@ function motion_blocks_seed_default_animations() {
         $seeded_uids = array();
     }
 
-    $existing = get_option( 'mb_saved_animations', array() );
+    $existing = get_option( 'motion_blocks_saved_animations', array() );
     if ( ! is_array( $existing ) ) {
         $existing = array();
     }
@@ -2467,16 +2467,16 @@ function motion_blocks_seed_default_animations() {
         // the row is created (fresh install) and whenever the value
         // changes; existing autoloaded rows are switched by
         // motion_blocks_maybe_disable_library_autoload().
-        update_option( 'mb_saved_animations', $existing, false );
+        update_option( 'motion_blocks_saved_animations', $existing, false );
     }
-    update_option( 'mb_saved_animations_seeded_uids', $seeded_uids );
+    update_option( 'motion_blocks_saved_animations_seeded_uids', $seeded_uids );
 }
 
 // Fresh installs: seed on activation and stamp the recipe version so
 // the admin_init gate below doesn't redundantly re-run on first load.
 register_activation_hook( __FILE__, function () {
     motion_blocks_seed_default_animations();
-    update_option( 'mb_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
+    update_option( 'motion_blocks_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
     motion_blocks_maybe_disable_library_autoload();
 } );
 
@@ -2484,7 +2484,7 @@ register_activation_hook( __FILE__, function () {
  * Stop autoloading the saved-animations library on installs that
  * created it autoloaded.
  *
- * Earlier versions seeded `mb_saved_animations` without an autoload
+ * Earlier versions seeded `motion_blocks_saved_animations` without an autoload
  * argument, so WordPress stored it as autoloaded and the whole
  * library (up to 200 recipes) was loaded on every front-end request
  * even though only the editor reads it. `update_option()` returns
@@ -2502,19 +2502,69 @@ function motion_blocks_maybe_disable_library_autoload() {
     if ( ! function_exists( 'wp_set_option_autoload' ) ) {
         return; // WP < 6.4 — leave the row as it is.
     }
-    if ( array_key_exists( 'mb_saved_animations', wp_load_alloptions() ) ) {
-        wp_set_option_autoload( 'mb_saved_animations', false );
+    if ( array_key_exists( 'motion_blocks_saved_animations', wp_load_alloptions() ) ) {
+        wp_set_option_autoload( 'motion_blocks_saved_animations', false );
     }
 }
 add_action( 'admin_init', 'motion_blocks_maybe_disable_library_autoload' );
+
+/**
+ * Options and post-meta keys used the short `mb_` prefix until 0.6.0.
+ * They are now `motion_blocks_*`, long enough not to clash with another
+ * plugin's data (GH #172). This moves a site's existing data to the new
+ * names once, early on `init`, before anything reads it.
+ *
+ * @return string[] The options, without their prefix.
+ */
+function motion_blocks_storage_option_suffixes() {
+    return array(
+        'saved_animations',
+        'saved_animations_seeded_uids',
+        'saved_animations_seeded',
+        'saved_animations_recipe_version',
+        'debug_markers',
+        'debug_trigger_lines',
+        'beta_live_scroll_preview',
+    );
+}
+
+function motion_blocks_migrate_storage_names() {
+    if ( get_option( 'motion_blocks_storage_version' ) ) {
+        return;
+    }
+    foreach ( motion_blocks_storage_option_suffixes() as $suffix ) {
+        $missing = new stdClass();
+        $old     = get_option( 'mb_' . $suffix, $missing );
+        if ( $missing === $old ) {
+            continue;
+        }
+        // A value already under the new name wins: it is the newer one.
+        if ( $missing === get_option( 'motion_blocks_' . $suffix, $missing ) ) {
+            // The library is only read in the editor: not autoloaded.
+            update_option( 'motion_blocks_' . $suffix, $old, 'saved_animations' === $suffix ? false : null );
+        }
+        delete_option( 'mb_' . $suffix );
+    }
+    global $wpdb;
+    foreach ( array( 'desktop', 'tablet', 'mobile' ) as $device ) {
+        $wpdb->update(
+            $wpdb->postmeta,
+            array( 'meta_key' => 'motion_blocks_disabled_' . $device ), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+            array( 'meta_key' => 'mb_disabled_' . $device ) // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+        );
+    }
+    wp_cache_flush_group( 'post_meta' );
+    update_option( 'motion_blocks_storage_version', 1 );
+}
+add_action( 'init', 'motion_blocks_migrate_storage_names', 0 );
 
 // Existing installs: version-gated re-seed so newly-bundled recipes
 // reach sites that activated before they existed. Runs once per
 // MOTION_BLOCKS_RECIPE_VERSION bump, not on every admin page load.
 add_action( 'admin_init', function () {
-    if ( (int) get_option( 'mb_saved_animations_recipe_version', 0 ) < MOTION_BLOCKS_RECIPE_VERSION ) {
+    if ( (int) get_option( 'motion_blocks_saved_animations_recipe_version', 0 ) < MOTION_BLOCKS_RECIPE_VERSION ) {
         motion_blocks_seed_default_animations();
-        update_option( 'mb_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
+        update_option( 'motion_blocks_saved_animations_recipe_version', MOTION_BLOCKS_RECIPE_VERSION );
     }
 } );
 

@@ -3,7 +3,7 @@
  *
  * Two sources, same shape:
  *
- * 1. USER LIBRARY — `mb_saved_animations` site option (REST).
+ * 1. USER LIBRARY — `motion_blocks_saved_animations` site option (REST).
  *    Authored in the editor; uid-keyed; each entry has a `createdAt`.
  *    Editable & deletable from the kebab menu.
  *
@@ -162,7 +162,7 @@ export function sortThemeLibrary( library ) {
 /**
  * Persist one change to the saved-animation library (GH #28).
  *
- * - Saves only `mb_saved_animations`. The old code called
+ * - Saves only `motion_blocks_saved_animations`. The old code called
  *   `saveEditedEntityRecord( 'root', 'site', … )`, which saves every
  *   pending edit on the site entity, so an unsaved Site Title change in
  *   the Site Editor was saved along with the animation.

@@ -977,7 +977,7 @@ function mb_self_check_fixtures( $image ) {
 				)
 				. mb_self_check_spacer( 600 ),
 			'meta'                  => array(
-				'mb_disabled_mobile' => '1',
+				'motion_blocks_disabled_mobile' => '1',
 			),
 			'expect'                => array(),
 			'expect_reduced_motion' => array(),
@@ -1099,9 +1099,9 @@ function mb_self_check_fixtures( $image ) {
 					MB_SELF_CHECK_COLORS['stagger']
 				),
 			'meta'    => array(
-				'mb_disabled_desktop' => '1',
-				'mb_disabled_tablet'  => '1',
-				'mb_disabled_mobile'  => '1',
+				'motion_blocks_disabled_desktop' => '1',
+				'motion_blocks_disabled_tablet'  => '1',
+				'motion_blocks_disabled_mobile'  => '1',
 			),
 			'expect'  => array(),
 		);
@@ -1122,9 +1122,9 @@ function mb_self_check_fixtures( $image ) {
 		'note'    => $theme_note . 'Animations are turned off for this page on every device, so nothing moves and every block shows exactly those styles: faded, tilted, desaturated, clipped (#53).',
 		'content' => mb_self_check_theme_styled( $image ),
 		'meta'    => array(
-			'mb_disabled_desktop' => '1',
-			'mb_disabled_tablet'  => '1',
-			'mb_disabled_mobile'  => '1',
+			'motion_blocks_disabled_desktop' => '1',
+			'motion_blocks_disabled_tablet'  => '1',
+			'motion_blocks_disabled_mobile'  => '1',
 		),
 		'expect'  => array(),
 	);
@@ -1137,7 +1137,7 @@ function mb_self_check_fixtures( $image ) {
 				mb_self_check_paragraph( 'Paragraph · Scroll Appear · Entry: Fade', $scroll_fade, MB_SELF_CHECK_COLORS['group'] )
 			),
 		'meta'           => array(
-			'mb_disabled_tablet' => '1',
+			'motion_blocks_disabled_tablet' => '1',
 		),
 		'viewport_width' => 600,
 		'expect_motion'  => false,
@@ -1626,7 +1626,7 @@ foreach ( $mb_fixtures as $key => $fixture ) {
 	}
 
 	update_post_meta( $post_id, '_mb_self_check_fixture', $key );
-	foreach ( array( 'mb_disabled_desktop', 'mb_disabled_tablet', 'mb_disabled_mobile' ) as $meta_key ) {
+	foreach ( array( 'motion_blocks_disabled_desktop', 'motion_blocks_disabled_tablet', 'motion_blocks_disabled_mobile' ) as $meta_key ) {
 		if ( isset( $fixture['meta'][ $meta_key ] ) ) {
 			update_post_meta( $post_id, $meta_key, $fixture['meta'][ $meta_key ] );
 		} else {

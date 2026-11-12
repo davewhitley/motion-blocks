@@ -21,19 +21,29 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
  * current site. Called once on single site, once per site on multisite.
  */
 function motion_blocks_uninstall_site_data() {
-    delete_option( 'mb_saved_animations' );
-    delete_option( 'mb_saved_animations_seeded_uids' );
+    delete_option( 'motion_blocks_saved_animations' );
+    delete_option( 'motion_blocks_saved_animations_seeded_uids' );
     // Legacy pre-uid one-shot seeding flag (see the seeder's migration
     // shim) — can persist in installs that upgraded from recipe v1.
-    delete_option( 'mb_saved_animations_seeded' );
-    delete_option( 'mb_saved_animations_recipe_version' );
-    delete_option( 'mb_debug_markers' );
-    delete_option( 'mb_debug_trigger_lines' );
-    delete_option( 'mb_beta_live_scroll_preview' );
+    delete_option( 'motion_blocks_saved_animations_seeded' );
+    delete_option( 'motion_blocks_saved_animations_recipe_version' );
+    delete_option( 'motion_blocks_debug_markers' );
+    delete_option( 'motion_blocks_debug_trigger_lines' );
+    delete_option( 'motion_blocks_beta_live_scroll_preview' );
 
-    delete_post_meta_by_key( 'mb_disabled_desktop' );
-    delete_post_meta_by_key( 'mb_disabled_tablet' );
-    delete_post_meta_by_key( 'mb_disabled_mobile' );
+    delete_post_meta_by_key( 'motion_blocks_disabled_desktop' );
+    delete_post_meta_by_key( 'motion_blocks_disabled_tablet' );
+    delete_post_meta_by_key( 'motion_blocks_disabled_mobile' );
+    delete_option( 'motion_blocks_storage_version' );
+
+    // The same data under its names before 0.6.0, on a site that was
+    // never loaded after the update that renamed it.
+    foreach ( array( 'saved_animations', 'saved_animations_seeded_uids', 'saved_animations_seeded', 'saved_animations_recipe_version', 'debug_markers', 'debug_trigger_lines', 'beta_live_scroll_preview' ) as $motion_blocks_suffix ) {
+        delete_option( 'mb_' . $motion_blocks_suffix );
+    }
+    foreach ( array( 'desktop', 'tablet', 'mobile' ) as $motion_blocks_device ) {
+        delete_post_meta_by_key( 'mb_disabled_' . $motion_blocks_device );
+    }
 }
 
 if ( is_multisite() ) {

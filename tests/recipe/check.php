@@ -468,7 +468,7 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	mb_recipe_check( is_wp_error( $missing ) && 'motion_blocks_no_block' === $missing->get_error_code(), 'a path with no block is an error' );
 
 	// Saved library.
-	$library_before = get_option( 'mb_saved_animations' );
+	$library_before = get_option( 'motion_blocks_saved_animations' );
 	$s              = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => 'Agent rise', 'recipe' => array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'custom', 'from' => array( 'opacity' => 0, 'translateY' => 24 ), 'to' => array( 'opacity' => 1, 'translateY' => 0 ) ) ) ) );
 	$all            = wp_get_ability( 'motion-blocks/list-saved-animations' )->execute();
 	$found          = null;
@@ -483,7 +483,7 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 		$bundled = $bundled || ( 'library' === $entry['source'] && is_array( $entry['recipe'] ) && 'spin-default' === $entry['id'] );
 	}
 	mb_recipe_check( $bundled, 'bundled library recipes read as recipes' );
-	update_option( 'mb_saved_animations', $library_before, false );
+	update_option( 'motion_blocks_saved_animations', $library_before, false );
 
 	// REST.
 	$req = new WP_REST_Request( 'GET', '/wp-abilities/v1/abilities/motion-blocks/get-animations/run' );
@@ -521,12 +521,12 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	mb_recipe_check( 400 === $rest4->get_status(), 'an unexpected input key is a 400, not a fatal error', $rest4->get_status() . ' ' . wp_json_encode( $rest4->get_data() ) );
 	// Long values (GH #131). The library used to cut every string at 200
 	// characters, which broke long easings and clip-paths.
-	$library_before = get_option( 'mb_saved_animations' );
+	$library_before = get_option( 'motion_blocks_saved_animations' );
 	$long_easing    = 'linear(' . implode( ', ', array_fill( 0, 60, '0.5' ) ) . ')';
 	$long           = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => 'Long easing', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => $long_easing ) ) ) );
-	$stored         = is_wp_error( $long ) ? array() : get_option( 'mb_saved_animations' )[ $long['id'] ]['attributes'];
+	$stored         = is_wp_error( $long ) ? array() : get_option( 'motion_blocks_saved_animations' )[ $long['id'] ]['attributes'];
 	mb_recipe_check( strlen( $long_easing ) > 200 && ( $stored['animationCustomTimingFunction'] ?? '' ) === $long_easing, 'save-animation keeps an easing longer than 200 characters whole', wp_json_encode( is_wp_error( $long ) ? $long->get_error_message() : $stored ) );
-	update_option( 'mb_saved_animations', $library_before, false );
+	update_option( 'motion_blocks_saved_animations', $library_before, false );
 
 	$long_clip = 'polygon(' . implode( ', ', array_fill( 0, 60, '10% 20%' ) ) . ')';
 	$clean     = motion_blocks_sanitize_saved_animations(
@@ -575,7 +575,7 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	$own_lock = $set->execute( array( 'post_id' => $mb_post, 'changes' => $heading_null ) );
 	mb_recipe_check( is_wp_error( $own_lock ) && 'motion_blocks_post_locked' === $own_lock->get_error_code(), 'set-animations refuses while the same user has the post open in the editor' );
 	delete_post_meta( $mb_post, '_edit_lock' );
-	update_post_meta( $mb_post, 'mb_disabled_mobile', true );
+	update_post_meta( $mb_post, 'motion_blocks_disabled_mobile', true );
 	$fresh = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'mb recipe check 139', 'post_content' => '<!-- wp:paragraph --><p>One</p><!-- /wp:paragraph -->' ) );
 	$first = $set->execute( array( 'post_id' => $fresh, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/paragraph', 'recipe' => array( 'version' => 1.0, 'mode' => 'page-load', 'effect' => array( 'type' => 'rotate-out', 'rotate' => 180, 'duration' => 0 ) ) ) ) ) );
 	$prev  = ! is_wp_error( $first ) && $first['previous_revision_id'] ? get_post( $first['previous_revision_id'] ) : null;
@@ -583,7 +583,7 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	mb_recipe_check( ! is_wp_error( $first ) && false !== strpos( do_blocks( get_post( $fresh )->post_content ), 'data-mb-rotate-angle="180"' ), 'a rotate amount on rotate-out reaches the page' );
 	$with_flag = $set->execute( array( 'post_id' => $mb_post, 'changes' => $heading_null ) );
 	mb_recipe_check( ! is_wp_error( $with_flag ) && array( 'mobile' ) === $with_flag['disabled_devices'], 'set-animations reports the devices animations are off for' );
-	delete_post_meta( $mb_post, 'mb_disabled_mobile' );
+	delete_post_meta( $mb_post, 'motion_blocks_disabled_mobile' );
 	wp_delete_post( $fresh, true );
 	$damaged = null;
 	try {
@@ -611,6 +611,33 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	$ct_list  = motion_blocks_render_block( '<ol class="wp-block-comment-template"><li>One</li></ol>', array( 'blockName' => 'core/comment-template', 'attrs' => $ct_attrs ) );
 	$ct_inner = '<div class="wp-block-columns">A comment</div>';
 	mb_recipe_check( false !== strpos( $ct_list, 'mb-animated' ) && $ct_inner === motion_blocks_render_block( $ct_inner, array( 'blockName' => 'core/comment-template', 'attrs' => $ct_attrs ) ), 'an animated Comment Template animates its list, not each comment\'s first block' );
+
+	// GH #172: data saved under the old `mb_` names moves to the new ones.
+	$kept_library = get_option( 'motion_blocks_saved_animations' );
+	// CI turns this on for the page checks that run after this file.
+	$kept_markers = get_option( 'motion_blocks_debug_markers' );
+	delete_option( 'motion_blocks_storage_version' );
+	delete_option( 'motion_blocks_debug_markers' );
+	update_option( 'mb_debug_markers', '1' );
+	update_option( 'mb_saved_animations', array( 'oldone12' => array( 'name' => 'Old', 'attributes' => array( 'animationMode' => 'page-load' ) ) ) );
+	update_post_meta( $mb_post, 'mb_disabled_tablet', '1' );
+	motion_blocks_migrate_storage_names();
+	wp_cache_delete( $mb_post, 'post_meta' );
+	mb_recipe_check(
+		true === (bool) get_option( 'motion_blocks_debug_markers' )
+			&& false === get_option( 'mb_debug_markers' )
+			&& false === get_option( 'mb_saved_animations' )
+			&& $kept_library === get_option( 'motion_blocks_saved_animations' )
+			&& '1' === get_post_meta( $mb_post, 'motion_blocks_disabled_tablet', true )
+			&& '' === get_post_meta( $mb_post, 'mb_disabled_tablet', true ),
+		'data under the old mb_ names moves to motion_blocks_ names, and newer data is kept'
+	);
+	if ( $kept_markers ) {
+		update_option( 'motion_blocks_debug_markers', $kept_markers );
+	} else {
+		delete_option( 'motion_blocks_debug_markers' );
+	}
+	delete_post_meta( $mb_post, 'motion_blocks_disabled_tablet' );
 
 	// Permissions.
 	wp_set_current_user( 0 );

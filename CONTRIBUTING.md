@@ -68,6 +68,7 @@ From a WordPress site with the plugin active (WordPress 6.9+ for the abilities):
 ```bash
 wp eval-file <path-to>/motion-blocks/tests/schema-defaults/check.php
 wp eval-file <path-to>/motion-blocks/tests/recipe/check.php
+wp eval-file <path-to>/motion-blocks/tests/viewport-breakpoints/check.php
 ```
 
 Then run the page and editor checks as described under **Tests** in the README. CI runs all of these on every pull request.

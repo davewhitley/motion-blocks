@@ -3,7 +3,7 @@
 	"meta": {
 		"title": "Motion Blocks self-check site",
 		"author": "davewhitley",
-		"description": "Used by CI: activates Motion Blocks from the mounted repo, turns on Settings → Motion Blocks → Self-check, builds the self-check fixture pages and writes their manifest to /ci-output/manifest.json."
+		"description": "Used by CI: activates Motion Blocks from the mounted repo, turns on Settings → Motion Blocks → Self-check, runs the PHP checks (recipe, schema defaults, device breakpoints), builds the self-check fixture pages and writes their manifest to /ci-output/manifest.json."
 	},
 	"landingPage": "/wp-admin/",
 	"steps": [
@@ -21,6 +21,14 @@
 		{
 			"step": "runPHP",
 			"code": "<?php require '/wordpress/wp-load.php'; $args = array(); ob_start(); require '/wordpress/wp-content/plugins/motion-blocks/tests/recipe/check.php'; file_put_contents( '/ci-output/recipe-check.txt', ob_get_clean() );"
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; define( 'MOTION_BLOCKS_CHECK_NO_EXIT', true ); ob_start(); require '/wordpress/wp-content/plugins/motion-blocks/tests/schema-defaults/check.php'; file_put_contents( '/ci-output/schema-defaults-check.txt', ob_get_clean() );"
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; define( 'MOTION_BLOCKS_CHECK_NO_EXIT', true ); ob_start(); require '/wordpress/wp-content/plugins/motion-blocks/tests/viewport-breakpoints/check.php'; file_put_contents( '/ci-output/viewport-breakpoints-check.txt', ob_get_clean() );"
 		},
 		{
 			"step": "runPHP",

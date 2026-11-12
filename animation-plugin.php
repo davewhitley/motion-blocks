@@ -1,21 +1,23 @@
 <?php
 /**
  * Plugin Name: Motion Blocks
+ * Plugin URI: https://github.com/davewhitley/motion-blocks
  * Description: Add CSS animations to any block in the Site Editor
- * Version: 0.5.0
+ * Version: 0.6.0-dev
  * Requires at least: 6.6
  * Requires PHP: 7.4
  * Author: Dave Whitley
  * License: GPL-2.0-or-later
  * Text Domain: motion-blocks
  * Domain Path: /languages
+ * Update URI: https://github.com/davewhitley/motion-blocks
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'MOTION_BLOCKS_VERSION', '0.5.0' );
+define( 'MOTION_BLOCKS_VERSION', '0.6.0-dev' );
 
 /**
  * Bundled saved-animation recipe schema version. Bump whenever the

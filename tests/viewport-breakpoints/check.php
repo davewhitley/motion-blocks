@@ -151,6 +151,8 @@ if ( ! method_exists( 'WP_Theme_JSON', 'get_viewport_media_queries' ) ) {
 
 $mb_failures = $GLOBALS['mb_vp_failures'];
 echo $mb_failures ? "{$mb_failures} failing\n" : "all passing\n";
-if ( $mb_failures ) {
+// CI runs this inside a Playground blueprint step, where exiting
+// would stop the site from starting; it reads the output instead.
+if ( $mb_failures && ! defined( 'MOTION_BLOCKS_CHECK_NO_EXIT' ) ) {
 	exit( 1 );
 }

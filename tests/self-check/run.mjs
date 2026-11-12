@@ -550,6 +550,16 @@ async function assetsAbsentCheck( tab, fx, reduced ) {
 			if ( typeof motionBlocksSelfCheck !== 'undefined' ) {
 				found.push( 'motionBlocksSelfCheck' );
 			}
+			// The page has to be the fixture, not an error page: an
+			// error page loads none of the assets either.
+			if (
+				! document.body ||
+				document.body.textContent.indexOf(
+					'A plain paragraph with no animation.'
+				) === -1
+			) {
+				found.push( 'the fixture did not render' );
+			}
 			return found;
 		})()` );
 	} catch ( e ) {
@@ -563,7 +573,7 @@ async function assetsAbsentCheck( tab, fx, reduced ) {
 		}  assets absent, found=${ JSON.stringify( got ) }`,
 		details: ok
 			? []
-			: got.map( ( s ) => `loaded on a page with no animations: ${ s }` ),
+			: got.map( ( s ) => `on a page with no animations: ${ s }` ),
 	};
 }
 

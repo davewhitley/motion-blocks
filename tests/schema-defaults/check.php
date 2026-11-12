@@ -544,5 +544,12 @@ foreach ( $synced_errors as $error ) {
 }
 
 if ( $failed || $preview_failed || $template_errors || $leading_errors || $synced_errors ) {
-	exit( 1 );
+	echo "SOME CHECKS FAILED\n";
+	// CI runs this inside a Playground blueprint step, where exiting
+	// would stop the site from starting; it reads the output instead.
+	if ( ! defined( 'MOTION_BLOCKS_CHECK_NO_EXIT' ) ) {
+		exit( 1 );
+	}
+} else {
+	echo "ALL CHECKS PASSED\n";
 }

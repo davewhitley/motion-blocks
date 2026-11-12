@@ -28,7 +28,9 @@ on:
 # so you only wait for the latest one.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Pull requests only: every commit on main keeps its own result, so a
+  # merge right behind another doesn't cancel the first one's run.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # The jobs only read the repository.
 permissions:
@@ -63,10 +65,20 @@ jobs:
         # committed. If building from the source in this PR changes
         # them, someone forgot to run `npm run build` and commit.
         run: |
-          if ! git diff --exit-code --stat -- build/; then
+          # `git status`, not `git diff`: it also lists a new file the
+          # build produced that was never committed.
+          if [ -n "$(git status --porcelain -- build/)" ]; then
+            git status --short -- build/
             echo "::error::build/ is out of date. Run 'npm run build' and commit the changes in build/."
             exit 1
           fi
+
+      - name: PHP syntax
+        # The plugin's PHP is only run on one PHP version further down;
+        # this at least proves every file parses.
+        run: |
+          find . -name '*.php' -not -path './node_modules/*' -not -path './build/*' -print0 \
+            | xargs -0 -n1 php -l > /dev/null
 
       - name: Lint
         # ESLint (JS) and stylelint (CSS) with WordPress's rules; see
@@ -140,6 +152,22 @@ jobs:
         run: |
           cat ci-output/recipe-check.txt
           grep -q " 0 failed" ci-output/recipe-check.txt
+
+      - name: Schema defaults check
+        # The blueprint also ran tests/schema-defaults/check.php: what
+        # the front end prints for each saved block, against the
+        # expected markup.
+        run: |
+          cat ci-output/schema-defaults-check.txt
+          grep -q "ALL CHECKS PASSED" ci-output/schema-defaults-check.txt
+          ! grep -q "^FAIL" ci-output/schema-defaults-check.txt
+
+      - name: Device breakpoints check
+        # And tests/viewport-breakpoints/check.php: the screen-size
+        # ranges the per-device switches use, from the real PHP builder.
+        run: |
+          cat ci-output/viewport-breakpoints-check.txt
+          grep -q "all passing" ci-output/viewport-breakpoints-check.txt
 
       - name: Run the page & editor checks
         # Logs in through wp-login.php with Playground's default

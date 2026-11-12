@@ -30,6 +30,9 @@ import {
 	ACCELERATION_OPTIONS,
 	BLUR_SETTINGS,
 	REPEAT_OPTIONS,
+	LOOP_MIN_DURATION,
+	isLoopingRepeat,
+	repeatChangeAttributes,
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
 	IMAGE_EFFECT_TYPES,
@@ -138,6 +141,7 @@ export default function PageLoadControls( {
 	} );
 
 	const isCustom = animationType === 'custom';
+	const isLooping = isLoopingRepeat( animationRepeat );
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
@@ -502,7 +506,9 @@ export default function PageLoadControls( {
 					<NumberControl
 						label={ __( 'Duration', 'motion-blocks' ) }
 						value={ animationDuration }
-						min={ 0 }
+						// A loop can't flash faster than three times a
+						// second (GH #134).
+						min={ isLooping ? LOOP_MIN_DURATION : 0 }
 						step={ 0.01 }
 						// Keep two decimals (0.25) when typed; +/- and arrow keys
 						// still move by 0.1 (step × spinFactor).
@@ -511,7 +517,10 @@ export default function PageLoadControls( {
 						suffix={ <SecondsSuffix /> }
 						onChange={ ( value ) =>
 							setAttributes( {
-								animationDuration: parseFloat( value ) || 0,
+								animationDuration: Math.max(
+									parseFloat( value ) || 0,
+									isLooping ? LOOP_MIN_DURATION : 0
+								),
 							} )
 						}
 						__next40pxDefaultSize
@@ -579,7 +588,17 @@ export default function PageLoadControls( {
 				value={ animationRepeat }
 				options={ REPEAT_OPTIONS }
 				onChange={ ( value ) =>
-					setAttributes( { animationRepeat: value } )
+					setAttributes(
+						repeatChangeAttributes( value, animationDuration )
+					)
+				}
+				help={
+					isLooping
+						? __(
+								'Keeps playing for as long as the block is on the page. Visitors can’t pause it, so keep it slow and subtle. It doesn’t play for visitors who turn on reduced motion.',
+								'motion-blocks'
+						  )
+						: undefined
 				}
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom
@@ -590,8 +609,7 @@ export default function PageLoadControls( {
 			   at frame 0 until scrolled into view, turning Page Load
 			   into Scroll Appear. Hidden for non-looping repeats so the
 			   setting can't be misapplied. */ }
-			{ ( animationRepeat === 'loop' ||
-				animationRepeat === 'alternate' ) && (
+			{ isLooping && (
 				<ToggleControl
 					label={ __( 'Pause off-screen', 'motion-blocks' ) }
 					checked={ animationPauseOffscreen }

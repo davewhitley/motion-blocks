@@ -1289,16 +1289,13 @@ export function hasAnyCustomFromToSet( attributes, slot ) {
 }
 
 /**
- * Translate the shared `CUSTOM_DEFAULT_FROM_TO` seed (used by the
- * legacy single-side path) into the slot-prefixed attribute names.
- * Returns an object ready to spread into `setAttributes` so the
- * Entry/Exit slot's Custom mode opens with the same four-row
- * default that the shared path has always seeded.
+ * Translate the shared `CUSTOM_DEFAULT_FROM_TO` seed into the
+ * slot-prefixed attribute names. Returns an object ready to spread
+ * into `setAttributes`, so a slot's Custom mode opens with the same
+ * opacity-only default the shared path seeds.
  *
- * Entry seed mirrors the existing default (fade-up).
- * Exit seed is the natural inverse (fade-down / fade-out) so an
- * Exit Custom slot opens with values that make visual sense for
- * "element animating out."
+ * Entry fades in (0 → 1). Exit is the inverse (1 → 0), which makes
+ * sense for a block animating out.
  *
  * @param {'entry'|'exit'} slot
  * @return {Object}
@@ -1542,7 +1539,10 @@ export function getPresetFromTo( type, direction, options = {} ) {
 				ttb: { rotateX: 90 },
 				btt: { rotateX: -90 },
 			};
-			const f = flipDirs[ direction ] || flipDirs.ltr;
+			// No stored direction plays right to left (the stylesheet's
+			// fallback and the catalog's default), so Customize must
+			// produce the same turn, not its mirror image (GH #142).
+			const f = flipDirs[ direction ] || flipDirs.rtl;
 			return {
 				from: { opacity: 0, ...f },
 				to: { opacity: 1 },
@@ -2006,6 +2006,21 @@ export function coerceWithUnit( value, unit ) {
  * Returns a new object — does not mutate. No-op for keys that
  * already carry their unit; safe to call multiple times.
  */
+/**
+ * The unit a bare number gets for a Custom From / To property: `deg`
+ * for the rotates, `px` for Blur and for Move X / Move Y ('' for the
+ * unitless ones). Move has no fixed unit in the panel, so it has no
+ * `unitSuffix`, but a bare `40` from a theme recipe or a paste still
+ * means 40px, as the front end reads it. Without the unit the editor
+ * wrote `translate(0px, 40)`, which the browser drops (GH #142).
+ *
+ * @param {Object} def A PROPERTY_DEFINITIONS entry.
+ * @return {string} Unit, or ''.
+ */
+function defaultUnitFor( def ) {
+	return def.unitSuffix || SHARED.propertyDefaultUnits[ def.id ] || '';
+}
+
 export function normalizeCustomFromToAttrs( attrs ) {
 	if ( ! attrs || typeof attrs !== 'object' ) {
 		return attrs;
@@ -2036,7 +2051,9 @@ export function normalizeCustomFromToAttrs( attrs ) {
 				v !== '' &&
 				! isValidFromToValue(
 					def.id,
-					coerceWithUnit( v, def.unitSuffix || '' )
+					defaultUnitFor( def )
+						? coerceWithUnit( v, defaultUnitFor( def ) )
+						: v
 				)
 			) {
 				out[ attrName ] = null;
@@ -2044,18 +2061,19 @@ export function normalizeCustomFromToAttrs( attrs ) {
 		}
 	}
 	for ( const def of PROPERTY_DEFINITIONS ) {
-		if ( ! def.unitSuffix ) {
+		const unit = defaultUnitFor( def );
+		if ( ! unit ) {
 			continue;
 		}
 		// Shared (Page Load / Scroll Interactive).
-		writeNormalized( FROM_ATTR[ def.id ], def.unitSuffix );
-		writeNormalized( TO_ATTR[ def.id ], def.unitSuffix );
+		writeNormalized( FROM_ATTR[ def.id ], unit );
+		writeNormalized( TO_ATTR[ def.id ], unit );
 		// Per-slot (Scroll Appear).
 		const Cap = def.id.charAt( 0 ).toUpperCase() + def.id.slice( 1 );
-		writeNormalized( 'animationEntryFrom' + Cap, def.unitSuffix );
-		writeNormalized( 'animationEntryTo' + Cap, def.unitSuffix );
-		writeNormalized( 'animationExitFrom' + Cap, def.unitSuffix );
-		writeNormalized( 'animationExitTo' + Cap, def.unitSuffix );
+		writeNormalized( 'animationEntryFrom' + Cap, unit );
+		writeNormalized( 'animationEntryTo' + Cap, unit );
+		writeNormalized( 'animationExitFrom' + Cap, unit );
+		writeNormalized( 'animationExitTo' + Cap, unit );
 	}
 	return out;
 }
@@ -2078,8 +2096,8 @@ export function attrsToBag( attributes, attrMap ) {
 	for ( const def of PROPERTY_DEFINITIONS ) {
 		const val = attributes[ attrMap[ def.id ] ];
 		if ( isPropertyAdded( val ) ) {
-			bag[ def.id ] = def.unitSuffix
-				? coerceWithUnit( val, def.unitSuffix )
+			bag[ def.id ] = defaultUnitFor( def )
+				? coerceWithUnit( val, defaultUnitFor( def ) )
 				: val;
 		}
 	}

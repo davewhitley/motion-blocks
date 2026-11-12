@@ -16,7 +16,10 @@
 		"core/html",
 		"core/shortcode",
 		"core/spacer",
-		"core/block"
+		"core/block",
+		"core/missing",
+		"core/widget-area",
+		"core/legacy-widget"
 	],
 
 	"staggerIncompatibleTypes": [ "image-move", "image-zoom" ],

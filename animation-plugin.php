@@ -1010,6 +1010,35 @@ function motion_blocks_stagger_step_seconds( $raw_step ) {
 }
 
 /**
+ * A number as text for a data attribute or a CSS value, with a dot as
+ * the decimal mark whatever the server's locale. Before PHP 8.0 a float
+ * cast to a string followed the locale, so a comma-decimal locale gave
+ * `0,6`, which is not valid CSS (GH #142). A non-number comes back as
+ * an empty string.
+ *
+ * @param mixed $value Number.
+ * @return string
+ */
+function motion_blocks_number_string( $value ) {
+    if ( ! is_numeric( $value ) ) {
+        return '';
+    }
+    $text = number_format( (float) $value, 4, '.', '' );
+    $text = rtrim( rtrim( $text, '0' ), '.' );
+    return '' === $text || '-' === $text ? '0' : $text;
+}
+
+/**
+ * An effect name safe to put in a class name: a lowercase slug, or ''.
+ *
+ * @param mixed $type Stored effect type.
+ * @return string
+ */
+function motion_blocks_effect_slug( $type ) {
+    return is_string( $type ) && preg_match( '/^[a-z][a-z0-9-]*$/', $type ) ? $type : '';
+}
+
+/**
  * Whether img-target animations can attach to a block's image element.
  * PHP mirror of `isImageTargetUnavailable` in src/components/constants.js.
  *
@@ -1064,6 +1093,13 @@ function motion_blocks_render_block( $block_content, $block ) {
     if ( ! $mode || empty( $block_content ) ) {
         return $block_content;
     }
+    // Only the three modes the plugin knows. A hand-edited or imported
+    // block (an array, a made-up mode), or another plugin's block with
+    // an `animationMode` attribute of its own, gets no markup and loads
+    // no assets (GH #142).
+    if ( ! is_string( $mode ) || ! in_array( $mode, array( 'page-load', 'scroll-appear', 'scroll-interactive' ), true ) ) {
+        return $block_content;
+    }
 
     // Blocks that can't keep animation settings (Classic, Custom HTML,
     // Shortcode, Spacer, synced patterns — `nonAnimatableBlocks`, the
@@ -1111,6 +1147,14 @@ function motion_blocks_render_block( $block_content, $block ) {
     $type       = $attrs['animationType'] ?? motion_blocks_attr_default( 'animationType' );
     $entry_type = $attrs['animationEntryType'] ?? motion_blocks_attr_default( 'animationEntryType' );
     $exit_type  = $attrs['animationExitType'] ?? motion_blocks_attr_default( 'animationExitType' );
+    // Effect names go into class names. Anything that isn't a plain
+    // slug (an array, `false`, "fade evil-class") counts as no effect.
+    $type       = motion_blocks_effect_slug( $type );
+    $entry_type = motion_blocks_effect_slug( $entry_type );
+    $exit_type  = motion_blocks_effect_slug( $exit_type );
+    $attrs['animationType']      = $type;
+    $attrs['animationEntryType'] = $entry_type;
+    $attrs['animationExitType']  = $exit_type;
 
     if (
         ( $mode === 'scroll-appear' && $entry_type === '' && $exit_type === '' )
@@ -1122,6 +1166,13 @@ function motion_blocks_render_block( $block_content, $block ) {
     $processor = new WP_HTML_Tag_Processor( $block_content );
 
     if ( ! motion_blocks_seek_block_tag( $processor ) ) {
+        return $block_content;
+    }
+    // WordPress renders a Comment Template once per comment, under its
+    // real name (unlike Post Template's `core/null` copies above). The
+    // first tag is then a block inside the comment, not the template's
+    // own list, and would be animated a second time (GH #142).
+    if ( 'core/comment-template' === $block_name && ! $processor->has_class( 'wp-block-comment-template' ) ) {
         return $block_content;
     }
 
@@ -1265,12 +1316,12 @@ function motion_blocks_render_block( $block_content, $block ) {
 
             $processor->set_attribute(
                 "{$slot['data']}-duration",
-                (string) ( $attrs[ "{$slot['prefix']}Duration" ]
+                motion_blocks_number_string( $attrs[ "{$slot['prefix']}Duration" ]
                     ?? motion_blocks_attr_default( "{$slot['prefix']}Duration" ) )
             );
             $processor->set_attribute(
                 "{$slot['data']}-delay",
-                (string) ( $attrs[ "{$slot['prefix']}Delay" ]
+                motion_blocks_number_string( $attrs[ "{$slot['prefix']}Delay" ]
                     ?? motion_blocks_attr_default( "{$slot['prefix']}Delay" ) )
             );
 
@@ -1434,12 +1485,12 @@ function motion_blocks_render_block( $block_content, $block ) {
         if ( $mode === 'page-load' ) {
             $processor->set_attribute(
                 'data-mb-duration',
-                (string) ( $attrs['animationDuration']
+                motion_blocks_number_string( $attrs['animationDuration']
                     ?? motion_blocks_attr_default( 'animationDuration' ) )
             );
             $processor->set_attribute(
                 'data-mb-delay',
-                (string) ( $attrs['animationDelay']
+                motion_blocks_number_string( $attrs['animationDelay']
                     ?? motion_blocks_attr_default( 'animationDelay' ) )
             );
             $processor->set_attribute(
@@ -1488,7 +1539,7 @@ function motion_blocks_render_block( $block_content, $block ) {
         if ( $existing_style !== '' && substr( $existing_style, -1 ) !== ';' ) {
             $existing_style .= ';';
         }
-        $existing_style .= '--mb-stagger-step:' . $step . 's;';
+        $existing_style .= '--mb-stagger-step:' . motion_blocks_number_string( $step ) . 's;';
         $processor->set_attribute( 'style', (string) $existing_style );
     }
 
@@ -1646,8 +1697,11 @@ function motion_blocks_register_meta_for_post_type( $post_type ) {
             'single'        => true,
             'type'          => 'boolean',
             'default'       => false,
-            'auth_callback' => function () {
-                return current_user_can( 'edit_posts' );
+            // The post being saved, not posts in general: a role that
+            // edits pages or a custom post type but not posts was
+            // refused, and its whole save failed (GH #142).
+            'auth_callback' => function ( $allowed, $meta_key, $post_id ) {
+                return current_user_can( 'edit_post', $post_id );
             },
         ) );
     }

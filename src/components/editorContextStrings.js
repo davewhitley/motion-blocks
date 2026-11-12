@@ -19,6 +19,34 @@ const AUTO_ANIMATE_TITLE = {
 	fallback: __( 'Auto-animate this content', 'motion-blocks' ),
 };
 
+// One line under the Auto-animate button, saying what it does.
+const AUTO_ANIMATE_HELP = {
+	page: __(
+		'Animate this whole page at once, in the style you choose.',
+		'motion-blocks'
+	),
+	post: __(
+		'Animate this whole post at once, in the style you choose.',
+		'motion-blocks'
+	),
+	wp_block: __(
+		'Animate this whole pattern at once, in the style you choose.',
+		'motion-blocks'
+	),
+	wp_template: __(
+		'Animate this whole template at once, in the style you choose.',
+		'motion-blocks'
+	),
+	wp_template_part: __(
+		'Animate this whole template part at once, in the style you choose.',
+		'motion-blocks'
+	),
+	fallback: __(
+		'Animate all of this content at once, in the style you choose.',
+		'motion-blocks'
+	),
+};
+
 const NOTHING_TO_ANIMATE = {
 	page: __( 'Nothing to animate on this page.', 'motion-blocks' ),
 	post: __( 'Nothing to animate on this post.', 'motion-blocks' ),
@@ -122,6 +150,7 @@ const pick = ( map, postType ) =>
 export function editorContextStrings( postType ) {
 	return {
 		autoAnimateTitle: pick( AUTO_ANIMATE_TITLE, postType ),
+		autoAnimateHelp: pick( AUTO_ANIMATE_HELP, postType ),
 		nothingToAnimate: pick( NOTHING_TO_ANIMATE, postType ),
 		replacesAnimations: pick( REPLACES_ANIMATIONS, postType ),
 		removeAllConfirm: ( count ) =>

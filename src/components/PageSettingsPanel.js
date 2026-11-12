@@ -224,15 +224,24 @@ function MotionBlocksPagePanel() {
 			<VStack spacing={ 5 }>
 				{ /* Primary action: walk the page and apply tasteful
 				   animations in one click. */ }
-				<Button
-					ref={ autoAnimateRef }
-					variant="primary"
-					className="mb-auto-animate-button"
-					onClick={ () => setAutoAnimateOpen( true ) }
-					__next40pxDefaultSize
-				>
-					{ contextStrings.autoAnimateTitle }
-				</Button>
+				<VStack spacing={ 2 }>
+					<Button
+						ref={ autoAnimateRef }
+						variant="primary"
+						className="mb-auto-animate-button"
+						onClick={ () => setAutoAnimateOpen( true ) }
+						aria-describedby="mb-auto-animate-help"
+						__next40pxDefaultSize
+					>
+						{ contextStrings.autoAnimateTitle }
+					</Button>
+					<p
+						id="mb-auto-animate-help"
+						className="mb-page-settings__intro"
+					>
+						{ contextStrings.autoAnimateHelp }
+					</p>
+				</VStack>
 
 				<div className="mb-page-settings__divider" />
 

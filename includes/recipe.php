@@ -228,7 +228,7 @@ function motion_blocks_recipe_schema() {
             'direction' => array(
                 'type'        => 'string',
                 'enum'        => $directions,
-                'description' => 'Where the motion comes from: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. Optional; each effect has a sensible default.',
+                'description' => 'The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional: left out, an effect uses its default direction, and an `exit` uses the opposite one, so it moves the same way as a default `entry`.',
             ),
             'duration'  => array(
                 'type'        => 'number',
@@ -376,6 +376,36 @@ function motion_blocks_recipe_cleared_attributes() {
 }
 
 /**
+ * The direction an effect plays with when none is stored (the CSS
+ * fallback), from the effect catalog.
+ *
+ * @param string $type Effect type.
+ * @return string Direction, or '' when the effect has none.
+ */
+function motion_blocks_recipe_default_direction( $type ) {
+    $shared = motion_blocks_shared_constants();
+    return isset( $shared['effectCatalog'][ $type ]['defaultDirection'] )
+        ? (string) $shared['effectCatalog'][ $type ]['defaultDirection']
+        : '';
+}
+
+/**
+ * The direction that moves the opposite way.
+ *
+ * @param string $direction Direction value.
+ * @return string Opposite, or '' when there is none (curtain, "none").
+ */
+function motion_blocks_recipe_opposite_direction( $direction ) {
+    $opposite = array(
+        'btt' => 'ttb',
+        'ttb' => 'btt',
+        'ltr' => 'rtl',
+        'rtl' => 'ltr',
+    );
+    return isset( $opposite[ $direction ] ) ? $opposite[ $direction ] : '';
+}
+
+/**
  * Turn a recipe effect into attributes under `$prefix`, validating it.
  *
  * @param mixed  $effect     The effect object.
@@ -429,6 +459,16 @@ function motion_blocks_recipe_effect_to_attrs( $effect, $prefix, $part, $path, &
             );
         } else {
             $out[ "{$prefix}Direction" ] = $direction;
+        }
+    } elseif ( 'exit' === $part ) {
+        // An Exit plays its effect backward, so the stored direction
+        // moves the block the opposite way. With no direction given,
+        // store the opposite of the effect's default, so the Exit
+        // moves the same way a default Entry does, as a new Exit in the
+        // editor does (GH #130).
+        $opposite = motion_blocks_recipe_opposite_direction( motion_blocks_recipe_default_direction( $type ) );
+        if ( '' !== $opposite ) {
+            $out[ "{$prefix}Direction" ] = $opposite;
         }
     }
 
@@ -803,6 +843,14 @@ function motion_blocks_recipe_effect_from_attrs( $a, $prefix ) {
     $effect = array( 'type' => $type );
     if ( ! empty( $a[ "{$prefix}Direction" ] ) ) {
         $effect['direction'] = (string) $a[ "{$prefix}Direction" ];
+    } elseif ( 'animationExit' === $prefix ) {
+        // A saved Exit with no direction plays the effect's default.
+        // A recipe Exit with no direction means the opposite (see
+        // motion_blocks_recipe_effect_to_attrs), so name what plays.
+        $default = motion_blocks_recipe_default_direction( $type );
+        if ( '' !== motion_blocks_recipe_opposite_direction( $default ) ) {
+            $effect['direction'] = $default;
+        }
     }
     $effect['duration'] = (float) $a[ "{$prefix}Duration" ];
     $effect['delay']    = (float) $a[ "{$prefix}Delay" ];

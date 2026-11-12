@@ -270,6 +270,33 @@ foreach ( $mb_fixtures as $fx ) {
 }
 mb_recipe_check( null === motion_blocks_attributes_to_recipe( array( 'className' => 'x' ) ), 'Unanimated block reads as null' );
 
+// Exit direction defaults (GH #130). An Exit plays its effect backward,
+// so with no direction given a recipe stores the opposite of the
+// effect's default: the Exit moves the same way as a default Entry.
+$mb_exit_default = motion_blocks_recipe_to_attributes(
+	array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'slide' ), 'exit' => array( 'type' => 'slide' ) ),
+	'core/paragraph'
+);
+mb_recipe_check(
+	'ttb' === ( $mb_exit_default['attributes']['animationExitDirection'] ?? null ) && ! isset( $mb_exit_default['attributes']['animationEntryDirection'] ),
+	'an exit with no direction stores the opposite of the default',
+	wp_json_encode( $mb_exit_default )
+);
+$mb_exit_given = motion_blocks_recipe_to_attributes(
+	array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => null, 'exit' => array( 'type' => 'slide', 'direction' => 'btt' ) ),
+	'core/paragraph'
+);
+mb_recipe_check( 'btt' === ( $mb_exit_given['attributes']['animationExitDirection'] ?? null ), 'an exit direction that is given is kept', wp_json_encode( $mb_exit_given ) );
+$mb_exit_fade = motion_blocks_recipe_to_attributes(
+	array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => null, 'exit' => array( 'type' => 'curtain' ) ),
+	'core/paragraph'
+);
+mb_recipe_check( ! isset( $mb_exit_fade['attributes']['animationExitDirection'] ), 'an exit effect with no opposite direction stores none', wp_json_encode( $mb_exit_fade ) );
+// A block saved with no Exit direction plays the default: reading it
+// names that direction, so writing the recipe back does not flip it.
+$mb_exit_saved = motion_blocks_attributes_to_recipe( array( 'animationMode' => 'scroll-appear', 'animationExitType' => 'slide' ) );
+mb_recipe_check( 'btt' === ( $mb_exit_saved['exit']['direction'] ?? null ), 'a saved exit with no direction reads as the direction it plays', wp_json_encode( $mb_exit_saved ) );
+
 // ---------------------------------------------------------------------
 // 2. Validation.
 // ---------------------------------------------------------------------

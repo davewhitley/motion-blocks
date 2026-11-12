@@ -39,9 +39,9 @@ import { SVG, Path } from '@wordpress/primitives';
 import {
 	ENTRY_TYPE_OPTIONS,
 	EXIT_TYPE_OPTIONS,
-	DIRECTION_OPTIONS,
+	slotDirectionOptions,
 	TYPES_WITH_DIRECTION,
-	DEFAULT_DIRECTION,
+	slotDefaultDirection,
 	ACCELERATION_OPTIONS,
 	REPLAY_OPTIONS,
 	BLUR_SETTINGS,
@@ -110,7 +110,7 @@ export default function SlotControls( {
 	const isCustom = animationType === 'custom';
 	const isEmpty = animationType === '';
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
-	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
+	const directionOptions = slotDirectionOptions( animationType, slot );
 
 	// True when the last Preview press came from the keyboard. See the
 	// Preview button below.
@@ -164,8 +164,10 @@ export default function SlotControls( {
 	const handleTypeChange = ( value ) => {
 		const newAttrs = { [ attrName( 'Type' ) ]: value };
 		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
-			newAttrs[ attrName( 'Direction' ) ] =
-				DEFAULT_DIRECTION[ value ] || '';
+			newAttrs[ attrName( 'Direction' ) ] = slotDefaultDirection(
+				value,
+				slot
+			);
 		} else {
 			newAttrs[ attrName( 'Direction' ) ] = '';
 		}
@@ -402,8 +404,14 @@ export default function SlotControls( {
 						}
 						onChange={ ( checked ) =>
 							setAttributes( {
+								// Up arrow in either slot (stored as
+								// `ttb` for an Exit).
 								[ attrName( 'Direction' ) ]: checked
-									? 'btt'
+									? slotDirectionOptions(
+											'scale',
+											slot
+									  ).find( ( opt ) => opt.shown === 'btt' )
+											.value
 									: 'none',
 							} )
 						}
@@ -426,7 +434,7 @@ export default function SlotControls( {
 									<ToggleGroupControlOptionIcon
 										key={ opt.value }
 										value={ opt.value }
-										icon={ DIRECTION_ICON_MAP[ opt.value ] }
+										icon={ DIRECTION_ICON_MAP[ opt.shown ] }
 										label={ opt.label }
 									/>
 								) ) }
@@ -476,7 +484,7 @@ export default function SlotControls( {
 							<ToggleGroupControlOptionIcon
 								key={ opt.value }
 								value={ opt.value }
-								icon={ DIRECTION_ICON_MAP[ opt.value ] }
+								icon={ DIRECTION_ICON_MAP[ opt.shown ] }
 								label={ opt.label }
 							/>
 						) ) }

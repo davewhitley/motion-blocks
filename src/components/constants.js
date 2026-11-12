@@ -326,6 +326,43 @@ export const DIRECTION_OPTIONS = Object.fromEntries(
 );
 
 /**
+ * The direction that moves the opposite way. Curtain's horizontal /
+ * vertical are symmetric, so they have no entry.
+ */
+const OPPOSITE_DIRECTION = {
+	btt: 'ttb',
+	ttb: 'btt',
+	ltr: 'rtl',
+	rtl: 'ltr',
+};
+
+/**
+ * Direction options for one Scroll Appear slot.
+ *
+ * The Exit slot stores the base effect ("slide", not "slide-out") and
+ * plays it backward, so a stored direction moves the block the
+ * opposite way: `btt` rises into place on Entry and drops away on
+ * Exit. Each Exit option is therefore listed under the arrow and
+ * label of the motion it produces (GH #130): `shown` picks the icon,
+ * `label` names it, and `value` is what gets stored. Stored values
+ * keep their meaning, so saved blocks keep their motion.
+ *
+ * @param {string} type Effect type of the slot.
+ * @param {string} slot 'entry' | 'exit'.
+ * @return {Array<{label: string, value: string, shown: string}>} Options.
+ */
+export function slotDirectionOptions( type, slot ) {
+	return ( DIRECTION_OPTIONS[ type ] || [] ).map( ( opt ) => ( {
+		...opt,
+		shown: opt.value,
+		value:
+			slot === 'exit' && OPPOSITE_DIRECTION[ opt.value ]
+				? OPPOSITE_DIRECTION[ opt.value ]
+				: opt.value,
+	} ) );
+}
+
+/**
  * Types that show a direction control.
  */
 export const TYPES_WITH_DIRECTION = Object.keys( SHARED.directions );
@@ -344,6 +381,25 @@ export const DEFAULT_DIRECTION = {
 	'scale-out': 'none',
 	'image-move': 'btt',
 };
+
+/**
+ * Default direction written when an effect is first picked in a Scroll
+ * Appear slot. An Exit shows the same arrow as the Entry default
+ * ("Bottom to top" for Slide, so the block carries on upward as it
+ * leaves), which is the opposite stored value (see
+ * slotDirectionOptions). Blocks saved before this keep whatever
+ * direction they stored.
+ *
+ * @param {string} type Effect type of the slot.
+ * @param {string} slot 'entry' | 'exit'.
+ * @return {string} Direction value to store, '' when the effect has none.
+ */
+export function slotDefaultDirection( type, slot ) {
+	const direction = DEFAULT_DIRECTION[ type ] || '';
+	return slot === 'exit' && OPPOSITE_DIRECTION[ direction ]
+		? OPPOSITE_DIRECTION[ direction ]
+		: direction;
+}
 
 /**
  * CSS custom property values per type + direction.

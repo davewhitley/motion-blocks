@@ -2,7 +2,7 @@
  * Motion Blocks — Frontend Script
  *
  * Handles three animation modes:
- *   1. Page Load — triggered on DOMContentLoaded, with optional loop
+ *   1. Page Load — triggered as soon as this script runs, with optional loop
  *      and pause-offscreen.
  *   2. Scroll Appear — independent Entry and Exit slots, triggered from
  *      cached layout bounds woken by IntersectionObserver, ResizeObserver
@@ -3088,8 +3088,21 @@ import {
 	 * Initialise
 	 * ------------------------------------------------------------- */
 
-	if ( document.readyState === 'loading' ) {
+	if ( document.readyState === 'loading' && ! document.body ) {
+		// Loaded in <head> (an optimiser moved it): nothing to wire yet.
 		document.addEventListener( 'DOMContentLoaded', init );
+	} else if ( document.readyState === 'loading' ) {
+		// The usual case: a footer script, run while the page is still
+		// loading. Every block above it is already parsed, so wire them
+		// now. Waiting for DOMContentLoaded left Page Load blocks (often
+		// the hero) hidden until every deferred and module script on the
+		// page had run, other plugins' included (GH #145). Whatever is
+		// parsed after this script is wired by watchForLateContent(), and
+		// picked up again here once the document is complete.
+		init();
+		document.addEventListener( 'DOMContentLoaded', function () {
+			window.motionBlocks.refresh();
+		} );
 	} else {
 		init();
 	}

@@ -14,6 +14,11 @@ Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for e
 - Switching animation type keeps each type's own settings, so switching back restores them.
 - AI abilities: `set-animations` is refused while the post is open in the post editor or was saved since it was read, and returns `previous_revision_id` for undo. `list-saved-animations` returns the theme's animations to anyone who can edit.
 
+### Performance
+
+- Page Load blocks are revealed as soon as the plugin's script runs, not after every deferred script on the page.
+- The animation stylesheet is served minified (about 2.9 KB gzipped, down from about 14 KB).
+
 ### Fixed
 
 - Content that could stay blank or frozen: after anchor jumps and reloads, in pinned headers and fixed containers, in print, in loops, and with Curtain Close.

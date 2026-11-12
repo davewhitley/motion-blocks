@@ -588,13 +588,24 @@ function motion_blocks_enqueue_frontend_assets() {
  * as a safety net (and adds editor-only overrides for chrome).
  */
 function motion_blocks_enqueue_animations_css() {
-    $anim_css_path = plugin_dir_path( __FILE__ ) . 'css/animations.css';
+    // build/animations.css is the same stylesheet without its comments
+    // and whitespace (bin/build-css.mjs, run by `npm run build`): about
+    // a fifth of the download. The commented source is served when
+    // SCRIPT_DEBUG is on, or when the built copy is missing.
+    $anim_css_file = 'build/animations.css';
+    if (
+        ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG )
+        || ! file_exists( plugin_dir_path( __FILE__ ) . $anim_css_file )
+    ) {
+        $anim_css_file = 'css/animations.css';
+    }
+    $anim_css_path = plugin_dir_path( __FILE__ ) . $anim_css_file;
     $anim_css_ver  = file_exists( $anim_css_path )
         ? filemtime( $anim_css_path )
         : MOTION_BLOCKS_VERSION;
     wp_enqueue_style(
         'motion-blocks-styles',
-        plugins_url( 'css/animations.css', __FILE__ ),
+        plugins_url( $anim_css_file, __FILE__ ),
         array(),
         $anim_css_ver
     );

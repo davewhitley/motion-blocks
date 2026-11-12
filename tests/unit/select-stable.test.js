@@ -10,6 +10,7 @@ import {
 	EMPTY_IDS,
 	selectSameTypeInfo,
 	selectAnimatedAncestor,
+	selectStaggerParent,
 	selectMenuOverlayInfo,
 	countDescendantsIn,
 	selectPageContentRoot,
@@ -384,5 +385,81 @@ describe( 'clientIdsUnder', () => {
 		expect( clientIdsUnder( sel, null ) ).toBe(
 			clientIdsUnder( sel, null )
 		);
+	} );
+} );
+
+describe( 'selectStaggerParent', () => {
+	const tree = {
+		blocks: {
+			grp: {
+				name: 'core/group',
+				attributes: {
+					animationMode: 'scroll-appear',
+					animationEntryType: 'fade',
+					animationStaggerEnabled: true,
+				},
+			},
+			plain: {
+				name: 'core/group',
+				attributes: { animationMode: 'scroll-appear' },
+			},
+			child: { name: 'core/paragraph', attributes: {} },
+			grandchild: { name: 'core/paragraph', attributes: {} },
+			other: { name: 'core/paragraph', attributes: {} },
+		},
+		parents: {
+			child: [ 'grp' ],
+			grandchild: [ 'grp', 'plain' ],
+			other: [ 'plain' ],
+		},
+	};
+	// The real test (staggersChildren in constants.js) is passed in.
+	const { staggersChildren } = require( '../../src/components/constants' );
+	const none = { clientId: null, title: null };
+
+	test( 'a direct child of a staggering parent gets that parent', () => {
+		const sel = makeSel( tree );
+		const a = selectStaggerParent(
+			sel,
+			blocksSel,
+			'child',
+			staggersChildren
+		);
+		const b = selectStaggerParent(
+			sel,
+			blocksSel,
+			'child',
+			staggersChildren
+		);
+		expect( a ).toEqual( { clientId: 'grp', title: 'Group' } );
+		expect( shallowEqual( a, b ) ).toBe( true );
+	} );
+
+	test( 'only the direct parent counts, and only with Stagger on', () => {
+		const sel = makeSel( tree );
+		expect(
+			selectStaggerParent(
+				sel,
+				blocksSel,
+				'grandchild',
+				staggersChildren
+			)
+		).toEqual( none );
+		expect(
+			selectStaggerParent( sel, blocksSel, 'other', staggersChildren )
+		).toEqual( none );
+		expect(
+			selectStaggerParent( sel, blocksSel, 'grp', staggersChildren )
+		).toEqual( none );
+	} );
+
+	test( 'a Stagger flag left on an Interactive scroll parent does not count', () => {
+		expect(
+			staggersChildren( 'core/group', {
+				animationMode: 'scroll-interactive',
+				animationType: 'fade',
+				animationStaggerEnabled: true,
+			} )
+		).toBe( false );
 	} );
 } );

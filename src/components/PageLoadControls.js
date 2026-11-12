@@ -250,7 +250,7 @@ export default function PageLoadControls( {
 									size="small"
 									onClick={ handleEditPreset }
 								>
-									{ __( 'Edit', 'motion-blocks' ) }
+									{ __( 'Customize', 'motion-blocks' ) }
 								</Button>
 							) }
 						</HStack>

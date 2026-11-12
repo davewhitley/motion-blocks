@@ -9,6 +9,7 @@
  *
  * Run: npm run test:unit
  */
+import SHARED from '../../shared-constants.json';
 import {
 	STYLE_PRESETS,
 	MOTION_EASE,
@@ -99,9 +100,10 @@ describe( 'one motion language', () => {
 			expect( all.length ).toBe( 3 );
 			for ( const attrs of all ) {
 				expect( attrs.animationEntryType ).toBe( 'custom' );
-				expect( attrs.animationEntryEasing ).toBe( 'custom' );
-				expect( attrs.animationEntryCustomTimingFunction ).toBe(
-					MOTION_EASE
+				// The named "Smooth Out" curve, not Custom + a line of CSS.
+				expect( attrs.animationEntryEasing ).toBe( MOTION_EASE );
+				expect( MOTION_EASE ).toBe(
+					SHARED.easingPresets[ 'smooth-out' ]
 				);
 				expect( attrs.animationEntryDuration ).toBe(
 					STYLE_PRESETS[ preset ].duration

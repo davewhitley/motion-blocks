@@ -285,4 +285,30 @@ describe( 'switchModeAttributes Custom From/To bridge', () => {
 				.animationStaggerEnabled
 		).toBe( false );
 	} );
+
+	// GH #138: switching away to compare, then back, restores them.
+	it( 'keeps each mode\u2019s own settings for the way back', () => {
+		let a = block( {
+			animationMode: 'page-load',
+			animationType: 'fade',
+			animationLoop: 'alternate',
+			animationPauseOffscreen: false,
+		} );
+		a = { ...a, ...switchModeAttributes( a, 'scroll-interactive' ) };
+		a = {
+			...a,
+			animationRangeStart: 'entry 20%',
+			animationRangeEnd: 'exit 60%',
+		};
+		a = { ...a, ...switchModeAttributes( a, 'scroll-appear' ) };
+		a = { ...a, animationEntryReplay: 'reverse' };
+		a = { ...a, ...switchModeAttributes( a, 'page-load' ) };
+		expect( a.animationLoop ).toBe( 'alternate' );
+		expect( a.animationPauseOffscreen ).toBe( false );
+		a = { ...a, ...switchModeAttributes( a, 'scroll-interactive' ) };
+		expect( a.animationRangeStart ).toBe( 'entry 20%' );
+		expect( a.animationRangeEnd ).toBe( 'exit 60%' );
+		a = { ...a, ...switchModeAttributes( a, 'scroll-appear' ) };
+		expect( a.animationEntryReplay ).toBe( 'reverse' );
+	} );
 } );

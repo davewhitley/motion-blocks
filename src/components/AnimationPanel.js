@@ -21,7 +21,7 @@ import ScrollInteractiveControls from './ScrollInteractiveControls';
 import AnimationOptionsMenu from './AnimationOptionsMenu';
 import MenuOverlayNotice from './MenuOverlayNotice';
 import { isKeyboardActivation } from './keyboardFocus';
-import { selectAnimatedAncestor } from './selectStable';
+import { selectAnimatedAncestor, selectStaggerParent } from './selectStable';
 import { stripUiState } from './savedAnimations';
 import {
 	DEFAULT_ATTRIBUTES,
@@ -34,6 +34,7 @@ import {
 	resetAnimationAttributes,
 	clearAnimationAttributes,
 	STAGGER_PARENT_BLOCKS,
+	staggersChildren,
 	staggerStepSeconds,
 } from './constants';
 
@@ -72,6 +73,19 @@ export default function AnimationPanel( {
 				select( blockEditorStore ),
 				select( blocksStore ),
 				clientId
+			),
+		[ clientId ]
+	);
+	// The direct parent, when it staggers its children: the page then
+	// plays the parent's effect on this block, whatever this panel and
+	// its Preview show (GH #138).
+	const staggerParent = useSelect(
+		( select ) =>
+			selectStaggerParent(
+				select( blockEditorStore ),
+				select( blocksStore ),
+				clientId,
+				staggersChildren
 			),
 		[ clientId ]
 	);
@@ -484,6 +498,35 @@ export default function AnimationPanel( {
 					blockName={ blockName }
 					clientId={ clientId }
 				/>
+			) }
+
+			{ !! animationMode && staggerParent.clientId && (
+				<div className="mb-panel-notice">
+					<Notice
+						status="warning"
+						isDismissible={ false }
+						actions={ [
+							{
+								label: __(
+									'Select parent block',
+									'motion-blocks'
+								),
+								onClick: () =>
+									selectBlock( staggerParent.clientId ),
+								variant: 'link',
+							},
+						] }
+					>
+						{ sprintf(
+							/* translators: %s: parent block-type label, e.g. "Group" */
+							__(
+								'The parent block (%s) has Stagger on, so the page plays the parent’s effect on this block, not the one set here. Preview the parent to see the result.',
+								'motion-blocks'
+							),
+							staggerParent.title
+						) }
+					</Notice>
+				</div>
 			) }
 
 			{ ! animationMode && animatedAncestor.clientId && (

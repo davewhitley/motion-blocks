@@ -187,7 +187,7 @@ Your own start and end values, in `from` and `to`: opacity, translateX, translat
 
 ## Easings
 
-Named: `ease`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, `spring`, `bouncy`, `snappy`. Or any CSS `cubic-bezier()`, `steps()` or `linear()` function, e.g. `cubic-bezier(0.16, 1, 0.3, 1)`.
+Named: `ease`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, `smooth-out`, `spring`, `bouncy`, `snappy`. Or any CSS `cubic-bezier()`, `steps()` or `linear()` function, e.g. `cubic-bezier(0.16, 1, 0.3, 1)`.
 
 ## Custom `from` / `to` properties
 

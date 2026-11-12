@@ -141,7 +141,12 @@ function holdsPage( block ) {
 	return query || composites > MAX_ROW_COMPOSITES;
 }
 
-/** One curve for everything: fast start, long soft landing (expo-out). */
+/**
+ * One curve for everything: fast start, long soft landing (expo-out).
+ * The same value as the Easing menu's "Smooth Out" option
+ * (easingPresets in shared-constants.json), so an auto-animated
+ * block's panel shows that name, not a line of CSS (GH #138).
+ */
 export const MOTION_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 /**
@@ -368,8 +373,7 @@ export function attrsForItem( item, stylePreset = 'balanced' ) {
 			animationDirection: '',
 			animationDuration: duration,
 			animationDelay: delay,
-			animationEasing: 'custom',
-			animationCustomTimingFunction: MOTION_EASE,
+			animationEasing: MOTION_EASE,
 			animationLoop: 'off',
 			...customAttrs( 'animation', sides ),
 			...extra,
@@ -382,8 +386,7 @@ export function attrsForItem( item, stylePreset = 'balanced' ) {
 		animationEntryDirection: '',
 		animationEntryDuration: duration,
 		animationEntryDelay: delay,
-		animationEntryEasing: 'custom',
-		animationEntryCustomTimingFunction: MOTION_EASE,
+		animationEntryEasing: MOTION_EASE,
 		animationEntryReplay: 'once',
 		animationExitType: '',
 		...customAttrs( 'animationEntry', sides ),

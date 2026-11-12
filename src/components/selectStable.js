@@ -148,6 +148,39 @@ export function selectAnimatedAncestor( sel, blocksSel, clientId ) {
 }
 
 /**
+ * The block's direct parent, when that parent staggers its children
+ * (GH #138). On the page a staggering parent plays its own effect on
+ * every child, so a child's own animation is not what visitors see.
+ * Fixed shape of primitives, like `selectAnimatedAncestor`.
+ *
+ * @param {Object}   sel             `select( blockEditorStore )`.
+ * @param {Object}   blocksSel       `select( blocksStore )`.
+ * @param {string}   clientId        The selected block.
+ * @param {Function} staggersInside `( name, attributes ) => boolean`:
+ *                                   does this block stagger its children?
+ * @return {{ clientId: ?string, title: ?string }} Parent info.
+ */
+export function selectStaggerParent(
+	sel,
+	blocksSel,
+	clientId,
+	staggersInside
+) {
+	if ( clientId ) {
+		const parentIds = sel.getBlockParents( clientId );
+		const id = parentIds[ parentIds.length - 1 ];
+		if ( id ) {
+			const name = sel.getBlockName( id );
+			if ( staggersInside( name, sel.getBlockAttributes( id ) ) ) {
+				const title = blocksSel.getBlockType( name )?.title || name;
+				return { clientId: id, title };
+			}
+		}
+	}
+	return { clientId: null, title: null };
+}
+
+/**
  * Whether a core/navigation block can open its full-screen overlay
  * menu: Overlay Menu "Mobile" (core's default) or "Always".
  *

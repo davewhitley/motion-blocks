@@ -7,7 +7,7 @@
 
 import { PanelBody, Icon, Notice, VisuallyHidden } from '@wordpress/components';
 import { useRef, useCallback, useState, useEffect } from '@wordpress/element';
-import { useSelect, useDispatch } from '@wordpress/data';
+import { useSelect, useDispatch, useRegistry } from '@wordpress/data';
 import { speak } from '@wordpress/a11y';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as blocksStore } from '@wordpress/blocks';
@@ -33,6 +33,8 @@ import {
 	migrateScrollAppearAttrs,
 	resetAnimationAttributes,
 	clearAnimationAttributes,
+	STAGGER_PARENT_BLOCKS,
+	staggerStepSeconds,
 } from './constants';
 
 /**
@@ -74,6 +76,7 @@ export default function AnimationPanel( {
 		[ clientId ]
 	);
 	const { selectBlock } = useDispatch( blockEditorStore );
+	const registry = useRegistry();
 
 	// Play / Stop only flip preview state. `setAttributes` here is the
 	// router in withAnimationControls (src/index.js): it sends the
@@ -214,7 +217,23 @@ export default function AnimationPanel( {
 			const delay = isSlotMode
 				? parseFloat( view[ `animation${ slotPrefix }Delay` ] ) || 0
 				: sharedDelay;
-			const totalMs = ( duration + delay ) * 1000;
+			// A Stagger container's inner blocks start one step apart,
+			// so the last one finishes that much later (GH #133). The
+			// count includes blocks Stagger skips (Spacers), which only
+			// keeps the preview on a little longer.
+			let staggerSpan = 0;
+			if (
+				view.animationStaggerEnabled &&
+				STAGGER_PARENT_BLOCKS.includes( blockName )
+			) {
+				const innerCount = registry
+					.select( blockEditorStore )
+					.getBlockOrder( clientId ).length;
+				staggerSpan =
+					Math.max( 0, innerCount - 1 ) *
+					staggerStepSeconds( view.animationStaggerStep );
+			}
+			const totalMs = ( duration + delay + staggerSpan ) * 1000;
 
 			setIsPlayPending( true );
 			clearPlayTimers();
@@ -259,6 +278,9 @@ export default function AnimationPanel( {
 			animationDuration,
 			animationDelay,
 			clearPlayTimers,
+			registry,
+			blockName,
+			clientId,
 		]
 	);
 

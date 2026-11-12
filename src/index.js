@@ -5,7 +5,10 @@
  * Supports three animation modes: page-load, scroll-appear, scroll-interactive.
  */
 
-import { createHigherOrderComponent } from '@wordpress/compose';
+import {
+	createHigherOrderComponent,
+	useReducedMotion,
+} from '@wordpress/compose';
 import {
 	InspectorControls,
 	store as blockEditorStore,
@@ -1178,7 +1181,21 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			( select ) => select( previewStore ).getBlockPreview( clientId ),
 			[ clientId ]
 		);
-		const baseAttrs = overlayPreviewState( props.attributes, preview );
+		// A block type that can't be animated (Custom HTML, Shortcode,
+		// Spacer, a synced pattern…) can still carry settings from
+		// older content or pasted markup. The front end skips it and it
+		// has no Motion Effects panel, so it must not preview either
+		// (GH #133): read it as un-animated.
+		const baseAttrs = overlayPreviewState(
+			canAnimateBlock( props.name )
+				? props.attributes
+				: { ...props.attributes, animationMode: '' },
+			preview
+		);
+		// The editor canvas always has the motion gate open, so that
+		// Play works with Reduce Motion on. Playing on its own is a
+		// different matter: see `shouldAnimate` below.
+		const prefersReducedMotion = useReducedMotion();
 		// For Scroll Appear, normalize legacy attrs into slot form
 		// then alias one slot's per-slot attrs onto the shared
 		// `animationType` / `animationDuration` / etc. names that
@@ -1459,7 +1476,11 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			// styles to the inner <img> via scoped CSS rather
 			// than the block wrapper. Mirrors the same selector
 			// pattern used by the live image-target keyframe.
-			const target = attributes.animationFromToTarget || 'block';
+			// Same availability gate as the animation path below: a
+			// Cover with a Fixed / Repeated background has no <img>.
+			const target = isImageTargetUnavailable( props.name, attributes )
+				? 'block'
+				: attributes.animationFromToTarget || 'block';
 			if ( target === 'img' ) {
 				const safeId = String( props.clientId ).replace(
 					/[^a-z0-9]/gi,
@@ -1881,13 +1902,21 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			// (the entry's fill-mode: both held state lingered while
 			// switching tabs). Scroll Interactive is handled entirely
 			// in its own scrub branch above and never reaches here.
+			//
+			// Two Page Load cases wait for Play as well (GH #133):
+			//   - Reduce Motion is on. Pressing Play is a deliberate
+			//     request; playing every entrance each time the
+			//     editor opens is not.
+			//   - An Out effect (older content, a saved animation, an
+			//     agent). Held at its last frame it would leave the
+			//     block invisible while it is being edited.
+			const autoPlaysAtRest =
+				! prefersReducedMotion && ! /-out$/.test( animationType );
 			const shouldAnimate =
 				isPageLoadOrScrollAppear && animationType
-					? animationMode === 'scroll-appear'
+					? animationMode === 'scroll-appear' || isLooping
 						? animationPreviewPlaying
-						: isLooping
-						? animationPreviewPlaying
-						: true
+						: animationPreviewPlaying || autoPlaysAtRest
 					: false;
 
 			if ( shouldAnimate ) {
@@ -2039,7 +2068,13 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 				customKeyframe &&
 				! targetIsImg
 			) {
-				staggerStyle[ '--mb-stagger-anim-name' ] = customKeyframe.name;
+				// The Exit stagger rule reads its own variable, as on
+				// the front end (GH #133).
+				staggerStyle[
+					attributes.__mbPreviewSlot === 'exit'
+						? '--mb-exit-anim-name'
+						: '--mb-stagger-anim-name'
+				] = customKeyframe.name;
 			}
 			computedWrapperProps = {
 				...computedWrapperProps,

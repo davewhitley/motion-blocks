@@ -5,6 +5,7 @@
  */
 import {
 	slotDirectionOptions,
+	slotDefaultDirection,
 	DIRECTION_CSS_VARS,
 } from '../../src/components/constants';
 
@@ -53,5 +54,30 @@ describe( 'slotDirectionOptions', () => {
 
 	it( 'returns nothing for an effect with no direction', () => {
 		expect( slotDirectionOptions( 'fade', 'exit' ) ).toEqual( [] );
+	} );
+} );
+
+describe( 'slotDefaultDirection', () => {
+	it( 'shows the same default arrow in both slots', () => {
+		[ 'slide', 'wipe', 'flip' ].forEach( ( type ) => {
+			const shown = ( slot ) =>
+				slotDirectionOptions( type, slot ).find(
+					( opt ) => opt.value === slotDefaultDirection( type, slot )
+				).shown;
+			expect( shown( 'exit' ) ).toBe( shown( 'entry' ) );
+		} );
+	} );
+
+	it( 'makes a new Exit Slide move up', () => {
+		expect( slotDefaultDirection( 'slide', 'entry' ) ).toBe( 'btt' );
+		expect( slotDefaultDirection( 'slide', 'exit' ) ).toBe( 'ttb' );
+	} );
+
+	it( 'leaves effects with no opposite alone', () => {
+		expect( slotDefaultDirection( 'curtain', 'exit' ) ).toBe(
+			'horizontal'
+		);
+		expect( slotDefaultDirection( 'scale', 'exit' ) ).toBe( 'none' );
+		expect( slotDefaultDirection( 'fade', 'exit' ) ).toBe( '' );
 	} );
 } );

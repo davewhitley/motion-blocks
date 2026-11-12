@@ -383,6 +383,25 @@ export const DEFAULT_DIRECTION = {
 };
 
 /**
+ * Default direction written when an effect is first picked in a Scroll
+ * Appear slot. An Exit shows the same arrow as the Entry default
+ * ("Bottom to top" for Slide, so the block carries on upward as it
+ * leaves), which is the opposite stored value (see
+ * slotDirectionOptions). Blocks saved before this keep whatever
+ * direction they stored.
+ *
+ * @param {string} type Effect type of the slot.
+ * @param {string} slot 'entry' | 'exit'.
+ * @return {string} Direction value to store, '' when the effect has none.
+ */
+export function slotDefaultDirection( type, slot ) {
+	const direction = DEFAULT_DIRECTION[ type ] || '';
+	return slot === 'exit' && OPPOSITE_DIRECTION[ direction ]
+		? OPPOSITE_DIRECTION[ direction ]
+		: direction;
+}
+
+/**
  * CSS custom property values per type + direction.
  * Used by both editor preview and frontend to parameterize keyframes.
  *

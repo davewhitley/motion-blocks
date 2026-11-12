@@ -41,7 +41,7 @@ import {
 	EXIT_TYPE_OPTIONS,
 	slotDirectionOptions,
 	TYPES_WITH_DIRECTION,
-	DEFAULT_DIRECTION,
+	slotDefaultDirection,
 	ACCELERATION_OPTIONS,
 	REPLAY_OPTIONS,
 	BLUR_SETTINGS,
@@ -164,8 +164,10 @@ export default function SlotControls( {
 	const handleTypeChange = ( value ) => {
 		const newAttrs = { [ attrName( 'Type' ) ]: value };
 		if ( TYPES_WITH_DIRECTION.includes( value ) ) {
-			newAttrs[ attrName( 'Direction' ) ] =
-				DEFAULT_DIRECTION[ value ] || '';
+			newAttrs[ attrName( 'Direction' ) ] = slotDefaultDirection(
+				value,
+				slot
+			);
 		} else {
 			newAttrs[ attrName( 'Direction' ) ] = '';
 		}
@@ -402,8 +404,14 @@ export default function SlotControls( {
 						}
 						onChange={ ( checked ) =>
 							setAttributes( {
+								// Up arrow in either slot (stored as
+								// `ttb` for an Exit).
 								[ attrName( 'Direction' ) ]: checked
-									? 'btt'
+									? slotDirectionOptions(
+											'scale',
+											slot
+									  ).find( ( opt ) => opt.shown === 'btt' )
+											.value
 									: 'none',
 							} )
 						}

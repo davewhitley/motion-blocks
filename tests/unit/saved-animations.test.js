@@ -282,7 +282,7 @@ describe( 'AnimationOptionsMenu saves only the library (GH #28)', () => {
 		// saveEditedEntityRecord saves every pending site edit.
 		expect( src ).not.toMatch( /saveEditedEntityRecord/ );
 		expect( src ).toMatch(
-			/saveEntityRecord\(\s*'root',\s*'site',\s*\{\s*mb_saved_animations: next\s*\},\s*\{\s*throwOnError: true\s*\}/
+			/saveEntityRecord\(\s*'root',\s*'site',\s*\{\s*motion_blocks_saved_animations: next\s*\},\s*\{\s*throwOnError: true\s*\}/
 		);
 	} );
 

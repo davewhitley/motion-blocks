@@ -5,7 +5,7 @@
  * Provides:
  *   - Copy / Paste (in-session clipboard)
  *   - Apply to all blocks of this type (with overwrite confirm)
- *   - Save animation as… (persists to site option `mb_saved_animations`)
+ *   - Save animation as… (persists to site option `motion_blocks_saved_animations`)
  *   - Apply / Delete saved animations
  *   - Reset / Remove
  *
@@ -157,7 +157,7 @@ export default function AnimationOptionsMenu( {
 	const [ entityLibrary ] = useEntityProp(
 		'root',
 		'site',
-		'mb_saved_animations'
+		'motion_blocks_saved_animations'
 	);
 	// The site entity needs `manage_options` to read, so for Editors,
 	// Authors and Contributors it never loads. They read the copy PHP
@@ -301,17 +301,19 @@ export default function AnimationOptionsMenu( {
 				cached: savedAnimations,
 				fetchLibrary: () =>
 					apiFetch( {
-						path: '/wp/v2/settings?_fields=mb_saved_animations',
-					} ).then( ( res ) => res && res.mb_saved_animations ),
+						path: '/wp/v2/settings?_fields=motion_blocks_saved_animations',
+					} ).then(
+						( res ) => res && res.motion_blocks_saved_animations
+					),
 				saveLibrary: ( next ) =>
 					saveEntityRecord(
 						'root',
 						'site',
-						{ mb_saved_animations: next },
+						{ motion_blocks_saved_animations: next },
 						{ throwOnError: true }
 					).then( ( record ) => {
 						lastSavedLibrary.current =
-							record?.mb_saved_animations ?? null;
+							record?.motion_blocks_saved_animations ?? null;
 					} ),
 			},
 			change

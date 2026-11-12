@@ -30,7 +30,7 @@
  * Steps 3 and 4 still run: the editor loads its CSS on every post.
  *
  * The self-check scripts only load for a logged-in user while the
- * `mb_debug_markers` option (Settings → Motion Blocks → Self-check) is
+ * `motion_blocks_debug_markers` option (Settings → Motion Blocks → Self-check) is
  * on, so the runner logs in first.
  *
  * Usage:

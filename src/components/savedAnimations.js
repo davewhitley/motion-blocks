@@ -200,7 +200,15 @@ async function applyLibraryChange(
 	let current = cached || {};
 	try {
 		const fresh = await fetchLibrary();
-		if ( fresh && typeof fresh === 'object' && ! Array.isArray( fresh ) ) {
+		if ( Array.isArray( fresh ) ) {
+			// An empty library comes back from the settings endpoint
+			// as `[]`. It is a real answer, not a failed read: starting
+			// from the cached copy would bring back entries someone
+			// else just deleted (GH #131).
+			if ( fresh.length === 0 ) {
+				current = {};
+			}
+		} else if ( fresh && typeof fresh === 'object' ) {
 			current = fresh;
 		}
 	} catch ( e ) {
@@ -209,4 +217,55 @@ async function applyLibraryChange(
 	const next = change( { ...current } );
 	await saveLibrary( next );
 	return next;
+}
+
+/**
+ * What the server kept of an entry that was just saved (GH #131).
+ *
+ * The library sanitizer can drop an entry (the library is full) or a
+ * value (too long, or not valid for its property). The save still
+ * succeeds, so compare what came back with what was sent.
+ *
+ * @param {Object} sent   The entry that was sent: `{ attributes }`.
+ * @param {Object} stored The same entry in the server's response.
+ * @return {'ok'|'missing'|'changed'} How the stored entry compares.
+ */
+export function compareSavedEntry( sent, stored ) {
+	if ( ! stored || typeof stored !== 'object' ) {
+		return 'missing';
+	}
+	const kept = stored.attributes || {};
+	const same = ( a, b ) =>
+		typeof a === 'string' && typeof b === 'string'
+			? a.trim() === b.trim()
+			: a === b || ( a === null && b === undefined );
+	for ( const [ key, value ] of Object.entries( sent?.attributes || {} ) ) {
+		if ( ! same( value, kept[ key ] ) ) {
+			return 'changed';
+		}
+	}
+	return 'ok';
+}
+
+/**
+ * A library entry's attributes on top of the new-block defaults, so
+ * applying it replaces the block's animation instead of mixing into it
+ * (GH #131). Entries saved from the panel carry every key already;
+ * theme.json entries usually list only the keys they care about, and
+ * the rest used to keep whatever the block had (a leftover Exit or
+ * Stagger, or the registered 0.4s delay on a never-animated block).
+ *
+ * @param {Object} attributes The entry's attributes.
+ * @param {Object} defaults   DEFAULT_ATTRIBUTES.
+ * @param {Array}  skip       Keys that aren't animation settings.
+ * @return {Object} Full attribute payload.
+ */
+export function completeSavedAttributes( attributes, defaults, skip = [] ) {
+	const out = {};
+	for ( const key of Object.keys( defaults ) ) {
+		if ( ! skip.includes( key ) ) {
+			out[ key ] = defaults[ key ];
+		}
+	}
+	return { ...out, ...attributes };
 }

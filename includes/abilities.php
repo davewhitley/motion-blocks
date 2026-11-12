@@ -421,18 +421,6 @@ function motion_blocks_ability_save_animation( $input ) {
     if ( $converted['errors'] ) {
         return motion_blocks_recipe_error( $converted['errors'] );
     }
-    // The library keeps strings up to 200 characters (see
-    // motion_blocks_scrub_recipe_string()); say so instead of storing a
-    // truncated, broken value.
-    $too_long = array();
-    foreach ( $converted['attributes'] as $key => $value ) {
-        if ( is_string( $value ) && strlen( $value ) > 200 ) {
-            $too_long[] = array( 'path' => '', 'message' => $key . ' is longer than the saved library allows (200 characters). Use a shorter easing or clip-path, or set it on the block with set-animations instead.' );
-        }
-    }
-    if ( $too_long ) {
-        return motion_blocks_recipe_error( $too_long );
-    }
     $library = get_option( 'mb_saved_animations', array() );
     $library = is_array( $library ) ? $library : array();
     do {

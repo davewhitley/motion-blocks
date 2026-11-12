@@ -220,6 +220,80 @@ async function applyLibraryChange(
 }
 
 /**
+ * Whether the animations on a set of blocks differ (GH #132). A block
+ * with no animation differs from an animated one; two un-animated
+ * blocks never differ, whatever is left in their other settings.
+ *
+ * @param {Object[]} attributeSets Each block's attributes.
+ * @return {boolean} True when at least two differ.
+ */
+export function selectionHasMixedAnimations( attributeSets ) {
+	const signature = ( attributes ) =>
+		attributes?.animationMode
+			? JSON.stringify(
+					stripUiState( pickAnimationAttributes( attributes ) )
+			  )
+			: '';
+	const first = signature( attributeSets[ 0 ] );
+	return attributeSets.some(
+		( attributes ) => signature( attributes ) !== first
+	);
+}
+
+/**
+ * Carry a block's animation across a one-to-one transform (Paragraph
+ * to Heading, Heading to List…). Core transforms that name the
+ * attributes they keep drop ours; ones that copy everything keep them,
+ * so the loss was inconsistent (GH #132).
+ *
+ * @param {Object}   result       The transformed block.
+ * @param {Object|Object[]} sources The block or blocks being transformed.
+ * @param {number}   resultCount  How many blocks the transform makes.
+ * @param {Function} canAnimate   Whether a block type can be animated.
+ * @param {Function} adapt        adaptAnimationToBlock.
+ * @return {Object} `result`, with the animation when it applies.
+ */
+export function keepAnimationOnTransform(
+	result,
+	sources,
+	resultCount,
+	canAnimate,
+	adapt
+) {
+	// Core passes whatever the caller gave switchToBlockType: one
+	// block or an array of them.
+	if ( sources && ! Array.isArray( sources ) ) {
+		sources = [ sources ];
+	}
+	const source = sources?.[ 0 ];
+	const carries = ( block ) =>
+		!! block?.attributes?.animationMode ||
+		( block?.innerBlocks || [] ).some( carries );
+	if (
+		sources?.length !== 1 ||
+		resultCount !== 1 ||
+		! source?.attributes?.animationMode ||
+		! result ||
+		! canAnimate( result.name ) ||
+		// Already there: the transform copied every attribute, or
+		// wrapped the block (the animation stays on the inner block).
+		carries( result )
+	) {
+		return result;
+	}
+	return {
+		...result,
+		attributes: {
+			...result.attributes,
+			...adapt(
+				stripUiState( pickAnimationAttributes( source.attributes ) ),
+				result.name
+			),
+		},
+	};
+}
+
+/**
  * What the server kept of an entry that was just saved (GH #131).
  *
  * The library sanitizer can drop an entry (the library is full) or a

@@ -6,7 +6,7 @@
  */
 import SHARED from '../../shared-constants.json';
 import { __ } from '@wordpress/i18n';
-import { isValidFromToValue } from '../css-values';
+import { isValidFromToValue, BARE_NUMBER } from '../css-values';
 import { EFFECT_LABELS, EXIT_EFFECT_LABELS, DIRECTION_LABELS } from './labels';
 
 /**
@@ -1987,7 +1987,7 @@ export function coerceWithUnit( value, unit ) {
 		return value;
 	}
 	const str = String( value ).trim();
-	if ( /^-?\d+(\.\d+)?$/.test( str ) ) {
+	if ( BARE_NUMBER.test( str ) ) {
 		return str + unit;
 	}
 	return value;

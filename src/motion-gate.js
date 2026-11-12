@@ -95,15 +95,23 @@ export function currentDevice( matchMedia, queries ) {
 }
 
 /**
- * The buckets disabled for this page, from the `mb-disabled-{device}`
- * body classes (motion_blocks_body_class()).
+ * The buckets disabled for this page: the list PHP printed
+ * (window.motionBlocksDisabledDevices, the same list the head script
+ * gets) plus the `mb-disabled-{device}` body classes
+ * (motion_blocks_body_class()). The classes alone were not enough: a
+ * theme that doesn't call body_class() has none, and the runtime then
+ * turned motion back on for a device the author switched off (GH #141).
  *
- * @param {Element} body Document body.
+ * @param {Element}  body      Document body.
+ * @param {string[]} [printed] The list PHP printed, when there is one.
  * @return {string[]} Disabled buckets.
  */
-export function disabledDevicesFrom( body ) {
-	return DEVICES.filter( ( device ) =>
-		body.classList.contains( 'mb-disabled-' + device )
+export function disabledDevicesFrom( body, printed ) {
+	const list = Array.isArray( printed ) ? printed : [];
+	return DEVICES.filter(
+		( device ) =>
+			list.indexOf( device ) !== -1 ||
+			( !! body && body.classList.contains( 'mb-disabled-' + device ) )
 	);
 }
 
@@ -141,7 +149,14 @@ export function startMotionGate( win ) {
 	const sync = () => {
 		doc.documentElement.classList.toggle(
 			MOTION_CLASS,
-			motionWanted( win, disabledDevicesFrom( doc.body ), queries )
+			motionWanted(
+				win,
+				disabledDevicesFrom(
+					doc.body,
+					win.motionBlocksDisabledDevices
+				),
+				queries
+			)
 		);
 	};
 	sync();

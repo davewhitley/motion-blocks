@@ -1071,14 +1071,16 @@
 		.mb-enter-slide-out,
 		.mb-enter-scale-out,
 		.mb-enter-blur-out,
-		.mb-enter-rotate-out
+		.mb-enter-rotate-out,
+		.mb-enter-curtain-out
 	).mb-mode-page-load:not(.mb-triggered) > :where(:not(.wp-block-group__inner-container, .wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)),
 :where(html.mb-motion) .mb-stagger-parent:is(
 		.mb-enter-fade-out,
 		.mb-enter-slide-out,
 		.mb-enter-scale-out,
 		.mb-enter-blur-out,
-		.mb-enter-rotate-out
+		.mb-enter-rotate-out,
+		.mb-enter-curtain-out
 	).mb-mode-page-load:not(.mb-triggered) > :where(.wp-block-group__inner-container) > :where(:not(.wp-block-spacer, [data-type="core/spacer"], .mb-stagger-parent)) {
 	opacity: 1;
 }

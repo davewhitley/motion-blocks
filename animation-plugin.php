@@ -513,6 +513,14 @@ function motion_blocks_enqueue_frontend_assets() {
             motion_blocks_device_queries_script(),
             'before'
         );
+        // The devices this page has animations off for, as the head
+        // script gets them. frontend.js used to read them from the body
+        // classes only, which a theme without body_class() never prints.
+        wp_add_inline_script(
+            'motion-blocks-frontend',
+            'window.motionBlocksDisabledDevices = ' . wp_json_encode( motion_blocks_disabled_devices() ) . ';',
+            'before'
+        );
 
         // Opt-in trigger lines (GH #86): two lines showing where
         // Scroll Appear blocks start and stop. Only for users who can

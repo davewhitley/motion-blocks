@@ -60,7 +60,7 @@
                         "horizontal",
                         "vertical"
                     ],
-                    "description": "The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional; each effect has a sensible default."
+                    "description": "The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional: left out, an effect uses its default direction, and an `exit` uses the opposite one, so it moves the same way as a default `entry`."
                 },
                 "duration": {
                     "type": "number",
@@ -247,7 +247,7 @@
                         "horizontal",
                         "vertical"
                     ],
-                    "description": "The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional; each effect has a sensible default."
+                    "description": "The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional: left out, an effect uses its default direction, and an `exit` uses the opposite one, so it moves the same way as a default `entry`."
                 },
                 "duration": {
                     "type": "number",
@@ -443,7 +443,7 @@
                         "horizontal",
                         "vertical"
                     ],
-                    "description": "The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional; each effect has a sensible default."
+                    "description": "The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional: left out, an effect uses its default direction, and an `exit` uses the opposite one, so it moves the same way as a default `entry`."
                 },
                 "duration": {
                     "type": "number",

@@ -41,7 +41,7 @@ Inside `effect`, `entry` and `exit`. Only `type` is required.
 | Field | Values | What it means |
 |---|---|---|
 | `type` | see Effects | Effect. What each one looks like, its directions and options: the `catalog` from get-effects, or schema/README.md. "custom" uses `from` / `to`; "image-move" and "image-zoom" only work on a Cover with an image background. |
-| `direction` | see Effects | The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional; each effect has a sensible default. |
+| `direction` | see Effects | The way the block moves: btt (bottom to top), ttb, ltr, rtl; horizontal / vertical for curtain. A Scroll Appear `exit` plays its effect backward, so there the block moves the opposite way (btt moves down). Optional: left out, an effect uses its default direction, and an `exit` uses the opposite one, so it moves the same way as a default `entry`. |
 | `duration` | number, 0.05 to 60 | Seconds. Default 0.6. |
 | `delay` | number, 0 to 60 | Seconds before it starts. Default 0. |
 | `easing` | string | ease, linear, ease-in, ease-out, ease-in-out, spring, bouncy, snappy, or any CSS cubic-bezier() / steps() / linear() function. Default ease; linear for scroll-interactive image-move, image-zoom and custom. |

@@ -602,6 +602,16 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 	$blank = wp_get_ability( 'motion-blocks/save-animation' )->execute( array( 'name' => ' ', 'recipe' => array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) ) ) );
 	mb_recipe_check( is_wp_error( $blank ) && 'motion_blocks_no_name' === $blank->get_error_code(), 'save-animation refuses a name that is empty once cleaned' );
 
+	// GH #142.
+	mb_recipe_check( '0.6' === motion_blocks_number_string( 0.6 ) && '1' === motion_blocks_number_string( 1.0 ) && '0' === motion_blocks_number_string( 0 ) && '0.05' === motion_blocks_number_string( '0.05' ) && '' === motion_blocks_number_string( 'abc' ), 'numbers are written with a dot, whatever the locale' );
+	mb_recipe_check( 'fade' === motion_blocks_effect_slug( 'fade' ) && '' === motion_blocks_effect_slug( 'fade evil-class' ) && '' === motion_blocks_effect_slug( array( 'a' ) ) && '' === motion_blocks_effect_slug( false ), 'an effect name that is not a plain slug counts as no effect' );
+	$plain = '<p>Hello</p>';
+	mb_recipe_check( $plain === motion_blocks_render_block( $plain, array( 'blockName' => 'core/paragraph', 'attrs' => array( 'animationMode' => array( 'a' ), 'animationType' => 'fade' ) ) ) && $plain === motion_blocks_render_block( $plain, array( 'blockName' => 'core/paragraph', 'attrs' => array( 'animationMode' => 'made-up', 'animationType' => 'fade' ) ) ), 'an unknown animation mode gets no markup' );
+	$ct_attrs = array( 'animationMode' => 'page-load', 'animationType' => 'slide' );
+	$ct_list  = motion_blocks_render_block( '<ol class="wp-block-comment-template"><li>One</li></ol>', array( 'blockName' => 'core/comment-template', 'attrs' => $ct_attrs ) );
+	$ct_inner = '<div class="wp-block-columns">A comment</div>';
+	mb_recipe_check( false !== strpos( $ct_list, 'mb-animated' ) && $ct_inner === motion_blocks_render_block( $ct_inner, array( 'blockName' => 'core/comment-template', 'attrs' => $ct_attrs ) ), 'an animated Comment Template animates its list, not each comment\'s first block' );
+
 	// Permissions.
 	wp_set_current_user( 0 );
 	$denied = wp_get_ability( 'motion-blocks/set-animations' )->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => null ) ) ) );

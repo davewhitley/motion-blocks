@@ -1049,7 +1049,11 @@ export function computeAutoAnimatePlan( topLevelBlocks, options = {} ) {
 		// leaving a gap in a sequence. A Spacer still counts as chrome
 		// in the summary.
 		if ( ! canAnimateBlock( name ) ) {
-			( category === 'CHROME' ? skipChrome : skipBody ).push( block );
+			if ( category === 'BROKEN' ) {
+				skipBroken.push( block );
+			} else {
+				( category === 'CHROME' ? skipChrome : skipBody ).push( block );
+			}
 			return;
 		}
 		// A slot in the enclosing sequence (a Cover's content), taken

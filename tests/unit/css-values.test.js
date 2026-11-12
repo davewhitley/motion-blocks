@@ -87,3 +87,35 @@ describe( 'buildKeyframeSide drops invalid values', () => {
 		expect( buildKeyframeSide( { opacity: '1; x: y' } ) ).toBeNull();
 	} );
 } );
+
+// GH #142.
+describe( 'values from outside the panel', () => {
+	const {
+		normalizeCustomFromToAttrs,
+		attrsToBag,
+		getPresetFromTo,
+		FROM_ATTR,
+	} = require( '../../src/components/constants' );
+
+	it( 'gives a bare Move X / Move Y number its px', () => {
+		const out = normalizeCustomFromToAttrs( {
+			animationEntryFromTranslateY: 40,
+			animationFromTranslateX: '12',
+			animationFromOpacity: 0,
+			animationFromScale: 1.2,
+		} );
+		expect( out.animationEntryFromTranslateY ).toBe( '40px' );
+		expect( out.animationFromTranslateX ).toBe( '12px' );
+		// Unitless properties stay numbers.
+		expect( out.animationFromOpacity ).toBe( 0 );
+		expect( out.animationFromScale ).toBe( 1.2 );
+		expect(
+			attrsToBag( { animationFromTranslateY: 40 }, FROM_ATTR ).translateY
+		).toBe( '40px' );
+	} );
+
+	it( 'customizes a Flip with no direction the way it plays (right to left)', () => {
+		expect( getPresetFromTo( 'flip', '' ).from.rotateY ).toBe( 90 );
+		expect( getPresetFromTo( 'flip', 'ltr' ).from.rotateY ).toBe( -90 );
+	} );
+} );

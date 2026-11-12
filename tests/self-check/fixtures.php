@@ -478,7 +478,7 @@ function mb_self_check_fixtures( $image ) {
 	$cover_zoom = array(
 		'animationMode'     => 'page-load',
 		'animationType'     => 'image-zoom',
-		'animationRepeat'   => 'loop',
+		'animationLoop'   => 'loop',
 		'animationDuration' => 3,
 		'animationDelay'    => 0,
 	);
@@ -787,7 +787,7 @@ function mb_self_check_fixtures( $image ) {
 		'nav-settle'          => array(
 			'title'   => 'Navigation menus settle',
 			'note'    => 'For testing by hand (GH #20, PR #81). Nine Navigation blocks; all but the last have Overlay Menu "Always", so they show a hamburger at any width, and one of them sits inside an animated Group. Each is labelled above it: green labels should settle, pink labels are the known remainder. In the editor, selecting a pink nav shows a "May break the menu overlay" warning at the top of Motion Effects with the fix to make (the pink Group says "This block has a menu inside"); green navs, the nav inside the Group and the "Overlay Menu: Never" nav show no such warning. Load the page, wait about 2 seconds, then scroll each nav to the middle of the window and click its hamburger (close it before the next one). A Replay "Repeat" nav resets when it leaves the middle band of the screen, and only traps the overlay while it sits there. GREEN (Page Load Slide, Flip, Blur, Wipe, and Scroll Appear Entry Slide Replay "Once" with no Exit): the menu overlay must cover the whole window, and the <nav> has the class mb-settled. PINK (Scroll Appear Entry Replay "Repeat", and Entry "Once" with an Exit): these can animate again, so they keep their finished animation by design; their overlay stays inside the nav box, or clipped to it, and there is no mb-settled. With reduced motion on, every overlay covers the whole window and nothing settles (nothing animates).',
-			'content' => mb_self_check_paragraph( 'Settles · Page Load · Slide up (Repeat: Once)', array(), MB_SELF_CHECK_COLORS['paragraph'] )
+			'content' => mb_self_check_paragraph( 'Settles · Page Load · Slide up (Loop: Off)', array(), MB_SELF_CHECK_COLORS['paragraph'] )
 				. mb_self_check_nav(
 					array(
 						'animationMode'      => 'page-load',
@@ -866,7 +866,7 @@ function mb_self_check_fixtures( $image ) {
 						'animationEntryReplay'   => 'repeat',
 					)
 				)
-				. mb_self_check_paragraph( 'No warning · Page Load · Slide (Repeat: Loop) · Overlay Menu: Never (no hamburger, links always shown)' )
+				. mb_self_check_paragraph( 'No warning · Page Load · Slide (Loop: Loop continuously) · Overlay Menu: Never (no hamburger, links always shown)' )
 				. mb_self_check_nav(
 					array(
 						'overlayMenu'        => 'never',
@@ -875,7 +875,7 @@ function mb_self_check_fixtures( $image ) {
 						'animationDirection' => 'btt',
 						'animationDuration'  => 0.6,
 						'animationDelay'     => 0,
-						'animationRepeat'    => 'loop',
+						'animationLoop'    => 'loop',
 					)
 				)
 				. mb_self_check_spacer( 600 ),
@@ -1290,12 +1290,12 @@ function mb_self_check_smoke( $image ) {
 	}
 	foreach ( array( 'loop', 'alternate' ) as $repeat ) {
 		$inner .= mb_self_check_paragraph(
-			$label( array( 'Page Load', 'fade', "Repeat: {$repeat}" ) ),
+			$label( array( 'Page Load', 'fade', "Loop: {$repeat}" ) ),
 			array(
 				'animationMode'   => 'page-load',
 				'animationType'   => 'fade',
 				'animationDelay'  => 0,
-				'animationRepeat' => $repeat,
+				'animationLoop' => $repeat,
 			),
 			$colors['page-load']
 		);
@@ -1351,7 +1351,7 @@ function mb_self_check_smoke( $image ) {
 		array( 'Exit delay 1s', array( 'animationEntryReplay' => 'repeat', 'animationExitType' => 'fade', 'animationExitDelay' => 1 ) ),
 		// GH #45: an Exit slot at its defaults must not inherit the
 		// Entry slot's blur / rotate / timing values.
-		array( 'Entry: blur 20 + linear · Exit: blur at defaults (GH #45)', array( 'animationEntryType' => 'blur', 'animationEntryBlurAmount' => 20, 'animationEntryAcceleration' => 'linear', 'animationEntryReplay' => 'repeat', 'animationExitType' => 'blur' ) ),
+		array( 'Entry: blur 20 + linear · Exit: blur at defaults (GH #45)', array( 'animationEntryType' => 'blur', 'animationEntryBlurAmount' => 20, 'animationEntryEasing' => 'linear', 'animationEntryReplay' => 'repeat', 'animationExitType' => 'blur' ) ),
 		array( 'Entry: rotate 180 · Exit: rotate at defaults (GH #45)', array( 'animationEntryType' => 'rotate', 'animationEntryRotateAngle' => 180, 'animationEntryReplay' => 'repeat', 'animationExitType' => 'rotate' ) ),
 	);
 	foreach ( $replays as list( $text, $extra ) ) {

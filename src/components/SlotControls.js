@@ -2,7 +2,7 @@
  * SlotControls — Per-slot configuration for the Scroll Appear panel.
  *
  * Renders the Effect dropdown, optional direction / blur / rotate
- * sub-controls, and per-slot timing (Duration / Delay / Acceleration)
+ * sub-controls, and per-slot timing (Duration / Delay / Easing)
  * for ONE slot: either Entry or Exit. The parent `ScrollAppearControls`
  * mounts two of these inside its Tabs, one per slot.
  *
@@ -42,13 +42,14 @@ import {
 	slotDirectionOptions,
 	TYPES_WITH_DIRECTION,
 	slotDefaultDirection,
-	ACCELERATION_OPTIONS,
+	EASING_OPTIONS,
 	REPLAY_OPTIONS,
 	BLUR_SETTINGS,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
 	IMAGE_TARGETABLE_BLOCKS,
 	isImageTargetUnavailable,
+	isChosenImageEffectBlocked,
 	customDefaultFromToForSlot,
 	hasAnyCustomFromToSet,
 	presetToSlotFromToAttributes,
@@ -92,8 +93,7 @@ export default function SlotControls( {
 	const animationDirection = attributes[ attrName( 'Direction' ) ] || '';
 	const animationDuration = attributes[ attrName( 'Duration' ) ];
 	const animationDelay = attributes[ attrName( 'Delay' ) ];
-	const animationAcceleration =
-		attributes[ attrName( 'Acceleration' ) ] || 'ease';
+	const animationEasing = attributes[ attrName( 'Easing' ) ] || 'ease';
 	const animationCustomTimingFunction =
 		attributes[ attrName( 'CustomTimingFunction' ) ] || '';
 	const animationBlurAmount = attributes[ attrName( 'BlurAmount' ) ];
@@ -338,19 +338,22 @@ export default function SlotControls( {
 				/>
 			</HStack>
 
-			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
-				isImageTargetUnavailable( blockName, attributes ) && (
-					<Notice
-						status="warning"
-						isDismissible={ false }
-						className="mb-image-effect-unavailable-notice"
-					>
-						{ __(
-							'Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them.',
-							'motion-blocks'
-						) }
-					</Notice>
-				) }
+			{ isChosenImageEffectBlocked(
+				blockName,
+				attributes,
+				animationType
+			) && (
+				<Notice
+					status="warning"
+					isDismissible={ false }
+					className="mb-image-effect-unavailable-notice"
+				>
+					{ __(
+						'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
+						'motion-blocks'
+					) }
+				</Notice>
+			) }
 
 			{ IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
 				animationType &&
@@ -373,7 +376,7 @@ export default function SlotControls( {
 						help={
 							isImageTargetUnavailable( blockName, attributes )
 								? __(
-										'Unavailable while Fixed background or Repeated background is on — see the notice above.',
+										'Unavailable while “Fixed background” or “Repeated background” is on.',
 										'motion-blocks'
 								  )
 								: __(
@@ -528,7 +531,7 @@ export default function SlotControls( {
 
 			{ /* "Timing" section heading — matches the Page Load and
 			   Scroll Interactive panels, grouping Duration / Delay /
-			   Acceleration / Replay under one visual divider. The
+			   Easing / Replay under one visual divider. The
 			   heading's styles (`.mb-section-heading` in editor.scss)
 			   pull it tight against the controls below via negative
 			   margin-bottom. */ }
@@ -578,18 +581,22 @@ export default function SlotControls( {
 			</HStack>
 
 			<SelectControl
-				label={ __( 'Acceleration', 'motion-blocks' ) }
-				value={ animationAcceleration }
-				options={ ACCELERATION_OPTIONS }
+				label={ __( 'Easing', 'motion-blocks' ) }
+				help={ __(
+					'How the speed changes from start to finish.',
+					'motion-blocks'
+				) }
+				value={ animationEasing }
+				options={ EASING_OPTIONS }
 				onChange={ ( value ) =>
 					setAttributes( {
-						[ attrName( 'Acceleration' ) ]: value,
+						[ attrName( 'Easing' ) ]: value,
 					} )
 				}
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
-			{ animationAcceleration === 'custom' && (
+			{ animationEasing === 'custom' && (
 				<TextControl
 					label={ __( 'Custom timing function', 'motion-blocks' ) }
 					value={ animationCustomTimingFunction }

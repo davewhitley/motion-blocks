@@ -100,7 +100,7 @@ return array(
 	),
 	array(
 		'label'    => 'Page Load, Fade, Delay left at 0.4s',
-		'panel'    => 'Page Load: Fade In · Delay 0.4s · Repeat: Once',
+		'panel'    => 'Page Load: Fade In · Delay 0.4s · Loop: Off',
 		'behavior' => 'Fades in 0.4s after the page loads.',
 		'attrs'    => array(
 			'animationMode' => 'page-load',
@@ -108,7 +108,7 @@ return array(
 		'expect'   => array(
 			'data-mb-type'            => 'fade',
 			'data-mb-delay'           => '0.4',
-			'data-mb-repeat'          => 'once',
+			'data-mb-loop'            => 'off',
 			'data-mb-pause-offscreen' => 'true',
 		),
 	),
@@ -324,31 +324,31 @@ return array(
 	// (2026-10-20 review). The editor drops it to the default curve.
 	array(
 		'label'    => 'Page Load, Custom timing function that is not a string',
-		'panel'    => 'Page Load: Fade In · Acceleration: Custom · default curve',
+		'panel'    => 'Page Load: Fade In · Easing: Custom · default curve',
 		'behavior' => 'Fades in with the default custom curve; the page renders.',
 		'attrs'    => array(
 			'animationMode'                 => 'page-load',
-			'animationAcceleration'         => 'custom',
+			'animationEasing'         => 'custom',
 			'animationCustomTimingFunction' => array( 'not', 'a', 'string' ),
 		),
 		'expect'   => array(
 			'data-mb-type'         => 'fade',
-			'data-mb-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+			'data-mb-easing' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
 		),
 	),
 	array(
 		'label'    => 'Scroll Appear, Entry custom timing function that is not a string',
-		'panel'    => 'Entry: Fade In · Acceleration: Custom · default curve',
+		'panel'    => 'Entry: Fade In · Easing: Custom · default curve',
 		'behavior' => 'Fades in with the default custom curve; the page renders.',
 		'attrs'    => array(
 			'animationMode'                      => 'scroll-appear',
 			'animationEntryType'                 => 'fade',
-			'animationEntryAcceleration'         => 'custom',
+			'animationEntryEasing'         => 'custom',
 			'animationEntryCustomTimingFunction' => 42,
 		),
 		'expect'   => array(
 			'data-mb-entry-type'         => 'fade',
-			'data-mb-entry-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+			'data-mb-entry-easing' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
 		),
 	),
 	// Blocks that can't keep animation settings (nonAnimatableBlocks).
@@ -430,12 +430,12 @@ return array(
 			'data-mb-delay' => '0',
 		),
 	),
-	// Acceleration left at "this effect's default" (GH #109): Custom,
+	// Easing left at "this effect's default" (GH #109): Custom,
 	// Image Move and Image Zoom follow the scroll linearly in Scroll
 	// Interactive; every other effect and mode stays on Ease.
 	array(
-		'label'    => 'Scroll Interactive, Custom, Acceleration left at default',
-		'panel'    => 'Scroll Interactive: Custom · Acceleration: Linear',
+		'label'    => 'Scroll Interactive, Custom, Easing left at default',
+		'panel'    => 'Scroll Interactive: Custom · Easing: Linear',
 		'behavior' => 'Moves in step with the scroll at an even pace.',
 		'attrs'    => array(
 			'animationMode'           => 'scroll-interactive',
@@ -445,28 +445,28 @@ return array(
 		),
 		'expect'   => array(
 			'data-mb-type'         => 'custom',
-			'data-mb-acceleration' => 'linear',
+			'data-mb-easing' => 'linear',
 		),
 	),
 	array(
-		'label'    => 'Scroll Interactive, Custom, Acceleration set to Ease',
-		'panel'    => 'Scroll Interactive: Custom · Acceleration: Ease',
+		'label'    => 'Scroll Interactive, Custom, Easing set to Ease',
+		'panel'    => 'Scroll Interactive: Custom · Easing: Ease',
 		'behavior' => 'Moves in step with the scroll, front-loaded: most of the motion in the first half.',
 		'attrs'    => array(
 			'animationMode'           => 'scroll-interactive',
 			'animationType'           => 'custom',
-			'animationAcceleration'   => 'ease',
+			'animationEasing'   => 'ease',
 			'animationFromTranslateX' => '0px',
 			'animationToTranslateX'   => '120px',
 		),
 		'expect'   => array(
 			'data-mb-type'         => 'custom',
-			'data-mb-acceleration' => null,
+			'data-mb-easing' => null,
 		),
 	),
 	array(
-		'label'    => 'Scroll Interactive, Fade, Acceleration left at default',
-		'panel'    => 'Scroll Interactive: Fade In · Acceleration: Ease',
+		'label'    => 'Scroll Interactive, Fade, Easing left at default',
+		'panel'    => 'Scroll Interactive: Fade In · Easing: Ease',
 		'behavior' => 'Fades in with the scroll, mostly visible by the middle of the screen.',
 		'attrs'    => array(
 			'animationMode' => 'scroll-interactive',
@@ -474,12 +474,12 @@ return array(
 		),
 		'expect'   => array(
 			'data-mb-type'         => 'fade',
-			'data-mb-acceleration' => null,
+			'data-mb-easing' => null,
 		),
 	),
 	array(
-		'label'    => 'Page Load, Custom, Acceleration left at default',
-		'panel'    => 'Page Load: Custom · Acceleration: Ease',
+		'label'    => 'Page Load, Custom, Easing left at default',
+		'panel'    => 'Page Load: Custom · Easing: Ease',
 		'behavior' => 'Slides right once on load, easing in and out.',
 		'attrs'    => array(
 			'animationMode'           => 'page-load',
@@ -490,7 +490,7 @@ return array(
 		),
 		'expect'   => array(
 			'data-mb-type'         => 'custom',
-			'data-mb-acceleration' => null,
+			'data-mb-easing' => null,
 		),
 	),
 	// Legacy (pre-slot) Scroll Appear with trigger = exit: only the
@@ -513,16 +513,16 @@ return array(
 	),
 	array(
 		'label'    => 'Page Load, Custom timing function left empty',
-		'panel'    => 'Page Load: Fade In · Acceleration: Custom · default curve',
+		'panel'    => 'Page Load: Fade In · Easing: Custom · default curve',
 		'behavior' => 'Fades in with the default custom curve.',
 		'attrs'    => array(
 			'animationMode'                 => 'page-load',
-			'animationAcceleration'         => 'custom',
+			'animationEasing'         => 'custom',
 			'animationCustomTimingFunction' => '',
 		),
 		'expect'   => array(
 			'data-mb-type'         => 'fade',
-			'data-mb-acceleration' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+			'data-mb-easing' => 'cubic-bezier(0.25, 0.1, 0.25, 1)',
 		),
 	),
 	// Custom From / To values: bare numbers are emitted as saved (the
@@ -592,7 +592,7 @@ return array(
 	),
 	array(
 		'label'    => 'Cover, Scroll Interactive Image Zoom',
-		'panel'    => 'Scroll Interactive: Image Zoom · Acceleration: Linear',
+		'panel'    => 'Scroll Interactive: Image Zoom · Easing: Linear',
 		'behavior' => 'The background image zooms in step with the scroll; the text stays put.',
 		'block'    => 'core/cover',
 		'attrs'    => array(
@@ -603,7 +603,7 @@ return array(
 			'class'                => array( 'mb-animated', 'mb-mode-scroll-interactive', 'mb-enter-image-zoom' ),
 			'data-mb-type'         => 'image-zoom',
 			'data-mb-target'       => 'img',
-			'data-mb-acceleration' => 'linear',
+			'data-mb-easing' => 'linear',
 		),
 	),
 	array(

@@ -271,7 +271,7 @@ describe( 'effectBlocker', () => {
 } );
 
 describe( 'settleBlockers', () => {
-	const PL = { mode: 'page-load', type: 'fade', repeat: 'once' };
+	const PL = { mode: 'page-load', type: 'fade', loop: 'off' };
 	const SA = {
 		mode: 'scroll-appear',
 		entryType: 'slide',
@@ -293,13 +293,8 @@ describe( 'settleBlockers', () => {
 
 	it.each( [
 		[ 'Page Load once, fade', PL, {}, [] ],
-		[ 'Page Load loop', { ...PL, repeat: 'loop' }, {}, [ 'loop' ] ],
-		[
-			'Page Load alternate',
-			{ ...PL, repeat: 'alternate' },
-			{},
-			[ 'loop' ],
-		],
+		[ 'Page Load loop', { ...PL, loop: 'loop' }, {}, [ 'loop' ] ],
+		[ 'Page Load alternate', { ...PL, loop: 'alternate' }, {}, [ 'loop' ] ],
 		[
 			'Page Load fade-out',
 			{ ...PL, type: 'fade-out' },
@@ -308,7 +303,7 @@ describe( 'settleBlockers', () => {
 		],
 		[
 			'Page Load loop + fade-out',
-			{ ...PL, repeat: 'loop', type: 'fade-out' },
+			{ ...PL, loop: 'loop', type: 'fade-out' },
 			{},
 			[ 'loop', 'not-at-rest' ],
 		],
@@ -382,13 +377,13 @@ describe( 'settleBlockers', () => {
 		];
 		for ( const dataset of datasets ) {
 			for ( const type of SHARED.animationTypes ) {
-				for ( const repeat of [ 'once', 'loop', 'alternate' ] ) {
+				for ( const loop of [ 'off', 'loop', 'alternate' ] ) {
 					const settles =
-						isOneShotPageLoad( repeat ) &&
+						isOneShotPageLoad( loop ) &&
 						endsAtRest( type, dataset, 'mbTo' );
 					expect(
 						settleBlockers(
-							{ mode: 'page-load', type, repeat },
+							{ mode: 'page-load', type, loop },
 							dataset
 						).length === 0
 					).toBe( settles );

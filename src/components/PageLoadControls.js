@@ -27,22 +27,23 @@ import {
 	DIRECTION_OPTIONS,
 	TYPES_WITH_DIRECTION,
 	DEFAULT_DIRECTION,
-	ACCELERATION_OPTIONS,
+	EASING_OPTIONS,
 	BLUR_SETTINGS,
-	REPEAT_OPTIONS,
+	LOOP_OPTIONS,
 	LOOP_MIN_DURATION,
-	isLoopingRepeat,
-	repeatChangeAttributes,
+	isLoopingValue,
+	loopChangeAttributes,
 	CUSTOM_DEFAULT_FROM_TO,
 	STAGGER_INCOMPATIBLE_TYPES,
 	IMAGE_EFFECT_TYPES,
 	IMAGE_EFFECT_BLOCKS,
 	IMAGE_TARGETABLE_BLOCKS,
 	isImageTargetUnavailable,
+	isChosenImageEffectBlocked,
 	hasAnyCustomFromToSet,
 	presetToFromToAttributes,
 	editPresetAttributes,
-	defaultAcceleration,
+	defaultEasing,
 } from './constants';
 import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
@@ -87,11 +88,11 @@ export default function PageLoadControls( {
 		animationDirection,
 		animationDuration,
 		animationDelay,
-		animationAcceleration,
+		animationEasing,
 		animationCustomTimingFunction,
 		animationBlurAmount,
 		animationRotateAngle,
-		animationRepeat,
+		animationLoop,
 		animationPauseOffscreen,
 	} = attributes;
 
@@ -141,7 +142,7 @@ export default function PageLoadControls( {
 	} );
 
 	const isCustom = animationType === 'custom';
-	const isLooping = isLoopingRepeat( animationRepeat );
+	const isLooping = isLoopingValue( animationLoop );
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = DIRECTION_OPTIONS[ animationType ] || [];
 
@@ -309,19 +310,22 @@ export default function PageLoadControls( {
 				/>
 			</HStack>
 
-			{ IMAGE_EFFECT_BLOCKS.includes( blockName ) &&
-				isImageTargetUnavailable( blockName, attributes ) && (
-					<Notice
-						status="warning"
-						isDismissible={ false }
-						className="mb-image-effect-unavailable-notice"
-					>
-						{ __(
-							'Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them.',
-							'motion-blocks'
-						) }
-					</Notice>
-				) }
+			{ isChosenImageEffectBlocked(
+				blockName,
+				attributes,
+				animationType
+			) && (
+				<Notice
+					status="warning"
+					isDismissible={ false }
+					className="mb-image-effect-unavailable-notice"
+				>
+					{ __(
+						'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
+						'motion-blocks'
+					) }
+				</Notice>
+			) }
 
 			{ IMAGE_TARGETABLE_BLOCKS.includes( blockName ) &&
 				animationType &&
@@ -344,7 +348,7 @@ export default function PageLoadControls( {
 						help={
 							isImageTargetUnavailable( blockName, attributes )
 								? __(
-										'Unavailable while Fixed background or Repeated background is on — see the notice above.',
+										'Unavailable while “Fixed background” or “Repeated background” is on.',
 										'motion-blocks'
 								  )
 								: __(
@@ -546,18 +550,22 @@ export default function PageLoadControls( {
 			</HStack>
 
 			<SelectControl
-				label={ __( 'Acceleration', 'motion-blocks' ) }
+				label={ __( 'Easing', 'motion-blocks' ) }
+				help={ __(
+					'How the speed changes from start to finish.',
+					'motion-blocks'
+				) }
 				value={
-					animationAcceleration ||
-					defaultAcceleration( 'page-load', animationType )
+					animationEasing ||
+					defaultEasing( 'page-load', animationType )
 				}
-				options={ ACCELERATION_OPTIONS }
+				options={ EASING_OPTIONS }
 				onChange={ ( value ) =>
 					// The default stores '': see ScrollInteractiveControls.
 					setAttributes( {
-						animationAcceleration:
+						animationEasing:
 							value ===
-							defaultAcceleration( 'page-load', animationType )
+							defaultEasing( 'page-load', animationType )
 								? ''
 								: value,
 					} )
@@ -565,7 +573,7 @@ export default function PageLoadControls( {
 				__next40pxDefaultSize
 				__nextHasNoMarginBottom
 			/>
-			{ animationAcceleration === 'custom' && (
+			{ animationEasing === 'custom' && (
 				<TextControl
 					label={ __( 'Custom timing function', 'motion-blocks' ) }
 					value={ animationCustomTimingFunction }
@@ -584,12 +592,12 @@ export default function PageLoadControls( {
 			) }
 
 			<SelectControl
-				label={ __( 'Repeat', 'motion-blocks' ) }
-				value={ animationRepeat }
-				options={ REPEAT_OPTIONS }
+				label={ __( 'Loop', 'motion-blocks' ) }
+				value={ animationLoop }
+				options={ LOOP_OPTIONS }
 				onChange={ ( value ) =>
 					setAttributes(
-						repeatChangeAttributes( value, animationDuration )
+						loopChangeAttributes( value, animationDuration )
 					)
 				}
 				help={

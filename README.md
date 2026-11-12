@@ -6,7 +6,7 @@ A WordPress plugin that adds CSS-driven animations to any block in the Site Edit
 
 Each block gets one mode at a time, picked from the **Motion Effects** sub-panel in the block inspector.
 
-- **On page load**. Starts when the page loads. Supports `repeat: once / loop / alternate`. A looping or alternating animation pauses while the block is off-screen when **Pause off-screen** is on (the default); a one-shot animation plays straight away, even on a block below the fold.
+- **On page load**. Starts when the page loads. Supports `loop: off / loop / alternate`. A looping or alternating animation pauses while the block is off-screen when **Pause off-screen** is on (the default); a one-shot animation plays straight away, even on a block below the fold.
 - **Appear on scroll**. Slot-based model. Each block has independent **Entry** and **Exit** slots; either or both can be filled. Triggered by an Intersection Observer.
 - **Interactive scroll**. Animation progress is tied to scroll position via CSS `animation-timeline: view()`. Supports custom range start/end (for example, `entry 20%` to `exit 80%`).
 
@@ -75,8 +75,8 @@ Themes can ship animation recipes at `settings.custom.motionBlocks.savedAnimatio
               "animationMode": "page-load",
               "animationType": "custom",
               "animationDuration": 2,
-              "animationAcceleration": "linear",
-              "animationRepeat": "loop",
+              "animationEasing": "linear",
+              "animationLoop": "loop",
               "animationFromRotate": "0deg",
               "animationToRotate": "360deg"
             }

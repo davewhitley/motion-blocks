@@ -85,18 +85,18 @@ export default function AnimationPanel( {
 	const {
 		animationMode,
 		animationType,
-		animationRepeat,
+		animationLoop,
 		animationPreviewPlaying,
 		animationDuration,
 		animationDelay,
 		animationFromToPreviewSide,
 	} = attributes;
 
-	// Looping is a Page Load concept (`animationRepeat` Loop /
+	// Looping is a Page Load concept (`animationLoop` Loop /
 	// Alternate). Scroll Appear and Scroll Interactive never use it.
 	const isLoopingMode =
 		animationMode === 'page-load' &&
-		( animationRepeat === 'loop' || animationRepeat === 'alternate' );
+		( animationLoop === 'loop' || animationLoop === 'alternate' );
 
 	// Pending state for one-shot previews. The button uses this to
 	// disable itself while the animation is in flight — without it,
@@ -345,7 +345,7 @@ export default function AnimationPanel( {
 			animationDuration: DEFAULT_ATTRIBUTES.animationDuration,
 			animationDelay: DEFAULT_ATTRIBUTES.animationDelay,
 			animationScrollTrigger: DEFAULT_ATTRIBUTES.animationScrollTrigger,
-			animationAcceleration: DEFAULT_ATTRIBUTES.animationAcceleration,
+			animationEasing: DEFAULT_ATTRIBUTES.animationEasing,
 			animationBlurAmount: DEFAULT_ATTRIBUTES.animationBlurAmount,
 			...customFromToDefaults(),
 		};

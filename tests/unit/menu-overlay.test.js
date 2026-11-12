@@ -86,7 +86,7 @@ describe( 'menuOverlayBlockers', () => {
 		expect(
 			menuOverlayBlockers( 'core/navigation', {
 				...PL,
-				animationRepeat: 'loop',
+				animationLoop: 'loop',
 				animationType: 'fade-out',
 			} ).reasons
 		).toEqual( [ 'loop', 'not-at-rest' ] );
@@ -279,13 +279,13 @@ describe( 'menuOverlayBlockers: traps and fixes', () => {
 
 	it( 'opacity-only effects that keep their frame: reasons, but no trap', () => {
 		[
-			{ ...PL, animationType: 'fade', animationRepeat: 'loop' },
-			{ ...PL, animationType: 'fade', animationRepeat: 'alternate' },
+			{ ...PL, animationType: 'fade', animationLoop: 'loop' },
+			{ ...PL, animationType: 'fade', animationLoop: 'alternate' },
 			{ ...PL, animationType: 'fade-out' },
 			{
 				...PL,
 				animationType: 'custom',
-				animationRepeat: 'loop',
+				animationLoop: 'loop',
 				animationFromOpacity: 0,
 				animationToOpacity: 0.5,
 			},
@@ -318,7 +318,7 @@ describe( 'menuOverlayBlockers: traps and fixes', () => {
 		} );
 		expect( r.traps ).toBe( true );
 		expect( r.fixes ).toEqual( [ 'replay', 'exit', 'custom-end' ] );
-		expect( nav( { ...PL, animationRepeat: 'loop' } ).fixes ).toEqual( [
+		expect( nav( { ...PL, animationLoop: 'loop' } ).fixes ).toEqual( [
 			'loop',
 		] );
 	} );
@@ -348,7 +348,7 @@ describe( 'menuOverlayBlockers: traps and fixes', () => {
 	it( '"Animate image only" moves the effect off the wrapper', () => {
 		const r = menuOverlayBlockers( 'core/cover', {
 			...PL,
-			animationRepeat: 'loop',
+			animationLoop: 'loop',
 			animationFromToTarget: 'img',
 		} );
 		expect( r.reasons ).toEqual( [ 'loop' ] );

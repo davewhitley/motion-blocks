@@ -23,7 +23,7 @@
  *     finished, or null when the block can't be settled without
  *     touching a nested animated block.
  *   - `isOneShotPageLoad()` / `isOneShotScrollAppear()`: the block can
- *     never play again (Page Load Repeat Once; Scroll Appear Entry
+ *     never play again (Page Load Loop Off; Scroll Appear Entry
  *     Replay Once with no Exit).
  *
  * The editor's "May break the menu overlay" warning reads the same
@@ -166,11 +166,11 @@ export function endsAtRest( type, dataset, toPrefix ) {
  * Whether a Page Load block plays once and stops, so it can settle.
  * Loop and Alternate run forever.
  *
- * @param {string} repeat data-mb-repeat / animationRepeat.
+ * @param {string} loop data-mb-loop / animationLoop.
  * @return {boolean} True for a one-shot Page Load.
  */
-export function isOneShotPageLoad( repeat ) {
-	return repeat !== 'loop' && repeat !== 'alternate';
+export function isOneShotPageLoad( loop ) {
+	return loop !== 'loop' && loop !== 'alternate';
 }
 
 /**
@@ -228,7 +228,7 @@ export function effectBlocker( type, dataset, toPrefix ) {
  * @param {Object}              config             The block's resolved config.
  * @param {string}              config.mode        Animation mode.
  * @param {string}              config.type        Page Load / Scroll Interactive effect.
- * @param {string}              config.repeat      Page Load Repeat.
+ * @param {string}              config.loop        Page Load Loop.
  * @param {string}              config.entryType   Scroll Appear Entry effect.
  * @param {string}              config.entryReplay Scroll Appear Entry Replay.
  * @param {string}              config.exitType    Scroll Appear Exit effect.
@@ -237,7 +237,7 @@ export function effectBlocker( type, dataset, toPrefix ) {
  * @return {string[]} Blocker ids.
  */
 export function settleBlockers(
-	{ mode, type, repeat, entryType, entryReplay, exitType },
+	{ mode, type, loop, entryType, entryReplay, exitType },
 	dataset
 ) {
 	const found = [];
@@ -254,7 +254,7 @@ export function settleBlockers(
 	} else {
 		if ( mode === 'scroll-interactive' ) {
 			found.push( 'interactive' );
-		} else if ( ! isOneShotPageLoad( repeat ) ) {
+		} else if ( ! isOneShotPageLoad( loop ) ) {
 			found.push( 'loop' );
 		}
 		found.push( effectBlocker( type, dataset, 'mbTo' ) );

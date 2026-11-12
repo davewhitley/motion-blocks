@@ -29,7 +29,7 @@
  *                    "animationToOpacity": 1,
  *                    "animationToTranslateY": "0px",
  *                    "animationDuration": 0.8,
- *                    "animationAcceleration": "ease-out"
+ *                    "animationEasing": "ease-out"
  *                  }
  *                }
  *              }

@@ -1,6 +1,6 @@
 /**
  * Scroll Interactive Image Move, Image Zoom and Custom default to Linear
- * Acceleration, so they follow the scroll evenly; every other effect and
+ * Easing, so they follow the scroll evenly; every other effect and
  * mode defaults to Ease (GH #109). The stored default is '' ("this
  * effect's default"), resolved the same way in JS and PHP.
  *
@@ -14,18 +14,18 @@ import {
 	DEFAULT_ATTRIBUTES,
 	SCHEMA_DEFAULTS,
 	SCROLL_LINEAR_TYPES,
-	defaultAcceleration,
+	defaultEasing,
 	switchModeAttributes,
 } from '../../src/components/constants';
 
 const ROOT = path.resolve( __dirname, '../..' );
 const read = ( file ) => fs.readFileSync( path.join( ROOT, file ), 'utf8' );
 
-describe( 'defaultAcceleration', () => {
+describe( 'defaultEasing', () => {
 	it.each( [ 'image-move', 'image-zoom', 'custom' ] )(
 		'Scroll Interactive %s is linear',
 		( type ) => {
-			expect( defaultAcceleration( 'scroll-interactive', type ) ).toBe(
+			expect( defaultEasing( 'scroll-interactive', type ) ).toBe(
 				'linear'
 			);
 		}
@@ -34,7 +34,7 @@ describe( 'defaultAcceleration', () => {
 	it.each( [ 'fade', 'fade-out', 'slide', 'scale', 'blur', 'rotate' ] )(
 		'Scroll Interactive %s stays ease',
 		( type ) => {
-			expect( defaultAcceleration( 'scroll-interactive', type ) ).toBe(
+			expect( defaultEasing( 'scroll-interactive', type ) ).toBe(
 				'ease'
 			);
 		}
@@ -43,7 +43,7 @@ describe( 'defaultAcceleration', () => {
 	it.each( [ 'image-move', 'image-zoom', 'custom', 'fade' ] )(
 		'Page Load %s stays ease',
 		( type ) => {
-			expect( defaultAcceleration( 'page-load', type ) ).toBe( 'ease' );
+			expect( defaultEasing( 'page-load', type ) ).toBe( 'ease' );
 		}
 	);
 
@@ -54,22 +54,22 @@ describe( 'defaultAcceleration', () => {
 
 describe( 'stored default', () => {
 	it( 'is blank, meaning "this effect\'s default"', () => {
-		expect( SCHEMA_DEFAULTS.animationAcceleration ).toBe( '' );
-		expect( DEFAULT_ATTRIBUTES.animationAcceleration ).toBe( '' );
+		expect( SCHEMA_DEFAULTS.animationEasing ).toBe( '' );
+		expect( DEFAULT_ATTRIBUTES.animationEasing ).toBe( '' );
 	} );
 
 	it( 'Scroll Appear slots keep their own Ease default', () => {
-		expect( SCHEMA_DEFAULTS.animationEntryAcceleration ).toBe( 'ease' );
-		expect( SCHEMA_DEFAULTS.animationExitAcceleration ).toBe( 'ease' );
+		expect( SCHEMA_DEFAULTS.animationEntryEasing ).toBe( 'ease' );
+		expect( SCHEMA_DEFAULTS.animationExitEasing ).toBe( 'ease' );
 	} );
 } );
 
 describe( 'switching out of Scroll Appear', () => {
-	const fromScrollAppear = ( entryAcceleration ) => ( {
+	const fromScrollAppear = ( entryEasing ) => ( {
 		...DEFAULT_ATTRIBUTES,
 		animationMode: 'scroll-appear',
 		animationEntryType: 'fade',
-		animationEntryAcceleration: entryAcceleration,
+		animationEntryEasing: entryEasing,
 	} );
 
 	it( 'an Entry left on Ease comes back as the effect default', () => {
@@ -77,24 +77,24 @@ describe( 'switching out of Scroll Appear', () => {
 			fromScrollAppear( 'ease' ),
 			'scroll-interactive'
 		);
-		expect( out.animationAcceleration ).toBe( '' );
+		expect( out.animationEasing ).toBe( '' );
 	} );
 
-	it( 'any other Entry acceleration carries over', () => {
+	it( 'any other Entry easing carries over', () => {
 		const out = switchModeAttributes(
 			fromScrollAppear( 'ease-out' ),
 			'scroll-interactive'
 		);
-		expect( out.animationAcceleration ).toBe( 'ease-out' );
+		expect( out.animationEasing ).toBe( 'ease-out' );
 	} );
 } );
 
 describe( 'PHP mirrors the same rule', () => {
 	const php = read( 'animation-plugin.php' );
 
-	it( 'motion_blocks_default_acceleration reads scrollLinearTypes', () => {
+	it( 'motion_blocks_default_easing reads scrollLinearTypes', () => {
 		const fn = php.match(
-			/function motion_blocks_default_acceleration\([\s\S]*?\n\}/
+			/function motion_blocks_default_easing\([\s\S]*?\n\}/
 		);
 		expect( fn ).not.toBeNull();
 		expect( fn[ 0 ] ).toContain( "['scrollLinearTypes']" );
@@ -103,12 +103,12 @@ describe( 'PHP mirrors the same rule', () => {
 
 	it( 'the Page Load / Scroll Interactive render resolves a blank value with it', () => {
 		expect( php ).toMatch(
-			/\$acceleration = \$attrs\['animationAcceleration'\] \?\? '';\s*if \( ! is_string\( \$acceleration \) \|\| '' === \$acceleration \) \{\s*\$acceleration = motion_blocks_default_acceleration\( \$mode, \(string\) \$type \);/
+			/\$easing = \$attrs\['animationEasing'\] \?\? '';\s*if \( ! is_string\( \$easing \) \|\| '' === \$easing \) \{\s*\$easing = motion_blocks_default_easing\( \$mode, \(string\) \$type \);/
 		);
 	} );
 
 	it( 'recipe seeds start from the blank default', () => {
-		expect( php ).toMatch( /'animationAcceleration'\s*=> '',/ );
+		expect( php ).toMatch( /'animationEasing'\s*=> '',/ );
 	} );
 } );
 

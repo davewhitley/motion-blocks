@@ -230,6 +230,28 @@ export function isImageTargetUnavailable( blockName, attributes ) {
 }
 
 /**
+ * Is the effect this block is set to one that can't play right now,
+ * because the Cover has no <img> to animate? True for an image effect
+ * (Image Move, Image Zoom) and for "Animate image only". The panels
+ * show their warning only then: a Cover whose chosen effect works
+ * doesn't need one (GH #137).
+ *
+ * @param {string} blockName  Block name.
+ * @param {Object} attributes Block attributes.
+ * @param {string} type       The effect chosen in this panel or slot.
+ * @return {boolean} True when the chosen effect is blocked.
+ */
+export function isChosenImageEffectBlocked( blockName, attributes, type ) {
+	if ( ! isImageTargetUnavailable( blockName, attributes ) ) {
+		return false;
+	}
+	return (
+		IMAGE_EFFECT_TYPES.includes( type ) ||
+		( !! type && attributes.animationFromToTarget === 'img' )
+	);
+}
+
+/**
  * Whether stagger can cascade for a block's current animation config.
  *
  * Centralized to avoid the four-way drift that existed before — the
@@ -608,7 +630,7 @@ export function migrateScrollAppearAttrs( attrs ) {
 	const duration =
 		attrs.animationDuration ?? SCHEMA_DEFAULTS.animationDuration;
 	const delay = attrs.animationDelay ?? SCHEMA_DEFAULTS.animationDelay;
-	const acceleration = attrs.animationAcceleration || 'ease';
+	const easing = attrs.animationEasing || 'ease';
 	const customTiming =
 		attrs.animationCustomTimingFunction ??
 		SCHEMA_DEFAULTS.animationCustomTimingFunction;
@@ -634,7 +656,7 @@ export function migrateScrollAppearAttrs( attrs ) {
 		out[ `animation${ prefix }Direction` ] = direction;
 		out[ `animation${ prefix }Duration` ] = duration;
 		out[ `animation${ prefix }Delay` ] = prefix === 'Exit' ? 0 : delay;
-		out[ `animation${ prefix }Acceleration` ] = acceleration;
+		out[ `animation${ prefix }Easing` ] = easing;
 		out[ `animation${ prefix }CustomTimingFunction` ] = customTiming;
 		out[ `animation${ prefix }BlurAmount` ] = blur;
 		out[ `animation${ prefix }RotateAngle` ] = rotate;
@@ -746,7 +768,7 @@ export function materializeScrollAppearPatch( attrs, patch ) {
 }
 
 /**
- * Acceleration (timing function) options.
+ * Easing (timing function) options.
  *
  * `custom` is a sentinel: when the user picks it, the runtime reads
  * `animationCustomTimingFunction` (or the exit equivalent) instead of
@@ -766,7 +788,7 @@ const LINEAR_SPRING = SHARED.easingPresets.spring;
 const LINEAR_SPRING_BOUNCY = SHARED.easingPresets.bouncy;
 const LINEAR_SPRING_SNAPPY = SHARED.easingPresets.snappy;
 
-export const ACCELERATION_OPTIONS = [
+export const EASING_OPTIONS = [
 	{ label: __( 'Ease', 'motion-blocks' ), value: 'ease' },
 	{ label: __( 'Linear', 'motion-blocks' ), value: 'linear' },
 	{ label: __( 'Ease In', 'motion-blocks' ), value: 'ease-in' },
@@ -786,13 +808,13 @@ export const ACCELERATION_OPTIONS = [
 
 /**
  * Default custom timing function — a sensible cubic-bezier the user
- * can edit when they pick "Custom" in the acceleration dropdown.
+ * can edit when they pick "Custom" in the easing dropdown.
  */
 export const DEFAULT_CUSTOM_TIMING_FUNCTION =
 	'cubic-bezier(0.25, 0.1, 0.25, 1)';
 
 /**
- * Resolve an acceleration attribute value to an actual CSS timing
+ * Resolve an easing attribute value to an actual CSS timing
  * function. Used by the editor preview HOC and the frontend script.
  */
 /**
@@ -805,32 +827,32 @@ export const DEFAULT_CUSTOM_TIMING_FUNCTION =
 export const SCROLL_LINEAR_TYPES = SHARED.scrollLinearTypes;
 
 /**
- * The Acceleration a block gets when it has none stored. The schema
+ * The Easing a block gets when it has none stored. The schema
  * default is '' ("this effect's default"), so a block that never set
  * one follows its mode and effect, and an explicit Ease still sticks.
- * PHP's motion_blocks_default_acceleration() mirrors this.
+ * PHP's motion_blocks_default_easing() mirrors this.
  *
  * @param {string} mode Animation mode.
  * @param {string} type Effect type.
  * @return {string} 'linear' or 'ease'.
  */
-export function defaultAcceleration( mode, type ) {
+export function defaultEasing( mode, type ) {
 	return mode === 'scroll-interactive' && SCROLL_LINEAR_TYPES.includes( type )
 		? 'linear'
 		: 'ease';
 }
 
-export function resolveTimingFunction( acceleration, customValue ) {
-	if ( acceleration === 'custom' ) {
+export function resolveTimingFunction( easing, customValue ) {
+	if ( easing === 'custom' ) {
 		return customValue && customValue.trim()
 			? customValue
 			: DEFAULT_CUSTOM_TIMING_FUNCTION;
 	}
-	return acceleration || 'ease';
+	return easing || 'ease';
 }
 
 /**
- * Repeat options (page-load only).
+ * Loop options (page-load only).
  */
 /**
  * The shortest Duration a looping Page Load animation can have. A loop
@@ -841,33 +863,33 @@ export function resolveTimingFunction( acceleration, customValue ) {
 export const LOOP_MIN_DURATION = 0.35;
 
 /**
- * Is this Repeat value one that never stops?
+ * Is this Loop value one that never stops?
  *
- * @param {string} repeat Page Load Repeat value.
+ * @param {string} loop Page Load Loop value.
  * @return {boolean} True for Loop continuously and Back and forth.
  */
-export function isLoopingRepeat( repeat ) {
-	return repeat === 'loop' || repeat === 'alternate';
+export function isLoopingValue( loop ) {
+	return loop === 'loop' || loop === 'alternate';
 }
 
 /**
- * The attributes to set when Repeat changes: the new value, plus a
+ * The attributes to set when Loop changes: the new value, plus a
  * Duration raised to the loop minimum when the new value loops.
  *
- * @param {string} repeat   New Repeat value.
+ * @param {string} loop     New Loop value.
  * @param {number} duration Current Duration in seconds.
  * @return {Object} Attributes to set.
  */
-export function repeatChangeAttributes( repeat, duration ) {
-	const next = { animationRepeat: repeat };
-	if ( isLoopingRepeat( repeat ) && duration < LOOP_MIN_DURATION ) {
+export function loopChangeAttributes( loop, duration ) {
+	const next = { animationLoop: loop };
+	if ( isLoopingValue( loop ) && duration < LOOP_MIN_DURATION ) {
 		next.animationDuration = LOOP_MIN_DURATION;
 	}
 	return next;
 }
 
-export const REPEAT_OPTIONS = [
-	{ label: __( 'Play once', 'motion-blocks' ), value: 'once' },
+export const LOOP_OPTIONS = [
+	{ label: __( 'Off', 'motion-blocks' ), value: 'off' },
 	{ label: __( 'Loop continuously', 'motion-blocks' ), value: 'loop' },
 	{ label: __( 'Back and forth', 'motion-blocks' ), value: 'alternate' },
 ];
@@ -1149,9 +1171,8 @@ export function aliasSlotForPreview( attrs ) {
 			attrs.animationDuration,
 		animationDelay:
 			attrs[ `animation${ slotPrefix }Delay` ] ?? attrs.animationDelay,
-		animationAcceleration:
-			attrs[ `animation${ slotPrefix }Acceleration` ] ||
-			attrs.animationAcceleration,
+		animationEasing:
+			attrs[ `animation${ slotPrefix }Easing` ] || attrs.animationEasing,
 		animationCustomTimingFunction:
 			attrs[ `animation${ slotPrefix }CustomTimingFunction` ] ||
 			attrs.animationCustomTimingFunction,
@@ -2361,7 +2382,7 @@ export function switchModeAttributes( attributes, newMode ) {
 	// apply to the new one. Each block only fires when the user
 	// is leaving that specific mode.
 	if ( oldMode === 'page-load' ) {
-		out.animationRepeat = DEFAULT_ATTRIBUTES.animationRepeat;
+		out.animationLoop = DEFAULT_ATTRIBUTES.animationLoop;
 		out.animationPauseOffscreen =
 			DEFAULT_ATTRIBUTES.animationPauseOffscreen;
 	}
@@ -2414,9 +2435,9 @@ export function switchModeAttributes( attributes, newMode ) {
 			out.animationEntryDelay =
 				attributes.animationDelay ??
 				DEFAULT_ATTRIBUTES.animationEntryDelay;
-			out.animationEntryAcceleration =
-				attributes.animationAcceleration ||
-				DEFAULT_ATTRIBUTES.animationEntryAcceleration;
+			out.animationEntryEasing =
+				attributes.animationEasing ||
+				DEFAULT_ATTRIBUTES.animationEntryEasing;
 			out.animationEntryCustomTimingFunction =
 				attributes.animationCustomTimingFunction ||
 				DEFAULT_ATTRIBUTES.animationEntryCustomTimingFunction;
@@ -2469,12 +2490,12 @@ export function switchModeAttributes( attributes, newMode ) {
 			// Entry's default Ease maps back to "this effect's default",
 			// so Image Move or Custom in Scroll Interactive still gets
 			// Linear (GH #109).
-			out.animationAcceleration =
-				attributes.animationEntryAcceleration ===
-				DEFAULT_ATTRIBUTES.animationEntryAcceleration
-					? DEFAULT_ATTRIBUTES.animationAcceleration
-					: attributes.animationEntryAcceleration ||
-					  DEFAULT_ATTRIBUTES.animationAcceleration;
+			out.animationEasing =
+				attributes.animationEntryEasing ===
+				DEFAULT_ATTRIBUTES.animationEntryEasing
+					? DEFAULT_ATTRIBUTES.animationEasing
+					: attributes.animationEntryEasing ||
+					  DEFAULT_ATTRIBUTES.animationEasing;
 			out.animationCustomTimingFunction =
 				attributes.animationEntryCustomTimingFunction ||
 				DEFAULT_ATTRIBUTES.animationCustomTimingFunction;

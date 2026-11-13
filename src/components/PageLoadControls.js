@@ -52,7 +52,7 @@ import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';
 import { customizeAndKeepFocus } from './keyboardFocus';
 import DurationControl from './DurationControl';
-import { imageTargetUnavailableText } from './imageTargetText';
+import { imageTargetUnavailableText, duotoneBlurText } from './imageTargetText';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -334,6 +334,16 @@ export default function PageLoadControls( {
 					className="mb-image-effect-unavailable-notice"
 				>
 					{ imageTargetUnavailableText( attributes ).notice }
+				</Notice>
+			) }
+
+			{ duotoneBlurText( attributes, animationType ) && (
+				<Notice
+					status="info"
+					isDismissible={ false }
+					className="mb-image-effect-unavailable-notice"
+				>
+					{ duotoneBlurText( attributes, animationType ) }
 				</Notice>
 			) }
 

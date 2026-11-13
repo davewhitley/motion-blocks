@@ -48,7 +48,7 @@ import InfoPopover from './InfoPopover';
 import SubPanelModeHeader from './SubPanelModeHeader';
 import { scrubFromIcon, scrubToIcon } from './icons';
 import { customizeAndKeepFocus } from './keyboardFocus';
-import { imageTargetUnavailableText } from './imageTargetText';
+import { imageTargetUnavailableText, duotoneBlurText } from './imageTargetText';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -389,6 +389,16 @@ export default function ScrollInteractiveControls( {
 					className="mb-image-effect-unavailable-notice"
 				>
 					{ imageTargetUnavailableText( attributes ).notice }
+				</Notice>
+			) }
+
+			{ duotoneBlurText( attributes, animationType ) && (
+				<Notice
+					status="info"
+					isDismissible={ false }
+					className="mb-image-effect-unavailable-notice"
+				>
+					{ duotoneBlurText( attributes, animationType ) }
 				</Notice>
 			) }
 

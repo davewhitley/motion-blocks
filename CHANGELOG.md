@@ -18,6 +18,9 @@ Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for e
 
 - Page Load blocks are revealed as soon as the plugin's script runs, not after every deferred script on the page.
 - The animation stylesheet is served minified (about 2.9 KB gzipped, down from about 14 KB).
+- Blocks with the same Custom effect share one set of keyframes, so long auto-animated pages start faster.
+- The editor skips its preview work for blocks with no animation.
+- On themes that print template parts from PHP, pages with no animations no longer load every template part on each request.
 
 ### Fixed
 

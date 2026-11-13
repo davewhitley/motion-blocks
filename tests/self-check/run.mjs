@@ -15,6 +15,8 @@
  *      compares the sorted, de-duplicated `id#issue` list with `expect`;
  *   2. does the same with prefers-reduced-motion emulated, against
  *      `expect_reduced_motion`;
+ *      (steps 1 and 2 also fail on an uncaught JavaScript error or a
+ *      PHP message printed on the page);
  *      (both at `viewport_width` when the page sets one, 1280px otherwise;
  *      with `expect_motion` they also check html.mb-motion is on or off);
  *   3. opens the page in the block editor and runs
@@ -334,6 +336,9 @@ async function openTab() {
 	const tab = {
 		send: ( method, params ) => send( method, params, sessionId ),
 
+		/** Uncaught JavaScript errors since the list was last emptied. */
+		pageErrors: [],
+
 		/** Navigates and resolves once the load event fires. */
 		go( url ) {
 			return tab.waitForLoad(
@@ -388,7 +393,23 @@ async function openTab() {
 			return res.result.value;
 		},
 	};
+	// Uncaught JavaScript errors on the page, collected so a sweep can
+	// fail on them (the self-check itself only sees its own results).
+	listeners.add( ( msg ) => {
+		if (
+			msg.sessionId === sessionId &&
+			msg.method === 'Runtime.exceptionThrown'
+		) {
+			const d = msg.params.exceptionDetails;
+			tab.pageErrors.push(
+				`${ ( d.exception && d.exception.description ) || d.text } (${
+					d.url || 'inline'
+				}:${ d.lineNumber })`.replace( /\s+/g, ' ' )
+			);
+		}
+	} );
 	await tab.send( 'Page.enable' );
+	await tab.send( 'Runtime.enable' );
 	await tab.send( 'Emulation.setFocusEmulationEnabled', { enabled: true } );
 	await setWidth( tab );
 	return tab;
@@ -476,11 +497,15 @@ async function sweepCheck( tab, fx, reduced ) {
 			},
 		],
 	} );
+	tab.pageErrors.length = 0;
 	await tab.go( fx.url );
 	// Let load-time animations and late layout finish first.
 	await sleep( 1500 );
 	if ( fx.assets === false ) {
-		return assetsAbsentCheck( tab, fx, reduced );
+		return withPageErrors(
+			tab,
+			await assetsAbsentCheck( tab, fx, reduced )
+		);
 	}
 	let got;
 	try {
@@ -517,7 +542,7 @@ async function sweepCheck( tab, fx, reduced ) {
 		}
 	}
 	const width = fx.viewport_width ? ` @${ fx.viewport_width }px` : '';
-	return {
+	return withPageErrors( tab, {
 		ok,
 		line: `${ ok ? 'PASS' : 'FAIL' } ${ reduced ? '[reduced] ' : '' }${
 			fx.key
@@ -525,6 +550,38 @@ async function sweepCheck( tab, fx, reduced ) {
 			gotIds
 		) }${ motion }`,
 		details: ok ? [] : got,
+	} );
+}
+
+/**
+ * Fails a front-end result when the page threw an uncaught JavaScript
+ * error, or printed a PHP message, while it was being checked.
+ */
+async function withPageErrors( tab, result ) {
+	const problems = sortedUnique( tab.pageErrors ).map(
+		( e ) => `JavaScript error: ${ e }`
+	);
+	tab.pageErrors.length = 0;
+	try {
+		const php = await tab.evaluate( `(() => {
+			const m = document.documentElement.innerHTML.match(
+				/<b>(Warning|Notice|Deprecated|Fatal error|Parse error)<\\/b>:[^\\n]{0,300}/g
+			);
+			return m ? m.slice( 0, 5 ) : [];
+		})()` );
+		php.forEach( ( text ) =>
+			problems.push(
+				`PHP message on the page: ${ text.replace( /<[^>]+>/g, '' ) }`
+			)
+		);
+	} catch {}
+	if ( ! problems.length ) {
+		return result;
+	}
+	return {
+		ok: false,
+		line: result.line.replace( /^PASS/, 'FAIL' ),
+		details: [ ...result.details, ...problems ],
 	};
 }
 

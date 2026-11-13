@@ -419,15 +419,61 @@ function motion_blocks_request_has_animated_content() {
     // Block template parts printed by PHP templates (classic themes that
     // opt in, and PHP templates inside block themes).
     if ( wp_is_block_theme() || current_theme_supports( 'block-template-parts' ) ) {
-        foreach ( get_block_templates( array(), 'wp_template_part' ) as $part ) {
-            if ( motion_blocks_markup_is_animated( $part->content, $visited ) ) {
-                return true;
-            }
-        }
+        return motion_blocks_template_parts_are_animated();
     }
 
     return false;
 }
+
+/**
+ * Whether any of the theme's block template parts has an animated block.
+ *
+ * Loading every template part is slow (a query, a folder scan and a
+ * file read per part), and this runs on each page that has no other
+ * animation, so the answer is kept for an hour (GH #178). It is thrown
+ * away when a template part or synced pattern is saved or deleted, and
+ * when the theme changes or anything is updated. Not kept at all while
+ * WP_DEBUG is on, so edits to a theme's files show up at once.
+ *
+ * @return bool
+ */
+function motion_blocks_template_parts_are_animated() {
+    $use_cache = ! ( defined( 'WP_DEBUG' ) && WP_DEBUG );
+    $key       = 'motion_blocks_parts_animated_' . md5( get_stylesheet() );
+
+    if ( $use_cache ) {
+        $cached = get_transient( $key );
+        if ( 'yes' === $cached || 'no' === $cached ) {
+            return 'yes' === $cached;
+        }
+    }
+
+    $animated = false;
+    $visited  = array();
+    foreach ( get_block_templates( array(), 'wp_template_part' ) as $part ) {
+        if ( motion_blocks_markup_is_animated( $part->content, $visited ) ) {
+            $animated = true;
+            break;
+        }
+    }
+
+    if ( $use_cache ) {
+        set_transient( $key, $animated ? 'yes' : 'no', HOUR_IN_SECONDS );
+    }
+    return $animated;
+}
+
+/**
+ * Forget the kept answer of motion_blocks_template_parts_are_animated().
+ */
+function motion_blocks_forget_template_parts_answer() {
+    delete_transient( 'motion_blocks_parts_animated_' . md5( get_stylesheet() ) );
+}
+add_action( 'save_post_wp_template_part', 'motion_blocks_forget_template_parts_answer' );
+add_action( 'save_post_wp_block', 'motion_blocks_forget_template_parts_answer' );
+add_action( 'deleted_post', 'motion_blocks_forget_template_parts_answer' );
+add_action( 'switch_theme', 'motion_blocks_forget_template_parts_answer' );
+add_action( 'upgrader_process_complete', 'motion_blocks_forget_template_parts_answer' );
 
 /**
  * Whether this front-end page loads the animation CSS, the runtime and

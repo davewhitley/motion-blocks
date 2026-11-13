@@ -2,24 +2,29 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Motion Blocks 0.5.0\n"
+"Project-Id-Version: Motion Blocks 0.6.0\n"
 "Report-Msgid-Bugs-To: https://github.com/davewhitley/motion-blocks/issues\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-04T15:17:43+00:00\n"
+"POT-Creation-Date: 2026-11-13T20:44:33+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: motion-blocks\n"
 
 #. Plugin Name of the plugin
 #: animation-plugin.php
-#: animation-plugin.php:1980
-#: animation-plugin.php:1981
+#: animation-plugin.php:2194
+#: animation-plugin.php:2195
 #: includes/abilities.php:35
 msgid "Motion Blocks"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: animation-plugin.php
+msgid "https://github.com/davewhitley/motion-blocks"
 msgstr ""
 
 #. Description of the plugin
@@ -32,138 +37,140 @@ msgstr ""
 msgid "Dave Whitley"
 msgstr ""
 
-#: animation-plugin.php:514
+#: animation-plugin.php:597
 msgid "Motion Blocks • Entry trigger"
 msgstr ""
 
-#: animation-plugin.php:515
+#: animation-plugin.php:598
 msgid "Motion Blocks • Exit trigger"
 msgstr ""
 
-#: animation-plugin.php:1892
+#: animation-plugin.php:2106
 msgid "Motion Blocks saved animation library."
 msgstr ""
 
-#: animation-plugin.php:1928
+#: animation-plugin.php:2142
 msgid "Run the animation self-check on the front end."
 msgstr ""
 
-#: animation-plugin.php:1942
+#: animation-plugin.php:2156
 msgid "Show the Scroll Appear trigger lines on the front end."
 msgstr ""
 
-#: animation-plugin.php:1960
-msgid "Live Scroll Interactive preview in the editor (beta)."
+#: animation-plugin.php:2174
+msgid "Live Interactive scroll preview in the editor (beta)."
 msgstr ""
 
-#: animation-plugin.php:1995
+#: animation-plugin.php:2213
+msgid "Settings"
+msgstr ""
+
+#: animation-plugin.php:2226
 msgid "Debugging"
 msgstr ""
 
-#: animation-plugin.php:2002
+#: animation-plugin.php:2233
 msgid "Self-check"
 msgstr ""
 
-#: animation-plugin.php:2010
+#: animation-plugin.php:2241
 msgid "Trigger lines"
 msgstr ""
 
-#: animation-plugin.php:2021
+#: animation-plugin.php:2252
 msgid "Test pages"
 msgstr ""
 
-#: animation-plugin.php:2030
+#: animation-plugin.php:2261
 msgid "Beta features"
 msgstr ""
 
-#: animation-plugin.php:2037
-#: build/index.js:16
+#: animation-plugin.php:2268
+#: build/index.js:17
 msgid "Live scroll preview"
 msgstr ""
 
-#: animation-plugin.php:2051
+#: animation-plugin.php:2282
 msgid "Tools for checking how animations behave on the published site."
 msgstr ""
 
-#: animation-plugin.php:2080
+#: animation-plugin.php:2311
 msgid "Build or refresh the smoke page: every effect in every mode, set up correctly. Run this after every update."
 msgstr ""
 
-#: animation-plugin.php:2081
+#: animation-plugin.php:2312
 msgid "Build the smoke page plus one page per known problem, each saying what the self-check should report."
 msgstr ""
 
-#: animation-plugin.php:2082
+#: animation-plugin.php:2313
 msgid "Delete all test pages."
 msgstr ""
 
-#: animation-plugin.php:2086
+#: animation-plugin.php:2317
 msgid "Run from the site’s folder with WP-CLI (on WordPress Studio, use studio wp instead of wp):"
 msgstr ""
 
-#: animation-plugin.php:2097
+#: animation-plugin.php:2328
 msgid "Then, with Self-check on and while logged in:"
 msgstr ""
 
-#: animation-plugin.php:2101
+#: animation-plugin.php:2332
 msgid "Open a test page and run this in the browser console. It scrolls through the page and lists any problems (the smoke page should list none):"
 msgstr ""
 
-#: animation-plugin.php:2105
+#: animation-plugin.php:2336
 msgid "Open the same page in the block editor and run this in the console. It lists invalid blocks and errors (should be none):"
 msgstr ""
 
-#: animation-plugin.php:2122
+#: animation-plugin.php:2353
 msgid "Test pages on this site:"
 msgstr ""
 
-#: animation-plugin.php:2127
+#: animation-plugin.php:2358
 msgid "View"
 msgstr ""
 
-#: animation-plugin.php:2128
-#: build/index.js:15
-#: build/index.js:16
+#: animation-plugin.php:2359
 msgid "Edit"
 msgstr ""
 
-#: animation-plugin.php:2149
+#: animation-plugin.php:2380
 msgid "Check animated blocks on the front end and report problems"
 msgstr ""
 
-#: animation-plugin.php:2152
+#: animation-plugin.php:2383
 msgid "Flags blocks that stay hidden, can never play, never animate, or keep moving when motion should be off. Results appear in a badge in the bottom-left corner and in the browser console. Only users who can edit posts see it, so visitors are never affected. In the block editor, run motionBlocksEditorCheck() in the console to list invalid blocks and errors."
 msgstr ""
 
-#: animation-plugin.php:2170
-msgid "Show where \"Appear on scroll\" animations start and stop"
+#: animation-plugin.php:2401
+msgid "Show where “Appear on scroll” animations start and stop"
 msgstr ""
 
-#: animation-plugin.php:2173
-msgid "Draws two lines on pages with \"Appear on scroll\" animations. A block's Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only users who can edit posts see them, so visitors are never affected."
+#: animation-plugin.php:2404
+msgid "Draws two lines on pages with “Appear on scroll” animations. A block’s Entry plays when its top passes the green line. Its Exit plays when its bottom passes the red line. Only users who can edit posts see them, so visitors are never affected."
 msgstr ""
 
-#: animation-plugin.php:2184
+#: animation-plugin.php:2415
 msgid "Opt-in features still being tested. They affect the editor only — your published site is unchanged."
 msgstr ""
 
-#: animation-plugin.php:2202
-msgid "Preview Scroll Interactive animations live in the editor"
+#: animation-plugin.php:2433
+msgid "Preview Interactive scroll animations live in the editor"
 msgstr ""
 
-#: animation-plugin.php:2205
+#: animation-plugin.php:2436
 msgid "Scrolling the editor canvas plays the real scroll-driven animation, matching the live site. Experimental: it works in current browsers but may not run (or may be unstable) in older or unsupported ones. If the editor misbehaves, turn this off here — this page is separate from the editor and always works."
 msgstr ""
 
-#: animation-plugin.php:2252
+#: animation-plugin.php:2483
 msgid "Spin"
 msgstr ""
 
-#: animation-plugin.php:2256
+#: animation-plugin.php:2487
 msgid "Iris Wipe"
 msgstr ""
 
-#: animation-plugin.php:2260
+#: animation-plugin.php:2491
 msgid "Diagonal Wipe"
 msgstr ""
 
@@ -179,79 +186,103 @@ msgstr ""
 msgid "Only posts, pages, templates, template parts and patterns edited with blocks can be read or changed (not revisions, autosaves or attachments)."
 msgstr ""
 
-#: includes/abilities.php:158
+#: includes/abilities.php:210
 msgid "No block at that path."
 msgstr ""
 
-#: includes/abilities.php:175
+#: includes/abilities.php:348
 msgid "The recipe is not valid. Nothing was changed."
 msgstr ""
 
+#: includes/abilities.php:479
+msgid "This post is open in the editor right now. Close it and try again in a few minutes, so the editor does not overwrite this change."
+msgstr ""
+
 #. translators: %s: name of the user editing the post
-#: includes/abilities.php:302
+#: includes/abilities.php:482
 #, php-format
 msgid "%s is editing this post right now. Try again when they have closed it, so neither of you overwrites the other."
 msgstr ""
 
-#: includes/abilities.php:303
+#: includes/abilities.php:483
 msgid "Someone else"
 msgstr ""
 
+#: includes/abilities.php:493
+msgid "This post was saved after you read it. Read it again with get-animations and send the changes with the new modified_gmt."
+msgstr ""
+
+#. translators: %d: index of the change
+#: includes/abilities.php:514
+#, php-format
+msgid "changes[%d].path must be a list of whole numbers, e.g. [0, 2], as get-animations reports it."
+msgstr ""
+
 #. translators: 1: expected block name, 2: actual block name
-#: includes/abilities.php:323
+#: includes/abilities.php:529
 #, php-format
 msgid "Expected a %1$s block at that path but found %2$s. Read the post again with get-animations."
 msgstr ""
 
-#: includes/abilities.php:452
+#: includes/abilities.php:652
+msgid "The name is empty once tags and extra spaces are removed. Give the animation a name."
+msgstr ""
+
+#. translators: %d: the most saved animations the library holds
+#: includes/abilities.php:661
+#, php-format
+msgid "The library is full (%d saved animations). Delete one in the editor first."
+msgstr ""
+
+#: includes/abilities.php:681
 msgid "The animation could not be saved."
 msgstr ""
 
-#: includes/abilities.php:498
+#: includes/abilities.php:727
 msgid "Get animation effects"
 msgstr ""
 
-#: includes/abilities.php:499
+#: includes/abilities.php:728
 msgid "Lists the animation modes and every effect (what it looks like, where it can be used, its directions and options), the easings, the JSON Schema of an animation recipe, and examples. Read this first."
 msgstr ""
 
-#: includes/abilities.php:515
+#: includes/abilities.php:744
 msgid "Get a post's animations"
 msgstr ""
 
-#: includes/abilities.php:516
-msgid "Lists every block of a post, page, template or pattern with its path, type, a text excerpt, whether it can be animated, and its animation as a recipe (null when it has none). Use the paths with set-animations."
+#: includes/abilities.php:745
+msgid "Lists every block of a post, page, template or pattern with its path, type, a text excerpt, whether it can be animated, and its animation as a recipe (null when it has none). A block whose saved animation set-animations would refuse as it stands has a warnings list saying why. Use the paths and modified_gmt with set-animations. disabled_devices lists the devices this page has animations turned off for."
 msgstr ""
 
-#: includes/abilities.php:534
+#: includes/abilities.php:763
 msgid "Validate an animation recipe"
 msgstr ""
 
-#: includes/abilities.php:535
+#: includes/abilities.php:764
 msgid "Checks a recipe without changing anything. Returns each problem with its path and a fix hint, and the block attributes it would write. Pass block_name for the block-specific rules (image-only effects, stagger)."
 msgstr ""
 
-#: includes/abilities.php:563
+#: includes/abilities.php:792
 msgid "Set animations on a post"
 msgstr ""
 
-#: includes/abilities.php:564
-msgid "Sets or removes the animation of one or more blocks of a post, page, template or pattern, and saves it straight away (also when published). All changes are validated first; if any is invalid nothing is saved and every problem is reported. The save stores a revision, so it can be rolled back. Each change names the block_name get-animations reported at that path, to guard against the content having changed since. Refused while another user has the post open in the editor."
+#: includes/abilities.php:793
+msgid "Sets or removes the animation of one or more blocks of a post, page, template or pattern, and saves it straight away (also when published). All changes are validated first; if any is invalid nothing is saved and every problem is reported. Where revisions are on, the result names previous_revision_id, the revision to restore to undo it. Each change names the block_name get-animations reported at that path; also pass the modified_gmt it returned, so the change is refused if the post was saved since. Refused while the post is open in the post editor (an open Site Editor is not detected). The result lists disabled_devices: the devices this page has animations turned off for."
 msgstr ""
 
-#: includes/abilities.php:611
+#: includes/abilities.php:844
 msgid "List saved animations"
 msgstr ""
 
-#: includes/abilities.php:612
-msgid "Lists the site's saved animation library and the animations the theme ships, each as a recipe ready for set-animations. Needs a user who can manage site settings, like the library in the editor."
+#: includes/abilities.php:845
+msgid "Lists the animations the theme ships and, for a user who can manage site settings, the site's saved animation library, each as a recipe ready for set-animations."
 msgstr ""
 
-#: includes/abilities.php:631
+#: includes/abilities.php:863
 msgid "Save an animation to the library"
 msgstr ""
 
-#: includes/abilities.php:632
+#: includes/abilities.php:864
 msgid "Adds a recipe to the site's saved animation library under a name, so editors can apply it from the Motion Effects panel. Needs a user who can manage site settings."
 msgstr ""
 
@@ -377,7 +408,7 @@ msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-#: build/index.js:15
+#: build/index.js:16
 msgid "None"
 msgstr ""
 
@@ -423,6 +454,11 @@ msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
+msgid "Smooth Out"
+msgstr ""
+
+#: build/editor-check.js:1
+#: build/index.js:1
 msgid "Spring"
 msgstr ""
 
@@ -438,7 +474,7 @@ msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-msgid "Play once"
+msgid "Off"
 msgstr ""
 
 #: build/editor-check.js:1
@@ -458,7 +494,6 @@ msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-#: build/index.js:15
 msgid "Repeat"
 msgstr ""
 
@@ -504,8 +539,8 @@ msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-#: build/index.js:15
 #: build/index.js:16
+#: build/index.js:17
 msgid "Blur"
 msgstr ""
 
@@ -516,21 +551,21 @@ msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-#: build/index.js:14
+#: build/index.js:15
 #: build/index.js:32
 msgid "On page load"
 msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-#: build/index.js:14
+#: build/index.js:15
 #: build/index.js:32
 msgid "Appear on scroll"
 msgstr ""
 
 #: build/editor-check.js:1
 #: build/index.js:1
-#: build/index.js:14
+#: build/index.js:15
 #: build/index.js:32
 msgid "Interactive scroll"
 msgstr ""
@@ -553,11 +588,11 @@ msgid "Adjust how the block looks at the <em>end</em> of the animation. Properti
 msgstr ""
 
 #: build/index.js:1
-msgid "Preview \"from\" state"
+msgid "Preview “from” state"
 msgstr ""
 
 #: build/index.js:1
-msgid "Preview \"to\" state"
+msgid "Preview “to” state"
 msgstr ""
 
 #: build/index.js:1
@@ -609,7 +644,7 @@ msgid "A short label so you can recognize this animation later."
 msgstr ""
 
 #: build/index.js:1
-#: build/index.js:35
+#: build/index.js:33
 msgid "Cancel"
 msgstr ""
 
@@ -636,7 +671,7 @@ msgstr[1] ""
 #. translators: %s: user-supplied animation name
 #: build/index.js:4
 #, js-format
-msgid "Applied '%s' to this block."
+msgid "Applied “%s” to this block."
 msgstr ""
 
 #. translators: %s: block type label, e.g. "Image"
@@ -663,6 +698,10 @@ msgstr ""
 
 #: build/index.js:6
 msgid "Copy animation"
+msgstr ""
+
+#: build/index.js:6
+msgid "Animation pasted."
 msgstr ""
 
 #: build/index.js:6
@@ -696,9 +735,8 @@ msgid "Reset settings"
 msgstr ""
 
 #: build/index.js:7
-#: build/index.js:15
 #: build/index.js:16
-#: build/index.js:18
+#: build/index.js:17
 msgid "Remove animation"
 msgstr ""
 
@@ -730,249 +768,289 @@ msgstr[1] ""
 msgid "This can be reversed using the Undo button."
 msgstr ""
 
+#: build/index.js:9
+msgid "The library is full. Delete a saved animation first."
+msgstr ""
+
 #. translators: %s: user-supplied animation name
 #: build/index.js:10
 #, js-format
-msgid "Couldn't save '%s'."
+msgid "Saved “%s”, but one of its values was too long or not valid and was left out."
 msgstr ""
 
 #. translators: %s: user-supplied animation name
 #: build/index.js:11
 #, js-format
-msgid "Animation saved as '%s'."
+msgid "Couldn’t save “%s”."
 msgstr ""
 
 #. translators: %s: user-supplied animation name
 #: build/index.js:12
 #, js-format
-msgid "Couldn't delete '%s'."
+msgid "Animation saved as “%s”."
 msgstr ""
 
 #. translators: %s: user-supplied animation name
 #: build/index.js:13
 #, js-format
-msgid "Deleted '%s'."
+msgid "Couldn’t delete “%s”."
 msgstr ""
 
-#: build/index.js:13
+#. translators: %s: user-supplied animation name
+#: build/index.js:14
+#, js-format
+msgid "Deleted “%s”."
+msgstr ""
+
+#: build/index.js:14
 msgid "Delete"
 msgstr ""
 
-#: build/index.js:13
+#: build/index.js:14
 msgid "Delete saved animation"
 msgstr ""
 
 #. translators: %s: saved animation name
-#: build/index.js:14
-#, js-format
-msgid "Delete '%s'? This won't affect blocks already using it."
-msgstr ""
-
-#: build/index.js:14
-msgid "Animation mode"
-msgstr ""
-
-#. translators: %s: animation mode, e.g. "Appear on scroll"
 #: build/index.js:15
 #, js-format
-msgid "Mode changed to %s."
+msgid "Delete “%s”? This won’t affect blocks already using it."
 msgstr ""
 
 #: build/index.js:15
-msgid "Change animation mode"
+#: build/index.js:32
+msgid "Animation type"
 msgstr ""
 
-#: build/index.js:15
+#. translators: %s: animation type, e.g. "Appear on scroll"
+#: build/index.js:16
+#, js-format
+msgid "Animation type changed to %s."
+msgstr ""
+
+#: build/index.js:16
+msgid "Change animation type"
+msgstr ""
+
+#: build/index.js:16
+msgid "Duration"
+msgstr ""
+
+#: build/index.js:16
+msgid "Image Move, Image Zoom, and “Animate image only” need an image background, and this Cover has none (it uses a video, or a colour only). The whole block animates instead."
+msgstr ""
+
+#: build/index.js:16
+msgid "Unavailable: this Cover has no image background."
+msgstr ""
+
+#: build/index.js:16
+msgid "Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them."
+msgstr ""
+
+#: build/index.js:16
+msgid "Unavailable while “Fixed background” or “Repeated background” is on."
+msgstr ""
+
+#: build/index.js:16
+msgid "This block has a Duotone filter. With “Animate image only”, the Duotone is not shown while Blur plays. Turn off “Animate image only” to keep it."
+msgstr ""
+
+#: build/index.js:16
 #: build/index.js:32
 msgid "Plays once (or loops continuously) when the page first loads."
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
+#: build/index.js:17
 msgid "Effect"
 msgstr ""
 
-#: build/index.js:15
+#: build/index.js:16
+#: build/index.js:17
+msgid "Customize: change this effect to a Custom animation"
+msgstr ""
+
+#: build/index.js:16
+#: build/index.js:17
+msgid "Customize"
+msgstr ""
+
+#: build/index.js:16
 msgid "Stop preview"
 msgstr ""
 
-#: build/index.js:15
+#: build/index.js:16
 msgid "Preview animation"
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
-msgid "Some effects are not compatible with “Fixed background” and “Repeated background”. Turn off these settings under Cover block settings to use them."
-msgstr ""
-
-#: build/index.js:15
-#: build/index.js:16
+#: build/index.js:17
 msgid "Animate image only"
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
-msgid "Unavailable while Fixed background or Repeated background is on — see the notice above."
-msgstr ""
-
-#: build/index.js:15
-#: build/index.js:16
+#: build/index.js:17
 msgid "Animate the background only. Text and other inner blocks are excluded."
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
+#: build/index.js:17
 msgid "Scale with direction"
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
+#: build/index.js:17
 msgid "Direction"
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
+#: build/index.js:17
 msgid "Angle"
 msgstr ""
 
-#: build/index.js:15
 #: build/index.js:16
+#: build/index.js:17
 msgid "Timing"
 msgstr ""
 
-#: build/index.js:15
-msgid "Duration"
-msgstr ""
-
-#: build/index.js:15
+#: build/index.js:16
 msgid "Delay"
 msgstr ""
 
-#: build/index.js:15
-#: build/index.js:18
-msgid "Acceleration"
+#: build/index.js:16
+#: build/index.js:17
+msgid "Easing"
 msgstr ""
 
-#: build/index.js:15
-#: build/index.js:18
+#: build/index.js:16
+#: build/index.js:17
+msgid "How the speed changes from start to finish."
+msgstr ""
+
+#: build/index.js:16
+#: build/index.js:17
 msgid "Custom timing function"
 msgstr ""
 
-#: build/index.js:15
-#: build/index.js:18
+#: build/index.js:16
+#: build/index.js:17
 msgid "Any valid CSS timing function, e.g. cubic-bezier(0.4, 0, 0.2, 1)."
 msgstr ""
 
-#: build/index.js:15
+#: build/index.js:16
+msgid "Loop"
+msgstr ""
+
+#: build/index.js:16
+msgid "Keeps playing for as long as the block is on the page. Visitors can’t pause it, so keep it slow and subtle. It doesn’t play for visitors who turn on reduced motion."
+msgstr ""
+
+#: build/index.js:16
 msgid "Pause off-screen"
 msgstr ""
 
-#: build/index.js:15
+#: build/index.js:16
 msgid "Pause the loop while the block is off-screen for better performance."
 msgstr ""
 
-#: build/index.js:15
-msgid "Pick an effect to animate the element into view."
+#: build/index.js:16
+msgid "Pick an effect to animate the block into view."
 msgstr ""
 
-#: build/index.js:15
-msgid "Pick an effect to animate the element out of view."
+#: build/index.js:16
+msgid "Pick an effect to animate the block out of view."
 msgstr ""
 
-#: build/index.js:15
+#: build/index.js:16
 msgid "Replay"
 msgstr ""
 
 #. translators: %s: name of a Replay option, such as "Once".
-#: build/index.js:16
+#: build/index.js:17
 #, js-format
 msgid "%s (default)"
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "Entry animation plays once on first appearance, then stays."
 msgstr ""
 
-#: build/index.js:16
-msgid "Entry animation replays every time the element scrolls into view. It resets off-screen after you scroll past it, so each pass plays again."
+#: build/index.js:17
+msgid "Entry animation replays every time the block scrolls into view. It resets off-screen after you scroll past it, so each pass plays again."
 msgstr ""
 
-#: build/index.js:16
-msgid "Entry animation plays forward as the element scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up."
+#: build/index.js:17
+msgid "Entry animation plays forward as the block scrolls in, then plays in reverse as it leaves the bottom of the screen when you scroll back up."
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "Exit animation plays once, then stays exited."
 msgstr ""
 
-#: build/index.js:16
-msgid "Element snap-returns to natural state when the user scrolls back to it."
+#: build/index.js:17
+msgid "Exit animation plays every time the block scrolls off the top of the screen. When you scroll back, the block shows again instantly."
 msgstr ""
 
-#: build/index.js:16
-msgid "Exit animation plays in reverse when the user scrolls back to the element."
+#: build/index.js:17
+msgid "Exit animation plays in reverse when you scroll back to the block."
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 #: build/index.js:32
-msgid "Trigger animations when the element enters or exits the screen."
+msgid "Trigger animations when the block enters or exits the screen."
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "Entry"
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "Exit"
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "More information"
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
+msgid "Where the animation begins as the block scrolls into view from the bottom of the screen. 0% triggers the moment the block starts entering; 100% waits until it’s fully on screen."
+msgstr ""
+
+#: build/index.js:17
+msgid "Where the animation ends as the block scrolls out of view at the top of the screen. 0% ends the moment the block starts exiting; 100% waits until it’s fully off screen."
+msgstr ""
+
+#: build/index.js:17
 #: build/index.js:32
 msgid "Ties animation progress directly to scroll position."
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "Scroll preview"
 msgstr ""
 
-#: build/index.js:16
-msgid "Scroll Preview"
+#: build/index.js:17
+msgid "Drag the slider to see the animation in the editor, from start to end. On the live site it follows the scroll."
 msgstr ""
 
-#: build/index.js:16
-msgid "About scroll preview"
+#: build/index.js:17
+msgid "Scroll preview position"
 msgstr ""
 
-#: build/index.js:16
-msgid "Drag to preview the animation, from start to end. Scroll interaction only works on the live site."
-msgstr ""
-
-#: build/index.js:16
+#: build/index.js:17
 msgid "Scroll the editor canvas to preview. The animation follows your scroll."
 msgstr ""
 
-#. translators: "0%" and "100%" are amounts of the element, not placeholders.
-#: build/index.js:16
 #: build/index.js:17
-msgid "Start Offset"
+msgid "Start offset"
 msgstr ""
 
-#: build/index.js:16
+#: build/index.js:17
 msgid "About start offset"
 msgstr ""
 
-#: build/index.js:16
-msgid "Where the animation begins as the element scrolls into view from the bottom of the screen. 0% triggers the moment the element starts entering; 100% waits until it's fully on screen."
-msgstr ""
-
-#. translators: "0%" and "100%" are amounts of the element, not placeholders.
 #: build/index.js:17
-#: build/index.js:18
-msgid "End Offset"
+msgid "End offset"
 msgstr ""
 
 #: build/index.js:17
@@ -980,90 +1058,91 @@ msgid "About end offset"
 msgstr ""
 
 #: build/index.js:17
-msgid "Where the animation ends as the element scrolls out of view at the top of the screen. 0% ends the moment the element starts exiting; 100% waits until it's fully off screen."
-msgstr ""
-
-#: build/index.js:18
 msgid "May break the menu overlay"
 msgstr ""
 
-#: build/index.js:18
+#: build/index.js:17
 msgid "This animation can stop the menu overlay from opening full screen."
 msgstr ""
 
-#: build/index.js:18
+#: build/index.js:17
 msgid "This block has a menu inside. This animation can stop its menu overlay from opening full screen."
 msgstr ""
 
 #. translators: Fix for a Scroll Interactive animation. "On page load" and "Appear on scroll" are animation modes in the Motion Effects panel. Keep the <strong> tags.
-#: build/index.js:20
+#: build/index.js:19
 msgid "Use <strong>On page load</strong> or <strong>Appear on scroll</strong>."
 msgstr ""
 
-#. translators: Fix for a looping Page Load animation. "Repeat" is a setting and "Play once" one of its options. Keep the <strong> tags.
-#: build/index.js:22
-msgid "Set <strong>Repeat</strong> to <strong>Play once</strong>."
+#. translators: Fix for a looping Page Load animation. "Loop" is a setting and "Off" one of its options. Keep the <strong> tags.
+#: build/index.js:21
+msgid "Set <strong>Loop</strong> to <strong>Off</strong>."
 msgstr ""
 
 #. translators: Fix for an Entry that replays. "Replay" is a setting and "Once" one of its options. Keep the <strong> tags.
-#: build/index.js:24
+#: build/index.js:23
 msgid "Set <strong>Replay</strong> to <strong>Once</strong>."
 msgstr ""
 
 #. translators: Fix for a Scroll Appear animation with an Exit. "Exit" is a tab in the Motion Effects panel. Keep the <strong> tags.
-#: build/index.js:26
+#: build/index.js:25
 msgid "Remove the <strong>Exit</strong> animation."
 msgstr ""
 
 #. translators: Fix for an effect that ends hidden or moved, such as Fade Out. "Fade In" is an effect name. Keep the <strong> tags.
-#: build/index.js:28
+#: build/index.js:27
 msgid "Use an effect that ends visible, like <strong>Fade In</strong>."
 msgstr ""
 
 #. translators: Fix for a Custom effect whose end values move, scale, rotate, blur, clip or fade the block. "To" is the tab with the end values in the Custom panel. Keep the <strong> tags.
-#: build/index.js:30
+#: build/index.js:29
 msgid "Set the <strong>To</strong> values back to normal."
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Animation settings reset."
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Animation removed."
 msgstr ""
 
-#: build/index.js:30
-msgid "Animation pasted."
-msgstr ""
-
-#: build/index.js:30
-#: build/index.js:42
+#: build/index.js:29
+#: build/index.js:46
 msgid "Motion Effects"
 msgstr ""
 
-#: build/index.js:30
+#: build/index.js:29
 msgid "Motion effect configured on this block"
 msgstr ""
 
-#. translators: %d: number of blocks currently selected
-#: build/index.js:31
-#, js-format
-msgid "Changes apply to all %d selected blocks."
+#: build/index.js:29
+msgid "The selected blocks have different animations. Only the first block’s settings are shown, and applying an animation here replaces the existing ones."
 msgstr ""
 
+#. translators: %d: number of blocks currently selected
+#: build/index.js:30
+#, js-format
+msgid "Changes apply to the %d selected block."
+msgid_plural "Changes apply to all %d selected blocks."
+msgstr[0] ""
+msgstr[1] ""
+
+#: build/index.js:30
 #: build/index.js:31
 msgid "Select parent block"
+msgstr ""
+
+#. translators: %s: parent block-type label, e.g. "Group"
+#: build/index.js:31
+#, js-format
+msgid "The parent block (%s) has Stagger on, so the page plays the parent’s effect on this block, not the one set here. Preview the parent to see the result."
 msgstr ""
 
 #. translators: %s: ancestor block-type label, e.g. "Columns"
 #: build/index.js:32
 #, js-format
 msgid "A parent block (%s) already has an animation. The animation includes this inner block."
-msgstr ""
-
-#: build/index.js:32
-msgid "Animation type"
 msgstr ""
 
 #: build/index.js:32
@@ -1078,164 +1157,259 @@ msgstr ""
 msgid "Bold"
 msgstr ""
 
-#. translators: %s: editor context noun — page, pattern, template, etc.
-#: build/index.js:33
-#: build/index.js:43
-#, js-format
-msgid "Auto-animate this %s"
+#: build/index.js:32
+msgid "Short, gentle moves. Each section rises as one piece."
 msgstr ""
 
-#: build/index.js:33
+#: build/index.js:32
+msgid "Medium moves. Items in a section rise one after another."
+msgstr ""
+
+#: build/index.js:32
+msgid "Long, large moves. Items rise one after another, more slowly."
+msgstr ""
+
+#: build/index.js:32
 msgid "Style"
 msgstr ""
 
-#: build/index.js:33
+#: build/index.js:32
 msgid "Include header, footer, and other template parts"
 msgstr ""
 
-#: build/index.js:33
+#: build/index.js:32
 msgid "They are shared, so this changes every page that uses them."
 msgstr ""
 
-#. translators: %s: editor context noun — page, pattern, template, etc.
-#: build/index.js:34
-#, js-format
-msgid "Nothing to animate on this %s."
-msgstr ""
-
 #. translators: %d: number of invalid blocks
-#: build/index.js:35
+#: build/index.js:33
 #, js-format
-msgid "%d invalid block won’t be animated: choose “Attempt Block Recovery” on it, then run this again."
-msgid_plural "%d invalid blocks won’t be animated: choose “Attempt Block Recovery” on each, then run this again."
+msgid "%d invalid block won’t be animated: choose “Attempt recovery” on it, then run this again."
+msgid_plural "%d invalid blocks won’t be animated: choose “Attempt recovery” on each, then run this again."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:35
+#: build/index.js:33
 msgid "You can edit each block’s animation after it’s applied. To take them all off again, use “Remove all animations”."
 msgstr ""
 
 #. translators: %d: number of animated blocks
-#: build/index.js:36
+#: build/index.js:34
 #, js-format
 msgid "Animated %d block."
 msgid_plural "Animated %d blocks."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:36
+#: build/index.js:34
+msgid "Already animated"
+msgstr ""
+
+#: build/index.js:34
 msgid "Nothing to animate"
 msgstr ""
 
 #. translators: %d: number of blocks to animate
-#: build/index.js:37
+#: build/index.js:35
 #, js-format
 msgid "Animate %d block"
 msgid_plural "Animate %d blocks"
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:37
+#: build/index.js:35
 msgid "Not used: this theme’s screen-size breakpoints don’t include this size."
 msgstr ""
 
 #. translators: 1: smallest screen width, e.g. 481px; 2: largest, e.g. 782px
-#: build/index.js:38
+#: build/index.js:36
 #, js-format
 msgid "Screens %1$s to %2$s wide"
 msgstr ""
 
 #. translators: 1: screen width the range starts above, e.g. 30em; 2: largest screen width
-#: build/index.js:39
+#: build/index.js:37
 #, js-format
 msgid "Screens wider than %1$s, up to %2$s"
 msgstr ""
 
 #. translators: %s: smallest screen width, e.g. 783px
-#: build/index.js:40
+#: build/index.js:38
 #, js-format
 msgid "Screens %s and wider"
 msgstr ""
 
 #. translators: %s: screen width, e.g. 48em
-#: build/index.js:41
+#: build/index.js:39
 #, js-format
 msgid "Screens wider than %s"
 msgstr ""
 
 #. translators: %s: screen width, e.g. 480px
-#: build/index.js:42
+#: build/index.js:40
 #, js-format
 msgid "Screens up to %s wide"
 msgstr ""
 
+#: build/index.js:40
+msgid "Auto-animate this page"
+msgstr ""
+
+#: build/index.js:40
+msgid "Auto-animate this post"
+msgstr ""
+
+#: build/index.js:40
+msgid "Auto-animate this pattern"
+msgstr ""
+
+#: build/index.js:40
+msgid "Auto-animate this template"
+msgstr ""
+
+#: build/index.js:40
+msgid "Auto-animate this template part"
+msgstr ""
+
+#: build/index.js:40
+msgid "Auto-animate this content"
+msgstr ""
+
+#: build/index.js:40
+msgid "Nothing to animate on this page."
+msgstr ""
+
+#: build/index.js:40
+msgid "Nothing to animate on this post."
+msgstr ""
+
+#: build/index.js:40
+msgid "Nothing to animate on this pattern."
+msgstr ""
+
+#: build/index.js:40
+msgid "Nothing to animate on this template."
+msgstr ""
+
+#: build/index.js:40
+msgid "Nothing to animate on this template part."
+msgstr ""
+
+#: build/index.js:40
+msgid "Nothing to animate on this content."
+msgstr ""
+
+#: build/index.js:40
+msgid "Every block Auto-animate would animate on this page already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again."
+msgstr ""
+
+#: build/index.js:40
+msgid "Every block Auto-animate would animate on this post already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again."
+msgstr ""
+
+#: build/index.js:40
+msgid "Every block Auto-animate would animate on this pattern already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again."
+msgstr ""
+
+#: build/index.js:40
+msgid "Every block Auto-animate would animate on this template already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again."
+msgstr ""
+
+#: build/index.js:40
+msgid "Every block Auto-animate would animate on this template part already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again."
+msgstr ""
+
+#: build/index.js:40
+msgid "Every block Auto-animate would animate on this content already has an animation. To try another style, undo the last Auto-animate, or use “Remove all animations” and run it again."
+msgstr ""
+
+#. translators: %d: number of animated blocks
+#: build/index.js:41
+#, js-format
+msgid "Remove all animations on this page (%d block)? This can be reversed using the Undo button."
+msgid_plural "Remove all animations on this page (%d blocks)? This can be reversed using the Undo button."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of animated blocks
 #: build/index.js:42
+#, js-format
+msgid "Remove all animations on this post (%d block)? This can be reversed using the Undo button."
+msgid_plural "Remove all animations on this post (%d blocks)? This can be reversed using the Undo button."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of animated blocks
+#: build/index.js:43
+#, js-format
+msgid "Remove all animations on this pattern (%d block)? This can be reversed using the Undo button."
+msgid_plural "Remove all animations on this pattern (%d blocks)? This can be reversed using the Undo button."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of animated blocks
+#: build/index.js:44
+#, js-format
+msgid "Remove all animations on this template (%d block)? This can be reversed using the Undo button."
+msgid_plural "Remove all animations on this template (%d blocks)? This can be reversed using the Undo button."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of animated blocks
+#: build/index.js:45
+#, js-format
+msgid "Remove all animations on this template part (%d block)? This can be reversed using the Undo button."
+msgid_plural "Remove all animations on this template part (%d blocks)? This can be reversed using the Undo button."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of animated blocks
+#: build/index.js:46
+#, js-format
+msgid "Remove all animations on this content (%d block)? This can be reversed using the Undo button."
+msgid_plural "Remove all animations on this content (%d blocks)? This can be reversed using the Undo button."
+msgstr[0] ""
+msgstr[1] ""
+
+#: build/index.js:46
 msgid "Disable on Desktop"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:46
 msgid "Disable on Tablet"
 msgstr ""
 
-#: build/index.js:42
+#: build/index.js:46
 msgid "Disable on Mobile"
 msgstr ""
 
-#: build/index.js:42
-msgid "page"
+#: build/index.js:46
+msgid "Disable animations on this page for selected screen sizes. Helpful for reducing motion on smaller devices."
 msgstr ""
 
-#: build/index.js:42
-msgid "post"
+#: build/index.js:46
+msgid "Per-device switches aren’t available for this content type, because it doesn’t support custom fields."
 msgstr ""
 
-#: build/index.js:42
-msgid "pattern"
-msgstr ""
-
-#: build/index.js:42
-msgid "template"
-msgstr ""
-
-#: build/index.js:42
-msgid "template part"
-msgstr ""
-
-#: build/index.js:42
-msgid "content"
-msgstr ""
-
-#: build/index.js:43
-msgid "Hide animations on selected screen sizes. Helpful for reducing motion on smaller devices."
-msgstr ""
-
-#: build/index.js:43
-#: build/index.js:44
+#: build/index.js:46
+#: build/index.js:47
 msgid "Remove all animations"
 msgstr ""
 
 #. translators: %d: number of blocks animations were removed from
-#: build/index.js:44
+#: build/index.js:47
 #, js-format
 msgid "Animation removed from %d block."
 msgid_plural "Animations removed from %d blocks."
 msgstr[0] ""
 msgstr[1] ""
 
-#: build/index.js:44
+#: build/index.js:47
 msgid "Remove"
 msgstr ""
 
-#. translators: 1: editor context noun — page, pattern, template, etc.; 2: number of animated blocks
-#: build/index.js:45
-#, js-format
-msgid "Remove all animations on this %1$s (%2$d block)? This can be reversed using the Undo button."
-msgid_plural "Remove all animations on this %1$s (%2$d blocks)? This can be reversed using the Undo button."
-msgstr[0] ""
-msgstr[1] ""
-
 #. translators: %d: number of animated blocks inside template parts
-#: build/index.js:46
+#: build/index.js:48
 #, js-format
 msgid "%d of them is in a template part (header, footer…), which is shared: it will lose its animation on every page that uses it."
 msgid_plural "%d of them are in template parts (header, footer…), which are shared: they will lose their animations on every page that uses them."

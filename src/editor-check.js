@@ -16,7 +16,7 @@
  *   - motion-gate:    the canvas has no `html.mb-motion`, so no preview
  *                     can play (#53)
  *   - preview-not-playing: pressing Play on the first Page Load block
- *                     started no animation in the canvas (checked with
+ *                     started no new animation in the canvas (checked with
  *                     reduced motion on too: previews always play)
  */
 
@@ -144,7 +144,7 @@ async function waitForMotionGate( timeoutMs ) {
 
 /**
  * Press Play on the first plain Page Load block (a preset effect on the
- * block itself) and wait for one of our animations to run on it in the
+ * block itself) and wait for a new one of our animations to start on it in the
  * canvas. Returns an issue, or null when it played or there was nothing
  * to try. The block has to be selected: unselected blocks defer their
  * updates, and Play stops when the block leaves the selection.
@@ -165,24 +165,41 @@ async function checkPreviewPlays() {
 			target = block;
 		}
 	} );
-	const preview = dispatch( PREVIEW_STORE );
-	if ( ! target || ! preview || ! preview.setPreview ) {
+	if ( ! target ) {
 		return null;
+	}
+	const preview = dispatch( PREVIEW_STORE );
+	if ( ! preview || ! preview.setPreview ) {
+		return {
+			id: 'preview-not-playing',
+			clientId: target.clientId,
+			message:
+				'The editor preview store is missing, so Play cannot start a preview.',
+		};
 	}
 	const editor = dispatch( 'core/block-editor' );
 	const id = target.clientId;
+	const ourAnimations = () => {
+		const el = canvasDocument().querySelector( `[data-block="${ id }"]` );
+		return el
+			? el
+					.getAnimations( { subtree: true } )
+					.filter( ( anim ) =>
+						/^mb/i.test( anim.animationName || '' )
+					)
+			: [];
+	};
 	editor.selectBlock( id );
 	await wait( 300 );
+	// A Page Load block already holds a finished animation at rest, so
+	// "has one of our animations" proves nothing. Play has to start a
+	// new one: an animation that was not there before the press.
+	const before = new Set( ourAnimations() );
 	preview.setPreview( [ id ], { animationPreviewPlaying: true } );
 	let played = false;
 	for ( let i = 0; i < 30 && ! played; i++ ) {
 		await wait( 100 );
-		const el = canvasDocument().querySelector( `[data-block="${ id }"]` );
-		played =
-			!! el &&
-			el
-				.getAnimations( { subtree: true } )
-				.some( ( anim ) => /^mb/i.test( anim.animationName || '' ) );
+		played = ourAnimations().some( ( anim ) => ! before.has( anim ) );
 	}
 	preview.setPreview( [ id ], { animationPreviewPlaying: false } );
 	editor.clearSelectedBlock();
@@ -197,7 +214,7 @@ async function checkPreviewPlays() {
 		clientId: id,
 		message: `Pressing Play on ${ describe(
 			target
-		) } started no animation in the canvas${
+		) } started no new animation in the canvas${
 			reduced
 				? ' (reduced motion is on; previews should play anyway)'
 				: ''

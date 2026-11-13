@@ -3,10 +3,18 @@
 	"meta": {
 		"title": "Motion Blocks self-check site",
 		"author": "davewhitley",
-		"description": "Used by CI: activates Motion Blocks from the mounted repo, turns on Settings → Motion Blocks → Self-check, runs the PHP checks (recipe, schema defaults, device breakpoints), builds the self-check fixture pages and writes their manifest to /ci-output/manifest.json."
+		"description": "Used by CI: activates Motion Blocks from the mounted repo, turns on Settings → Motion Blocks → Self-check, turns on the PHP debug log (/ci-output/debug.log), runs the PHP checks (recipe, schema defaults, device breakpoints), builds the self-check fixture pages and writes their manifest to /ci-output/manifest.json."
 	},
 	"landingPage": "/wp-admin/",
 	"steps": [
+		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"WP_DEBUG": true,
+				"WP_DEBUG_DISPLAY": false,
+				"WP_DEBUG_LOG": "/ci-output/debug.log"
+			}
+		},
 		{
 			"step": "activatePlugin",
 			"pluginPath": "motion-blocks/animation-plugin.php"

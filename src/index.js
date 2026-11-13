@@ -1148,6 +1148,18 @@ function findBlockElement( clientId ) {
 	return null;
 }
 
+// Every class the preview wrapper or save-props might emit and that
+// the preview path re-emits: mb-animated, mb-mode-*, mb-has-*,
+// mb-enter-*, mb-exit-* (also mb-exit-triggered), mb-triggered, and
+// mb-stagger-parent.
+const MB_PREVIEW_CLASS_PATTERN =
+	/^mb-(animated|mode-|has-|enter-|exit-|triggered|stagger-parent)/;
+const stripMbPreviewClasses = ( cn ) =>
+	( cn || '' )
+		.split( /\s+/ )
+		.filter( ( c ) => c && ! MB_PREVIEW_CLASS_PATTERN.test( c ) )
+		.join( ' ' );
+
 /**
  * Whether a block runs the Stagger cascade in the editor preview: Stagger
  * on, a container that supports it, and a mode/effect it composes with.
@@ -1434,6 +1446,32 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 			} );
 			return () => observer.disconnect();
 		}, [ staggerActive, clientId, innerBlockOrder ] );
+
+		// A block with no animation (most blocks on most pages) needs
+		// none of the work below: the result is the block as it came,
+		// minus any stray preview classes. Same Fragment shape as
+		// every other return, so adding an animation doesn't remount
+		// the block. Must stay below the hooks (GH #178).
+		if (
+			! attributes.animationMode &&
+			! attributes.animationType &&
+			! staggerActive
+		) {
+			const ownClassName = props.className;
+			return (
+				<>
+					<BlockListBlock
+						{ ...props }
+						className={
+							ownClassName && ownClassName.includes( 'mb-' )
+								? stripMbPreviewClasses( ownClassName )
+								: ownClassName
+						}
+					/>
+					{ null }
+				</>
+			);
+		}
 		const {
 			animationMode,
 			animationType,
@@ -1598,13 +1636,6 @@ const withAnimationPreview = createHigherOrderComponent( ( BlockListBlock ) => {
 		// mb-exit-* (which also covers mb-exit-triggered), mb-triggered,
 		// and mb-stagger-parent — i.e., every class the HOC or save-
 		// props might emit and that the preview path will re-emit.
-		const mbPreviewClassPattern =
-			/^mb-(animated|mode-|has-|enter-|exit-|triggered|stagger-parent)/;
-		const stripMbPreviewClasses = ( cn ) =>
-			( cn || '' )
-				.split( /\s+/ )
-				.filter( ( c ) => c && ! mbPreviewClassPattern.test( c ) )
-				.join( ' ' );
 		let computedClassName = stripMbPreviewClasses( props.className );
 		// Per-block @keyframes rule for custom-type animations.
 		// Injected next to BlockListBlock as a sibling <style>.

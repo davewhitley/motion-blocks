@@ -12,12 +12,15 @@ Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for e
 - Auto-animate: the Smooth style is now Balanced; a new option includes the header, footer, and other template parts; each style has a one-line description; and the curve it uses is a named Easing option, Smooth Out.
 - Interactive scroll: the preview is a labelled "Scroll preview" toggle.
 - Switching animation type keeps each type's own settings, so switching back restores them.
-- AI abilities: `set-animations` is refused while the post is open in the post editor or was saved since it was read, and returns `previous_revision_id` for undo. `list-saved-animations` returns the theme's animations to anyone who can edit.
+- AI abilities: `set-animations` is refused while the post is open in the post editor or was saved since it was read, and returns `previous_revision_id` for undo. `list-saved-animations` returns the theme's animations to anyone who can edit. `set-animations` now rewrites only the blocks it changes, and `get-animations` warns about saved animations it would refuse.
 
 ### Performance
 
 - Page Load blocks are revealed as soon as the plugin's script runs, not after every deferred script on the page.
 - The animation stylesheet is served minified (about 2.9 KB gzipped, down from about 14 KB).
+- Blocks with the same Custom effect share one set of keyframes, so long auto-animated pages start faster.
+- The editor skips its preview work for blocks with no animation.
+- On themes that print template parts from PHP, pages with no animations no longer load every template part on each request.
 
 ### Fixed
 

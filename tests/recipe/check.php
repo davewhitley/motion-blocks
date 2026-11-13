@@ -655,6 +655,52 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 		'"Animate image only" on a Cover with a video or colour background animates the whole block'
 	);
 
+	// GH #168: changing one block leaves every other block's saved text alone.
+	$odd_content = "<!-- wp:acme/thing {\"settings\":{},\"map\":{\"0\":\"a\",\"1\":\"b\"},\"n\":1.0} /-->\n\n"
+		. "<!-- wp:group {\"style\":{},\"layout\":{\"type\":\"constrained\"}} -->\n<div class=\"wp-block-group\"><!-- wp:paragraph {\"metadata\":{\"bindings\":{}}} -->\n<p>Inside</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->\n\n"
+		. "<p>Loose text {} stays</p>\n\n"
+		. "<!-- wp:paragraph -->\n<p>Last</p>\n<!-- /wp:paragraph -->";
+	$odd_post    = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'MB 168', 'post_content' => wp_slash( $odd_content ) ) );
+	$fade        = array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade' ) );
+	$odd_set     = $set->execute( array( 'post_id' => $odd_post, 'changes' => array(
+		array( 'path' => array( 1, 0 ), 'block_name' => 'core/paragraph', 'recipe' => $fade ),
+		array( 'path' => array( 2 ), 'block_name' => 'core/paragraph', 'recipe' => $fade ),
+	) ) );
+	$odd_after   = get_post_field( 'post_content', $odd_post );
+	$odd_expect  = str_replace(
+		array( '<!-- wp:paragraph {"metadata":{"bindings":{}}} -->', "<!-- wp:paragraph -->\n<p>Last" ),
+		array( '<!-- wp:paragraph {"metadata":{"bindings":{}},"animationMode":"page-load","animationDelay":0} -->', "<!-- wp:paragraph {\"animationMode\":\"page-load\",\"animationDelay\":0} -->\n<p>Last" ),
+		$odd_content
+	);
+	mb_recipe_check( ! is_wp_error( $odd_set ) && $odd_expect === $odd_after, 'set-animations rewrites only the changed blocks, and keeps empty objects', $odd_after );
+	$odd_clear = $set->execute( array( 'post_id' => $odd_post, 'changes' => array(
+		array( 'path' => array( 1, 0 ), 'block_name' => 'core/paragraph', 'recipe' => null ),
+		array( 'path' => array( 2 ), 'block_name' => 'core/paragraph', 'recipe' => null ),
+	) ) );
+	mb_recipe_check( ! is_wp_error( $odd_clear ) && $odd_content === get_post_field( 'post_content', $odd_post ), 'removing the animations again gives back the original text exactly', get_post_field( 'post_content', $odd_post ) );
+	// Markup the comments can't be matched to falls back to a full rewrite.
+	$unclosed = "<!-- wp:group -->\n<div class=\"wp-block-group\"><!-- wp:paragraph -->\n<p>x</p>\n<!-- /wp:paragraph --></div>";
+	$fallback = motion_blocks_write_changed_blocks( 'nothing here', parse_blocks( $unclosed ), parse_blocks( $unclosed ) );
+	mb_recipe_check( serialize_blocks( parse_blocks( $unclosed ) ) === $fallback, 'content that does not line up with its blocks is written the old way' );
+	wp_delete_post( $odd_post, true );
+
+	// GH #168: get-animations flags saved animations set-animations would refuse.
+	$warn_content = '<!-- wp:paragraph {"animationMode":"page-load","animationType":"fade","animationDelay":90} --><p>Slow</p><!-- /wp:paragraph -->'
+		. '<!-- wp:paragraph {"animationMode":"page-load","animationType":"fade"} --><p>Fine</p><!-- /wp:paragraph -->'
+		. '<!-- wp:html {"animationMode":"page-load","animationType":"fade"} --><b>raw</b><!-- /wp:html -->';
+	$warn_post    = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'draft', 'post_title' => 'MB 168 warnings', 'post_content' => wp_slash( $warn_content ) ) );
+	$warn_list    = wp_get_ability( 'motion-blocks/get-animations' )->execute( array( 'post_id' => $warn_post ) );
+	$warn_blocks  = is_wp_error( $warn_list ) ? array() : $warn_list['blocks'];
+	mb_recipe_check(
+		3 === count( $warn_blocks )
+			&& ! empty( $warn_blocks[0]['warnings'] ) && false !== strpos( $warn_blocks[0]['warnings'][0], 'delay' )
+			&& ! isset( $warn_blocks[1]['warnings'] )
+			&& ( null === $warn_blocks[2]['recipe'] || ! empty( $warn_blocks[2]['warnings'] ) ),
+		'get-animations warns about a saved animation that set-animations would refuse',
+		wp_json_encode( $warn_blocks )
+	);
+	wp_delete_post( $warn_post, true );
+
 	// Permissions.
 	wp_set_current_user( 0 );
 	$denied = wp_get_ability( 'motion-blocks/set-animations' )->execute( array( 'post_id' => $mb_post, 'changes' => array( array( 'path' => array( 0 ), 'block_name' => 'core/heading', 'recipe' => null ) ) ) );

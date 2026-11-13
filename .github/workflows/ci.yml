@@ -181,6 +181,25 @@ jobs:
             --concurrency 4 \
             2>&1 | tee ci-output/results.txt
 
+      - name: PHP warnings from the plugin
+        # The blueprint turns on WordPress's debug log. Any PHP warning,
+        # notice, deprecation or error raised from the plugin's own
+        # files during the checks above fails the job. (Messages from
+        # WordPress itself or the theme are counted but not listed.)
+        if: always()
+        run: |
+          if [ ! -f ci-output/debug.log ]; then
+            echo "No PHP messages were logged."
+            exit 0
+          fi
+          echo "PHP messages logged: $(wc -l < ci-output/debug.log) lines."
+          if grep -n "plugins/motion-blocks/" ci-output/debug.log | grep -v "plugins/motion-blocks/tests/" > ci-output/plugin-php-messages.txt; then
+            echo "::error::PHP messages from the plugin's files:"
+            head -50 ci-output/plugin-php-messages.txt
+            exit 1
+          fi
+          echo "None from the plugin's files."
+
       - name: Upload the results
         # Runs even when the checks failed, so you can download the log
         # from the run's "Artifacts" section.

@@ -154,10 +154,22 @@ function motion_blocks_enqueue_editor_assets() {
 
     $asset = include $asset_file;
 
+    // The page panel needs the post editor's package. It is added here,
+    // not imported by the script, so that it stays off the Widgets
+    // screen and the Customizer: loading it there logs a console error
+    // and a debug notice (GH #172). Blocks in widget areas can still be
+    // animated; only the page panel is missing, and a widget area has
+    // no page settings.
+    $dependencies = $asset['dependencies'];
+    $screen       = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+    if ( ! $screen || ! in_array( $screen->id, array( 'widgets', 'customize' ), true ) ) {
+        $dependencies[] = 'wp-editor';
+    }
+
     wp_enqueue_script(
         'motion-blocks-editor',
         plugins_url( 'build/index.js', __FILE__ ),
-        $asset['dependencies'],
+        $dependencies,
         $asset['version'],
         true
     );

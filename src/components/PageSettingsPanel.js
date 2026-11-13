@@ -21,10 +21,6 @@
  */
 import { __, sprintf, _n } from '@wordpress/i18n';
 import { registerPlugin } from '@wordpress/plugins';
-import {
-	PluginDocumentSettingPanel,
-	store as editorStore,
-} from '@wordpress/editor';
 import { useSelect, useDispatch, select as dataSelect } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
@@ -48,6 +44,16 @@ import { clearAnimationAttributes } from './constants';
 import { deviceRangeHelp } from './deviceRanges';
 import { selectPageContentRoot, clientIdsUnder } from './selectStable';
 import { editorContextStrings } from './editorContextStrings';
+
+// The post editor's package is read from the page, not imported: an
+// import makes the whole editor script depend on `wp-editor`, which
+// must not load on the Widgets screen or in the Customizer (it logs an
+// error there; GH #172). PHP adds the dependency on post and site
+// editor screens only (motion_blocks_enqueue_editor_assets()), so
+// `wp.editor` is there whenever this panel can show.
+const postEditor = ( typeof window !== 'undefined' && window.wp?.editor ) || {};
+const PluginDocumentSettingPanel = postEditor.PluginDocumentSettingPanel;
+const editorStore = 'core/editor';
 
 const DEVICE_OPTIONS = [
 	{
@@ -349,6 +355,8 @@ function MotionBlocksPagePanel() {
 	);
 }
 
-registerPlugin( 'motion-blocks-page-settings', {
-	render: MotionBlocksPagePanel,
-} );
+if ( PluginDocumentSettingPanel ) {
+	registerPlugin( 'motion-blocks-page-settings', {
+		render: MotionBlocksPagePanel,
+	} );
+}

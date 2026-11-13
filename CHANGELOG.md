@@ -2,7 +2,7 @@
 
 Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for each release are also on the [Releases page](https://github.com/davewhitley/motion-blocks/releases).
 
-## Unreleased (0.6.0-dev)
+## 0.6.0 (2026-11-13)
 
 ### Changed
 

@@ -158,6 +158,20 @@ function motion_blocks_collect_blocks( $blocks, $prefix, &$out ) {
         if ( ! empty( $block['attrs']['metadata']['name'] ) ) {
             $entry['label'] = (string) $block['attrs']['metadata']['name'];
         }
+        // The panel and older content can hold a few states that
+        // set-animations refuses (a delay above 60, a free-text timing
+        // function, an animation on a block that can't animate). Say
+        // so, or an agent that sends the recipe back unchanged gets an
+        // error it can't explain (GH #168).
+        if ( null !== $entry['recipe'] ) {
+            $check = motion_blocks_recipe_to_attributes( $entry['recipe'], $block['blockName'], isset( $block['attrs'] ) ? $block['attrs'] : array() );
+            if ( $check['errors'] ) {
+                $entry['warnings'] = array();
+                foreach ( $check['errors'] as $e ) {
+                    $entry['warnings'][] = ( isset( $e['path'] ) && '' !== $e['path'] ? $e['path'] . ': ' : '' ) . $e['message'];
+                }
+            }
+        }
         $out[] = $entry;
         if ( ! empty( $block['innerBlocks'] ) ) {
             motion_blocks_collect_blocks( $block['innerBlocks'], $path, $out );
@@ -194,6 +208,127 @@ function motion_blocks_with_block_at( &$blocks, $path, $callback ) {
     }
     unset( $block );
     return new WP_Error( 'motion_blocks_no_block', __( 'No block at that path.', 'motion-blocks' ), array( 'status' => 404 ) );
+}
+
+/**
+ * Every block opening (or self-closing) comment in block markup, in
+ * document order: the same order as a depth-first walk of the parsed
+ * blocks. The pattern is core's block parser's, minus closers.
+ *
+ * @param string $content Block markup.
+ * @return array[] List of { offset, length, name, attrs, void }.
+ */
+function motion_blocks_block_openers( $content ) {
+    $found = array();
+    if ( ! preg_match_all(
+        '/<!--\s+wp:(?P<name>(?:[a-z][a-z0-9_-]*\/)?[a-z][a-z0-9_-]*)\s+(?P<attrs>{(?:(?:[^}]+|}+(?=})|(?!}\s+\/?-->).)*+)?}\s+)?(?P<void>\/)?-->/s',
+        (string) $content,
+        $matches,
+        PREG_SET_ORDER | PREG_OFFSET_CAPTURE
+    ) ) {
+        return $found;
+    }
+    foreach ( $matches as $m ) {
+        $found[] = array(
+            'offset' => $m[0][1],
+            'length' => strlen( $m[0][0] ),
+            'name'   => $m['name'][0],
+            'attrs'  => isset( $m['attrs'] ) && is_string( $m['attrs'][0] ) ? trim( $m['attrs'][0] ) : '',
+            'void'   => isset( $m['void'] ) && '/' === $m['void'][0],
+        );
+    }
+    return $found;
+}
+
+/**
+ * Named blocks of a parsed tree as a flat list, depth first.
+ *
+ * @param array $blocks Parsed blocks.
+ * @param array $out    List of { name, attrs }, appended to.
+ */
+function motion_blocks_flatten_blocks( $blocks, &$out ) {
+    foreach ( $blocks as $block ) {
+        if ( empty( $block['blockName'] ) ) {
+            continue;
+        }
+        $out[] = array(
+            'name'  => $block['blockName'],
+            'attrs' => isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array(),
+        );
+        if ( ! empty( $block['innerBlocks'] ) ) {
+            motion_blocks_flatten_blocks( $block['innerBlocks'], $out );
+        }
+    }
+}
+
+/**
+ * Post content with only the changed blocks' opening comments rewritten.
+ *
+ * `serialize_blocks( parse_blocks( … ) )` rewrites every block, and
+ * PHP's round trip can alter ones nobody touched: an attribute saved as
+ * an empty object (`{}`) comes back as an empty list (`[]`). So the
+ * original text is kept, and each block whose attributes changed gets a
+ * new opening comment. Within such a block, attributes that did not
+ * change keep the shape they were saved in (GH #168).
+ *
+ * Falls back to a full `serialize_blocks()` when the comments and the
+ * parsed blocks don't line up (malformed markup), or when the result
+ * doesn't parse back to exactly `$after`.
+ *
+ * @param string $content Original post content.
+ * @param array  $before  parse_blocks( $content ).
+ * @param array  $after   The same tree with attributes changed.
+ * @return string
+ */
+function motion_blocks_write_changed_blocks( $content, $before, $after ) {
+    $content     = (string) $content;
+    $openers     = motion_blocks_block_openers( $content );
+    $flat_before = array();
+    $flat_after  = array();
+    motion_blocks_flatten_blocks( $before, $flat_before );
+    motion_blocks_flatten_blocks( $after, $flat_after );
+
+    $count = count( $openers );
+    if ( count( $flat_before ) !== $count || count( $flat_after ) !== $count ) {
+        return serialize_blocks( $after );
+    }
+
+    $result = $content;
+    for ( $i = $count - 1; $i >= 0; $i-- ) {
+        $opener = $openers[ $i ];
+        $name   = false === strpos( $opener['name'], '/' ) ? 'core/' . $opener['name'] : $opener['name'];
+        if ( $name !== $flat_before[ $i ]['name'] || $name !== $flat_after[ $i ]['name'] ) {
+            return serialize_blocks( $after );
+        }
+        $old = $flat_before[ $i ]['attrs'];
+        $new = $flat_after[ $i ]['attrs'];
+        if ( $old === $new ) {
+            continue;
+        }
+        // The saved attributes with objects kept as objects.
+        $saved = '' !== $opener['attrs'] ? json_decode( $opener['attrs'] ) : null;
+        if ( ! is_object( $saved ) ) {
+            $saved = new stdClass();
+        }
+        foreach ( array_keys( get_object_vars( $saved ) ) as $key ) {
+            if ( ! array_key_exists( $key, $new ) ) {
+                unset( $saved->$key );
+            }
+        }
+        foreach ( $new as $key => $value ) {
+            if ( ! array_key_exists( $key, $old ) || $old[ $key ] !== $value ) {
+                $saved->$key = $value;
+            }
+        }
+        $comment = '<!-- wp:' . $opener['name'] . ' '
+            . ( get_object_vars( $saved ) ? serialize_block_attributes( $saved ) . ' ' : '' )
+            . ( $opener['void'] ? '/' : '' ) . '-->';
+        $result  = substr_replace( $result, $comment, $opener['offset'], $opener['length'] );
+    }
+
+    $flat_result = array();
+    motion_blocks_flatten_blocks( parse_blocks( $result ), $flat_result );
+    return $flat_result === $flat_after ? $result : serialize_blocks( $after );
 }
 
 /**
@@ -360,6 +495,7 @@ function motion_blocks_ability_set_animations( $input ) {
         );
     }
     $blocks  = parse_blocks( $post->post_content );
+    $parsed  = $blocks;
     $errors  = array();
     $updated = array();
 
@@ -437,7 +573,7 @@ function motion_blocks_ability_set_animations( $input ) {
     $saved = wp_update_post(
         array(
             'ID'           => $post->ID,
-            'post_content' => wp_slash( serialize_blocks( $blocks ) ),
+            'post_content' => wp_slash( motion_blocks_write_changed_blocks( $post->post_content, $parsed, $blocks ) ),
         ),
         true
     );
@@ -606,7 +742,7 @@ function motion_blocks_register_abilities() {
         'motion-blocks/get-animations',
         array(
             'label'               => __( 'Get a post\'s animations', 'motion-blocks' ),
-            'description'         => __( 'Lists every block of a post, page, template or pattern with its path, type, a text excerpt, whether it can be animated, and its animation as a recipe (null when it has none). Use the paths and modified_gmt with set-animations. disabled_devices lists the devices this page has animations turned off for.', 'motion-blocks' ),
+            'description'         => __( 'Lists every block of a post, page, template or pattern with its path, type, a text excerpt, whether it can be animated, and its animation as a recipe (null when it has none). A block whose saved animation set-animations would refuse as it stands has a warnings list saying why. Use the paths and modified_gmt with set-animations. disabled_devices lists the devices this page has animations turned off for.', 'motion-blocks' ),
             'category'            => 'motion-blocks',
             'input_schema'        => array(
                 'type'                 => 'object',

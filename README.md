@@ -166,7 +166,8 @@ How `set-animations` behaves:
 - **Stale-path guard.** Each change names the `block_name` that `get-animations` reported at that path, and a mismatch is refused. Pass the `modified_gmt` that `get-animations` returned as well: the change is then refused if the post was saved in between, which also catches a block added or removed above the target.
 - **No conflicting edits.** It's refused while anyone, the agent's own account included, has the post open in the post editor. The Site Editor sets no lock, so a template, template part, or pattern open there is not detected: close it first, or the editor's next save overwrites the change.
 - **Per-device switches.** `get-animations` and `set-animations` return `disabled_devices`: the devices (`desktop`, `tablet`, `mobile`) this page has animations turned off for. Animations are saved as usual but don't play there.
-- **Known limit.** The whole post is parsed and written back, as WordPress's own PHP block functions do. Other blocks' markup is unchanged, but a block attribute that is an empty object can come back as an empty list.
+- **Only the changed blocks are rewritten.** Every other block's saved text is left exactly as it was. (If the post's markup is malformed, the whole post is parsed and written back, as WordPress's own PHP block functions do.)
+- **Warnings when reading.** `get-animations` adds a `warnings` list to a block whose saved animation `set-animations` would refuse as it stands, such as a delay above 60 seconds or an animation left on a block type that can't animate. Fix or remove those before sending the recipe back.
 - **Block content only.** Revisions, autosaves and attachments can't be read or changed.
 
 ```bash

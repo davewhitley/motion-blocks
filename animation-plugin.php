@@ -1062,9 +1062,24 @@ function motion_blocks_effect_slug( $type ) {
  */
 function motion_blocks_is_image_target_unavailable( $block_name, $attrs ) {
     if ( 'core/cover' === $block_name ) {
-        return ! empty( $attrs['hasParallax'] ) || ! empty( $attrs['isRepeated'] );
+        return ! empty( $attrs['hasParallax'] ) || ! empty( $attrs['isRepeated'] ) || motion_blocks_cover_has_no_image( $attrs );
     }
     return false;
+}
+
+/**
+ * A Cover with nothing in its image slot: a video background, a colour
+ * only, or no image picked. It prints no <img>, so image effects and
+ * "Animate image only" would animate nothing (GH #170). PHP mirror of
+ * `coverHasNoImage` in src/components/constants.js.
+ *
+ * @param array $attrs Cover attributes.
+ * @return bool
+ */
+function motion_blocks_cover_has_no_image( $attrs ) {
+    $type          = $attrs['backgroundType'] ?? '';
+    $is_image_type = '' === $type || 'image' === $type;
+    return ! $is_image_type || ( empty( $attrs['url'] ) && empty( $attrs['useFeaturedImage'] ) );
 }
 
 /**

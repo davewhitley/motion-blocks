@@ -203,6 +203,22 @@
 	opacity: 0;
 }
 
+/* Page Load with img-target: the same two rules as Scroll Appear above
+   (GH #170). Without them the Page Load pre-hide blanked the whole
+   Cover, text included, until frontend.js ran; then the text popped in
+   at once while only the image animated. The wrapper stays visible and
+   the image carries the pre-hide.
+   - Image Move / Image Zoom start from a visible image: not hidden.
+   - "Out" presets start visible too (see the next rule), so their
+	 image is not hidden either. */
+:where(html.mb-motion) .mb-mode-page-load[data-mb-target="img"]:not(.mb-triggered) {
+	opacity: 1;
+}
+:where(html.mb-motion) .mb-mode-page-load[data-mb-target="img"]:not(.mb-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom):not(.mb-enter-fade-out):not(.mb-enter-slide-out):not(.mb-enter-scale-out):not(.mb-enter-blur-out):not(.mb-enter-rotate-out):not(.mb-enter-curtain-out) > img:first-of-type,
+:where(html.mb-motion) .mb-mode-page-load[data-mb-target="img"]:not(.mb-triggered):not(.mb-enter-image-move):not(.mb-enter-image-zoom):not(.mb-enter-fade-out):not(.mb-enter-slide-out):not(.mb-enter-scale-out):not(.mb-enter-blur-out):not(.mb-enter-rotate-out):not(.mb-enter-curtain-out) > picture > img:first-of-type {
+	opacity: 0;
+}
+
 /* "Out" preset variants for Page Load and Scroll Interactive
    invert the initial state — element starts VISIBLE because the
    animation goes 1 → 0. Scroll Appear no longer uses Out variants

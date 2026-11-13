@@ -655,6 +655,27 @@ function motion_blocks_recipe_normalize_scalars( $recipe ) {
 }
 
 /**
+ * Whether the attributes say outright that a Cover has no image to
+ * animate: a fixed or repeated background, or a video background.
+ *
+ * Narrower than motion_blocks_is_image_target_unavailable(), which also
+ * counts a Cover with no `url`. A recipe is often checked or read with
+ * only the animation attributes to hand (validate-recipe, the saved
+ * library), where a missing `url` means "not known", not "no image".
+ *
+ * @param string $block_name Block name.
+ * @param array  $attrs      Block attributes, as far as they are known.
+ * @return bool
+ */
+function motion_blocks_recipe_cover_image_missing( $block_name, $attrs ) {
+    if ( 'core/cover' !== $block_name ) {
+        return false;
+    }
+    $type = $attrs['backgroundType'] ?? '';
+    return ! empty( $attrs['hasParallax'] ) || ! empty( $attrs['isRepeated'] ) || ( '' !== $type && 'image' !== $type );
+}
+
+/**
  * Convert a recipe to block attributes, validating it on the way.
  *
  * `null` (or an empty mode) means "no animation": every animation
@@ -789,10 +810,10 @@ function motion_blocks_recipe_to_attributes( $recipe, $block_name = '', $block_a
                 'path'    => 'image' === $target ? 'target' : 'effect',
                 'message' => 'Only a Cover block\'s background image can be animated on its own (image-move, image-zoom, target "image").',
             );
-        } elseif ( $block_name && motion_blocks_is_image_target_unavailable( $block_name, $block_attrs ) ) {
+        } elseif ( $block_name && motion_blocks_recipe_cover_image_missing( $block_name, $block_attrs ) ) {
             $errors[] = array(
                 'path'    => 'target',
-                'message' => 'This Cover uses a fixed or repeated background, which has no image to animate. Turn those off or animate the whole block.',
+                'message' => 'This Cover has no image to animate: it has no image background, or its background is fixed or repeated. Give it an image background with those off, or animate the whole block.',
             );
         }
         if ( 'image' === $target ) {
@@ -974,7 +995,7 @@ function motion_blocks_attributes_to_recipe( $attrs, $block_name = '' ) {
     // render filter emits no image target: Image Move / Image Zoom play
     // nothing there and "Animate image only" falls back to the whole
     // block. Describe that, so the recipe can be written back.
-    $no_image = $block_name && motion_blocks_is_image_target_unavailable( $block_name, $attrs );
+    $no_image = $block_name && motion_blocks_recipe_cover_image_missing( $block_name, $attrs );
     if ( $no_image ) {
         foreach ( array( 'effect', 'entry', 'exit' ) as $key ) {
             if ( ! empty( $recipe[ $key ] ) && in_array( $recipe[ $key ]['type'], $shared['imageEffectTypes'], true ) ) {

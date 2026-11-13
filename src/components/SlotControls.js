@@ -181,15 +181,9 @@ export default function SlotControls( {
 		) {
 			Object.assign( newAttrs, customDefaultFromToForSlot( slot ) );
 		}
-		// First-time fill: seed the Replay default for this slot if it
-		// hasn't been set yet. Entry → 'once' (one-shot), Exit →
-		// 'reverse' (smooth round-trip on scroll-back-up).
-		if (
-			value !== '' &&
-			attributes[ attrName( 'Replay' ) ] === undefined
-		) {
-			newAttrs[ attrName( 'Replay' ) ] = slotReplayDefault;
-		}
+		// Replay needs no seeding here: both Replay attributes have
+		// schema defaults (Entry 'once', Exit 'reverse'), so the value
+		// is never undefined.
 		setAttributes( newAttrs );
 	};
 

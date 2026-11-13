@@ -116,6 +116,16 @@ function MotionBlocksPagePanel() {
 	// keys, a toggle there was dropped on save, and the front end never
 	// reads it (2026-10-20 review, #56). Show them only where the
 	// loaded record actually has the keys.
+	const isCustomPostType =
+		!! postType &&
+		[
+			'post',
+			'page',
+			'wp_template',
+			'wp_template_part',
+			'wp_block',
+			'wp_navigation',
+		].indexOf( postType ) === -1;
 	const supportsDeviceToggles =
 		!! meta &&
 		typeof meta === 'object' &&
@@ -240,6 +250,21 @@ function MotionBlocksPagePanel() {
 						<p className="mb-page-settings__intro">
 							{ __(
 								'Disable animations on this page for selected screen sizes. Helpful for reducing motion on smaller devices.',
+								'motion-blocks'
+							) }
+						</p>
+					) }
+
+					{ /* A custom post type registered without `custom-fields`
+					   support carries no meta in the editor, so the toggles
+					   can't be shown or saved there. Say so; before, they
+					   were missing with no reason given (GH #172).
+					   Templates, template parts and patterns never have
+					   them, and need no note. */ }
+					{ ! supportsDeviceToggles && isCustomPostType && (
+						<p className="mb-page-settings__intro">
+							{ __(
+								'Per-device switches aren’t available for this content type, because it doesn’t support custom fields.',
 								'motion-blocks'
 							) }
 						</p>

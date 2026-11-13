@@ -247,7 +247,7 @@ $mb_fixtures[] = array( 'Repeated-background Cover, Image Zoom', 'core/cover', a
 foreach ( $mb_fixtures as $fx ) {
 	list( $label, $name, $attrs ) = $fx;
 	$recipe = motion_blocks_attributes_to_recipe( $attrs, $name );
-	if ( null === $recipe && motion_blocks_is_image_target_unavailable( $name, $attrs ) ) {
+	if ( null === $recipe && motion_blocks_recipe_cover_image_missing( $name, $attrs ) ) {
 		// An image effect on a Cover with no <img>: nothing plays, so
 		// there's nothing to write back.
 		mb_recipe_check( true, "{$label} (reads as nothing playing)" );
@@ -638,6 +638,22 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 		delete_option( 'motion_blocks_debug_markers' );
 	}
 	delete_post_meta( $mb_post, 'motion_blocks_disabled_tablet' );
+
+	// GH #170: a Cover with no image animates as a whole block.
+	$video_cover = array( 'url' => 'a.mp4', 'backgroundType' => 'video', 'animationMode' => 'page-load', 'animationType' => 'fade', 'animationFromToTarget' => 'img' );
+	$color_cover = array( 'animationMode' => 'page-load', 'animationType' => 'fade', 'animationFromToTarget' => 'img' );
+	$image_cover = array( 'url' => 'a.jpg' ) + $color_cover;
+	$cover_html  = '<div class="wp-block-cover"><div class="wp-block-cover__inner-container"><p>c</p></div></div>';
+	$render_cover = function ( $attrs ) use ( $cover_html ) {
+		return motion_blocks_render_block( $cover_html, array( 'blockName' => 'core/cover', 'attrs' => $attrs ) );
+	};
+	mb_recipe_check(
+		false === strpos( $render_cover( $video_cover ), 'data-mb-target' )
+			&& false === strpos( $render_cover( $color_cover ), 'data-mb-target' )
+			&& false !== strpos( $render_cover( $color_cover ), 'mb-enter-fade' )
+			&& false !== strpos( $render_cover( $image_cover ), 'data-mb-target="img"' ),
+		'"Animate image only" on a Cover with a video or colour background animates the whole block'
+	);
 
 	// Permissions.
 	wp_set_current_user( 0 );

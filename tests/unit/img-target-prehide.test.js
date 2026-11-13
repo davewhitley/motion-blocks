@@ -114,3 +114,56 @@ describe( 'img-target image pre-hide (GH #53)', () => {
 		} );
 	} );
 } );
+
+// GH #170: Page Load gets the same pair of rules, so the Cover's text
+// is not hidden with the image and then popped in.
+describe( 'Page Load img-target pre-hide', () => {
+	const all = rules();
+	const forPageLoad = all.filter(
+		( r ) =>
+			r.prelude.includes( '.mb-mode-page-load[data-mb-target="img"]' ) &&
+			r.prelude.includes( ':not(.mb-triggered)' )
+	);
+	const wrapper = forPageLoad.find(
+		( r ) => ! r.prelude.includes( 'img:first-of-type' )
+	);
+	const image = forPageLoad.find( ( r ) =>
+		r.prelude.endsWith( 'img:first-of-type' )
+	);
+
+	it( 'keeps the wrapper visible and hides the image instead', () => {
+		expect( wrapper.body ).toMatch( /opacity:\s*1\s*;/ );
+		expect( image.body ).toMatch( /opacity:\s*0\s*;/ );
+	} );
+
+	it( 'leaves the image visible for effects that start visible', () => {
+		[
+			'image-move',
+			'image-zoom',
+			'fade-out',
+			'slide-out',
+			'scale-out',
+			'blur-out',
+			'rotate-out',
+			'curtain-out',
+		].forEach( ( type ) =>
+			image.prelude
+				.split( ',' )
+				.forEach( ( sel ) =>
+					expect( sel ).toContain( `:not(.mb-enter-${ type })` )
+				)
+		);
+	} );
+
+	it( 'is behind the motion gate', () => {
+		[ wrapper, image ].forEach( ( r ) =>
+			r.prelude
+				.split( ',' )
+				.forEach( ( sel ) =>
+					expect(
+						sel.trim().startsWith( ':where(html.mb-motion) ' )
+					).toBe( true )
+				)
+		);
+	} );
+} );

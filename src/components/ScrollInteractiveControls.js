@@ -48,6 +48,7 @@ import InfoPopover from './InfoPopover';
 import SubPanelModeHeader from './SubPanelModeHeader';
 import { scrubFromIcon, scrubToIcon } from './icons';
 import { customizeAndKeepFocus } from './keyboardFocus';
+import { imageTargetUnavailableText } from './imageTargetText';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -387,10 +388,7 @@ export default function ScrollInteractiveControls( {
 					isDismissible={ false }
 					className="mb-image-effect-unavailable-notice"
 				>
-					{ __(
-						'Image Move, Image Zoom, and “Animate image only” don’t work with “Fixed background” or “Repeated background”. Turn those off in the Cover block’s settings to use them.',
-						'motion-blocks'
-					) }
+					{ imageTargetUnavailableText( attributes ).notice }
 				</Notice>
 			) }
 
@@ -414,10 +412,7 @@ export default function ScrollInteractiveControls( {
 						}
 						help={
 							isImageTargetUnavailable( blockName, attributes )
-								? __(
-										'Unavailable while “Fixed background” or “Repeated background” is on.',
-										'motion-blocks'
-								  )
+								? imageTargetUnavailableText( attributes ).help
 								: __(
 										'Animate the background only. Text and other inner blocks are excluded.',
 										'motion-blocks'

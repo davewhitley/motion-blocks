@@ -224,9 +224,32 @@ export function isImageTargetUnavailable( blockName, attributes ) {
 		return false;
 	}
 	if ( blockName === 'core/cover' ) {
-		return !! attributes.hasParallax || !! attributes.isRepeated;
+		return (
+			!! attributes.hasParallax ||
+			!! attributes.isRepeated ||
+			coverHasNoImage( attributes )
+		);
 	}
 	return false;
+}
+
+/**
+ * A Cover with nothing in its image slot: a video background, a colour
+ * only, or no image picked. It prints no <img> either, so image
+ * effects and "Animate image only" would animate nothing (GH #170).
+ * A featured-image Cover counts as having one; whether the post really
+ * has a featured image is only known when the page renders.
+ *
+ * @param {Object} attributes Cover attributes.
+ * @return {boolean} True when there is no image to animate.
+ */
+export function coverHasNoImage( attributes ) {
+	if ( ! attributes ) {
+		return false;
+	}
+	const isImageType =
+		! attributes.backgroundType || attributes.backgroundType === 'image';
+	return ! isImageType || ! ( attributes.url || attributes.useFeaturedImage );
 }
 
 /**

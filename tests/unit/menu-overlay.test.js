@@ -182,16 +182,33 @@ describe( 'menuOverlayBlockers', () => {
 	} );
 
 	it( 'img-target: image effects or "Animate image only", when there is an <img>', () => {
-		const cover = { ...PL, animationType: 'image-zoom' };
+		const cover = { ...PL, url: 'a.jpg', animationType: 'image-zoom' };
 		expect(
 			menuOverlayBlockers( 'core/cover', cover ).imgTargetActive
 		).toBe( true );
 		expect(
 			menuOverlayBlockers( 'core/cover', {
 				...PL,
+				url: 'a.jpg',
 				animationFromToTarget: 'img',
 			} ).imgTargetActive
 		).toBe( true );
+		// No image in the Cover (a video or colour background): the
+		// block animates as a whole, so the image target is not active.
+		expect(
+			menuOverlayBlockers( 'core/cover', {
+				...PL,
+				animationFromToTarget: 'img',
+			} ).imgTargetActive
+		).toBe( false );
+		expect(
+			menuOverlayBlockers( 'core/cover', {
+				...PL,
+				url: 'a.mp4',
+				backgroundType: 'video',
+				animationFromToTarget: 'img',
+			} ).imgTargetActive
+		).toBe( false );
 		expect( menuOverlayBlockers( 'core/cover', PL ).imgTargetActive ).toBe(
 			false
 		);
@@ -203,6 +220,7 @@ describe( 'menuOverlayBlockers', () => {
 		expect(
 			menuOverlayBlockers( 'core/cover', {
 				...SA,
+				url: 'a.jpg',
 				animationEntryType: '',
 				animationExitType: 'image-move',
 			} ).imgTargetActive
@@ -348,6 +366,7 @@ describe( 'menuOverlayBlockers: traps and fixes', () => {
 	it( '"Animate image only" moves the effect off the wrapper', () => {
 		const r = menuOverlayBlockers( 'core/cover', {
 			...PL,
+			url: 'a.jpg',
 			animationLoop: 'loop',
 			animationFromToTarget: 'img',
 		} );

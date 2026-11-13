@@ -29,7 +29,12 @@ import {
 	pageScrollRange,
 	rangePercent,
 } from './scroll-containers';
-import { startMotionGate, deviceQueries } from './motion-gate';
+import {
+	startMotionGate,
+	deviceQueries,
+	motionWanted,
+	disabledDevicesFrom,
+} from './motion-gate';
 import {
 	TRIGGER_ZONE_TOP_PCT,
 	TRIGGER_ZONE_BOTTOM_PCT,
@@ -151,6 +156,9 @@ import {
 	 * block look new, so it's wired again instead of staying hidden.
 	 * ------------------------------------------------------------- */
 
+	// Longest the Scroll Appear engine waits for the window `load` event
+	// before it trusts the page's height (see readDocHeight()).
+	var DOC_HEIGHT_WAIT_MS = 2000;
 	var WIRED_CLASS = 'mb-wired';
 	var STAGGER_INNER_CLASS = 'wp-block-group__inner-container';
 	// Elements wired at least once, to tell a re-wire from a first one.
@@ -1596,8 +1604,16 @@ import {
 		// that, late images and embeds can still make the page taller,
 		// and a block that entered because the page briefly looked
 		// short would drop out of the zone again on load.
+		//
+		// The wait has a limit (GH #170). `load` waits for every image,
+		// embed and third-party script, so on a short page a block in
+		// the bottom of the screen could stay blank for many seconds.
+		// After DOC_HEIGHT_WAIT_MS the height is trusted anyway: by
+		// then most late growth has happened, and a blank block is
+		// worse than the rare flicker the wait guards against.
+		var docHeightTrusted = document.readyState === 'complete';
 		function readDocHeight() {
-			return document.readyState === 'complete'
+			return docHeightTrusted || document.readyState === 'complete'
 				? document.documentElement.scrollHeight
 				: undefined;
 		}
@@ -2328,6 +2344,12 @@ import {
 			refreshAll();
 		} else {
 			window.addEventListener( 'load', refreshAll );
+			// Stop waiting for `load` to learn the page's height (see
+			// readDocHeight()).
+			setTimeout( function () {
+				docHeightTrusted = true;
+				refreshAll();
+			}, DOC_HEIGHT_WAIT_MS );
 		}
 		if ( document.fonts && document.fonts.ready ) {
 			document.fonts.ready.then( refreshAll );
@@ -2575,14 +2597,33 @@ import {
 	 */
 	function settleWhenFinished( el, type, toPrefix ) {
 		cancelSettle( el );
-		if (
-			typeof el.getAnimations !== 'function' ||
-			! endsAtRest( type, el.dataset, toPrefix )
-		) {
+		if ( ! endsAtRest( type, el.dataset, toPrefix ) ) {
 			return;
 		}
 		var targets = settleTargets( el );
 		if ( ! targets ) {
+			return;
+		}
+		// Motion is off (reduced motion, or this device is switched
+		// off): nothing plays, so no animation will ever end. Settle
+		// now. Left unsettled, the block hid and played once when motion
+		// came back mid-visit, after a resize or rotation into another
+		// device's range (GH #170). Asked of the gate itself, not the
+		// `mb-motion` class, which a page whose assets arrive late
+		// doesn't have yet at this point.
+		if (
+			! motionWanted(
+				window,
+				disabledDevicesFrom(
+					document.body,
+					window.motionBlocksDisabledDevices
+				)
+			)
+		) {
+			el.classList.add( 'mb-settled' );
+			return;
+		}
+		if ( typeof el.getAnimations !== 'function' ) {
 			return;
 		}
 		function isOurs( name ) {

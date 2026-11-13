@@ -35,6 +35,13 @@ Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for e
 - Editor fields no longer round or drop typed values (Scale, Stagger offset, Move, Duration, Blur).
 - Auto-animate planner edge cases: Query Loops, long Covers, busy first screens, template parts, and intro paragraphs.
 - The render filter, the per-device switches, and editor data handling: an animated Comment Template, comma-decimal locales, custom roles, and unknown animation values.
+- A Cover with no image (a video or colour background) now animates as a whole block when an image effect or "Animate image only" is chosen, and the editor says why.
+- Page Load with "Animate image only" no longer hides the whole Cover before the image animates in.
+- Blocks no longer replay in front of a visitor when animations switch back on mid-visit (after a resize or rotation).
+- Blocks at the very bottom of a page wait two seconds at most for the page to finish loading, not indefinitely.
+- A block's own attributes are no longer overridden by same-named Motion Blocks attributes, and the Page panel explains when per-device switches are unavailable for a post type.
+- The Widgets screen and the Customizer no longer load the post editor's package (a console error and a debug notice there).
+- The editor shows a note when Blur with "Animate image only" would hide a block's Duotone.
 
 ### Development
 

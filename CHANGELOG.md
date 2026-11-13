@@ -12,7 +12,7 @@ Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for e
 - Auto-animate: the Smooth style is now Balanced; a new option includes the header, footer, and other template parts; each style has a one-line description; and the curve it uses is a named Easing option, Smooth Out.
 - Interactive scroll: the preview is a labelled "Scroll preview" toggle.
 - Switching animation type keeps each type's own settings, so switching back restores them.
-- AI abilities: `set-animations` is refused while the post is open in the post editor or was saved since it was read, and returns `previous_revision_id` for undo. `list-saved-animations` returns the theme's animations to anyone who can edit.
+- AI abilities: `set-animations` is refused while the post is open in the post editor or was saved since it was read, and returns `previous_revision_id` for undo. `list-saved-animations` returns the theme's animations to anyone who can edit. `set-animations` now rewrites only the blocks it changes, and `get-animations` warns about saved animations it would refuse.
 
 ### Performance
 

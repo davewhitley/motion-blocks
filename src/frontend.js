@@ -885,13 +885,12 @@ import {
 		if ( ! fromBody && ! toBody ) {
 			return;
 		}
-		customKeyframeCounter += 1;
-		var name = 'mb-custom-runtime-' + customKeyframeCounter;
-		appendKeyframeRule( name, fromBody, toBody );
+		var name = keyframeNameFor( fromBody, toBody );
 
 		// Branch on target: block (default) animates the wrapper;
 		// img scopes the keyframe to the first <img> descendant.
 		if ( el.dataset.mbTarget === 'img' ) {
+			customKeyframeCounter += 1;
 			var uid = 'mb-' + customKeyframeCounter;
 			el.setAttribute( 'data-mb-uid', uid );
 			var scopedCSS = buildImgScopedCSS( uid, name, el.dataset.mbMode );
@@ -1010,9 +1009,7 @@ import {
 			el.style.setProperty( '--mb-stagger-anim-name', 'none' );
 		}
 		if ( entryFrom || entryTo ) {
-			customKeyframeCounter += 1;
-			entryName = 'mb-custom-runtime-' + customKeyframeCounter;
-			appendKeyframeRule( entryName, entryFrom, entryTo );
+			entryName = keyframeNameFor( entryFrom, entryTo );
 			if ( ! imgTarget ) {
 				el.style.setProperty( '--mb-entry-anim-name', entryName );
 				// Stagger cascade for the entry phase — inner blocks
@@ -1044,9 +1041,7 @@ import {
 			el.style.setProperty( '--mb-exit-anim-name', 'none' );
 		}
 		if ( exitFrom || exitTo ) {
-			customKeyframeCounter += 1;
-			exitName = 'mb-custom-runtime-' + customKeyframeCounter;
-			appendKeyframeRule( exitName, exitFrom, exitTo );
+			exitName = keyframeNameFor( exitFrom, exitTo );
 			if ( ! imgTarget ) {
 				el.style.setProperty( '--mb-exit-anim-name', exitName );
 			}
@@ -1128,6 +1123,25 @@ import {
 			);
 		}
 		return rules.join( '\n' );
+	}
+
+	/**
+	 * The keyframe name for one From/To pair, written to the page the
+	 * first time the pair is seen. Blocks with the same From/To share
+	 * one rule (Auto-animate gives every block below the fold the same
+	 * pair), so the stylesheet is touched once per distinct effect
+	 * rather than once per block (GH #178).
+	 */
+	var customKeyframeNames = {};
+	function keyframeNameFor( fromBody, toBody ) {
+		var key = ( fromBody || '' ) + '\n' + ( toBody || '' );
+		if ( ! customKeyframeNames[ key ] ) {
+			customKeyframeCounter += 1;
+			customKeyframeNames[ key ] =
+				'mb-custom-runtime-' + customKeyframeCounter;
+			appendKeyframeRule( customKeyframeNames[ key ], fromBody, toBody );
+		}
+		return customKeyframeNames[ key ];
 	}
 
 	/**

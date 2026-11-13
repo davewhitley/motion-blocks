@@ -339,7 +339,6 @@ function addAnimationAttributes( settings ) {
 	return {
 		...settings,
 		attributes: {
-			...settings.attributes,
 			animationMode: {
 				type: 'string',
 				default: SCHEMA_DEFAULTS.animationMode,
@@ -799,6 +798,11 @@ function addAnimationAttributes( settings ) {
 				type: [ 'string', 'null' ],
 				default: null,
 			},
+			// The block's own attributes last, so they win. A block from
+			// another plugin that defines one of the names above (but not
+			// `animationMode`, see the top) keeps its own type and
+			// default; before, ours replaced them (GH #172).
+			...settings.attributes,
 		},
 	};
 }

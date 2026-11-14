@@ -234,13 +234,13 @@ function motion_blocks_recipe_schema() {
                 'type'        => 'number',
                 'minimum'     => 0,
                 'maximum'     => 60,
-                'description' => 'Seconds. Default 0.6.',
+                'description' => 'Seconds. Default 0.6. A string with a unit, "150ms" or "0.15s", is also accepted.',
             ),
             'delay'     => array(
                 'type'        => 'number',
                 'minimum'     => 0,
                 'maximum'     => 60,
-                'description' => 'Seconds before it starts. Default 0.',
+                'description' => 'Seconds before it starts. Default 0. A string with a unit, "150ms" or "0.15s", is also accepted.',
             ),
             'easing'    => array(
                 'type'        => 'string',
@@ -347,7 +347,7 @@ function motion_blocks_recipe_schema() {
                         'type'        => 'number',
                         'minimum'     => 0,
                         'maximum'     => 5,
-                        'description' => 'Seconds between children. Default 0.1.',
+                        'description' => 'Seconds between children. Default 0.1. A string with a unit, "150ms" or "0.15s", is also accepted.',
                     ),
                 ),
                 'additionalProperties' => false,
@@ -617,6 +617,14 @@ function motion_blocks_recipe_normalize_scalars( $recipe ) {
         }
         return $v;
     };
+    // Times may also be given with a unit, "150ms" or "0.15s"; they
+    // are stored, validated and returned as seconds (GH #121).
+    $seconds = function ( $v ) use ( $num ) {
+        if ( is_string( $v ) && preg_match( '/^\s*(\d+\.?\d*|\.\d+)\s*(ms|s)\s*$/i', $v, $m ) ) {
+            return 'ms' === strtolower( $m[2] ) ? $m[1] / 1000 : $m[1] + 0;
+        }
+        return $num( $v );
+    };
     if ( isset( $recipe['version'] ) ) {
         $recipe['version'] = $num( $recipe['version'] );
     }
@@ -628,7 +636,7 @@ function motion_blocks_recipe_normalize_scalars( $recipe ) {
         }
     }
     if ( isset( $recipe['stagger']['step'] ) ) {
-        $recipe['stagger']['step'] = $num( $recipe['stagger']['step'] );
+        $recipe['stagger']['step'] = $seconds( $recipe['stagger']['step'] );
     }
     foreach ( array( 'effect', 'entry', 'exit' ) as $part ) {
         // "null" / "" from a query string means no slot.
@@ -640,7 +648,9 @@ function motion_blocks_recipe_normalize_scalars( $recipe ) {
         }
         foreach ( array( 'duration', 'delay', 'blur', 'rotate' ) as $field ) {
             if ( isset( $recipe[ $part ][ $field ] ) ) {
-                $recipe[ $part ][ $field ] = $num( $recipe[ $part ][ $field ] );
+                $recipe[ $part ][ $field ] = in_array( $field, array( 'duration', 'delay' ), true )
+                    ? $seconds( $recipe[ $part ][ $field ] )
+                    : $num( $recipe[ $part ][ $field ] );
             }
         }
         foreach ( array( 'from', 'to' ) as $side ) {

@@ -12,6 +12,7 @@ import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 import { SecondsSuffix } from './UnitSuffix';
+import { useSecondsInput } from './secondsInput';
 
 /**
  * @param {Object}   props
@@ -28,8 +29,10 @@ export default function DurationControl( {
 	onChange,
 } ) {
 	const [ isBlank, setIsBlank ] = useState( false );
+	const secondsInput = useSecondsInput();
 	return (
 		<NumberControl
+			{ ...secondsInput }
 			label={ __( 'Duration', 'motion-blocks' ) }
 			value={ isBlank ? '' : value }
 			placeholder={ String( Math.max( defaultValue, min ) ) }

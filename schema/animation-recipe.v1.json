@@ -66,13 +66,13 @@
                     "type": "number",
                     "minimum": 0,
                     "maximum": 60,
-                    "description": "Seconds. Default 0.6."
+                    "description": "Seconds. Default 0.6. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 },
                 "delay": {
                     "type": "number",
                     "minimum": 0,
                     "maximum": 60,
-                    "description": "Seconds before it starts. Default 0."
+                    "description": "Seconds before it starts. Default 0. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 },
                 "easing": {
                     "type": "string",
@@ -253,13 +253,13 @@
                     "type": "number",
                     "minimum": 0,
                     "maximum": 60,
-                    "description": "Seconds. Default 0.6."
+                    "description": "Seconds. Default 0.6. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 },
                 "delay": {
                     "type": "number",
                     "minimum": 0,
                     "maximum": 60,
-                    "description": "Seconds before it starts. Default 0."
+                    "description": "Seconds before it starts. Default 0. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 },
                 "easing": {
                     "type": "string",
@@ -449,13 +449,13 @@
                     "type": "number",
                     "minimum": 0,
                     "maximum": 60,
-                    "description": "Seconds. Default 0.6."
+                    "description": "Seconds. Default 0.6. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 },
                 "delay": {
                     "type": "number",
                     "minimum": 0,
                     "maximum": 60,
-                    "description": "Seconds before it starts. Default 0."
+                    "description": "Seconds before it starts. Default 0. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 },
                 "easing": {
                     "type": "string",
@@ -650,7 +650,7 @@
                     "type": "number",
                     "minimum": 0,
                     "maximum": 5,
-                    "description": "Seconds between children. Default 0.1."
+                    "description": "Seconds between children. Default 0.1. A string with a unit, \"150ms\" or \"0.15s\", is also accepted."
                 }
             },
             "additionalProperties": false

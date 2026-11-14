@@ -2,6 +2,12 @@
 
 Notable changes to Motion Blocks. Releases are tagged on GitHub; the notes for each release are also on the [Releases page](https://github.com/davewhitley/motion-blocks/releases).
 
+## Unreleased
+
+### Added
+
+- Duration, Delay, and Stagger offset accept a typed unit: `150ms` becomes 0.15 seconds, and `0.5s` becomes 0.5. AI recipes accept the same strings for `duration`, `delay`, and `stagger.step`. Values are still stored and returned in seconds.
+
 ## 0.6.0 (2026-11-13)
 
 ### Changed

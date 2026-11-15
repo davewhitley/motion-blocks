@@ -20,7 +20,6 @@ import {
 	BaseControl,
 	SelectControl,
 	RangeControl,
-	TextControl,
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
@@ -60,6 +59,8 @@ import FromToControls from './FromToControls';
 import { customizeAndKeepFocus } from './keyboardFocus';
 import DurationControl from './DurationControl';
 import { imageTargetUnavailableText, duotoneBlurText } from './imageTargetText';
+import ValidatedTextControl from './ValidatedTextControl';
+import { timingFunctionError } from './valueErrors';
 
 const playIcon = (
 	<SVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -633,7 +634,8 @@ export default function SlotControls( {
 						__nextHasNoMarginBottom
 					/>
 					{ animationEasing === 'custom' && (
-						<TextControl
+						<ValidatedTextControl
+							validate={ timingFunctionError }
 							label={ __(
 								'Custom timing function',
 								'motion-blocks'

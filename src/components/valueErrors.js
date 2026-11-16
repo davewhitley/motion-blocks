@@ -25,10 +25,7 @@ export function timingFunctionError( value ) {
 	}
 	return window.CSS.supports( 'animation-timing-function', text )
 		? null
-		: __(
-				'This is not a valid CSS timing function, so the animation plays with the default easing.',
-				'motion-blocks'
-		  );
+		: __( 'This is not a valid CSS timing function.', 'motion-blocks' );
 }
 
 /**
@@ -41,7 +38,7 @@ export function clipPathError( value ) {
 		return null;
 	}
 	return __(
-		'This is not a clip-path value this field accepts, so it is left out of the animation. Example: inset(0 50% 0 0).',
+		'This is not a clip-path value this field accepts. Example: inset(0 50% 0 0).',
 		'motion-blocks'
 	);
 }

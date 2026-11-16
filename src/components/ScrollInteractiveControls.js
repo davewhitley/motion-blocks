@@ -11,7 +11,6 @@ import {
 	SelectControl,
 	RangeControl,
 	ToggleControl,
-	TextControl,
 	__experimentalToggleGroupControl as ToggleGroupControl,
 	__experimentalToggleGroupControlOption as ToggleGroupControlOption,
 	__experimentalToggleGroupControlOptionIcon as ToggleGroupControlOptionIcon,
@@ -49,6 +48,8 @@ import SubPanelModeHeader from './SubPanelModeHeader';
 import { scrubFromIcon, scrubToIcon } from './icons';
 import { customizeAndKeepFocus } from './keyboardFocus';
 import { imageTargetUnavailableText, duotoneBlurText } from './imageTargetText';
+import ValidatedTextControl from './ValidatedTextControl';
+import { timingFunctionError } from './valueErrors';
 
 const DIRECTION_ICON_MAP = {
 	btt: arrowUp,
@@ -667,7 +668,8 @@ export default function ScrollInteractiveControls( {
 				__nextHasNoMarginBottom
 			/>
 			{ animationEasing === 'custom' && (
-				<TextControl
+				<ValidatedTextControl
+					validate={ timingFunctionError }
 					label={ __( 'Custom timing function', 'motion-blocks' ) }
 					value={ animationCustomTimingFunction }
 					onChange={ ( v ) =>

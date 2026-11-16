@@ -810,3 +810,14 @@
 .editor-styles-wrapper :is(.mb-mode-page-load, .mb-mode-scroll-appear)[data-mb-target="img"] > picture > img:first-of-type {
 	opacity: 1 !important;
 }
+
+// An error under a free-text field whose value will be ignored (Clip
+// path, Custom timing function; GH #59).
+.mb-field-error {
+	display: block;
+	color: #cc1818;
+}
+
+.mb-field-has-error .components-text-control__input {
+	border-color: #cc1818;
+}

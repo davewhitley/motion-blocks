@@ -42,7 +42,6 @@ import {
 	__experimentalHStack as HStack,
 	FlexBlock,
 	RangeControl,
-	TextControl,
 	Button,
 	Dropdown,
 	MenuGroup,
@@ -67,6 +66,8 @@ import {
 	isImageTargetUnavailable,
 } from './constants';
 import { isKeyboardActivation } from './keyboardFocus';
+import ValidatedTextControl from './ValidatedTextControl';
+import { clipPathError } from './valueErrors';
 
 /**
  * Compute the attribute-name maps for a slot.
@@ -143,7 +144,8 @@ function PropertyInput( { def, value, onChange } ) {
 				  )
 				: undefined;
 		return (
-			<TextControl
+			<ValidatedTextControl
+				validate={ def.id === 'clipPath' ? clipPathError : () => null }
 				label={ def.label }
 				value={
 					value === null || value === undefined ? '' : String( value )

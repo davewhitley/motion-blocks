@@ -308,7 +308,7 @@ $mb_invalid = array(
 	array( 'exit effect not allowed in entry', array( 'version' => 1, 'mode' => 'scroll-appear', 'entry' => array( 'type' => 'fade-out' ) ), 'core/paragraph', 'entry.type' ),
 	array( 'bad direction', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'slide', 'direction' => 'up' ) ), 'core/paragraph', 'effect.direction' ),
 	array( 'negative duration', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => -1 ) ), 'core/paragraph', 'effect.duration' ),
-	array( 'duration as milliseconds string', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => '500ms' ) ), 'core/paragraph', 'effect.duration' ),
+	array( 'duration in words', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => 'half a second' ) ), 'core/paragraph', 'effect.duration' ),
 	array( 'made-up easing', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => 'ease-in-cubic' ) ), 'core/paragraph', 'effect.easing' ),
 	array( 'cubic-bezier x out of range', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'easing' => 'cubic-bezier(1.5, 0, 0, 1)' ) ), 'core/paragraph', 'effect.easing' ),
 	array( 'custom without values', array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'custom' ) ), 'core/paragraph', 'effect.from' ),
@@ -700,6 +700,21 @@ if ( ! function_exists( 'wp_get_ability' ) ) {
 		wp_json_encode( $warn_blocks )
 	);
 	wp_delete_post( $warn_post, true );
+
+	// GH #121: times may be given as "150ms" or "0.15s".
+	$ms = motion_blocks_recipe_to_attributes(
+		array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => '150ms', 'delay' => ' 0.25s ' ), 'stagger' => array( 'step' => '80 ms' ) ),
+		'core/group'
+	);
+	mb_recipe_check(
+		! $ms['errors'] && 0.15 === (float) $ms['attributes']['animationDuration'] && 0.25 === (float) $ms['attributes']['animationDelay'] && 0.08 === (float) $ms['attributes']['animationStaggerStep'],
+		'recipes accept times with a unit ("150ms", "0.25s") and store seconds',
+		wp_json_encode( $ms )
+	);
+	$ms_bad = motion_blocks_recipe_to_attributes( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => '90000ms' ) ), 'core/group' );
+	mb_recipe_check( ! empty( $ms_bad['errors'] ), 'a time with a unit still has to be within the limits' );
+	$ms_junk = motion_blocks_recipe_to_attributes( array( 'version' => 1, 'mode' => 'page-load', 'effect' => array( 'type' => 'fade', 'duration' => 'fast' ) ), 'core/group' );
+	mb_recipe_check( ! empty( $ms_junk['errors'] ), 'a time that is not a number is still refused' );
 
 	// Permissions.
 	wp_set_current_user( 0 );

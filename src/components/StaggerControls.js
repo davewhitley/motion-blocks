@@ -35,6 +35,7 @@ import {
 	staggerStepSeconds,
 } from './constants';
 import { SecondsSuffix } from './UnitSuffix';
+import { useSecondsInput } from './secondsInput';
 
 export default function StaggerControls( {
 	attributes,
@@ -42,6 +43,7 @@ export default function StaggerControls( {
 	blockName,
 	clientId,
 } ) {
+	const stepSecondsInput = useSecondsInput();
 	// Read the direct-child count from the block-editor store so the
 	// stagger toggle disappears when there's nothing meaningful to
 	// stagger. Hooks must run before any early returns, so this lives
@@ -105,6 +107,7 @@ export default function StaggerControls( {
 
 			{ animationStaggerEnabled && (
 				<NumberControl
+					{ ...stepSecondsInput }
 					label={ __( 'Stagger offset', 'motion-blocks' ) }
 					help={ __(
 						'Seconds to wait between each inner block.',

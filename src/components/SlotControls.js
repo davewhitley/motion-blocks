@@ -59,6 +59,7 @@ import { SecondsSuffix, DegreesSuffix } from './UnitSuffix';
 import FromToControls from './FromToControls';
 import { customizeAndKeepFocus } from './keyboardFocus';
 import DurationControl from './DurationControl';
+import { useSecondsInput } from './secondsInput';
 import { imageTargetUnavailableText, duotoneBlurText } from './imageTargetText';
 
 const playIcon = (
@@ -116,6 +117,7 @@ export default function SlotControls( {
 	const hasDirection = TYPES_WITH_DIRECTION.includes( animationType );
 	const directionOptions = slotDirectionOptions( animationType, slot );
 
+	const delaySecondsInput = useSecondsInput();
 	// True when the last Preview press came from the keyboard. See the
 	// Preview button below.
 	const [ keepFocusWhilePending, setKeepFocusWhilePending ] =
@@ -598,6 +600,7 @@ export default function SlotControls( {
 						</FlexBlock>
 						<FlexBlock>
 							<NumberControl
+								{ ...delaySecondsInput }
 								label={ __( 'Delay', 'motion-blocks' ) }
 								value={ animationDelay }
 								min={ 0 }

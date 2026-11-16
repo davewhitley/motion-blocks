@@ -51,6 +51,7 @@ import StaggerControls from './StaggerControls';
 import SubPanelModeHeader from './SubPanelModeHeader';
 import { customizeAndKeepFocus } from './keyboardFocus';
 import DurationControl from './DurationControl';
+import { useSecondsInput } from './secondsInput';
 import { imageTargetUnavailableText, duotoneBlurText } from './imageTargetText';
 import ValidatedTextControl from './ValidatedTextControl';
 import { timingFunctionError } from './valueErrors';
@@ -101,6 +102,7 @@ export default function PageLoadControls( {
 		animationPauseOffscreen,
 	} = attributes;
 
+	const delaySecondsInput = useSecondsInput();
 	// True when the last Preview press came from the keyboard. See the
 	// Preview button below.
 	const [ keepFocusWhilePending, setKeepFocusWhilePending ] =
@@ -542,6 +544,7 @@ export default function PageLoadControls( {
 				</FlexBlock>
 				<FlexBlock>
 					<NumberControl
+						{ ...delaySecondsInput }
 						label={ __( 'Delay', 'motion-blocks' ) }
 						value={ animationDelay }
 						min={ 0 }

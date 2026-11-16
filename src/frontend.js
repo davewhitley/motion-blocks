@@ -2420,6 +2420,20 @@ import {
 				if ( scrollScheduled ) {
 					return;
 				}
+				// Nothing left to trigger (every block has played for
+				// good, or there are none): skip the frame. Reading the
+				// page's height on every scroll frame is the costly
+				// part. Blocks added later are picked up again, and a
+				// page that changed height in between is re-measured on
+				// their first frame (GH #6).
+				if (
+					! DEBUG &&
+					! states.some( function ( state ) {
+						return ! state.unobserved;
+					} )
+				) {
+					return;
+				}
 				scrollScheduled = true;
 				requestAnimationFrame( function () {
 					scrollScheduled = false;
